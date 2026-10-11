@@ -189,6 +189,10 @@
         @endif
     </div>
 
+    @if(app(\App\Services\ModuleRegistry::class)->isActive('fahrtenbuch') && auth()->user()->canUseModule('fahrtenbuch'))
+        @include('fahrtenbuch::partials.vehicle-section', ['vehicle' => $vehicle])
+    @endif
+
     @if($equipment !== null)
         <section class="{{ $card }}">
             <p class="text-sm font-semibold text-gray-900">Beladung (Ausrüstung)</p>

@@ -14,6 +14,7 @@ use Modules\Atemschutz\src\Models\Reading as AtemschutzReading;
 use Modules\Atemschutz\src\Models\Warning as AtemschutzWarning;
 use Modules\Ausruestung\src\Models\EquipmentEvent;
 use Modules\Einsatzbericht\src\Models\DiveraRequest;
+use Modules\Fahrtenbuch\src\Models\Revision as FahrtenbuchRevision;
 use Modules\Fahrzeugbuchung\src\Models\BookingCommentRevision;
 use Modules\Fahrzeuge\src\Models\StatusEvent as FahrzeugStatusEvent;
 use Modules\Kalender\src\Models\FeedToken;
@@ -39,14 +40,14 @@ class ActivityRecorder
         ActivityLog::class, MailLog::class, LoginToken::class, EmailChangeRequest::class, UserModulePreference::class,
         FeedToken::class, BookingCommentRevision::class, DefectEvent::class, EquipmentEvent::class, DiveraRequest::class,
         VerbandbuchEntry::class, VerbandbuchSignature::class, VerbandbuchAmendment::class, VerbandbuchAccessLog::class,
-        AtemschutzReading::class, AtemschutzWarning::class, FahrzeugStatusEvent::class,
+        AtemschutzReading::class, AtemschutzWarning::class, FahrzeugStatusEvent::class, FahrtenbuchRevision::class,
     ];
 
     /** Changes of only these fields are bookkeeping, not worth an entry */
     private const BOOKKEEPING = '/^(updated_at|created_at|last_login_at|last_seen_at|last_synced_at|remember_token|.*_reminded_at|.*_sent_at|.*_mailed_at|reminder_sent_at|sort_order|modules_locked)$/';
 
     /** Never written to the log */
-    private const SECRET = '/password|token|secret|hash$|_key$|^data$|^value$|signature|^photo$/i';
+    private const SECRET = '/password|token|secret|hash$|_key$|^data$|^value$|signature|^photo$|^receipt$/i';
 
     private bool $paused = false;
 

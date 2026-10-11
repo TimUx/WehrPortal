@@ -9,6 +9,7 @@ use App\Providers\Filament\MaengelmanagementAdminPanelProvider;
 use Modules\Atemschutz\AtemschutzServiceProvider;
 use Modules\Ausruestung\AusruestungServiceProvider;
 use Modules\Einsatzbericht\EinsatzberichtServiceProvider;
+use Modules\Fahrtenbuch\FahrtenbuchServiceProvider;
 use Modules\Fahrzeugbuchung\FahrzeugbuchungServiceProvider;
 use Modules\Fahrzeuge\FahrzeugeServiceProvider;
 use Modules\Finanzen\FinanzenServiceProvider;
@@ -44,4 +45,5 @@ return [
     WartungServiceProvider::class,
     AtemschutzServiceProvider::class,
     FahrzeugeServiceProvider::class,
+    FahrtenbuchServiceProvider::class,
 ];
