@@ -39,6 +39,9 @@ class OrganizationSettingsPage extends Page implements HasForms
 
     public string $org_code_prefix = '';
 
+    /** Logo formats with their file extensions */
+    private const LOGO_TYPES = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp', 'image/svg+xml' => 'svg'];
+
     /** @var array<int, TemporaryUploadedFile>|null */
     public ?array $logo = [];
 
@@ -108,12 +111,14 @@ class OrganizationSettingsPage extends Page implements HasForms
 
                 Section::make('Logo')
                     ->schema([
+                        // Not stored on a disk: save() keeps the logo in the database
                         Forms\Components\FileUpload::make('logo')
                             ->label('Logo hochladen')
                             ->image()
-                            ->imageEditor()
-                            ->acceptedFileTypes(['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'])
-                            ->helperText('PNG, JPEG, WebP oder SVG. Wird im Header und auf dem Wachen-Monitor angezeigt.')
+                            ->storeFiles(false)
+                            ->maxSize(2048)
+                            ->acceptedFileTypes(array_keys(self::LOGO_TYPES))
+                            ->helperText('PNG, JPEG, WebP oder SVG, höchstens 2 MB. Wird im Header, bei der Anmeldung und auf dem Wachen-Monitor angezeigt.')
                             ->nullable(),
                     ])
                     ->columnSpanFull(),
@@ -131,17 +136,25 @@ class OrganizationSettingsPage extends Page implements HasForms
         Setting::set('org_salutation', $data['org_salutation'] ?: null);
         Setting::set('org_code_prefix', $data['org_code_prefix'] ?: null);
 
-        if (! empty($data['logo']) && is_array($data['logo'])) {
-            $file = reset($data['logo']);
-            if ($file instanceof TemporaryUploadedFile) {
-                $mime = $file->getMimeType() ?? 'image/webp';
-                $contents = file_get_contents($file->getRealPath());
-                $base64 = base64_encode($contents);
-                $org->saveLogo($base64, $mime);
-            }
+        $file = collect(is_array($data['logo'] ?? null) ? $data['logo'] : [$data['logo'] ?? null])
+            ->first(fn ($f) => $f instanceof TemporaryUploadedFile);
+        if ($file) {
+            $org->saveLogo(base64_encode((string) file_get_contents($file->getRealPath())), $this->logoMime($file));
+            $this->logo = [];
         }
 
-        Notification::make()->title('Einstellungen gespeichert')->success()->send();
+        Notification::make()->title($file ? 'Einstellungen und Logo gespeichert' : 'Einstellungen gespeichert')->success()->send();
+    }
+
+    /** SVGs are often detected as text/xml or image/svg; the extension decides then */
+    private function logoMime(TemporaryUploadedFile $file): string
+    {
+        $mime = (string) $file->getMimeType();
+        if (isset(self::LOGO_TYPES[$mime])) {
+            return $mime;
+        }
+
+        return array_search(strtolower($file->getClientOriginalExtension()), [...self::LOGO_TYPES, 'image/jpeg' => 'jpeg'], true) ?: 'image/png';
     }
 
     public function deleteLogo(): void

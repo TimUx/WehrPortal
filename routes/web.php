@@ -91,9 +91,12 @@ Route::get('/organisation/logo', function () {
     $org = app(OrganizationSettings::class);
     abort_unless($org->logoData(), 404);
 
+    // An uploaded SVG may carry scripts: opened directly, nothing in it may run
     return response(base64_decode($org->logoData()), 200, [
         'Content-Type' => $org->logoMime() ?? 'image/webp',
         'Cache-Control' => 'public, max-age=31536000, immutable',
+        'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox",
+        'X-Content-Type-Options' => 'nosniff',
     ]);
 })->name('organization.logo');
 
