@@ -22,6 +22,7 @@
             <dt class="text-gray-500">Letzte Prüfung</dt><dd>{{ $source->last_inspected_on?->format('d.m.Y') ?? 'noch keine' }}</dd>
             @if($source->next_inspection_on)<dt class="text-gray-500">Nächste Prüfung</dt><dd class="{{ $source->inspectionOverdue() ? 'font-semibold text-amber-800' : '' }}">{{ $source->next_inspection_on->format('d.m.Y') }}</dd>@endif
             <dt class="text-gray-500">Position</dt><dd>{{ number_format($source->latitude, 6, ',', '') }}, {{ number_format($source->longitude, 6, ',', '') }} · <a href="{{ $source->navigationUrl() }}" target="_blank" rel="noopener" class="underline">Navigation</a></dd>
+            @if($source->osm_id)<dt class="text-gray-500">Herkunft</dt><dd>OpenStreetMap · <a href="https://www.openstreetmap.org/node/{{ $source->osm_id }}" target="_blank" rel="noopener" class="underline">Node {{ $source->osm_id }}</a> <span class="text-xs text-gray-500">(© OpenStreetMap-Mitwirkende, ODbL)</span></dd>@endif
             @if($source->notes)<dt class="text-gray-500">Notizen</dt><dd class="whitespace-pre-line">{{ $source->notes }}</dd>@endif
         </dl>
         @if($canManage)<a href="{{ route('wasserkarte.edit', $source) }}" class="text-xs text-fw-navy underline">Bearbeiten</a>@endif

@@ -19,8 +19,32 @@
 
     <div wire:ignore x-data="waterMap({ markers: @js($markers), center: null, einsatz: @js($einsatz ? ['lat' => (float) $einsatz->latitude, 'lng' => (float) $einsatz->longitude] : null), highlight: @js($highlight) })" class="relative overflow-hidden rounded-2xl border border-gray-200">
         <div x-ref="map" class="h-[60vh] min-h-80 w-full"></div>
-        <button type="button" x-on:click="locate" class="absolute right-3 top-3 z-[500] rounded-lg bg-white px-3 py-2 text-sm font-semibold text-fw-navy shadow" x-text="locating ? 'Suche …' : 'Mein Standort'"></button>
+        <div class="absolute right-3 top-3 z-[500] flex flex-col items-end gap-2">
+            <button type="button" x-on:click="locate" class="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-fw-navy shadow" x-text="locating ? 'Suche …' : 'Mein Standort'"></button>
+            @if($canManage)
+                <button type="button" x-on:click="osmPreview" class="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-fw-navy shadow" x-text="loadingOsm ? 'Frage OpenStreetMap …' : 'Aus OpenStreetMap übernehmen'"></button>
+            @endif
+        </div>
     </div>
+
+    @if($flash)<p class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{{ $flash }}</p>@endif
+    @error('osm')<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{ $message }}</p>@enderror
+    @if($osm)
+        <section class="space-y-2 rounded-2xl border-2 border-blue-300 bg-blue-50 p-4 text-sm">
+            <p class="font-semibold text-blue-900">OpenStreetMap im Kartenausschnitt: {{ $osm['total'] }} Löschwasserquellen</p>
+            <ul class="text-blue-900">
+                <li><strong>{{ $osm['new'] }}</strong> neu</li>
+                <li><strong>{{ $osm['link'] }}</strong> liegen an einer schon erfassten Quelle (bis {{ \Modules\Wasserkarte\src\Services\OsmImporter::MATCH_METERS }} m) und werden mit ihr verknüpft – nur leere Felder werden ergänzt</li>
+                <li><strong>{{ $osm['known'] }}</strong> schon übernommen</li>
+            </ul>
+            @if($osm['sample'])<p class="text-xs text-blue-900">z. B. {{ implode(', ', $osm['sample']) }}</p>@endif
+            <p class="text-xs text-blue-900">Die Daten stammen von freiwilligen Kartierern und können fehlen oder veraltet sein – Status und Leistung bitte vor Ort prüfen. Lizenz: © OpenStreetMap-Mitwirkende, ODbL.</p>
+            <div class="flex gap-3">
+                <button type="button" wire:click="osmImport" wire:loading.attr="disabled" class="rounded-lg bg-fw-navy px-4 py-2 font-semibold text-white" @disabled($osm['new'] + $osm['link'] + $osm['known'] === 0)>Übernehmen</button>
+                <button type="button" wire:click="osmCancel" class="text-gray-600 underline">Abbrechen</button>
+            </div>
+        </section>
+    @endif
 
     @if($nearest->isNotEmpty())
         <section class="rounded-2xl border-2 border-fw-navy bg-white p-4 shadow-sm">

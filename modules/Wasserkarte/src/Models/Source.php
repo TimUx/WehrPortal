@@ -21,14 +21,14 @@ class Source extends Model
 
     protected $table = 'wk_sources';
 
-    protected $fillable = ['number', 'kind', 'latitude', 'longitude', 'location', 'status', 'status_note', 'flow_lpm', 'pressure_bar', 'capacity_m3',
+    protected $fillable = ['number', 'osm_id', 'kind', 'latitude', 'longitude', 'location', 'status', 'status_note', 'flow_lpm', 'pressure_bar', 'capacity_m3',
         'pipe_dn', 'operator', 'inspection_interval_months', 'last_inspected_on', 'next_inspection_on', 'notes', 'is_active', 'due_mailed_at'];
 
     protected $attributes = ['status' => 'available'];
 
     protected function casts(): array
     {
-        return ['latitude' => 'float', 'longitude' => 'float', 'flow_lpm' => 'integer', 'pressure_bar' => 'float', 'capacity_m3' => 'integer',
+        return ['osm_id' => 'integer', 'latitude' => 'float', 'longitude' => 'float', 'flow_lpm' => 'integer', 'pressure_bar' => 'float', 'capacity_m3' => 'integer',
             'pipe_dn' => 'integer', 'inspection_interval_months' => 'integer', 'last_inspected_on' => 'date', 'next_inspection_on' => 'date',
             'is_active' => 'boolean', 'due_mailed_at' => 'datetime'];
     }

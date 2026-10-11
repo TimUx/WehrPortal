@@ -43,6 +43,7 @@ document.addEventListener('alpine:init', () => {
         layer: null,
         me: null,
         locating: false,
+        loadingOsm: false,
         init() {
             this.map = L.map(this.$refs.map, { scrollWheelZoom: false });
             tiles().addTo(this.map);
@@ -65,6 +66,16 @@ document.addEventListener('alpine:init', () => {
                 const big = ids.includes(m.id);
                 L.marker([m.lat, m.lng], { icon: dot(m.color, big), zIndexOffset: big ? 500 : 0 }).bindPopup(popup(m)).addTo(this.layer);
             });
+        },
+        // Hydrantenwart: take over what OpenStreetMap has in the visible section (preview first)
+        async osmPreview() {
+            const b = this.map.getBounds();
+            this.loadingOsm = true;
+            try {
+                await this.$wire.osmPreview(b.getSouth(), b.getWest(), b.getNorth(), b.getEast());
+            } finally {
+                this.loadingOsm = false;
+            }
         },
         locate() {
             if (!navigator.geolocation) {

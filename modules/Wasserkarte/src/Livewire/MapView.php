@@ -3,10 +3,14 @@
 namespace Modules\Wasserkarte\src\Livewire;
 
 use App\Services\ModuleRegistry;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Modules\Einsatzbericht\src\Models\Report;
 use Modules\Wasserkarte\src\Models\Source;
+use Modules\Wasserkarte\src\Services\OsmImporter;
 use Modules\Wasserkarte\src\Services\WaterService;
 
 /**
@@ -28,6 +32,60 @@ class MapView extends Component
     public ?array $point = null;
 
     public string $signature = '';
+
+    /** @var ?array{key: string, total: int, new: int, link: int, known: int, sample: list<string>} the OpenStreetMap preview */
+    public ?array $osm = null;
+
+    public ?string $flash = null;
+
+    /** Hydrantenwart: what OpenStreetMap has in the visible map section (the objects wait in the cache) */
+    public function osmPreview(float $south, float $west, float $north, float $east, OsmImporter $importer): void
+    {
+        $this->resetErrorBag();
+        $this->flash = null;
+        abort_unless(WaterService::canManage(auth()->user()), 403);
+        try {
+            $objects = $importer->fetch($south, $west, $north, $east);
+        } catch (ValidationException $e) {
+            $this->addError('osm', collect($e->errors())->flatten()->first());
+
+            return;
+        }
+        $plan = $importer->plan($objects);
+        $key = 'wk_osm_'.Str::uuid();
+        Cache::put($key, $objects, now()->addMinutes(20));
+        $this->osm = ['key' => $key, 'total' => count($objects), 'new' => count($plan['new']), 'link' => count($plan['link']), 'known' => $plan['known'],
+            'sample' => collect($plan['new'])->take(8)->map(fn ($o) => (Source::KINDS[$o['kind']] ?? $o['kind']).($o['number'] ? ' '.$o['number'] : '').($o['pipe_dn'] ? ' · DN '.$o['pipe_dn'] : ''))->all()];
+    }
+
+    public function osmImport(OsmImporter $importer): void
+    {
+        $objects = $this->osm ? Cache::pull($this->osm['key']) : null;
+        if (! $objects) {
+            $this->addError('osm', 'Die Vorschau ist abgelaufen. Bitte noch einmal abrufen.');
+            $this->osm = null;
+
+            return;
+        }
+        try {
+            $result = $importer->import(auth()->user(), $objects);
+        } catch (ValidationException $e) {
+            $this->addError('osm', collect($e->errors())->flatten()->first());
+
+            return;
+        }
+        $this->osm = null;
+        $this->flash = 'Aus OpenStreetMap übernommen: '.$result['created'].' neu, '.$result['linked'].' mit vorhandenen verknüpft'.($result['updated'] ? ', '.$result['updated'].' ergänzt' : '').'.';
+        $this->dispatchMarkers(force: true);
+    }
+
+    public function osmCancel(): void
+    {
+        if ($this->osm) {
+            Cache::forget($this->osm['key']);
+        }
+        $this->osm = null;
+    }
 
     public function nearPoint(float $lat, float $lng): void
     {
