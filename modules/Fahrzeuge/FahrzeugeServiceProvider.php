@@ -1,0 +1,83 @@
+<?php
+
+namespace Modules\Fahrzeuge;
+
+use App\Models\User;
+use App\Services\DashboardRegistry;
+use App\Services\ModuleRegistry;
+use App\Services\VehicleBlockRegistry;
+use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
+use Modules\Fahrzeugbuchung\src\Models\Vehicle;
+use Modules\Fahrzeuge\src\Console\Commands\SendFleetReminders;
+use Modules\Fahrzeuge\src\Livewire\Fleet;
+use Modules\Fahrzeuge\src\Livewire\VehicleDetail;
+use Modules\Fahrzeuge\src\Livewire\VehicleForm;
+use Modules\Fahrzeuge\src\Models\Deadline;
+use Modules\Fahrzeuge\src\Services\FleetService;
+
+/**
+ * Fahrzeugverwaltung & Flotte: profiles, status and deadlines of the vehicles the Fahrzeugbuchung
+ * and the Einsatzbericht share. Its downtimes block bookings through the VehicleBlockRegistry;
+ * it shows which vehicle is out at an Einsatz or booked right now.
+ */
+class FahrzeugeServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this->app->singleton(FleetService::class);
+    }
+
+    public function boot(): void
+    {
+        $base = __DIR__;
+
+        $this->loadViewsFrom($base.'/resources/views', 'fahrzeuge');
+        if (! $this->app->routesAreCached()) {
+            Route::middleware('web')->group($base.'/routes/web.php');
+        }
+        $this->loadMigrationsFrom($base.'/database/migrations');
+
+        $this->commands([SendFleetReminders::class]);
+
+        // Scheduled commands write to /dev/null by default, so send their output to the container log
+        $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
+            $output = is_writable('/proc/1/fd/2') ? '/proc/1/fd/2' : storage_path('logs/schedule.log');
+
+            $schedule->command(SendFleetReminders::class)->dailyAt('06:50')->timezone('Europe/Berlin')->withoutOverlapping()->appendOutputTo($output);
+        });
+
+        Gate::define('fahrzeuge-manage', fn (User $user) => FleetService::canManage($user));
+
+        foreach (['fleet' => Fleet::class, 'vehicle-detail' => VehicleDetail::class, 'vehicle-form' => VehicleForm::class] as $name => $class) {
+            Livewire::component('fahrzeuge.'.$name, $class);
+        }
+
+        app(ModuleRegistry::class)->register(
+            'fahrzeuge',
+            'Fahrzeugverwaltung & Flotte',
+            'Zentrale Verwaltung aller Fahrzeuge mit Stammdaten, Status und Einsatzhistorie',
+            roles: ['fahrzeugwart'],
+            provider: self::class,
+            route: 'fahrzeuge.index',
+        );
+
+        // Werkstatt and other downtimes can't be booked in the Fahrzeugbuchung
+        app(VehicleBlockRegistry::class)->register('fahrzeuge', [FleetService::class, 'blocks']);
+
+        // Start page: the fleet at a glance, overdue deadlines for the Fahrzeugwarte
+        app(DashboardRegistry::class)->register('fahrzeuge', 'fleet', function (User $user) {
+            $vehicles = Vehicle::where('is_active', true)->get();
+            if ($vehicles->isEmpty()) {
+                return null;
+            }
+            $states = app(FleetService::class)->states($vehicles)->groupBy('tone')->map->count();
+            $overdue = FleetService::canManage($user) ? Deadline::active()->where('due_on', '<', FleetService::today()->toDateString())->count() : 0;
+
+            return view('fahrzeuge::cards.fleet', ['total' => $vehicles->count(), 'states' => $states, 'overdue' => $overdue])->render();
+        });
+    }
+}

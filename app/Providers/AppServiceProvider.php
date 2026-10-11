@@ -8,6 +8,7 @@ use App\Services\ModuleRegistry;
 use App\Services\OrganizationSettings;
 use App\Services\PersonnelFileRegistry;
 use App\Services\ScanRegistry;
+use App\Services\VehicleBlockRegistry;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Support\Facades\Event;
@@ -24,6 +25,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(DashboardRegistry::class);
         $this->app->singleton(ActivityRecorder::class);
         $this->app->singleton(PersonnelFileRegistry::class);
+        $this->app->singleton(VehicleBlockRegistry::class);
     }
 
     public function boot(): void

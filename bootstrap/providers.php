@@ -10,6 +10,7 @@ use Modules\Atemschutz\AtemschutzServiceProvider;
 use Modules\Ausruestung\AusruestungServiceProvider;
 use Modules\Einsatzbericht\EinsatzberichtServiceProvider;
 use Modules\Fahrzeugbuchung\FahrzeugbuchungServiceProvider;
+use Modules\Fahrzeuge\FahrzeugeServiceProvider;
 use Modules\Finanzen\FinanzenServiceProvider;
 use Modules\Kalender\KalenderServiceProvider;
 use Modules\Kleiderkammer\KleiderkammerServiceProvider;
@@ -42,4 +43,5 @@ return [
     VerbandbuchServiceProvider::class,
     WartungServiceProvider::class,
     AtemschutzServiceProvider::class,
+    FahrzeugeServiceProvider::class,
 ];

@@ -30,6 +30,8 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M12 11v3l2 2"/><circle cx="12" cy="14" r="4"/>
     @elseif($key === 'atemschutz')
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c-3.9 0-7 2.7-7 6.5 0 2.4 1.2 4.3 3 5.5v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2c1.8-1.2 3-3.1 3-5.5C19 5.7 15.9 3 12 3zM9 10h.01M15 10h.01M10 21h4M12 18v3"/>
+    @elseif($key === 'fahrzeuge')
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 17V8a1 1 0 0 1 1-1h10v10M14 10h4l3 3v4h-2M3 17h2m4 0h6"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path stroke-linecap="round" d="M6 10h5"/>
     @else
         <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
     @endif

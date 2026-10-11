@@ -2,6 +2,7 @@
 
 namespace Modules\Fahrzeugbuchung\src\Services;
 
+use App\Services\VehicleBlockRegistry;
 use Carbon\Carbon;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
@@ -17,6 +18,11 @@ class BookingService
         Carbon $endsAt,
         ?int $excludeBookingId = null
     ): array {
+        // Werkstatt and other downtimes (Fahrzeugverwaltung): not bookable at all, no decision
+        if ($blocked = app(VehicleBlockRegistry::class)->reason($vehicleId, $startsAt, $endsAt)) {
+            return ['available' => false, 'conflict' => null, 'blocked' => $blocked, 'alternatives' => $this->findAlternatives($vehicleId, $startsAt, $endsAt)];
+        }
+
         $query = Booking::active()
             ->where('vehicle_id', $vehicleId)
             ->where('starts_at', '<', $endsAt)
@@ -32,11 +38,12 @@ class BookingService
             return [
                 'available' => false,
                 'conflict' => $conflicting,
+                'blocked' => null,
                 'alternatives' => $this->findAlternatives($vehicleId, $startsAt, $endsAt),
             ];
         }
 
-        return ['available' => true, 'conflict' => null, 'alternatives' => collect()];
+        return ['available' => true, 'conflict' => null, 'blocked' => null, 'alternatives' => collect()];
     }
 
     public function create(array $data, int $userId): Booking
@@ -46,6 +53,7 @@ class BookingService
                 'ends_at' => ['Die Endzeit muss nach der Startzeit liegen.'],
             ]);
         }
+        $this->assertNotBlocked((int) $data['vehicle_id'], Carbon::parse($data['starts_at']), Carbon::parse($data['ends_at']));
 
         try {
             return Booking::create([
@@ -70,6 +78,14 @@ class BookingService
 
     public function update(Booking $booking, array $data): Booking
     {
+        // Moving into a downtime is refused; ending early or other changes inside one are fine
+        $vehicleId = (int) ($data['vehicle_id'] ?? $booking->vehicle_id);
+        $starts = $data['starts_at'] ?? $booking->starts_at;
+        $ends = $data['ends_at'] ?? $booking->ends_at;
+        if ($vehicleId !== $booking->vehicle_id || $starts < $booking->starts_at || $ends > $booking->ends_at) {
+            $this->assertNotBlocked($vehicleId, Carbon::parse($starts), Carbon::parse($ends));
+        }
+
         try {
             $booking->update($data);
         } catch (QueryException $e) {
@@ -110,12 +126,23 @@ class BookingService
         return $this->update($booking, ['ends_at' => $endsAt]);
     }
 
+    /** A vehicle in the Werkstatt (or another downtime) can't be booked in that time */
+    public function assertNotBlocked(int $vehicleId, Carbon $startsAt, Carbon $endsAt): void
+    {
+        if ($reason = app(VehicleBlockRegistry::class)->reason($vehicleId, $startsAt, $endsAt)) {
+            throw ValidationException::withMessages([
+                'vehicle_id' => ['Das Fahrzeug ist in diesem Zeitraum nicht verfügbar: '.$reason.'.'],
+            ]);
+        }
+    }
+
     private function findAlternatives(int $excludeVehicleId, Carbon $startsAt, Carbon $endsAt): Collection
     {
         $conflictingVehicleIds = Booking::active()
             ->where('starts_at', '<', $endsAt)
             ->where('ends_at', '>', $startsAt)
-            ->pluck('vehicle_id');
+            ->pluck('vehicle_id')
+            ->merge(app(VehicleBlockRegistry::class)->between($startsAt, $endsAt)->pluck('vehicle_id'));
 
         return Vehicle::active()
             ->where('id', '!=', $excludeVehicleId)

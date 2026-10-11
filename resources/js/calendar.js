@@ -139,6 +139,10 @@ function initCalendar() {
 
         eventClick: function(info) {
             const props = info.event.extendedProps;
+            // Downtimes from the Fahrzeugverwaltung have no booking to open
+            if (!props.bookingId) {
+                return;
+            }
             window.Livewire?.dispatch('booking-detail-open', { bookingId: props.bookingId });
         },
 

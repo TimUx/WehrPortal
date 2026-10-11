@@ -49,6 +49,9 @@ class BookingForm extends Component
 
     public ?array $conflict = null;
 
+    /** Why the vehicle can't be booked at all in this time (Werkstatt), from the Fahrzeugverwaltung */
+    public ?string $blocked = null;
+
     public array $alternatives = [];
 
     public function mount(?int $bookingId = null, ?string $date = null): void
@@ -71,7 +74,7 @@ class BookingForm extends Component
     #[On('open-booking-form')]
     public function open(?string $date = null, ?int $vehicleId = null): void
     {
-        $this->reset(['purpose', 'destination', 'notes', 'groupId', 'conflict', 'alternatives', 'bookingId', 'reason', 'ownerSearch']);
+        $this->reset(['purpose', 'destination', 'notes', 'groupId', 'conflict', 'blocked', 'alternatives', 'bookingId', 'reason', 'ownerSearch']);
         $this->ownerId = auth()->id();
         $this->available = true;
 
@@ -97,7 +100,7 @@ class BookingForm extends Component
     #[On('open-edit-booking')]
     public function openForEdit(int $bookingId): void
     {
-        $this->reset(['purpose', 'destination', 'notes', 'groupId', 'conflict', 'alternatives', 'reason', 'ownerSearch']);
+        $this->reset(['purpose', 'destination', 'notes', 'groupId', 'conflict', 'blocked', 'alternatives', 'reason', 'ownerSearch']);
         $this->available = true;
         $this->loadBooking($bookingId);
         $this->show = true;
@@ -155,6 +158,7 @@ class BookingForm extends Component
         $result = $service->checkAvailability($this->vehicleId, $starts, $ends, $this->bookingId);
 
         $this->available = $result['available'];
+        $this->blocked = $result['blocked'] ?? null;
         $this->conflict = $result['conflict']
             ? [
                 'id' => $result['conflict']->id,
@@ -214,6 +218,12 @@ class BookingForm extends Component
         // Overlaps a confirmed booking: ask the deciders instead. A change of an
         // existing booking keeps the original until the decision.
         $this->checkAvailability();
+
+        if ($this->blocked) {
+            $this->addError('vehicleId', 'Das Fahrzeug ist in diesem Zeitraum nicht verfügbar: '.$this->blocked.'.');
+
+            return;
+        }
 
         if (! $this->available) {
             $replaces = $this->bookingId ? Booking::findOrFail($this->bookingId) : null;

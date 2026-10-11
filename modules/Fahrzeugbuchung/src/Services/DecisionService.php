@@ -5,6 +5,7 @@ namespace Modules\Fahrzeugbuchung\src\Services;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -28,6 +29,9 @@ class DecisionService
      */
     public function request(array $data, User $requester, string $reason, ?Booking $replaces = null): BookingDecision
     {
+        // A downtime is no conflict a decider could resolve
+        app(BookingService::class)->assertNotBlocked((int) $data['vehicle_id'], Carbon::parse($data['starts_at']), Carbon::parse($data['ends_at']));
+
         $decision = DB::transaction(function () use ($data, $requester, $reason, $replaces) {
             $conflicts = $this->conflictsFor($data['vehicle_id'], $data['starts_at'], $data['ends_at'], $replaces?->id);
 

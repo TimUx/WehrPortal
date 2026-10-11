@@ -90,6 +90,20 @@
                 </div>
 
                 {{-- Availability notice --}}
+                @if($blocked)
+                <div class="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-800">
+                    <p class="font-semibold">Fahrzeug nicht verfügbar</p>
+                    <p class="mt-0.5 text-fw-red">{{ $blocked }}</p>
+                    @if(count($alternatives) > 0)
+                    <p class="mt-2 font-medium text-red-800">Verfügbare Alternativen:</p>
+                    <div class="flex flex-wrap gap-1.5 mt-1">
+                        @foreach($alternatives as $alt)
+                        <button type="button" wire:click="$set('vehicleId', {{ $alt['id'] }})" class="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium text-white" style="background-color: {{ $alt['color'] }}">{{ $alt['name'] }}</button>
+                        @endforeach
+                    </div>
+                    @endif
+                </div>
+                @endif
                 @if(!$available && $conflict)
                 <div class="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-800">
                     <p class="font-semibold">Fahrzeug bereits gebucht</p>
