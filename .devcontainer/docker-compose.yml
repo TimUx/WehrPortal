@@ -1,0 +1,38 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ../..:/workspaces:cached
+    # Keep the container running; VS Code / Codespaces attach to it
+    command: sleep infinity
+    environment:
+      # Xdebug ships enabled in the base image and slows every PHP call down;
+      # set to "debug" (and rebuild) when you want step debugging
+      XDEBUG_MODE: "off"
+    # Share the database's network, so PostgreSQL is reachable on 127.0.0.1:5432
+    # exactly as in phpunit.xml and CI
+    network_mode: service:db
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: openwehr
+      POSTGRES_USER: openwehr
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openwehr -d openwehr"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:

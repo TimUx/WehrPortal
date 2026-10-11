@@ -1,0 +1,93 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+openwehr (repo `roberteinsle/openwehr`, name always written in lowercase): a web app for volunteer fire brigades: a core plus modules that each Wehr switches on (Laravel 12, Livewire 4, Filament 5 admin, Tailwind 4 + Alpine + FullCalendar 6 via Vite, Pest 3). Licensed under AGPL-3.0. The UI, emails, validation messages and README are German; code, comments and commit messages are English. The README documents every user-facing behaviour in detail. Read it before changing booking or decision logic, and update it when behaviour changes.
+
+## Commands
+
+```bash
+composer setup                 # install, key:generate, migrate, npm build
+composer dev                   # artisan serve + queue + pail + vite
+composer test                  # config:clear + artisan test
+./vendor/bin/pest                                   # all tests
+./vendor/bin/pest tests/Feature/Booking/DecisionTest.php
+./vendor/bin/pest --filter="admins are asked when there is no decider"    # single test by name
+./vendor/bin/pint              # code style (Laravel Pint; not enforced in CI, run it before committing)
+npm run build                  # production assets
+docker compose up --build      # full stack on :8080, mails go to storage/logs/laravel.log
+```
+
+**PostgreSQL is mandatory, including for tests.** SQLite and MySQL won't work. `phpunit.xml` expects `pgsql` at `127.0.0.1:5432` with db `openwehr_test`, user `openwehr`, password `secret`. Feature tests use `RefreshDatabase` (see `tests/Pest.php`). CI runs `pest --parallel` against Postgres 18.
+
+The dev container (`.devcontainer/`, used by Codespaces) provides all of this: PHP 8.4 with `pdo_pgsql`/`intl`/`gd`/`exif` in service `app`, PostgreSQL 18 in service `db` sharing its network (so `127.0.0.1:5432` works), and `post-create.sh` creates `.env`, migrates with seed data and the `openwehr_test` database. Inside it, just run `composer test` / `./vendor/bin/pest --parallel`. Log in as `admin@example.com`; the magic link is in `storage/logs/laravel.log`.
+
+Outside the dev container (an old Codespace without it), run tests in throwaway containers:
+
+```bash
+docker run -d --name openwehr-test-pg -e POSTGRES_DB=openwehr_test -e POSTGRES_USER=openwehr -e POSTGRES_PASSWORD=secret -p 5432:5432 postgres:18
+docker run --rm --network host -v "$PWD":/app -w /app --user root -e SHOW_WELCOME_MESSAGE=false serversideup/php:8.4-cli \
+  sh -c "install-php-extensions gd intl >/dev/null 2>&1; ./vendor/bin/pest --parallel; chown -R 1000:1000 storage bootstrap/cache"
+```
+
+Test data, seeders and commits use invented people only ("Hanna Hydrant", "Bernd Blaulicht", `example.com` addresses), never names or addresses of real members. The repository is public: no names, addresses, domains, servers or settings of a real Wehr or of the maintainer in code, docs, tests or commit messages (example Wehr: "FF Musterstadt", `ff-musterstadt.de`).
+
+The trailing `chown` matters: root-owned files left in `storage/` break `docker build` (permission denied in the build context).
+
+## Architecture
+
+### Double-booking protection lives in the database
+The `bookings` table has a GiST exclusion constraint `bookings_no_overlap` on `(vehicle_id, tstzrange(starts_at, ends_at, '[)'))`, `WHERE cancelled_at IS NULL AND status = 'confirmed'`. The intervals are half-open, so a booking ending at 14:00 and one starting at 14:00 don't collide. It needs the `btree_gist` extension. Application code catches SQLSTATE `23P01` / the constraint name and turns it into a `ValidationException`. Any new code path that writes bookings must do the same. Never weaken the constraint in favour of PHP-only checks.
+
+### Booking status model
+- `Booking.status`: `confirmed` | `pending` (a conflict request waiting for a decider) | `rejected`. Cancellation is the separate `cancelled_at`, not a status.
+- `Booking::active()` = confirmed and not cancelled. These are the only bookings that block a vehicle. `Booking::visible()` adds pending requests; the calendar and monitor use it.
+- `BookingDecision` (`pending` | `approved` | `rejected` | `withdrawn`) links a pending request (`booking_id`) to the confirmed bookings it overlaps (`conflicting_booking_ids`, JSON). It can also link to a booking the request would replace (`replaces_booking_id`). It keeps a JSON `history` log via `addHistory()`.
+
+### Services own all state transitions
+`app/Services/BookingService` (create/update/cancel/availability) and `DecisionService` (request/decide/change/reopen/withdraw) are the only places that should mutate bookings and decisions. Livewire components and Filament resources call into them (e.g. Filament `EditBooking` calls `cancel()` and `releaseSlotsFreedBy()`). The cross-cutting rules that are easy to break:
+- Members can't edit or cancel a booking once it has started. A running booking can only be ended early (`BookingPolicy::endEarly`, `BookingService::endEarly` sets `ends_at` to now), by its owner or by deciders/admins for anyone.
+- After any update or cancel of a booking, `DecisionService::releaseSlotsFreedBy($booking)` must run. It automatically re-confirms the booking that lost an earlier decision once the winner no longer needs the slot.
+- Cancelling a pending request means withdrawing its decision, not releasing slots.
+- Decision mutations run in `DB::transaction` with `lockForUpdate`, so the first of two concurrent decisions wins.
+- Deciders are users with `is_decider`. If no active decider exists, the admins are used (`DecisionService::deciders()`). The `decide-bookings` gate is defined in `AppServiceProvider`.
+
+### Notifications are synchronous and non-fatal
+All mail is sent immediately; no queue worker is needed in production. Sends go through a wrapper (`DecisionService::notify`) that reports failures without throwing, so a mail error never rolls back the action. Notifications run after the transaction commits. Shared booking-formatting helpers are in `app/Notifications/BookingSummary.php`.
+
+Every notification to a Kamerad also lands under the bell in the header (Laravel `notifications` table, `App\Livewire\Notifications\Bell`, `/benachrichtigungen`). New notifications `use App\Notifications\Concerns\InApp;` instead of defining `via()`. The entry is taken from the mail (subject, first line, action URL), so the action URL must point to where the Kamerad has something to do. Login links and e-mail confirmations stay mail only.
+
+### Scheduler and editable mail texts
+- The production image runs `schedule:work` as an extra s6 service (`docker/s6-rc.d/laravel-scheduler`, after the migrations), so there is no separate scheduler container. Scheduled commands must use `->appendOutputTo($output)` from `routes/console.php`; otherwise Laravel sends their output and errors to `/dev/null`.
+- `bookings:send-end-reminders` runs every minute. It claims each booking with an atomic `UPDATE … WHERE end_reminder_sent_at IS NULL` before mailing, so a second scheduler can't send duplicates. Changing `ends_at` resets the flag (`Booking::booted`).
+- Admin-editable mail texts live in `mail_templates` (`MailTemplate`, Filament "E-Mail-Texte"). Defaults and placeholders are defined in code (`MailTemplate::defaults()` / `placeholders()`); rows are created on first use. To make another mail editable, add a key there and build the mail with `MailTemplate::for($key)->toMailMessage($values, $url)`.
+- The reminder's "Fahrzeug ist schon zurück" button is a signed URL (`bookings.return`, no login). GET only shows a confirm button and the POST ends the booking, for the same mail-scanner reason as the magic links.
+
+### Booking comments
+Per-booking chat (`BookingComment`, Livewire `Booking/BookingComments`, embedded in the booking detail). Deletes are soft, and `BookingComment::edit()` stores the previous text in `booking_comment_revisions`. Only authors may edit or delete. `BookingCommentPolicy::viewHistory` (= `canDecide()`) controls who also sees trashed messages and revisions; members see only the "bearbeitet" marker.
+
+### Feedback to admins
+Member-to-admin threads (`FeedbackThread` / `FeedbackMessage`, Livewire `Feedback/*`, Filament "Feedback"), owned by `FeedbackService`. `unread_for_user` / `unread_for_admin` drive the red dot on "Profil" and the admin counter. A member reply reopens a closed thread. Mail failures are reported but not thrown, like in `DecisionService::notify`.
+
+### Time zones
+The app timezone is UTC and timestamps are stored as `timestamptz`. Everything is displayed in `Europe/Berlin`: explicit `setTimezone('Europe/Berlin')` in notifications, `->timezone('Europe/Berlin')` on Filament fields and columns, and the FullCalendar setup in `resources/js/calendar.js`. Keep this explicit when adding new time output.
+
+### Auth and access
+- Passwordless magic links (`MagicLinkService`, `MagicLinkController`): GET shows a confirm button and only the POST consumes the token, so mail scanners can't burn it. Tokens are SHA256-hashed before storage; only the raw token is in the mail. Rate-limited to 5 requests/hour per email and 20/hour per IP (`config/magic-link.php`). Tokens are single-use; unknown emails get the same response as known ones.
+- `User.status` (`active` | `inactive` | `left`, `App\Enums\MemberStatus`) is the member status; `is_active` is the login flag derived from it in `User::booted` (writes to `is_active` alone are mapped back). Member data (department, rank, gender, notes) lives on `users`; modules don't keep their own member tables. Users referenced by bookings, comments or Kleiderkammer issuances can't be deleted (`UserResource::deleteIfUnreferenced`); set them to `left` instead.
+- Middleware `active` (`EnsureUserIsActive`) wraps all authenticated routes. Filament `/admin` requires `is_admin` and `is_active` (`User::canAccessPanel`).
+- `/monitor/{key?}` is the read-only station board (`Livewire/Monitor/StationBoard`). It is accessible to admins, or with `DISPLAY_TOKEN` (`config/monitor.php`) compared via `hash_equals`. Everyone else gets a 404, not a 403. It shows names shortened ("Hanna H.").
+- `ADMIN_EMAILS` are upserted as active admins on every container start (`docker/entrypoint.d/60-ensure-admins.sh` → `app:ensure-admins`).
+
+### Other notable choices
+- Activity log: every Eloquent create/update/delete of `App\` and `Modules\` models is written to `activity_logs` by `App\Services\ActivityRecorder` (wildcard listener in `AppServiceProvider`), with the user, the admin behind "Als Kamerad ansehen", and the changed fields. Secrets and file contents are masked by field name (`SECRET` pattern), bookkeeping fields are skipped (`BOOKKEEPING`), and log/token/history models are in `SKIP`. Keep these lists current when adding models with secrets or blobs. Sent mails are in `mail_logs` (`LogSentMail`) and also get an activity entry. Both prune after 180 days. Admin page: `LogResource` (`/admin/logs`).
+- All URLs are German, like the UI: app routes (`/profil`, `/anmelden`, `/fahrzeugbuchung/kalender`) and the Filament panels. Every Filament resource and page sets `$slug` and resource pages use `/neu` and `/{record}/bearbeiten` instead of `create`/`edit`. The old English paths redirect (301) via the list at the end of `routes/web.php`; add new entries there when renaming. The signed return link of old reminder mails is kept as `fahrzeugbuchung.bookings.return.legacy`.
+- There are no REST/API routes. All user-facing features are Livewire components; the admin panel is Filament. The only non-Livewire controllers are `MagicLinkController`, `BookingEventController` (calendar JSON), and `BookingReturnController` (signed return URL).
+- Avatars are stored as base64 WebP in the `user_avatars` table, not on disk (`AvatarService`). Served from `/avatars/{user}?v={timestamp}` with immutable cache headers; the `?v=` param changes when the avatar is updated, busting the browser cache.
+- New instances start empty: vehicles, Abteilungen and Funktionen are created in the admin area. `2026_09_28_000000_seed_base_data` is an empty migration kept for the history; the seeders are for local dev.
+- `trustProxies(at: '*')` is set because the app runs behind a reverse proxy (e.g. Coolify).
+
+## Deployment
+The app version (`config/app.php` → `version`, e.g. `V.0.5.8`) is bumped by hand and shown at the bottom of the admin navigation (`resources/views/filament/sidebar-end.blade.php`). Each version gets a GitHub release with the tag in lowercase semver form (`v0.5.8`) and the title as written (`V.0.5.8`).
+
+A push to `main` runs the tests, builds the image and pushes it to `ghcr.io/roberteinsle/openwehr` (tags `latest` and `sha-<commit>`). If `COOLIFY_DEPLOY_ENABLED` is set, a Coolify webhook then redeploys a test instance (`latest`, sample data only). Production instances run a pinned release tag and are updated by hand after a DB backup, never by a push. Migrations run automatically on container start (`AUTORUN_ENABLED=true`), so every migration must also work on a fresh database and on existing installs (`tests/Unit/FreshInstallTest.php`). The installation guide for operators is in the README (UpCloud VM + Coolify).

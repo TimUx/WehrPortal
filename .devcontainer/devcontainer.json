@@ -1,0 +1,27 @@
+{
+    "name": "openwehr",
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "app",
+    "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+    "remoteUser": "vscode",
+    "features": {
+        "ghcr.io/devcontainers/features/node:1": { "version": "22" },
+        "ghcr.io/devcontainers/features/github-cli:1": {},
+        "ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
+    },
+    "forwardPorts": [8000, 5173],
+    "portsAttributes": {
+        "8000": { "label": "openwehr (php artisan serve)", "onAutoForward": "notify" },
+        "5173": { "label": "Vite", "onAutoForward": "silent" }
+    },
+    "postCreateCommand": "bash .devcontainer/post-create.sh",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "bmewburn.vscode-intelephense-client",
+                "bradlc.vscode-tailwindcss",
+                "onecentlab.laravel-blade-snippets"
+            ]
+        }
+    }
+}

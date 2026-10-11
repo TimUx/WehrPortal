@@ -1,0 +1,211 @@
+<?php
+
+namespace Modules\Kalender\src\Livewire;
+
+use App\Models\Group;
+use App\Models\User;
+use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Livewire\Component;
+use Modules\Kalender\src\Models\Event;
+use Modules\Kalender\src\Services\EventService;
+
+/**
+ * Create or change an event. Dates and times come from the browser's date pickers, like in the
+ * Fahrzeugbuchung; a new event lasts 60 minutes, and moving the start keeps the duration.
+ */
+class EventForm extends Component
+{
+    public ?Event $event = null;
+
+    public string $title = '';
+
+    public string $type = 'uebung';
+
+    /** Length of a new event */
+    public const DEFAULT_MINUTES = 60;
+
+    private const LOCAL = 'Y-m-d\TH:i';
+
+    /** Start and end with time (datetime-local), Berlin time */
+    public string $startsAt = '';
+
+    public string $endsAt = '';
+
+    /** First and last day of an all-day event (date) */
+    public string $startDate = '';
+
+    public string $endDate = '';
+
+    public bool $allDay = false;
+
+    public string $location = '';
+
+    public string $description = '';
+
+    /** @var array<int, string> */
+    public array $groupIds = [];
+
+    /** @var array<int, string> Kameraden invited individually */
+    public array $inviteeIds = [];
+
+    public string $minParticipants = '';
+
+    public bool $isPublic = false;
+
+    public bool $rsvp = false;
+
+    public string $rsvpDeadline = '';
+
+    public string $repeat = '';
+
+    public string $repeatUntil = '';
+
+    public bool $notify = false;
+
+    public bool $applyToFollowing = false;
+
+    public function mount(?Event $event = null): void
+    {
+        if ($event?->exists) {
+            $this->authorize('manage', $event);
+            $this->event = $event;
+            $start = $event->starts_at->copy()->setTimezone('Europe/Berlin');
+            $end = $event->ends_at->copy()->setTimezone('Europe/Berlin');
+            $this->title = $event->title;
+            $this->type = $event->type;
+            $this->allDay = $event->all_day;
+            $this->startsAt = $start->format(self::LOCAL);
+            $this->endsAt = $end->format(self::LOCAL);
+            $this->startDate = $start->format('Y-m-d');
+            $this->endDate = ($event->all_day ? $end->copy()->subSecond() : $end)->format('Y-m-d');
+            $this->location = (string) $event->location;
+            $this->description = (string) $event->description;
+            $this->groupIds = $event->groups->pluck('id')->map(fn ($id) => (string) $id)->all();
+            $this->inviteeIds = $event->invitees->pluck('id')->map(fn ($id) => (string) $id)->all();
+            $this->minParticipants = (string) ($event->min_participants ?? '');
+            $this->isPublic = $event->is_public;
+            $this->rsvp = $event->rsvp;
+            $this->rsvpDeadline = $event->rsvp_deadline?->setTimezone('Europe/Berlin')->format('Y-m-d') ?? '';
+        } else {
+            $this->authorize('manage', Event::class);
+            $start = now('Europe/Berlin')->addDay()->setTime(19, 0);
+            $this->startsAt = $start->format(self::LOCAL);
+            $this->endsAt = $start->copy()->addMinutes(self::DEFAULT_MINUTES)->format(self::LOCAL);
+            $this->startDate = $this->endDate = $start->format('Y-m-d');
+        }
+    }
+
+    /** Moving the start moves the end along, keeping the duration (60 minutes if there was none) */
+    public function updatingStartsAt(string $value): void
+    {
+        $new = $this->local($value);
+        $old = $this->local($this->startsAt);
+        $oldEnd = $this->local($this->endsAt);
+
+        if ($new) {
+            $minutes = $old && $oldEnd && $oldEnd->gt($old) ? $old->diffInMinutes($oldEnd) : self::DEFAULT_MINUTES;
+            $this->endsAt = $new->copy()->addMinutes($minutes)->format(self::LOCAL);
+            $this->startDate = $new->format('Y-m-d');
+        }
+    }
+
+    /** The last day of an all-day event follows the first as long as it would end before it */
+    public function updatedStartDate(string $value): void
+    {
+        if ($value && (! $this->endDate || $this->endDate < $value)) {
+            $this->endDate = $value;
+        }
+    }
+
+    /** Switching to whole days keeps the day of the timed start, and back */
+    public function updatedAllDay(bool $allDay): void
+    {
+        if ($allDay && ($start = $this->local($this->startsAt))) {
+            $this->startDate = $start->format('Y-m-d');
+            $this->endDate = max($this->endDate, $this->startDate);
+        } elseif (! $allDay && $this->startDate && ! $this->local($this->startsAt)) {
+            $this->startsAt = $this->startDate.'T19:00';
+            $this->endsAt = Carbon::createFromFormat(self::LOCAL, $this->startsAt)->addMinutes(self::DEFAULT_MINUTES)->format(self::LOCAL);
+        }
+    }
+
+    private function local(?string $value): ?Carbon
+    {
+        return $value && Carbon::canBeCreatedFromFormat($value, self::LOCAL) ? Carbon::createFromFormat(self::LOCAL, $value, 'Europe/Berlin') : null;
+    }
+
+    public function save(EventService $events)
+    {
+        $this->validate([
+            'title' => ['required', 'string', 'max:150'],
+            'type' => ['required', Rule::in(array_keys(Event::TYPES))],
+            'startsAt' => [$this->allDay ? 'nullable' : 'required', 'date_format:'.self::LOCAL],
+            'endsAt' => [$this->allDay ? 'nullable' : 'required', 'date_format:'.self::LOCAL],
+            'startDate' => [$this->allDay ? 'required' : 'nullable', 'date_format:Y-m-d'],
+            'endDate' => [$this->allDay ? 'required' : 'nullable', 'date_format:Y-m-d'],
+            'location' => ['nullable', 'string', 'max:150'],
+            'description' => ['nullable', 'string', 'max:5000'],
+            'groupIds.*' => ['exists:groups,id'],
+            'inviteeIds.*' => ['exists:users,id'],
+            'minParticipants' => ['nullable', 'integer', 'min:1', 'max:999'],
+            'rsvpDeadline' => ['nullable', 'date_format:Y-m-d'],
+            'repeat' => ['nullable', Rule::in(array_keys(EventService::REPEATS))],
+            'repeatUntil' => [filled($this->repeat) && ! $this->event ? 'required' : 'nullable', 'date_format:Y-m-d'],
+        ], [
+            'title.required' => 'Bitte gib einen Titel an.',
+            '*.required' => 'Bitte Datum und Uhrzeit angeben.',
+            '*.date_format' => 'Bitte ein gültiges Datum wählen.',
+            'repeatUntil.required' => 'Bis wann soll sich der Termin wiederholen?',
+        ]);
+
+        $day = fn (string $d) => Carbon::createFromFormat('!Y-m-d', $d, 'Europe/Berlin');
+        $start = $this->allDay ? $day($this->startDate) : $this->local($this->startsAt);
+        $end = $this->allDay ? $day($this->endDate)->addDay() : $this->local($this->endsAt);
+
+        $data = [
+            'title' => trim($this->title),
+            'type' => $this->type,
+            'starts_at' => $start,
+            'ends_at' => $end,
+            'all_day' => $this->allDay,
+            'location' => trim($this->location) ?: null,
+            'description' => trim($this->description) ?: null,
+            'rsvp' => $this->rsvp,
+            'min_participants' => filled($this->minParticipants) ? (int) $this->minParticipants : null,
+            'is_public' => $this->isPublic,
+            'rsvp_deadline' => $this->rsvp && filled($this->rsvpDeadline) ? $day($this->rsvpDeadline)->endOfDay() : null,
+        ];
+        $groups = array_map('intval', $this->groupIds);
+        $invitees = array_map('intval', $this->inviteeIds);
+
+        try {
+            if ($this->event) {
+                $data['rsvp_deadline'] = $data['rsvp_deadline']?->utc();
+                $events->update($this->event, $data, $groups, $this->applyToFollowing, $invitees);
+                $target = $this->event;
+            } else {
+                $repeat = filled($this->repeat) ? ['freq' => $this->repeat, 'until' => $day($this->repeatUntil)] : null;
+                $target = $events->create($data, $groups, auth()->user(), $repeat, $this->notify, $invitees)->first();
+            }
+        } catch (ValidationException $e) {
+            $this->addError($this->allDay ? 'endDate' : 'endsAt', collect($e->errors())->flatten()->first());
+
+            return null;
+        }
+
+        return redirect()->route('kalender.show', $target);
+    }
+
+    public function render()
+    {
+        return view('kalender::livewire.event-form', [
+            'types' => Event::TYPES,
+            'groups' => Group::orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
+            'people' => User::active()->orderBy('name')->get()->filter(fn (User $u) => $u->canUseModule('kalender'))->pluck('name', 'id'),
+            'repeats' => EventService::REPEATS,
+            'inSeries' => (bool) $this->event?->series_id,
+        ]);
+    }
+}

@@ -1,0 +1,298 @@
+<?php
+
+namespace Modules\Kalender\src\Services;
+
+use App\Models\User;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Notifications\Notification;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+use Modules\Kalender\src\Models\Event;
+use Modules\Kalender\src\Models\Response;
+use Modules\Kalender\src\Notifications\EventCancelledNotification;
+use Modules\Kalender\src\Notifications\EventCreatedNotification;
+use Modules\Kalender\src\Notifications\RsvpReminderNotification;
+use Throwable;
+
+/** Creating, changing and cancelling events, repetitions, audience and Rückmeldungen */
+class EventService
+{
+    public const MAX_OCCURRENCES = 104;
+
+    public const REPEATS = ['weekly' => 'Jede Woche', 'biweekly' => 'Alle 2 Wochen', 'monthly' => 'Jeden Monat'];
+
+    /**
+     * @param  array{title: string, type: string, starts_at: Carbon, ends_at: Carbon, all_day?: bool, location?: ?string, description?: ?string, rsvp?: bool, rsvp_deadline?: ?Carbon}  $data
+     * @param  int[]  $groupIds  audience; empty = everyone
+     * @param  array{freq: string, until: Carbon}|null  $repeat
+     * @param  int[]  $userIds  Kameraden invited individually
+     * @return Collection<int, Event> the created events in order
+     */
+    public function create(array $data, array $groupIds, ?User $by, ?array $repeat = null, bool $notify = false, array $userIds = []): Collection
+    {
+        $this->assertTimes($data['starts_at'], $data['ends_at']);
+        $occurrences = $this->occurrences($data['starts_at'], $repeat);
+        $seriesId = count($occurrences) > 1 ? (string) Str::uuid() : null;
+        $duration = $data['starts_at']->diffInSeconds($data['ends_at']);
+        $deadlineBefore = isset($data['rsvp_deadline']) ? $data['rsvp_deadline']->diffInSeconds($data['starts_at'], false) : null;
+
+        $events = DB::transaction(function () use ($data, $groupIds, $userIds, $by, $occurrences, $seriesId, $duration, $deadlineBefore) {
+            return collect($occurrences)->map(function (Carbon $start) use ($data, $groupIds, $userIds, $by, $seriesId, $duration, $deadlineBefore) {
+                $event = Event::create([
+                    ...$data,
+                    'starts_at' => $start->copy()->utc(),
+                    'ends_at' => $start->copy()->addSeconds($duration)->utc(),
+                    // The deadline keeps its distance to the start in every repetition
+                    'rsvp_deadline' => $deadlineBefore !== null ? $start->copy()->subSeconds($deadlineBefore)->utc() : null,
+                    'series_id' => $seriesId,
+                    'created_by' => $by?->id,
+                ]);
+                $event->groups()->sync($groupIds);
+                $event->invitees()->sync($userIds);
+
+                return $event;
+            });
+        });
+
+        if ($notify) {
+            $first = $events->first();
+            $this->notify($this->audience($first)->reject(fn (User $u) => $by && $u->is($by)), new EventCreatedNotification($first, $events->count()));
+        }
+
+        return $events;
+    }
+
+    /**
+     * Saves changes to one event. With $following, title, type, place, description, Rückmeldung and
+     * audience also go to the later events of the same repetition; times only change for this one.
+     */
+    public function update(Event $event, array $data, array $groupIds, bool $following = false, array $userIds = []): void
+    {
+        $this->assertTimes($data['starts_at'], $data['ends_at']);
+
+        DB::transaction(function () use ($event, $data, $groupIds, $userIds, $following) {
+            $event->update([...$data, 'starts_at' => $data['starts_at']->copy()->utc(), 'ends_at' => $data['ends_at']->copy()->utc()]);
+            $event->groups()->sync($groupIds);
+            $event->invitees()->sync($userIds);
+
+            if ($following && $event->series_id) {
+                $shared = collect($data)->only(['title', 'type', 'location', 'description', 'rsvp', 'min_participants', 'is_public'])->all();
+                Event::where('series_id', $event->series_id)->where('starts_at', '>', $event->starts_at)->get()
+                    ->each(function (Event $later) use ($shared, $groupIds, $userIds) {
+                        $later->update($shared);
+                        $later->groups()->sync($groupIds);
+                        $later->invitees()->sync($userIds);
+                    });
+            }
+        });
+    }
+
+    /** The event stays visible as "abgesagt"; everyone who said yes or maybe is told */
+    public function cancel(Event $event, ?User $by): void
+    {
+        $event->update(['cancelled_at' => now()]);
+
+        $affected = $event->responses()->whereIn('status', ['yes', 'maybe'])->with('user')->get()
+            ->pluck('user')->filter()->reject(fn (User $u) => $by && $u->is($by));
+        $this->notify($affected, new EventCancelledNotification($event));
+    }
+
+    public function reinstate(Event $event): void
+    {
+        $event->update(['cancelled_at' => null]);
+    }
+
+    /** Deletes the event, or with $following also the later ones of the repetition */
+    public function delete(Event $event, bool $following = false): void
+    {
+        DB::transaction(function () use ($event, $following) {
+            if ($following && $event->series_id) {
+                Event::where('series_id', $event->series_id)->where('starts_at', '>', $event->starts_at)->delete();
+            }
+
+            $event->delete();
+        });
+    }
+
+    public function respond(Event $event, User $user, string $status, ?string $comment = null): Response
+    {
+        if (! array_key_exists($status, Response::STATUSES)) {
+            throw ValidationException::withMessages(['status' => 'Ungültige Rückmeldung.']);
+        }
+
+        if (! $event->acceptsResponses()) {
+            throw ValidationException::withMessages(['status' => 'Für diesen Termin ist keine Rückmeldung (mehr) möglich.']);
+        }
+
+        if (! $this->audience($event)->contains('id', $user->id)) {
+            throw ValidationException::withMessages(['status' => 'Dieser Termin ist nicht für dich.']);
+        }
+
+        return Response::updateOrCreate(['event_id' => $event->id, 'user_id' => $user->id], [
+            'status' => $status,
+            'comment' => filled($comment) ? trim($comment) : null,
+        ]);
+    }
+
+    /** A Terminverwalter answers for someone (e.g. after a phone call), also after the deadline; null clears it */
+    public function respondFor(Event $event, User $user, ?string $status, User $by): void
+    {
+        if ($status !== null && ! array_key_exists($status, Response::STATUSES)) {
+            throw ValidationException::withMessages(['status' => 'Ungültige Rückmeldung.']);
+        }
+
+        Response::updateOrCreate(['event_id' => $event->id, 'user_id' => $user->id], ['status' => $status, 'set_by' => $by->id]);
+    }
+
+    /** Who was actually there; also for Kameraden outside the audience who came along */
+    public function setAttendance(Event $event, User $user, ?bool $attended, User $by): void
+    {
+        if (! $event->hasStarted()) {
+            throw ValidationException::withMessages(['attended' => 'Die Anwesenheit lässt sich erst ab Beginn des Termins erfassen.']);
+        }
+
+        Response::updateOrCreate(['event_id' => $event->id, 'user_id' => $user->id], ['attended' => $attended, 'set_by' => $by->id]);
+    }
+
+    /**
+     * Active Kameraden with access to the module: the members of the event's Abteilungen and the
+     * individually invited ones; everyone if neither is set.
+     */
+    public function audience(Event $event): EloquentCollection
+    {
+        $groupIds = $event->groups()->pluck('groups.id');
+        $inviteeIds = $event->invitees()->pluck('users.id');
+        $everyone = $groupIds->isEmpty() && $inviteeIds->isEmpty();
+
+        return User::active()->orderBy('name')
+            ->when(! $everyone, fn ($q) => $q->where(fn ($w) => $w
+                ->whereHas('groups', fn ($g) => $g->whereIn('groups.id', $groupIds))
+                ->orWhereIn('id', $inviteeIds)))
+            ->get()
+            ->filter(fn (User $u) => $u->canUseModule('kalender'))
+            ->values();
+    }
+
+    /** Rückmeldungen grouped, who of the audience has not answered yet, attendance and whether there are enough */
+    public function summary(Event $event): array
+    {
+        $responses = $event->responses()->with('user')->get();
+        $answered = $responses->whereNotNull('status')->pluck('user_id')->all();
+        $yes = $responses->where('status', 'yes')->values();
+
+        return [
+            'yes' => $yes,
+            'maybe' => $responses->where('status', 'maybe')->values(),
+            'no' => $responses->where('status', 'no')->values(),
+            'open' => $this->audience($event)->reject(fn (User $u) => in_array($u->id, $answered, true))->values(),
+            'attended' => $responses->where('attended', true)->values(),
+            'missing' => $event->min_participants ? max(0, $event->min_participants - $yes->count()) : 0,
+        ];
+    }
+
+    /**
+     * Reminds everyone who has not answered: two days before the deadline, or three days before the
+     * start if there is none. Each event is claimed with an atomic update, so it happens once.
+     */
+    public function remindPending(): int
+    {
+        $sent = 0;
+
+        $candidates = Event::where('rsvp', true)->whereNull('cancelled_at')->whereNull('reminder_sent_at')->whereNull('source_id')
+            ->where('starts_at', '>', now())
+            ->where(fn ($q) => $q
+                ->where(fn ($d) => $d->whereNotNull('rsvp_deadline')->where('rsvp_deadline', '>', now())->where('rsvp_deadline', '<=', now()->addDays(2)))
+                ->orWhere(fn ($d) => $d->whereNull('rsvp_deadline')->where('starts_at', '<=', now()->addDays(3))))
+            ->pluck('id');
+
+        foreach ($candidates as $id) {
+            if (DB::table('kal_events')->where('id', $id)->whereNull('reminder_sent_at')->update(['reminder_sent_at' => now()]) !== 1) {
+                continue;
+            }
+
+            $event = Event::find($id);
+            $open = $this->summary($event)['open'];
+            $this->notify($open, new RsvpReminderNotification($event));
+            $sent += $open->count();
+        }
+
+        return $sent;
+    }
+
+    /** Participant list for the Terminverwalter, as CSV for Excel */
+    public function participantsCsv(Event $event): string
+    {
+        $responses = $event->responses()->get()->keyBy('user_id');
+        $people = $this->audience($event)->concat(User::whereIn('id', $responses->keys())->get())->unique('id')->sortBy('name');
+
+        $out = fopen('php://temp', 'r+');
+        fwrite($out, "\xEF\xBB\xBF");
+        fputcsv($out, ['Name', 'Abteilungen', 'Rückmeldung', 'Kommentar', 'Anwesend'], ';');
+        foreach ($people as $user) {
+            $response = $responses->get($user->id);
+            fputcsv($out, [
+                $user->name,
+                $user->groups()->pluck('name')->implode(', '),
+                $response?->status ? $response->label() : 'offen',
+                $response?->comment ?? '',
+                match ($response?->attended) {
+                    true => 'ja', false => 'nein', default => ''
+                },
+            ], ';');
+        }
+        rewind($out);
+
+        return stream_get_contents($out);
+    }
+
+    /** @return Carbon[] start times of all occurrences (Berlin wall clock, so 19:00 stays 19:00 across DST) */
+    public function occurrences(Carbon $start, ?array $repeat): array
+    {
+        $first = $start->copy()->setTimezone('Europe/Berlin');
+
+        if (! $repeat || empty($repeat['freq'])) {
+            return [$first];
+        }
+
+        $until = $repeat['until']->copy()->setTimezone('Europe/Berlin')->endOfDay();
+        $result = [];
+
+        for ($i = 0; $i < self::MAX_OCCURRENCES; $i++) {
+            $next = match ($repeat['freq']) {
+                'weekly' => $first->copy()->addWeeks($i),
+                'biweekly' => $first->copy()->addWeeks(2 * $i),
+                'monthly' => $first->copy()->addMonthsNoOverflow($i),
+                default => throw ValidationException::withMessages(['repeat' => 'Unbekannte Wiederholung.']),
+            };
+
+            if ($next->gt($until)) {
+                break;
+            }
+
+            $result[] = $next;
+        }
+
+        return $result;
+    }
+
+    private function assertTimes(Carbon $start, Carbon $end): void
+    {
+        if ($end->lte($start)) {
+            throw ValidationException::withMessages(['ends_at' => 'Das Ende muss nach dem Beginn liegen.']);
+        }
+    }
+
+    private function notify(Collection $users, Notification $notification): void
+    {
+        $users->each(function (User $user) use ($notification) {
+            try {
+                $user->notify($notification);
+            } catch (Throwable $e) {
+                report($e);
+            }
+        });
+    }
+}

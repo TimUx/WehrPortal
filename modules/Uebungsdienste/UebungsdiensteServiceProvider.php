@@ -1,0 +1,60 @@
+<?php
+
+namespace Modules\Uebungsdienste;
+
+use App\Models\User;
+use App\Services\DashboardRegistry;
+use App\Services\ModuleRegistry;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
+use Modules\Uebungsdienste\src\Livewire\Planner;
+use Modules\Uebungsdienste\src\Livewire\ServiceForm;
+use Modules\Uebungsdienste\src\Services\ServicePlan;
+
+/**
+ * Übungsdienstplaner: who runs which Übungsdienst with which topic. Only the Vorstand gets access,
+ * so members don't just come to the "exciting" Dienste.
+ */
+class UebungsdiensteServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this->app->singleton(ServicePlan::class);
+    }
+
+    public function boot(): void
+    {
+        $base = __DIR__;
+
+        $this->loadViewsFrom($base.'/resources/views', 'uebungsdienste');
+        if (! $this->app->routesAreCached()) {
+            Route::middleware('web')->group($base.'/routes/web.php');
+        }
+        $this->loadMigrationsFrom($base.'/database/migrations');
+
+        Livewire::component('uebungsdienste.planner', Planner::class);
+        Livewire::component('uebungsdienste.service-form', ServiceForm::class);
+
+        Gate::define('plan-uebungsdienste', fn (User $user) => $user->is_admin);
+
+        app(ModuleRegistry::class)->register(
+            'uebungsdienste',
+            'Übungsdienstplaner',
+            'Wer welchen Übungsdienst mit welchem Thema übernimmt – nur für den Vorstand',
+            provider: self::class,
+            route: 'uebungsdienste.index',
+            // Vorstand incl. its sub-functions, and admins; anyone else only after a confirmation
+            audience: fn (User $user) => $user->isVorstand(),
+            audienceLabel: 'Vorstand',
+        );
+
+        // Start page of the Vorstand: who is next, with which topic
+        app(DashboardRegistry::class)->register('uebungsdienste', 'next', function (User $user) {
+            $next = app(ServicePlan::class)->next();
+
+            return $next ? view('uebungsdienste::cards.next', ['service' => $next])->render() : null;
+        });
+    }
+}

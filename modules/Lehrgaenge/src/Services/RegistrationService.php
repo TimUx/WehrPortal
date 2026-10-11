@@ -1,0 +1,206 @@
+<?php
+
+namespace Modules\Lehrgaenge\src\Services;
+
+use App\Models\User;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Notifications\Notification;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+use Modules\Lehrgaenge\src\Models\Course;
+use Modules\Lehrgaenge\src\Models\Record;
+use Modules\Lehrgaenge\src\Notifications\CourseConfirmedNotification;
+use Modules\Lehrgaenge\src\Notifications\CourseReminderNotification;
+use Modules\Lehrgaenge\src\Notifications\RegistrationCancelledNotification;
+use Modules\Lehrgaenge\src\Notifications\RegistrationRejectedNotification;
+use Modules\Lehrgaenge\src\Notifications\RequestReceivedNotification;
+use Throwable;
+
+/**
+ * The Lehrgang process, and the only place that changes it:
+ * 1. the Kamerad reports Interesse (the Ausbildungsleiter are told),
+ * 2. the Ausbildungsleiter registers the Kamerad by hand in fox112 and, once confirmed, enters the
+ *    days with time and place (the Kamerad is told),
+ * 3. 14 days before the first day the Kamerad is reminded,
+ * 4. the Kamerad can cancel with a reason (the Ausbildungsleiter are told and sign off in fox112),
+ * 5. after the Lehrgang the Ausbildungsleiter sets it absolviert.
+ * Admin and Ausbildungsleiter can also decline a registration with a comment.
+ */
+class RegistrationService
+{
+    public const REMIND_DAYS = 14;
+
+    /** Today's date in Berlin, at midnight like the stored dates */
+    public static function today(): Carbon
+    {
+        return Carbon::parse(now('Europe/Berlin')->toDateString());
+    }
+
+    public function request(User $user, Course $course, ?string $note): Record
+    {
+        if (! $course->isOffered()) {
+            throw ValidationException::withMessages(['course' => 'Dieser Lehrgang wird nicht mehr angeboten.']);
+        }
+
+        if (Record::where('user_id', $user->id)->where('course_id', $course->id)->whereIn('status', Record::OPEN)->exists()) {
+            throw ValidationException::withMessages(['course' => 'Für diesen Lehrgang hast du schon Interesse gemeldet.']);
+        }
+
+        if (Record::where('user_id', $user->id)->where('course_id', $course->id)->where('status', 'completed')->exists()) {
+            throw ValidationException::withMessages(['course' => 'Diesen Lehrgang hast du schon absolviert.']);
+        }
+
+        $record = Record::create(['user_id' => $user->id, 'course_id' => $course->id, 'status' => 'requested', 'notes' => filled($note) ? trim($note) : null]);
+        $this->notify($this->managers()->reject(fn (User $m) => $m->is($user)), new RequestReceivedNotification($record));
+
+        return $record;
+    }
+
+    /**
+     * fox112 has confirmed: the days with time and place go in and the Kamerad gets them by mail.
+     * On a confirmed Lehrgang it corrects the days and says so.
+     *
+     * @param  list<array{date: string, starts_at?: ?string, ends_at?: ?string, location?: ?string}>  $sessions  date as Y-m-d, times as H:i
+     */
+    public function confirm(Record $record, array $sessions): void
+    {
+        $this->assertStatus($record, Record::OPEN);
+        $sessions = $this->validSessions($sessions);
+        $changed = $record->status === 'confirmed';
+        $first = Carbon::parse($sessions[0]['date']);
+
+        DB::transaction(function () use ($record, $sessions, $first) {
+            $record->sessions()->delete();
+            $record->sessions()->createMany($sessions);
+            $record->update([
+                'status' => 'confirmed',
+                'starts_on' => $first->toDateString(),
+                'confirmed_at' => $record->confirmed_at ?? now(),
+                // Within the reminder window the confirmation is the reminder
+                'start_reminded_at' => $first->lte(self::today()->addDays(self::REMIND_DAYS)) ? now() : null,
+            ]);
+        });
+
+        $this->notify(collect([$record->user]), new CourseConfirmedNotification($record->fresh(['course', 'sessions']), $changed));
+    }
+
+    /** The Kamerad cancels; the reason is kept and the Ausbildungsleiter are told */
+    public function cancel(Record $record, string $reason): void
+    {
+        $this->assertStatus($record, Record::OPEN);
+
+        if (trim($reason) === '') {
+            throw ValidationException::withMessages(['reason' => 'Bitte einen Grund angeben.']);
+        }
+
+        $record->update(['status' => 'cancelled', 'cancelled_at' => now(), 'cancel_reason' => trim($reason)]);
+        $this->notify($this->managers()->reject(fn (User $m) => $m->is($record->user)), new RegistrationCancelledNotification($record->fresh(['course', 'user', 'sessions'])));
+    }
+
+    /** Admin or Ausbildungsleiter decline a registration with a comment; the Kamerad gets it by mail */
+    public function reject(Record $record, string $comment): void
+    {
+        $this->assertStatus($record, Record::OPEN);
+
+        if (trim($comment) === '') {
+            throw ValidationException::withMessages(['comment' => 'Bitte einen Kommentar für den Kameraden angeben.']);
+        }
+
+        $record->update(['status' => 'rejected', 'cancelled_at' => now(), 'cancel_reason' => trim($comment)]);
+        $this->notify(collect([$record->user]), new RegistrationRejectedNotification($record->fresh(['course', 'user'])));
+    }
+
+    /** Absolviert, on the last day of the Lehrgang unless given */
+    public function complete(Record $record, ?string $completedOn = null): void
+    {
+        $this->assertStatus($record, ['confirmed']);
+        $record->update(['status' => 'completed', 'completed_on' => $completedOn ?? $record->sessions()->max('date')]);
+    }
+
+    /** Mails the Kamerad 14 days before the first day, once; claimed atomically against a second scheduler */
+    public function remindUpcoming(): int
+    {
+        $sent = 0;
+        $today = self::today();
+
+        $candidates = Record::where('status', 'confirmed')->whereNull('start_reminded_at')
+            ->whereDate('starts_on', '>=', $today)->whereDate('starts_on', '<=', $today->copy()->addDays(self::REMIND_DAYS))
+            ->pluck('id');
+
+        foreach ($candidates as $id) {
+            if (DB::table('lq_records')->where('id', $id)->whereNull('start_reminded_at')->update(['start_reminded_at' => now()]) !== 1) {
+                continue;
+            }
+
+            $record = Record::with(['user', 'course', 'sessions'])->find($id);
+
+            if ($record->user?->is_active) {
+                $this->notify(collect([$record->user]), new CourseReminderNotification($record));
+                $sent++;
+            }
+        }
+
+        return $sent;
+    }
+
+    /** Ausbildungsleiter, or the admins if nobody holds the role */
+    public function managers(): EloquentCollection
+    {
+        $managers = User::active()
+            ->whereHas('moduleAccess', fn ($q) => $q->where('module', 'lehrgaenge')->where('role', 'ausbildungsleiter'))
+            ->get();
+
+        return $managers->isNotEmpty() ? $managers : User::active()->where('is_admin', true)->get();
+    }
+
+    /** @return list<array{date: string, starts_at: ?string, ends_at: ?string, location: ?string}> sorted by day */
+    private function validSessions(array $sessions): array
+    {
+        $time = fn ($v) => filled($v) && preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $v) ? $v : null;
+
+        $clean = collect($sessions)->filter(fn ($s) => filled($s['date'] ?? null))->map(function (array $s, $i) use ($time) {
+            $date = rescue(fn () => Carbon::createFromFormat('!Y-m-d', $s['date']), null, false);
+
+            if (! $date) {
+                throw ValidationException::withMessages(["sessions.$i.date" => 'Ungültiges Datum.']);
+            }
+
+            if ((filled($s['starts_at'] ?? null) && ! $time($s['starts_at'])) || (filled($s['ends_at'] ?? null) && ! $time($s['ends_at']))) {
+                throw ValidationException::withMessages(["sessions.$i.starts_at" => 'Bitte die Uhrzeit als HH:MM angeben.']);
+            }
+
+            return [
+                'date' => $date->toDateString(),
+                'starts_at' => $time($s['starts_at'] ?? null),
+                'ends_at' => $time($s['ends_at'] ?? null),
+                'location' => filled($s['location'] ?? null) ? mb_substr(trim($s['location']), 0, 255) : null,
+            ];
+        })->sortBy(fn ($s) => $s['date'].($s['starts_at'] ?? ''))->values();
+
+        if ($clean->isEmpty()) {
+            throw ValidationException::withMessages(['sessions' => 'Bitte mindestens einen Lehrgangstag eintragen.']);
+        }
+
+        return $clean->all();
+    }
+
+    private function assertStatus(Record $record, array $allowed): void
+    {
+        if (! in_array($record->status, $allowed, true)) {
+            throw ValidationException::withMessages(['record' => 'Das geht bei „'.$record->statusLabel().'“ nicht (mehr).']);
+        }
+    }
+
+    private function notify(Collection $users, Notification $notification): void
+    {
+        $users->filter()->each(function (User $user) use ($notification) {
+            try {
+                $user->notify($notification);
+            } catch (Throwable $e) {
+                report($e);
+            }
+        });
+    }
+}

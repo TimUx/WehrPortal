@@ -1,0 +1,7 @@
+#!/command/execlineb -P
+# Laravel scheduler next to nginx and php-fpm (reminder mails, token pruning).
+# Starts after the migrations; stdout is dropped, errors reach the logs via LOG_CHANNEL=stderr.
+with-contenv
+cd /var/www/html
+redirfd -w 1 /dev/null
+php artisan schedule:work --no-interaction

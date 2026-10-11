@@ -1,0 +1,74 @@
+<?php
+
+namespace Modules\Finanzen\src\Services;
+
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
+use Modules\Finanzen\src\Models\Entry;
+use RuntimeException;
+use ZipArchive;
+
+/**
+ * For the Steuerberater and the Behörden: all approved and paid Buchungen of a year as CSV (Excel
+ * opens it directly: semicolon, decimal comma, UTF-8 with BOM) and all Belege as ZIP, named by
+ * Belegnummer so they match the list.
+ */
+class FinanceExport
+{
+    /** @return Collection<int, Entry> */
+    public function entries(int $year): Collection
+    {
+        return Entry::with(['costCenter', 'submitter', 'decider', 'payer', 'receipts:id,entry_id,name'])
+            ->where('year', $year)->whereIn('status', Entry::BOOKED)
+            ->orderBy('booked_on')->orderBy('number')->get();
+    }
+
+    public function csv(int $year): string
+    {
+        $rows = [['Belegnummer', 'Belegdatum', 'Art', 'Kostenstelle Nr.', 'Kostenstelle', 'Bezeichnung', 'Händler / Zahler', 'Betrag', 'Einnahme', 'Ausgabe',
+            'Status', 'Eingereicht von', 'Genehmigt von', 'Genehmigt am', 'Bezahlt am', 'Zahlungshinweis', 'Belege']];
+
+        foreach ($this->entries($year) as $e) {
+            $amount = number_format($e->amount_cents / 100, 2, ',', '');
+            $rows[] = [
+                $e->code(), $e->booked_on->format('d.m.Y'), Entry::KINDS[$e->kind], (string) $e->costCenter->code, $e->costCenter->name, $e->title, (string) $e->vendor,
+                ($e->isIncome() ? '' : '-').$amount, $e->isIncome() ? $amount : '', $e->isIncome() ? '' : $amount,
+                $e->statusLabel(), (string) $e->submitter?->name, (string) $e->decider?->name,
+                (string) $e->decided_at?->setTimezone('Europe/Berlin')->format('d.m.Y'), (string) $e->paid_at?->setTimezone('Europe/Berlin')->format('d.m.Y'),
+                (string) $e->payment_note, (string) $e->receipts->count(),
+            ];
+        }
+
+        $handle = fopen('php://temp', 'r+');
+        fwrite($handle, "\u{FEFF}");
+        foreach ($rows as $row) {
+            fputcsv($handle, $row, ';', '"', '');
+        }
+        rewind($handle);
+
+        return (string) stream_get_contents($handle);
+    }
+
+    /** Path of a temporary ZIP with all Belege of the year; the caller deletes it */
+    public function receiptsZip(int $year): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'belege');
+        $zip = new ZipArchive;
+
+        if ($zip->open($path, ZipArchive::OVERWRITE) !== true) {
+            throw new RuntimeException('Die ZIP-Datei lässt sich nicht anlegen.');
+        }
+
+        $zip->addFromString('Buchungen '.$year.'.csv', $this->csv($year));
+        foreach ($this->entries($year) as $entry) {
+            foreach ($entry->receipts()->get() as $i => $receipt) {
+                $extension = pathinfo($receipt->name, PATHINFO_EXTENSION) ?: ($receipt->mime === 'application/pdf' ? 'pdf' : 'webp');
+                $name = $entry->code().'_'.Str::slug(Str::limit($entry->title, 40, ''), '-', 'de').($i > 0 ? '_'.($i + 1) : '').'.'.$extension;
+                $zip->addFromString($name, (string) base64_decode($receipt->data));
+            }
+        }
+        $zip->close();
+
+        return $path;
+    }
+}

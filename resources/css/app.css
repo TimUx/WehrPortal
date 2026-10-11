@@ -1,0 +1,203 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+@source '../../app/**/*.php';
+
+@theme {
+    --font-sans: ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* Fire brigade colors */
+    --color-fw-navy:       #1B2645;
+    --color-fw-red:        #ED2F12;
+    --color-fw-red-dark:   #9B0103;
+    --color-fw-white:      #FFFFFF;
+    --color-fw-green:      #4CA662;
+    --color-fw-green-logo: #009A44;
+    --color-fw-orange:     #F66123;
+    --color-fw-grey:       #4A4A4A;
+    --color-fw-grey-dark:  #222222;
+    --color-fw-grey-mid:   #A0A0A0;
+    --color-fw-grey-light: #EEEEEE;
+    --color-fw-grey-bg:    #F7F7F7;
+}
+
+/* FullCalendar: brand colors */
+.fc {
+    --fc-button-bg-color: var(--color-fw-red);
+    --fc-button-border-color: var(--color-fw-red);
+    --fc-button-hover-bg-color: var(--color-fw-red-dark);
+    --fc-button-hover-border-color: var(--color-fw-red-dark);
+    --fc-button-active-bg-color: var(--color-fw-red-dark);
+    --fc-button-active-border-color: var(--color-fw-red-dark);
+    --fc-today-bg-color: rgba(237, 47, 18, 0.06);
+    --fc-neutral-bg-color: var(--color-fw-grey-bg);
+    --fc-border-color: var(--color-fw-grey-light);
+}
+
+.fc .fc-toolbar-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-fw-grey-dark);
+}
+
+.fc .fc-button {
+    font-size: 0.875rem;
+    box-shadow: none !important;
+}
+
+.fc .fc-list-empty {
+    background: transparent;
+    color: var(--color-fw-grey-mid);
+}
+
+/* Event content: list rows with icons, stacked lines in the week grid */
+.fc-ev-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 1rem;
+}
+.fc-ev-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+.fc-ev-icon {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    color: #000;
+}
+.fc-ev-pending {
+    padding: 0 0.4rem;
+    border-radius: 0.25rem;
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+.fc-ev-week {
+    overflow: hidden;
+    height: 100%;
+    padding: 1px 2px;
+    line-height: 1.2;
+}
+.fc-ev-week > div {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.fc-ev-vehicle {
+    font-weight: 600;
+    font-size: 0.75rem;
+}
+.fc-ev-purpose {
+    font-size: 0.75rem;
+}
+.fc-ev-user {
+    font-size: 0.675rem;
+    opacity: 0.9;
+}
+
+/* Phones: only the vehicle name, wrapped instead of cut off in the narrow columns */
+.fc-ev-week-compact > .fc-ev-vehicle {
+    font-size: 0.625rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+}
+
+/* List view: bookings that are over step back, upcoming ones stay prominent */
+.fc .fc-list-event.fc-ev-over td {
+    opacity: 0.45;
+}
+.fc .fc-list-event.fc-ev-over .fc-list-event-dot,
+.fc .fc-list-event.fc-ev-over .fc-ev-icon {
+    filter: grayscale(1);
+}
+.fc .fc-list-day.fc-day-past .fc-list-day-cushion {
+    color: var(--color-fw-grey-mid);
+    font-weight: 400;
+}
+
+/* Conflict requests waiting for a decision: striped and faded */
+.fc .fc-event-pending {
+    opacity: 0.7;
+    background-image: repeating-linear-gradient(135deg, transparent 0 6px, rgba(255, 255, 255, 0.35) 6px 12px);
+    border-style: dashed !important;
+}
+
+/* FullCalendar mobile: title on its own row, buttons in one row below */
+@media (max-width: 639px) {
+    .fc .fc-header-toolbar {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem !important;
+    }
+    .fc .fc-header-toolbar .fc-toolbar-chunk:nth-child(2) {
+        order: -1;
+        width: 100%;
+        justify-content: center;
+    }
+    .fc .fc-toolbar-title {
+        font-size: 1.05rem;
+    }
+    .fc .fc-header-toolbar .fc-toolbar-chunk {
+        display: flex;
+    }
+    .fc .fc-button {
+        font-size: 0.78rem;
+        padding: 0.35rem 0.5rem;
+    }
+    .fc .fc-toolbar .fc-today-button {
+        margin-left: 0.25rem;
+    }
+}
+
+.fc .fc-button-primary:disabled {
+    background-color: var(--color-fw-grey-mid);
+    border-color: var(--color-fw-grey-mid);
+}
+
+/* FullCalendar mobile tweaks */
+.fc-event-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin: 2px;
+}
+
+/* Month view mobile: show events as colored dots */
+@media (max-width: 430px) {
+    .fc-daygrid-event-harness {
+        display: inline-block;
+    }
+    .fc-daygrid-event {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+    }
+}
+
+/* FAB button positioning */
+.fab-button {
+    position: fixed;
+    bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+    right: 1rem;
+    z-index: 50;
+}
+
+@media (min-width: 640px) {
+    .fab-button {
+        bottom: 1.5rem;
+    }
+}
+
+[x-cloak] {
+    display: none !important;
+}

@@ -1,0 +1,159 @@
+<?php
+
+use App\Http\Controllers\Auth\EmailChangeController;
+use App\Http\Controllers\Auth\MagicLinkController;
+use App\Http\Controllers\ScanController;
+use App\Models\FeedbackThread;
+use App\Models\User;
+use App\Services\Impersonation;
+use App\Services\OrganizationSettings;
+use Illuminate\Support\Facades\Route;
+
+// Root: the personal start page with notices, module cards and the modules (requires login)
+Route::view('/', 'pages.home')->middleware(['auth', 'active'])->name('home');
+
+// Laravel auth middleware expects a route named 'login'; guests are sent straight to /anmelden (bootstrap/app.php)
+Route::redirect('/login', '/anmelden')->name('login');
+
+// -----------------------------------------------------------------------
+// Auth routes (public)
+// -----------------------------------------------------------------------
+Route::name('auth.')->group(function () {
+    Route::get('/anmelden', [MagicLinkController::class, 'showForm'])->name('magic-link.form');
+    Route::post('/anmelden', [MagicLinkController::class, 'sendLink'])->name('magic-link.send');
+    Route::get('/anmelden/gesendet', [MagicLinkController::class, 'linkSent'])->name('magic-link.sent');
+
+    // Two-step: GET shows confirmation button, POST consumes the token
+    Route::get('/anmelden/{token}', [MagicLinkController::class, 'showConfirm'])->name('magic-link.confirm');
+    Route::post('/anmelden/{token}', [MagicLinkController::class, 'consumeToken'])->name('magic-link.consume');
+
+    // Double opt-in for a Kamerad's new e-mail address; the same two steps, so mail scanners cannot confirm it
+    Route::middleware('throttle:10,1')->group(function () {
+        Route::get('/e-mail-bestaetigen/{token}', [EmailChangeController::class, 'show'])->name('email-change.confirm');
+        Route::post('/e-mail-bestaetigen/{token}', [EmailChangeController::class, 'confirm'])->name('email-change.consume');
+    });
+});
+
+// -----------------------------------------------------------------------
+// Authenticated routes
+// -----------------------------------------------------------------------
+Route::middleware(['auth', 'active'])->group(function () {
+    Route::get('/personalakte', fn () => view('pages.profile'))->name('profile');
+
+    // Notifications (the bell): the list, and opening one marks it read and leads to where something is to do
+    Route::get('/benachrichtigungen', fn () => view('pages.notifications.index'))->name('notifications.index');
+    Route::get('/benachrichtigungen/{id}', function (string $id) {
+        $notification = auth()->user()->notifications()->whereKey($id)->firstOrFail();
+        if (! app(Impersonation::class)->active()) {
+            $notification->markAsRead();
+        }
+        $url = parse_url((string) ($notification->data['url'] ?? ''));
+
+        // Only links into the app itself (APP_URL or this host), always opened on this host
+        $own = in_array($url['host'] ?? null, [parse_url(config('app.url'), PHP_URL_HOST), request()->getHost()], true);
+
+        return redirect()->to($own ? ($url['path'] ?? '/').(isset($url['query']) ? '?'.$url['query'] : '') : route('notifications.index'));
+    })->whereUuid('id')->name('notifications.open');
+
+    // Feedback conversation with the admins (own threads only)
+    Route::get('/feedback/{thread}', function (FeedbackThread $thread) {
+        abort_unless($thread->user_id === auth()->id(), 403);
+
+        return view('pages.feedback.show', ['thread' => $thread]);
+    })->name('feedback.show');
+
+    // Avatar images (versioned URL, cached by the browser)
+    Route::get('/avatare/{user}', function (User $user) {
+        $avatar = $user->avatar ?? abort(404);
+
+        return response(base64_decode($avatar->data), 200, [
+            'Content-Type' => $avatar->mime,
+            'Cache-Control' => 'private, max-age=31536000, immutable',
+        ]);
+    })->name('avatars.show');
+
+    // Logout
+    Route::post('/abmelden', [MagicLinkController::class, 'logout'])->name('logout');
+
+    // An admin who sees the app as a Kamerad goes back to the own login
+    Route::post('/zurueck-zum-admin', function (Impersonation $impersonation) {
+        $admin = $impersonation->stop();
+
+        return $admin ? redirect('/admin/kameraden') : redirect()->route('auth.magic-link.form');
+    })->name('impersonation.stop');
+});
+
+// Universal scan redirect: /i/{code} → module-owned detail page (public; auth at destination)
+Route::get('/i/{code}', ScanController::class)->name('scan.code');
+
+// Organization logo (public, versioned for browser caching)
+Route::get('/organisation/logo', function () {
+    $org = app(OrganizationSettings::class);
+    abort_unless($org->logoData(), 404);
+
+    return response(base64_decode($org->logoData()), 200, [
+        'Content-Type' => $org->logoMime() ?? 'image/webp',
+        'Cache-Control' => 'public, max-age=31536000, immutable',
+    ]);
+})->name('organization.logo');
+
+// -----------------------------------------------------------------------
+// Old English addresses: bookmarks, the station monitor and links in sent mails keep working
+// -----------------------------------------------------------------------
+foreach ([
+    'auth/login/sent' => 'anmelden/gesendet',
+    'auth/login' => 'anmelden',
+    'auth/email' => 'e-mail-bestaetigen',
+    'profile' => 'personalakte',
+    'profil' => 'personalakte',
+    'avatars' => 'avatare',
+    'organization/logo' => 'organisation/logo',
+    'fahrzeugbuchung/calendar' => 'fahrzeugbuchung',
+    'fahrzeugbuchung/kalender' => 'fahrzeugbuchung',
+    'fahrzeugbuchung/my-bookings' => 'fahrzeugbuchung/meine-buchungen',
+    'fahrzeugbuchung/decisions' => 'fahrzeugbuchung/entscheidungen',
+    'admin/login' => 'admin/anmelden',
+    'admin/users' => 'admin/kameraden',
+    'admin/groups' => 'admin/abteilungen',
+    'admin/functions' => 'admin/funktionen',
+    'admin/feedback-threads' => 'admin/feedback',
+    'admin/manage-modules' => 'admin/module',
+    'admin/modules' => 'admin/module',
+    'admin/services' => 'admin/einstellungen',
+    'admin/dienste' => 'admin/einstellungen',
+    'admin/organization-settings-page' => 'admin/einstellungen',
+    'admin/e-mail-log' => 'admin/logs',
+    'admin/fahrzeugbuchung/login' => 'admin/fahrzeugbuchung/anmelden',
+    'admin/fahrzeugbuchung/bookings' => 'admin/fahrzeugbuchung/buchungen',
+    'admin/fahrzeugbuchung/vehicles' => 'admin/fahrzeugbuchung/fahrzeuge',
+    'admin/fahrzeugbuchung/mail-templates' => 'admin/fahrzeugbuchung/e-mail-texte',
+    'admin/kleiderkammer/login' => 'admin/kleiderkammer/anmelden',
+    'admin/kleiderkammer/data-transfer-page' => 'admin/kleiderkammer/datentransfer',
+    'admin/kleiderkammer/inventory-report-page' => 'admin/kleiderkammer/bestandsbericht',
+    'admin/kleiderkammer/scan-page' => 'admin/kleiderkammer/scanner',
+    'admin/kleiderkammer/messages' => 'admin/kleiderkammer/maengelmanagement',
+    'admin/kleiderkammer/item-categories' => 'admin/kleiderkammer/kategorien',
+    'admin/kleiderkammer/item-types' => 'admin/kleiderkammer/artikeltypen',
+    'admin/kleiderkammer/items' => 'admin/kleiderkammer/einzelteile',
+    'admin/kleiderkammer/members' => 'admin/kleiderkammer/kameraden',
+    'admin/kleiderkammer/stocks' => 'admin/kleiderkammer/massenbestand',
+    'admin/maengelmanagement/login' => 'admin/maengelmanagement/anmelden',
+    'admin/maengelmanagement/defects' => 'admin/maengelmanagement/maengel',
+    'admin/maengelmanagement/devices' => 'admin/maengelmanagement/geraete',
+    'admin/ausruestung/login' => 'admin/ausruestung/anmelden',
+    'admin/ausruestung/categories' => 'admin/ausruestung/kategorien',
+    'admin/ausruestung/damages' => 'admin/ausruestung/schaeden',
+    'admin/ausruestung/equipment' => 'admin/ausruestung/geraete',
+    'admin/ausruestung/loans' => 'admin/ausruestung/ausleihe',
+    'admin/ausruestung/locations' => 'admin/ausruestung/standorte',
+    'admin/ausruestung/recalls' => 'admin/ausruestung/rueckrufe',
+    'admin/ausruestung/load-plan' => 'admin/ausruestung/beladeplan',
+] as $old => $new) {
+    Route::get($old.'/{rest?}', function (?string $rest = null) use ($new) {
+        // Admin sub-pages: …/create → …/neu, …/{id}/edit → …/{id}/bearbeiten
+        $rest = preg_replace(['#^create$#', '#/edit$#'], ['neu', '/bearbeiten'], (string) $rest);
+        $query = request()->getQueryString();
+
+        return redirect('/'.$new.($rest !== '' ? '/'.$rest : '').($query ? '?'.$query : ''), 301);
+    })->where('rest', '.*');
+}
