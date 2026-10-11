@@ -23,6 +23,7 @@ use Modules\Verbandbuch\src\Models\AccessLog as VerbandbuchAccessLog;
 use Modules\Verbandbuch\src\Models\Amendment as VerbandbuchAmendment;
 use Modules\Verbandbuch\src\Models\Entry as VerbandbuchEntry;
 use Modules\Verbandbuch\src\Models\Signature as VerbandbuchSignature;
+use Modules\Wasserkarte\src\Models\StatusEvent as WasserkarteStatusEvent;
 use Throwable;
 
 /**
@@ -40,7 +41,7 @@ class ActivityRecorder
         ActivityLog::class, MailLog::class, LoginToken::class, EmailChangeRequest::class, UserModulePreference::class,
         FeedToken::class, BookingCommentRevision::class, DefectEvent::class, EquipmentEvent::class, DiveraRequest::class,
         VerbandbuchEntry::class, VerbandbuchSignature::class, VerbandbuchAmendment::class, VerbandbuchAccessLog::class,
-        AtemschutzReading::class, AtemschutzWarning::class, FahrzeugStatusEvent::class, FahrtenbuchRevision::class,
+        AtemschutzReading::class, AtemschutzWarning::class, FahrzeugStatusEvent::class, FahrtenbuchRevision::class, WasserkarteStatusEvent::class,
     ];
 
     /** Changes of only these fields are bookkeeping, not worth an entry */

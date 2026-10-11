@@ -22,6 +22,7 @@ use Modules\Schichtplan\SchichtplanServiceProvider;
 use Modules\Uebungsdienste\UebungsdiensteServiceProvider;
 use Modules\Verbandbuch\VerbandbuchServiceProvider;
 use Modules\Wartung\WartungServiceProvider;
+use Modules\Wasserkarte\WasserkarteServiceProvider;
 
 return [
     AppServiceProvider::class,
@@ -46,4 +47,5 @@ return [
     AtemschutzServiceProvider::class,
     FahrzeugeServiceProvider::class,
     FahrtenbuchServiceProvider::class,
+    WasserkarteServiceProvider::class,
 ];

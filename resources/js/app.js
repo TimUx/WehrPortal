@@ -3,3 +3,4 @@ import './calendar';
 import './einsatz-map';
 import './signature-pad';
 import './atemschutz-board';
+import './water-map';
