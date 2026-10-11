@@ -86,6 +86,10 @@
         </table>
     </section>
 
+    @if(app(\App\Services\ModuleRegistry::class)->isActive('atemschutz'))
+        @include('atemschutz::partials.report-section', ['report' => $report, 'print' => true])
+    @endif
+
     @if($report->materials->isNotEmpty())
         <section>
             <h2>Verbrauchsmaterial</h2>

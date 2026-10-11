@@ -6,6 +6,7 @@ use App\Providers\Filament\AusruestungAdminPanelProvider;
 use App\Providers\Filament\FahrzeugbuchungAdminPanelProvider;
 use App\Providers\Filament\KleiderkammerAdminPanelProvider;
 use App\Providers\Filament\MaengelmanagementAdminPanelProvider;
+use Modules\Atemschutz\AtemschutzServiceProvider;
 use Modules\Ausruestung\AusruestungServiceProvider;
 use Modules\Einsatzbericht\EinsatzberichtServiceProvider;
 use Modules\Fahrzeugbuchung\FahrzeugbuchungServiceProvider;
@@ -40,4 +41,5 @@ return [
     FinanzenServiceProvider::class,
     VerbandbuchServiceProvider::class,
     WartungServiceProvider::class,
+    AtemschutzServiceProvider::class,
 ];
