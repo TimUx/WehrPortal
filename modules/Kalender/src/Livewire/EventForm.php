@@ -3,12 +3,14 @@
 namespace Modules\Kalender\src\Livewire;
 
 use App\Models\Group;
+use App\Models\MemberFunction;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Modules\Kalender\src\Models\Event;
+use Modules\Kalender\src\Models\Template;
 use Modules\Kalender\src\Services\EventService;
 
 /**
@@ -50,6 +52,15 @@ class EventForm extends Component
     /** @var array<int, string> Kameraden invited individually */
     public array $inviteeIds = [];
 
+    /** @var array<int, string> Funktionen of the target group */
+    public array $functionIds = [];
+
+    public string $templateId = '';
+
+    public string $templateName = '';
+
+    public ?string $flash = null;
+
     public string $minParticipants = '';
 
     public bool $isPublic = false;
@@ -84,6 +95,7 @@ class EventForm extends Component
             $this->description = (string) $event->description;
             $this->groupIds = $event->groups->pluck('id')->map(fn ($id) => (string) $id)->all();
             $this->inviteeIds = $event->invitees->pluck('id')->map(fn ($id) => (string) $id)->all();
+            $this->functionIds = $event->functions->pluck('id')->map(fn ($id) => (string) $id)->all();
             $this->minParticipants = (string) ($event->min_participants ?? '');
             $this->isPublic = $event->is_public;
             $this->rsvp = $event->rsvp;
@@ -131,6 +143,59 @@ class EventForm extends Component
         }
     }
 
+    /** Fills the form from a Terminvorlage; the day stays, time, length and the rest come from it */
+    public function applyTemplate(): void
+    {
+        $template = Template::find((int) $this->templateId);
+        if (! $template) {
+            return;
+        }
+        $d = $template->data;
+        $day = $this->local($this->startsAt)?->format('Y-m-d') ?? ($this->startDate ?: now('Europe/Berlin')->addDay()->format('Y-m-d'));
+
+        $this->fill([
+            'title' => $d['title'] ?? $this->title, 'type' => $d['type'] ?? $this->type, 'allDay' => (bool) ($d['all_day'] ?? false),
+            'location' => (string) ($d['location'] ?? ''), 'description' => (string) ($d['description'] ?? ''), 'rsvp' => (bool) ($d['rsvp'] ?? false),
+            'minParticipants' => (string) ($d['min_participants'] ?? ''), 'isPublic' => (bool) ($d['is_public'] ?? false),
+            'groupIds' => array_map('strval', $d['group_ids'] ?? []), 'functionIds' => array_map('strval', $d['function_ids'] ?? []),
+        ]);
+        $start = Carbon::createFromFormat('Y-m-d H:i', $day.' '.($d['start_time'] ?? '19:00'), 'Europe/Berlin');
+        $this->startsAt = $start->format(self::LOCAL);
+        $this->endsAt = $start->copy()->addMinutes((int) ($d['minutes'] ?? self::DEFAULT_MINUTES))->format(self::LOCAL);
+        $this->startDate = $day;
+        $this->endDate = Carbon::parse($day)->addDays(max(0, (int) ($d['days'] ?? 1) - 1))->format('Y-m-d');
+        $this->rsvpDeadline = $this->rsvp && isset($d['rsvp_days']) ? Carbon::parse($day)->subDays((int) $d['rsvp_days'])->format('Y-m-d') : '';
+        $this->flash = 'Vorlage „'.$template->name.'“ übernommen.';
+    }
+
+    /** Saves the form as Terminvorlage (same name overwrites) */
+    public function saveTemplate(): void
+    {
+        $this->validate(['templateName' => ['required', 'string', 'max:100']], ['templateName.required' => 'Wie soll die Vorlage heißen?']);
+        $start = $this->local($this->startsAt);
+        $end = $this->local($this->endsAt);
+        $day = $start?->format('Y-m-d') ?? $this->startDate;
+
+        Template::updateOrCreate(['name' => trim($this->templateName)], ['created_by' => auth()->id(), 'data' => [
+            'title' => trim($this->title), 'type' => $this->type, 'all_day' => $this->allDay,
+            'start_time' => $start?->format('H:i'), 'minutes' => $start && $end && $end->gt($start) ? (int) $start->diffInMinutes($end) : self::DEFAULT_MINUTES,
+            'days' => $this->allDay && $this->startDate && $this->endDate ? Carbon::parse($this->startDate)->diffInDays(Carbon::parse($this->endDate)) + 1 : 1,
+            'location' => trim($this->location), 'description' => trim($this->description), 'rsvp' => $this->rsvp,
+            'rsvp_days' => $this->rsvp && $this->rsvpDeadline && $day ? (int) Carbon::parse($this->rsvpDeadline)->diffInDays(Carbon::parse($day)) : null,
+            'min_participants' => filled($this->minParticipants) ? (int) $this->minParticipants : null, 'is_public' => $this->isPublic,
+            'group_ids' => array_map('intval', $this->groupIds), 'function_ids' => array_map('intval', $this->functionIds),
+        ]]);
+        $this->flash = 'Vorlage „'.trim($this->templateName).'“ gespeichert.';
+        $this->templateName = '';
+    }
+
+    public function deleteTemplate(): void
+    {
+        Template::whereKey((int) $this->templateId)->delete();
+        $this->templateId = '';
+        $this->flash = 'Vorlage gelöscht.';
+    }
+
     private function local(?string $value): ?Carbon
     {
         return $value && Carbon::canBeCreatedFromFormat($value, self::LOCAL) ? Carbon::createFromFormat(self::LOCAL, $value, 'Europe/Berlin') : null;
@@ -149,6 +214,7 @@ class EventForm extends Component
             'description' => ['nullable', 'string', 'max:5000'],
             'groupIds.*' => ['exists:groups,id'],
             'inviteeIds.*' => ['exists:users,id'],
+            'functionIds.*' => ['exists:member_functions,id'],
             'minParticipants' => ['nullable', 'integer', 'min:1', 'max:999'],
             'rsvpDeadline' => ['nullable', 'date_format:Y-m-d'],
             'repeat' => ['nullable', Rule::in(array_keys(EventService::REPEATS))],
@@ -179,15 +245,16 @@ class EventForm extends Component
         ];
         $groups = array_map('intval', $this->groupIds);
         $invitees = array_map('intval', $this->inviteeIds);
+        $functions = array_map('intval', $this->functionIds);
 
         try {
             if ($this->event) {
                 $data['rsvp_deadline'] = $data['rsvp_deadline']?->utc();
-                $events->update($this->event, $data, $groups, $this->applyToFollowing, $invitees);
+                $events->update($this->event, $data, $groups, $this->applyToFollowing, $invitees, $functions);
                 $target = $this->event;
             } else {
                 $repeat = filled($this->repeat) ? ['freq' => $this->repeat, 'until' => $day($this->repeatUntil)] : null;
-                $target = $events->create($data, $groups, auth()->user(), $repeat, $this->notify, $invitees)->first();
+                $target = $events->create($data, $groups, auth()->user(), $repeat, $this->notify, $invitees, $functions)->first();
             }
         } catch (ValidationException $e) {
             $this->addError($this->allDay ? 'endDate' : 'endsAt', collect($e->errors())->flatten()->first());
@@ -206,6 +273,8 @@ class EventForm extends Component
             'people' => User::active()->orderBy('name')->get()->filter(fn (User $u) => $u->canUseModule('kalender'))->pluck('name', 'id'),
             'repeats' => EventService::REPEATS,
             'inSeries' => (bool) $this->event?->series_id,
+            'functions' => MemberFunction::with('parent')->orderBy('sort_order')->orderBy('name')->get()->mapWithKeys(fn (MemberFunction $f) => [$f->id => $f->fullLabel()])->sort(),
+            'templates' => Template::orderBy('name')->pluck('name', 'id'),
         ]);
     }
 }

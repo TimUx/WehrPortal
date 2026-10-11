@@ -3,6 +3,17 @@
     <a href="{{ $event ? route('kalender.show', $event) : route('kalender.index') }}" class="text-sm text-gray-500 hover:text-gray-900">← {{ $event ? 'Termin' : 'Kalender' }}</a>
     <h1 class="text-xl font-bold text-gray-900 mt-1 mb-4">{{ $event ? 'Termin bearbeiten' : 'Neuer Termin' }}</h1>
 
+    @if($flash)<p class="mb-3 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{{ $flash }}</p>@endif
+    @if($templates->isNotEmpty())
+        <div class="mb-4 flex flex-wrap items-end gap-2 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+            <label class="block flex-1 text-sm font-medium text-gray-700">Aus Vorlage
+                <select wire:model="templateId" class="mt-1 {{ $input }}"><option value="">– Vorlage wählen –</option>@foreach($templates as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select>
+            </label>
+            <button type="button" wire:click="applyTemplate" class="rounded-lg bg-fw-navy px-3 py-2 text-sm font-semibold text-white">Übernehmen</button>
+            @if($templateId)<button type="button" wire:click="deleteTemplate" wire:confirm="Vorlage löschen?" class="text-sm text-red-600 underline">löschen</button>@endif
+        </div>
+    @endif
+
     <form wire:submit="save" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <label class="block text-sm font-medium text-gray-700 sm:col-span-2">Titel <span class="text-red-600">*</span>
@@ -54,12 +65,23 @@
             </div>
         </div>
 
+        @if($functions->isNotEmpty())
+            <div>
+                <p class="text-sm font-medium text-gray-700 mb-1">Für Funktionen (zusätzlich; eine Funktion umfasst ihre Unterfunktionen)</p>
+                <div class="flex flex-wrap gap-3">
+                    @foreach($functions as $id => $name)
+                        <label class="inline-flex items-center gap-1.5 text-sm text-gray-700"><input type="checkbox" value="{{ $id }}" wire:model="functionIds" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> {{ $name }}</label>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
         <div>
             <label for="kal-invitees" class="block text-sm font-medium text-gray-700 mb-1">Einzelne Kameraden einladen (zusätzlich)</label>
             <select id="kal-invitees" multiple size="5" wire:model="inviteeIds" class="{{ $input }}">
                 @foreach($people as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
             </select>
-            <p class="mt-1 text-xs text-gray-500">Mehrere mit Strg/Cmd. Ohne Abteilungen und ohne Einladungen gilt der Termin für alle.</p>
+            <p class="mt-1 text-xs text-gray-500">Mehrere mit Strg/Cmd. Ohne Abteilungen, Funktionen und Einladungen gilt der Termin für alle.</p>
         </div>
 
         <div class="rounded-xl bg-gray-50 p-3 space-y-2">
@@ -97,6 +119,13 @@
             <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="applyToFollowing" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> Titel, Art, Ort, Beschreibung, Rückmeldung und Zielgruppe auch für die folgenden Termine dieser Reihe übernehmen (Zeiten bleiben)</label>
         @endif
 
-        <button type="submit" class="inline-flex items-center rounded-lg bg-fw-red px-4 py-2 text-sm font-semibold text-white hover:bg-fw-red-dark">{{ $event ? 'Speichern' : 'Termin anlegen' }}</button>
+        <div class="flex flex-wrap items-center gap-3">
+            <button type="submit" class="inline-flex items-center rounded-lg bg-fw-red px-4 py-2 text-sm font-semibold text-white hover:bg-fw-red-dark">{{ $event ? 'Speichern' : 'Termin anlegen' }}</button>
+            <span class="ml-auto flex items-center gap-2">
+                <input type="text" wire:model="templateName" maxlength="100" placeholder="Name der Vorlage" class="w-44 rounded-lg border border-gray-300 px-3 py-1.5 text-sm">
+                <button type="button" wire:click="saveTemplate" class="text-sm text-fw-navy underline">Als Vorlage speichern</button>
+            </span>
+        </div>
+        @error('templateName')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
     </form>
 </div>

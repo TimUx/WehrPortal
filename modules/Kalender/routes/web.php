@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\Kalender\src\Http\Controllers\FeedController;
 use Modules\Kalender\src\Http\Controllers\PublicCalendarController;
 use Modules\Kalender\src\Models\Event;
+use Modules\Kalender\src\Models\Poll;
 use Modules\Kalender\src\Services\EventService;
 
 // Subscription feed for phone calendars; the token in the URL replaces the login
@@ -36,6 +37,15 @@ Route::prefix('kalender')->name('kalender.')
             'Content-Type' => 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="teilnehmer-'.$event->starts_at->copy()->setTimezone('Europe/Berlin')->format('Y-m-d').'.csv"',
         ]))->whereNumber('event')->middleware('can:manage,event')->name('participants');
+
+        Route::get('/termine/{event}/teilnehmer/druck', fn (Event $event, EventService $events) => view('kalender::pages.participants-print', [
+            'event' => $event, 'people' => $events->participantRows($event), 'summary' => $events->summary($event),
+        ]))->whereNumber('event')->middleware('can:manage,event')->name('participants.print');
+
+        // Terminabfragen (like Doodle): everyone with access sees the ones meant for them
+        Route::get('/abfragen', fn () => view('kalender::pages.polls'))->name('polls');
+        Route::get('/abfragen/neu', fn () => view('kalender::pages.poll-create'))->middleware('can:manage,'.Event::class)->name('polls.create');
+        Route::get('/abfragen/{poll}', fn (Poll $poll) => view('kalender::pages.poll', compact('poll')))->whereNumber('poll')->name('polls.show');
 
         Route::get('/externe-kalender', fn () => view('kalender::pages.sources'))
             ->middleware('can:manage,'.Event::class)->name('sources');

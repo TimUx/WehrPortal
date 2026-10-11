@@ -8,6 +8,7 @@
             <div>
                 <h1 class="text-xl font-bold text-gray-900">{{ $plan->title }}</h1>
                 <p class="text-sm text-gray-500">{{ $plan->timeLabel() }}@if($plan->location) · {{ $plan->location }}@endif</p>
+                @include('schichtplan::partials.event-link', ['plan' => $plan])
                 <p class="mt-1 text-xs text-gray-500">
                     <span class="px-2 py-0.5 rounded-full font-semibold {{ $plan->isPublished() ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700' }}">{{ $plan->isPublished() ? 'Veröffentlicht' : 'Entwurf' }}</span>
                     @if($plan->mailed_at) · zuletzt verschickt {{ $plan->mailed_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }}@endif
@@ -16,10 +17,17 @@
             <div class="flex flex-wrap gap-2">
                 <a href="{{ route('schichtplan.print', $plan) }}" target="_blank" rel="noopener" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">Druckansicht</a>
                 <a href="{{ route('schichtplan.csv', $plan) }}" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">CSV</a>
+                @if($plan->isSelfSignup())
+                    <a href="{{ route('schichtplan.signup', $plan) }}" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">Eintragung{{ $requests ? ' ('.$requests.' Anfrage'.($requests === 1 ? '' : 'n').')' : '' }}</a>
+                @endif
                 @if($plan->isPublished())
                     <button type="button" wire:click="sendMail" wire:confirm="Den aktuellen Plan an alle {{ $participants->count() }} Teilnehmer schicken?" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">Per E-Mail senden</button>
                 @else
-                    <button type="button" wire:click="publish" wire:confirm="Veröffentlichen und den Plan an alle {{ $participants->count() }} Teilnehmer schicken?" class="inline-flex items-center rounded-lg bg-fw-red px-3 py-1.5 text-sm font-semibold text-white hover:bg-fw-red-dark">Veröffentlichen &amp; senden</button>
+                    @if($plan->isSelfSignup())
+                        <button type="button" wire:click="publish" wire:confirm="Veröffentlichen und die Zielgruppe zum Eintragen einladen?" class="inline-flex items-center rounded-lg bg-fw-red px-3 py-1.5 text-sm font-semibold text-white hover:bg-fw-red-dark">Veröffentlichen &amp; einladen</button>
+                    @else
+                        <button type="button" wire:click="publish" wire:confirm="Veröffentlichen und den Plan an alle {{ $participants->count() }} Teilnehmer schicken?" class="inline-flex items-center rounded-lg bg-fw-red px-3 py-1.5 text-sm font-semibold text-white hover:bg-fw-red-dark">Veröffentlichen &amp; senden</button>
+                    @endif
                 @endif
             </div>
         </div>
@@ -49,6 +57,7 @@
                 </label>
             </div>
             @error('shiftMinutes')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
+            @include('schichtplan::partials.signup-settings')
             <p class="text-xs text-gray-500">Ändern sich Zeiten oder Schichtlänge, werden die Zeitblöcke neu angelegt und die Einteilung geleert.</p>
             <button type="submit" class="inline-flex items-center rounded-lg bg-fw-navy px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90">Speichern</button>
         </form>

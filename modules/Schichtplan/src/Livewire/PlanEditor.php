@@ -12,6 +12,7 @@ use Modules\Schichtplan\src\Models\Plan;
 use Modules\Schichtplan\src\Models\Slot;
 use Modules\Schichtplan\src\Models\Station;
 use Modules\Schichtplan\src\Models\Template;
+use Modules\Schichtplan\src\Services\CalendarLink;
 use Modules\Schichtplan\src\Services\PlanMailer;
 use Modules\Schichtplan\src\Services\PlanService;
 use Modules\Schichtplan\src\Services\ShiftPlanner;
@@ -19,6 +20,8 @@ use Modules\Schichtplan\src\Services\ShiftPlanner;
 /** The planer's page: settings, stations, participants, distribution, publish and mail */
 class PlanEditor extends Component
 {
+    use SignupSettings;
+
     public Plan $plan;
 
     // Settings
@@ -82,6 +85,7 @@ class PlanEditor extends Component
         $this->maxConsecutive = $this->plan->max_consecutive;
         $this->groupId = $this->plan->group_id;
         $this->addGroupId ??= $this->plan->group_id;
+        $this->fillSignup($this->plan);
 
         $this->stationEdits = $this->plan->stations()->get()
             ->mapWithKeys(fn (Station $s) => [$s->id => ['name' => $s->name, 'capacity' => $s->capacity]])->all();
@@ -108,6 +112,7 @@ class PlanEditor extends Component
             'shiftMinutes' => ['required', 'integer', 'min:15', 'max:720'],
             'maxConsecutive' => ['required', 'integer', 'min:1', 'max:24'],
             'groupId' => ['nullable', 'exists:groups,id'],
+            ...$this->signupRules(),
         ]);
 
         [$start, $end] = PlanTimes::fromInputs($this->date, $this->startTime, $this->endTime);
@@ -121,9 +126,12 @@ class PlanEditor extends Component
                 'shift_minutes' => $this->shiftMinutes,
                 'max_consecutive' => $this->maxConsecutive,
                 'group_id' => $this->groupId,
+                ...$this->signupData(),
             ]);
         } catch (ValidationException $e) {
-            $this->addError('shiftMinutes', collect($e->errors())->flatten()->first());
+            foreach ($e->errors() as $field => $messages) {
+                $this->addError(in_array($field, ['signup', 'signupUntil', 'maxShifts'], true) ? $field : 'shiftMinutes', $messages[0]);
+            }
 
             return;
         }
@@ -278,7 +286,9 @@ class PlanEditor extends Component
     {
         $sent = $mailer->publish($this->plan);
         $this->plan->refresh();
-        $this->flash = 'Veröffentlicht und an '.$sent.' Teilnehmer geschickt.';
+        $this->flash = $this->plan->isSelfSignup()
+            ? 'Veröffentlicht – '.$sent.' Kameraden sind zum Eintragen eingeladen.'
+            : 'Veröffentlicht und an '.$sent.' Teilnehmer geschickt.';
     }
 
     public function sendMail(PlanMailer $mailer): void
@@ -290,6 +300,7 @@ class PlanEditor extends Component
 
     public function delete()
     {
+        app(CalendarLink::class)->detach($this->plan);
         $this->plan->delete();
 
         return redirect()->route('schichtplan.index');
@@ -318,6 +329,8 @@ class PlanEditor extends Component
             'groups' => Group::orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
             'templates' => Template::orderBy('name')->pluck('name', 'id'),
             'stats' => $plans->stats($plan),
+            'requests' => $assignments->filter->isRequested()->count(),
+            ...$this->signupOptions(),
         ]);
     }
 }

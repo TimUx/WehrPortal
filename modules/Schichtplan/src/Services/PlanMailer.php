@@ -10,9 +10,17 @@ use Throwable;
 /** Publishing and sending the plan to everyone on it */
 class PlanMailer
 {
+    /** Publishing sends the plan to everyone on it; a self sign-up plan invites its target group instead */
     public function publish(Plan $plan): int
     {
         $plan->update(['status' => Plan::PUBLISHED, 'published_at' => $plan->published_at ?? now()]);
+        app(CalendarLink::class)->sync($plan);
+
+        if ($plan->isSelfSignup()) {
+            $plan->update(['mailed_at' => now()]);
+
+            return app(SignupService::class)->invite($plan);
+        }
 
         return $this->send($plan, firstTime: true);
     }

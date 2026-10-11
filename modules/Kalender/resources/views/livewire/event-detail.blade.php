@@ -86,6 +86,7 @@
             <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
                 <h2 class="text-sm font-semibold text-gray-900">Teilnehmer verwalten ({{ $people->count() }})</h2>
                 <a href="{{ route('kalender.participants', $event) }}" class="text-sm text-fw-navy underline">Liste als CSV</a>
+                <a href="{{ route('kalender.participants.print', $event) }}" target="_blank" class="ml-3 text-sm text-fw-navy underline">Liste drucken</a>
             </div>
             <p class="mb-3 text-xs text-gray-500">Rückmeldungen lassen sich hier für andere eintragen, etwa nach einem Anruf, auch nach der Frist. Die Anwesenheit ist ab Beginn des Termins erfassbar.@if($event->hasStarted()) Anwesend: {{ $summary ? $summary['attended']->count() : $responses->where('attended', true)->count() }}.@endif</p>
             @error('attended')<p class="mb-2 text-sm text-red-600">{{ $message }}</p>@enderror

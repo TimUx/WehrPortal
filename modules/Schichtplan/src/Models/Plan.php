@@ -3,11 +3,13 @@
 namespace Modules\Schichtplan\src\Models;
 
 use App\Models\Group;
+use App\Models\MemberFunction;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 class Plan extends Model
 {
@@ -15,13 +17,17 @@ class Plan extends Model
 
     public const PUBLISHED = 'published';
 
+    /** Who fills the places: the planer (and the automatic distribution) or the Kameraden themselves */
+    public const SIGNUP_MODES = ['planner' => 'Planer teilt ein', 'self' => 'Mitglieder tragen sich selbst ein'];
+
     protected $table = 'sp_plans';
 
-    protected $attributes = ['status' => self::DRAFT, 'shift_minutes' => 60, 'max_consecutive' => 2];
+    protected $attributes = ['status' => self::DRAFT, 'shift_minutes' => 60, 'max_consecutive' => 2, 'signup' => 'planner', 'needs_approval' => false];
 
     protected $fillable = [
         'title', 'location', 'starts_at', 'ends_at', 'shift_minutes', 'max_consecutive',
         'group_id', 'status', 'published_at', 'mailed_at', 'created_by',
+        'signup', 'signup_until', 'needs_approval', 'max_shifts', 'audience_groups', 'audience_functions', 'event_id', 'event_owned',
     ];
 
     protected function casts(): array
@@ -33,6 +39,12 @@ class Plan extends Model
             'mailed_at' => 'datetime',
             'shift_minutes' => 'integer',
             'max_consecutive' => 'integer',
+            'signup_until' => 'datetime',
+            'needs_approval' => 'boolean',
+            'max_shifts' => 'integer',
+            'audience_groups' => 'array',
+            'audience_functions' => 'array',
+            'event_owned' => 'boolean',
         ];
     }
 
@@ -76,6 +88,50 @@ class Plan extends Model
     public function isPublished(): bool
     {
         return $this->status === self::PUBLISHED;
+    }
+
+    public function isSelfSignup(): bool
+    {
+        return $this->signup === 'self';
+    }
+
+    /** Until when places can be taken and given back: the deadline, else the start of the plan */
+    public function signupDeadline(): Carbon
+    {
+        return $this->signup_until ?? $this->starts_at;
+    }
+
+    /** Published, self sign-up and before the deadline */
+    public function signupOpen(): bool
+    {
+        return $this->isPublished() && $this->isSelfSignup() && now()->lt($this->signupDeadline());
+    }
+
+    /**
+     * Whether the Kamerad belongs to the target group: an Abteilung or a Funktion of the plan
+     * (a Funktion includes its sub-functions). Without a target group everyone with access.
+     */
+    public function inAudience(User $user): bool
+    {
+        $groups = array_map('intval', $this->audience_groups ?? []);
+        $functions = MemberFunction::idsWithChildren($this->audience_functions ?? []);
+        if ($groups === [] && $functions === []) {
+            return true;
+        }
+
+        return ($groups !== [] && $user->groups()->whereIn('groups.id', $groups)->exists())
+            || ($functions !== [] && $user->functions()->whereIn('member_functions.id', $functions)->exists());
+    }
+
+    /** "Jugendfeuerwehr, Funktion Maschinist" for the page */
+    public function audienceLabel(): ?string
+    {
+        $parts = [
+            ...Group::whereIn('id', $this->audience_groups ?? [])->orderBy('name')->pluck('name')->all(),
+            ...MemberFunction::whereIn('id', $this->audience_functions ?? [])->orderBy('name')->pluck('name')->all(),
+        ];
+
+        return $parts === [] ? null : implode(', ', $parts);
     }
 
     /** "Sa, 13.06.2027 · 14:00–22:00 Uhr" in Berlin time */

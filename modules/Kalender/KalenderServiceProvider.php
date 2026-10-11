@@ -15,20 +15,26 @@ use Modules\Kalender\src\Console\Commands\SyncCalendarSources;
 use Modules\Kalender\src\Livewire\CalendarView;
 use Modules\Kalender\src\Livewire\EventDetail;
 use Modules\Kalender\src\Livewire\EventForm;
+use Modules\Kalender\src\Livewire\PollForm;
+use Modules\Kalender\src\Livewire\PollList;
+use Modules\Kalender\src\Livewire\PollView;
 use Modules\Kalender\src\Livewire\Sources;
 use Modules\Kalender\src\Models\Event;
+use Modules\Kalender\src\Models\Poll;
+use Modules\Kalender\src\Models\PollVote;
 use Modules\Kalender\src\Policies\EventPolicy;
 use Modules\Kalender\src\Services\EventService;
 use Modules\Kalender\src\Services\FeedService;
 use Modules\Kalender\src\Services\IcsExporter;
 use Modules\Kalender\src\Services\IcsParser;
+use Modules\Kalender\src\Services\PollService;
 use Modules\Kalender\src\Services\SourceSync;
 
 class KalenderServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        foreach ([EventService::class, IcsParser::class, IcsExporter::class, SourceSync::class, FeedService::class] as $service) {
+        foreach ([EventService::class, PollService::class, IcsParser::class, IcsExporter::class, SourceSync::class, FeedService::class] as $service) {
             $this->app->singleton($service);
         }
     }
@@ -62,11 +68,14 @@ class KalenderServiceProvider extends ServiceProvider
         Livewire::component('kalender.event-form', EventForm::class);
         Livewire::component('kalender.event-detail', EventDetail::class);
         Livewire::component('kalender.sources', Sources::class);
+        Livewire::component('kalender.poll-list', PollList::class);
+        Livewire::component('kalender.poll-form', PollForm::class);
+        Livewire::component('kalender.poll-view', PollView::class);
 
         app(ModuleRegistry::class)->register(
             'kalender',
             'Kalender & Termine',
-            'Übungen, Dienste, Veranstaltungen und Wartungen mit Rückmeldung',
+            'Übungen, Dienste, Arbeitsdienste und Veranstaltungen mit Rückmeldung und Terminabfrage',
             roles: ['terminverwalter'],
             provider: self::class,
             route: 'kalender.index',
@@ -80,6 +89,15 @@ class KalenderServiceProvider extends ServiceProvider
                 'event' => $event,
                 'response' => $event->responses()->where('user_id', $user->id)->first(),
             ])->render() : null;
+        });
+
+        // Start page: Terminabfragen the Kamerad has not answered yet
+        app(DashboardRegistry::class)->register('kalender', 'polls', function (User $user) {
+            $answered = PollVote::where('user_id', $user->id)->join('kal_poll_options', 'kal_poll_options.id', '=', 'kal_poll_votes.option_id')->pluck('kal_poll_options.poll_id');
+            $polls = Poll::visibleTo($user)->whereNull('closed_at')->whereNotIn('id', $answered)->latest()->get()
+                ->filter(fn (Poll $p) => $p->isOpen() && app(PollService::class)->audience($p)->contains('id', $user->id))->values();
+
+            return $polls->isEmpty() ? null : view('kalender::cards.polls', compact('polls'))->render();
         });
     }
 }

@@ -3,14 +3,16 @@
 namespace Modules\Schichtplan\src\Livewire;
 
 use Livewire\Component;
+use Modules\Schichtplan\src\Models\Assignment;
 use Modules\Schichtplan\src\Models\Plan;
+use Modules\Schichtplan\src\Services\SignupService;
 
 /** Planer: all plans. Everyone: the published plans they are on, with their own shifts. */
 class PlanList extends Component
 {
     public bool $showPast = false;
 
-    public function render()
+    public function render(SignupService $signups)
     {
         $user = auth()->user();
         $manager = $user->canManageSchichtplan();
@@ -35,6 +37,15 @@ class PlanList extends Component
                 ->get()
             : collect();
 
-        return view('schichtplan::livewire.plan-list', compact('mine', 'all', 'manager'));
+        // Self sign-up plans still open, with their free places
+        $open = $signups->openPlansFor($user)->map(fn (Plan $plan) => [
+            'plan' => $plan,
+            'free' => (int) $plan->stations()->sum('capacity') * $plan->slots()->where('starts_at', '>', now())->count()
+                - $plan->assignments()->whereHas('slot', fn ($q) => $q->where('starts_at', '>', now()))->count(),
+        ]);
+        $requests = Assignment::where('status', Assignment::REQUESTED)->with(['plan', 'slot', 'station', 'user'])->get()
+            ->filter(fn (Assignment $a) => SignupService::canApprove($user, $a))->groupBy('plan_id');
+
+        return view('schichtplan::livewire.plan-list', compact('mine', 'all', 'manager', 'open', 'requests'));
     }
 }

@@ -26,7 +26,7 @@ class PlanService
     {
         $this->assertTimes($data['starts_at'], $data['ends_at'], $data['shift_minutes']);
 
-        $data = $this->utc($data);
+        $data = $this->signup($this->utc($data));
 
         return DB::transaction(function () use ($data, $by) {
             $plan = Plan::create($data + ['created_by' => $by?->id]);
@@ -41,7 +41,7 @@ class PlanService
     {
         $this->assertTimes($data['starts_at'], $data['ends_at'], $data['shift_minutes']);
 
-        $data = $this->utc($data);
+        $data = $this->signup($this->utc($data));
 
         return DB::transaction(function () use ($plan, $data) {
             $plan->fill($data);
@@ -51,6 +51,7 @@ class PlanService
             if ($rebuild) {
                 $this->buildSlots($plan);
             }
+            app(CalendarLink::class)->sync($plan);
 
             return $rebuild;
         });
@@ -93,6 +94,7 @@ class PlanService
     public function setStationLead(Station $station, ?int $userId): void
     {
         $station->update(['lead_user_id' => $userId ?: null]);
+        app(CalendarLink::class)->sync($station->plan()->first());
     }
 
     public function removeStation(Station $station): void
@@ -124,6 +126,7 @@ class PlanService
             ->each(function (User $user) use ($plan, &$added) {
                 $added += $plan->participants()->firstOrCreate(['user_id' => $user->id])->wasRecentlyCreated ? 1 : 0;
             });
+        app(CalendarLink::class)->sync($plan);
 
         return $added;
     }
@@ -139,6 +142,7 @@ class PlanService
             $plan->assignments()->where('user_id', $userId)->delete();
             $plan->participants()->where('user_id', $userId)->delete();
         });
+        app(CalendarLink::class)->sync($plan);
     }
 
     /** Assignments outside the new availability are dropped */
@@ -269,7 +273,8 @@ class PlanService
 
         foreach ($plan->slots as $slot) {
             fputcsv($out, [$slot->label(), ...$plan->stations->map(fn (Station $s) => $assignments
-                ->where('slot_id', $slot->id)->where('station_id', $s->id)->pluck('user.name')->sort()->implode(', '))->all()], ';');
+                ->where('slot_id', $slot->id)->where('station_id', $s->id)->map(fn (Assignment $a) => $a->user->name.($a->isRequested() ? ' (angefragt)' : ''))
+                ->sort()->implode(', '))->all()], ';');
         }
 
         fputcsv($out, [], ';');
@@ -286,6 +291,34 @@ class PlanService
         rewind($out);
 
         return stream_get_contents($out);
+    }
+
+    /** Self sign-up settings: mode, deadline (before the end), approval, limit per person, target group */
+    private function signup(array $data): array
+    {
+        if (! array_key_exists('signup', $data)) {
+            return $data;
+        }
+        if (! array_key_exists($data['signup'], Plan::SIGNUP_MODES)) {
+            throw ValidationException::withMessages(['signup' => 'Bitte wählen, wer die Plätze besetzt.']);
+        }
+        $until = $data['signup_until'] ?? null;
+        if ($until && $until->copy()->utc()->gt($data['ends_at'])) {
+            throw ValidationException::withMessages(['signupUntil' => 'Die Eintragungsfrist muss vor dem Ende liegen.']);
+        }
+        $max = filled($data['max_shifts'] ?? null) ? (int) $data['max_shifts'] : null;
+        if ($max !== null && ($max < 1 || $max > 50)) {
+            throw ValidationException::withMessages(['maxShifts' => 'Bitte zwischen 1 und 50 Schichten je Person.']);
+        }
+
+        return [
+            ...$data,
+            'signup_until' => $until?->copy()->utc(),
+            'needs_approval' => $data['signup'] === 'self' && (bool) ($data['needs_approval'] ?? false),
+            'max_shifts' => $max,
+            'audience_groups' => array_values(array_map('intval', $data['audience_groups'] ?? [])) ?: null,
+            'audience_functions' => array_values(array_map('intval', $data['audience_functions'] ?? [])) ?: null,
+        ];
     }
 
     private function utc(array $data): array

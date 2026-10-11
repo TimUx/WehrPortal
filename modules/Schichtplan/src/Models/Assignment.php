@@ -10,11 +10,28 @@ class Assignment extends Model
 {
     protected $table = 'sp_assignments';
 
-    protected $fillable = ['plan_id', 'slot_id', 'station_id', 'user_id', 'locked'];
+    public const CONFIRMED = 'confirmed';
+
+    /** Self sign-up with approval: the place is held until the planer or the Stationsverantwortung decides */
+    public const REQUESTED = 'requested';
+
+    protected $fillable = ['plan_id', 'slot_id', 'station_id', 'user_id', 'locked', 'status', 'signed_up_by', 'reminded_at'];
+
+    protected $attributes = ['status' => self::CONFIRMED];
 
     protected function casts(): array
     {
-        return ['locked' => 'boolean'];
+        return ['locked' => 'boolean', 'reminded_at' => 'datetime'];
+    }
+
+    public function isRequested(): bool
+    {
+        return $this->status === self::REQUESTED;
+    }
+
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class, 'plan_id');
     }
 
     public function slot(): BelongsTo

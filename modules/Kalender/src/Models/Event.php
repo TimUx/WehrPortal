@@ -3,12 +3,14 @@
 namespace Modules\Kalender\src\Models;
 
 use App\Models\Group;
+use App\Models\MemberFunction;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Modules\Kalender\src\Support\Audience;
 
 class Event extends Model
 {
@@ -17,6 +19,7 @@ class Event extends Model
         'dienst' => 'Dienst',
         'veranstaltung' => 'Veranstaltung',
         'wartung' => 'Wartung',
+        'arbeitsdienst' => 'Arbeitsdienst',
         'sonstiges' => 'Sonstiges',
     ];
 
@@ -26,6 +29,7 @@ class Event extends Model
         'dienst' => 'bg-blue-100 text-blue-800 border-blue-200',
         'veranstaltung' => 'bg-green-100 text-green-800 border-green-200',
         'wartung' => 'bg-amber-100 text-amber-800 border-amber-200',
+        'arbeitsdienst' => 'bg-orange-100 text-orange-800 border-orange-200',
         'sonstiges' => 'bg-gray-100 text-gray-700 border-gray-200',
     ];
 
@@ -58,6 +62,12 @@ class Event extends Model
         return $this->belongsToMany(Group::class, 'kal_event_group', 'event_id', 'group_id');
     }
 
+    /** Funktionen of the target group (each includes its sub-functions) */
+    public function functions(): BelongsToMany
+    {
+        return $this->belongsToMany(MemberFunction::class, 'kal_event_function', 'event_id', 'function_id');
+    }
+
     /** Kameraden invited individually */
     public function invitees(): BelongsToMany
     {
@@ -80,18 +90,12 @@ class Event extends Model
     }
 
     /**
-     * Terminverwalter see everything; everyone else the events for all (neither Abteilungen nor
-     * invitations set), for their Abteilungen, and those they are invited to personally.
+     * Terminverwalter see everything; everyone else the events for all (no target group set), for
+     * their Abteilungen or Funktionen, and those they are invited to personally.
      */
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
-        if ($user->canManageKalender()) {
-            return $query;
-        }
-
-        return $query->where(fn ($q) => $q->where(fn ($all) => $all->doesntHave('groups')->doesntHave('invitees'))
-            ->orWhereHas('groups', fn ($g) => $g->whereIn('groups.id', $user->groups()->pluck('groups.id')))
-            ->orWhereHas('invitees', fn ($i) => $i->where('users.id', $user->id)));
+        return $user->canManageKalender() ? $query : Audience::scope($query, $user);
     }
 
     public function scopePublic(Builder $query): Builder

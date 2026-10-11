@@ -10,6 +10,7 @@
                 <option value="">Alle Terminarten</option>
                 @foreach($types as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
             </select>
+            <a href="{{ route('kalender.polls') }}" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">Terminabfragen</a>
             @if($manager)
                 <a href="{{ route('kalender.sources') }}" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">Externe Kalender &amp; Einbindung</a>
                 <a href="{{ route('kalender.create') }}" class="inline-flex items-center rounded-lg bg-fw-red px-3 py-1.5 text-sm font-semibold text-white hover:bg-fw-red-dark">Termin anlegen</a>

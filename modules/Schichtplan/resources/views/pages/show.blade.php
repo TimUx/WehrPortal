@@ -13,8 +13,12 @@
                 <div>
                     <h1 class="text-xl font-bold text-gray-900">{{ $plan->title }}</h1>
                     <p class="text-sm text-gray-500">{{ $plan->timeLabel() }}@if($plan->location) · {{ $plan->location }}@endif</p>
+                    @include('schichtplan::partials.event-link', ['plan' => $plan])
                 </div>
                 <div class="flex flex-wrap gap-2">
+                    @if($plan->signupOpen())
+                        <a href="{{ route('schichtplan.signup', $plan) }}" class="inline-flex items-center rounded-lg bg-green-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-green-700">Eintragen</a>
+                    @endif
                     <a href="{{ route('schichtplan.print', $plan) }}" target="_blank" rel="noopener" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">Druckansicht</a>
                     <a href="{{ route('schichtplan.csv', $plan) }}" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">CSV</a>
                     @can('manage', $plan)
@@ -73,7 +77,7 @@
                                 <td class="py-2 pr-3 align-top">
                                     <div class="{{ $isMine ? 'rounded-lg bg-fw-red/10 ring-2 ring-fw-red px-2 py-1' : '' }}">
                                         @forelse($seat as $a)
-                                            <div class="{{ $a->user_id === $me ? 'font-bold text-fw-red' : 'text-gray-800' }}">{{ $a->user->name }}</div>
+                                            <div class="{{ $a->user_id === $me ? 'font-bold text-fw-red' : 'text-gray-800' }}">{{ $a->user->name }}{{ $a->isRequested() ? ' (angefragt)' : '' }}</div>
                                         @empty
                                             <div class="text-gray-300">–</div>
                                         @endforelse

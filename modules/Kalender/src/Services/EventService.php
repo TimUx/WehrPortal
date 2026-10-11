@@ -15,6 +15,7 @@ use Modules\Kalender\src\Models\Response;
 use Modules\Kalender\src\Notifications\EventCancelledNotification;
 use Modules\Kalender\src\Notifications\EventCreatedNotification;
 use Modules\Kalender\src\Notifications\RsvpReminderNotification;
+use Modules\Kalender\src\Support\Audience;
 use Throwable;
 
 /** Creating, changing and cancelling events, repetitions, audience and Rückmeldungen */
@@ -29,9 +30,10 @@ class EventService
      * @param  int[]  $groupIds  audience; empty = everyone
      * @param  array{freq: string, until: Carbon}|null  $repeat
      * @param  int[]  $userIds  Kameraden invited individually
+     * @param  int[]  $functionIds  Funktionen of the target group
      * @return Collection<int, Event> the created events in order
      */
-    public function create(array $data, array $groupIds, ?User $by, ?array $repeat = null, bool $notify = false, array $userIds = []): Collection
+    public function create(array $data, array $groupIds, ?User $by, ?array $repeat = null, bool $notify = false, array $userIds = [], array $functionIds = []): Collection
     {
         $this->assertTimes($data['starts_at'], $data['ends_at']);
         $occurrences = $this->occurrences($data['starts_at'], $repeat);
@@ -39,8 +41,8 @@ class EventService
         $duration = $data['starts_at']->diffInSeconds($data['ends_at']);
         $deadlineBefore = isset($data['rsvp_deadline']) ? $data['rsvp_deadline']->diffInSeconds($data['starts_at'], false) : null;
 
-        $events = DB::transaction(function () use ($data, $groupIds, $userIds, $by, $occurrences, $seriesId, $duration, $deadlineBefore) {
-            return collect($occurrences)->map(function (Carbon $start) use ($data, $groupIds, $userIds, $by, $seriesId, $duration, $deadlineBefore) {
+        $events = DB::transaction(function () use ($data, $groupIds, $userIds, $functionIds, $by, $occurrences, $seriesId, $duration, $deadlineBefore) {
+            return collect($occurrences)->map(function (Carbon $start) use ($data, $groupIds, $userIds, $functionIds, $by, $seriesId, $duration, $deadlineBefore) {
                 $event = Event::create([
                     ...$data,
                     'starts_at' => $start->copy()->utc(),
@@ -52,39 +54,49 @@ class EventService
                 ]);
                 $event->groups()->sync($groupIds);
                 $event->invitees()->sync($userIds);
+                $event->functions()->sync($functionIds);
 
                 return $event;
             });
         });
 
         if ($notify) {
-            $first = $events->first();
-            $this->notify($this->audience($first)->reject(fn (User $u) => $by && $u->is($by)), new EventCreatedNotification($first, $events->count()));
+            $this->announce($events->first(), $by, $events->count());
         }
 
         return $events;
+    }
+
+    /** Mails the target group about a new event (or series) */
+    public function announce(Event $event, ?User $by, int $count = 1): void
+    {
+        $this->notify($this->audience($event)->reject(fn (User $u) => $by && $u->is($by)), new EventCreatedNotification($event, $count));
     }
 
     /**
      * Saves changes to one event. With $following, title, type, place, description, Rückmeldung and
      * audience also go to the later events of the same repetition; times only change for this one.
      */
-    public function update(Event $event, array $data, array $groupIds, bool $following = false, array $userIds = []): void
+    public function update(Event $event, array $data, array $groupIds, bool $following = false, array $userIds = [], ?array $functionIds = null): void
     {
         $this->assertTimes($data['starts_at'], $data['ends_at']);
+        // Callers that don't know Funktionen keep the ones set
+        $functionIds ??= $event->functions()->pluck('member_functions.id')->all();
 
-        DB::transaction(function () use ($event, $data, $groupIds, $userIds, $following) {
+        DB::transaction(function () use ($event, $data, $groupIds, $userIds, $functionIds, $following) {
             $event->update([...$data, 'starts_at' => $data['starts_at']->copy()->utc(), 'ends_at' => $data['ends_at']->copy()->utc()]);
             $event->groups()->sync($groupIds);
             $event->invitees()->sync($userIds);
+            $event->functions()->sync($functionIds);
 
             if ($following && $event->series_id) {
                 $shared = collect($data)->only(['title', 'type', 'location', 'description', 'rsvp', 'min_participants', 'is_public'])->all();
                 Event::where('series_id', $event->series_id)->where('starts_at', '>', $event->starts_at)->get()
-                    ->each(function (Event $later) use ($shared, $groupIds, $userIds) {
+                    ->each(function (Event $later) use ($shared, $groupIds, $userIds, $functionIds) {
                         $later->update($shared);
                         $later->groups()->sync($groupIds);
                         $later->invitees()->sync($userIds);
+                        $later->functions()->sync($functionIds);
                     });
             }
         });
@@ -158,22 +170,12 @@ class EventService
     }
 
     /**
-     * Active Kameraden with access to the module: the members of the event's Abteilungen and the
-     * individually invited ones; everyone if neither is set.
+     * Active Kameraden with access to the module: the members of the event's Abteilungen, those
+     * with one of its Funktionen and the individually invited ones; everyone if none is set.
      */
     public function audience(Event $event): EloquentCollection
     {
-        $groupIds = $event->groups()->pluck('groups.id');
-        $inviteeIds = $event->invitees()->pluck('users.id');
-        $everyone = $groupIds->isEmpty() && $inviteeIds->isEmpty();
-
-        return User::active()->orderBy('name')
-            ->when(! $everyone, fn ($q) => $q->where(fn ($w) => $w
-                ->whereHas('groups', fn ($g) => $g->whereIn('groups.id', $groupIds))
-                ->orWhereIn('id', $inviteeIds)))
-            ->get()
-            ->filter(fn (User $u) => $u->canUseModule('kalender'))
-            ->values();
+        return Audience::users($event->groups()->pluck('groups.id'), $event->functions()->pluck('member_functions.id'), $event->invitees()->pluck('users.id'));
     }
 
     /** Rückmeldungen grouped, who of the audience has not answered yet, attendance and whether there are enough */
@@ -222,26 +224,39 @@ class EventService
         return $sent;
     }
 
+    /**
+     * Everyone of the target group and everyone who answered, sorted by name, for CSV and print.
+     *
+     * @return Collection<int, array{user: User, groups: string, status: string, comment: string, attended: string}>
+     */
+    public function participantRows(Event $event): Collection
+    {
+        $responses = $event->responses()->get()->keyBy('user_id');
+
+        return $this->audience($event)->concat(User::whereIn('id', $responses->keys())->get())->unique('id')->sortBy('name')->values()
+            ->map(function (User $user) use ($responses) {
+                $response = $responses->get($user->id);
+
+                return [
+                    'user' => $user,
+                    'groups' => $user->groups()->pluck('name')->implode(', '),
+                    'status' => $response?->status ? $response->label() : 'offen',
+                    'comment' => $response?->comment ?? '',
+                    'attended' => match ($response?->attended) {
+                        true => 'ja', false => 'nein', default => ''
+                    },
+                ];
+            });
+    }
+
     /** Participant list for the Terminverwalter, as CSV for Excel */
     public function participantsCsv(Event $event): string
     {
-        $responses = $event->responses()->get()->keyBy('user_id');
-        $people = $this->audience($event)->concat(User::whereIn('id', $responses->keys())->get())->unique('id')->sortBy('name');
-
         $out = fopen('php://temp', 'r+');
         fwrite($out, "\xEF\xBB\xBF");
         fputcsv($out, ['Name', 'Abteilungen', 'Rückmeldung', 'Kommentar', 'Anwesend'], ';');
-        foreach ($people as $user) {
-            $response = $responses->get($user->id);
-            fputcsv($out, [
-                $user->name,
-                $user->groups()->pluck('name')->implode(', '),
-                $response?->status ? $response->label() : 'offen',
-                $response?->comment ?? '',
-                match ($response?->attended) {
-                    true => 'ja', false => 'nein', default => ''
-                },
-            ], ';');
+        foreach ($this->participantRows($event) as $row) {
+            fputcsv($out, [$row['user']->name, $row['groups'], $row['status'], $row['comment'], $row['attended']], ';');
         }
         rewind($out);
 

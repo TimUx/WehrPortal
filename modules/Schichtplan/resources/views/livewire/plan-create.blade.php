@@ -1,6 +1,9 @@
 <div class="max-w-2xl mx-auto">
     <a href="{{ route('schichtplan.index') }}" class="text-sm text-gray-500 hover:text-gray-900">← Schichtplan</a>
     <h1 class="text-xl font-bold text-gray-900 mt-1 mb-4">Neuer Schichtplan</h1>
+    @if($event)
+        <p class="mb-4 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-900">Für den Kalendertermin „{{ $event->title }}“ ({{ $event->timeLabel() }}). Der Plan erscheint dort mit „Helfer eintragen“.</p>
+    @endif
 
     <form wire:submit="save" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
         <div>
@@ -51,6 +54,7 @@
                 </select>
             </label>
         </div>
+        @include('schichtplan::partials.signup-settings')
         <button type="submit" class="inline-flex items-center rounded-lg bg-fw-red px-4 py-2 text-sm font-semibold text-white hover:bg-fw-red-dark">Plan anlegen</button>
     </form>
 </div>
