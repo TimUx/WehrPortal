@@ -18,6 +18,7 @@ use Modules\Mitteilungen\MitteilungenServiceProvider;
 use Modules\Schichtplan\SchichtplanServiceProvider;
 use Modules\Uebungsdienste\UebungsdiensteServiceProvider;
 use Modules\Verbandbuch\VerbandbuchServiceProvider;
+use Modules\Wartung\WartungServiceProvider;
 
 return [
     AppServiceProvider::class,
@@ -38,4 +39,5 @@ return [
     EinsatzberichtServiceProvider::class,
     FinanzenServiceProvider::class,
     VerbandbuchServiceProvider::class,
+    WartungServiceProvider::class,
 ];
