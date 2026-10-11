@@ -15,6 +15,10 @@ use Modules\Einsatzbericht\src\Models\DiveraRequest;
 use Modules\Fahrzeugbuchung\src\Models\BookingCommentRevision;
 use Modules\Kalender\src\Models\FeedToken;
 use Modules\Maengelmanagement\src\Models\DefectEvent;
+use Modules\Verbandbuch\src\Models\AccessLog as VerbandbuchAccessLog;
+use Modules\Verbandbuch\src\Models\Amendment as VerbandbuchAmendment;
+use Modules\Verbandbuch\src\Models\Entry as VerbandbuchEntry;
+use Modules\Verbandbuch\src\Models\Signature as VerbandbuchSignature;
 use Throwable;
 
 /**
@@ -24,10 +28,14 @@ use Throwable;
  */
 class ActivityRecorder
 {
-    /** Logs themselves, tokens, and models that are a history of their own */
+    /**
+     * Logs themselves, tokens, and models that are a history of their own. The Verbandbuch keeps
+     * its own access log, so its health data never lands here.
+     */
     private const SKIP = [
         ActivityLog::class, MailLog::class, LoginToken::class, EmailChangeRequest::class, UserModulePreference::class,
         FeedToken::class, BookingCommentRevision::class, DefectEvent::class, EquipmentEvent::class, DiveraRequest::class,
+        VerbandbuchEntry::class, VerbandbuchSignature::class, VerbandbuchAmendment::class, VerbandbuchAccessLog::class,
     ];
 
     /** Changes of only these fields are bookkeeping, not worth an entry */

@@ -17,6 +17,7 @@ use Modules\Maengelmanagement\MaengelmanagementServiceProvider;
 use Modules\Mitteilungen\MitteilungenServiceProvider;
 use Modules\Schichtplan\SchichtplanServiceProvider;
 use Modules\Uebungsdienste\UebungsdiensteServiceProvider;
+use Modules\Verbandbuch\VerbandbuchServiceProvider;
 
 return [
     AppServiceProvider::class,
@@ -36,4 +37,5 @@ return [
     UebungsdiensteServiceProvider::class,
     EinsatzberichtServiceProvider::class,
     FinanzenServiceProvider::class,
+    VerbandbuchServiceProvider::class,
 ];

@@ -475,7 +475,7 @@ class UserResource extends Resource
     {
         Notification::make()
             ->title('Nicht gelöscht: '.$names)
-            ->body('An diesen Nutzern hängen noch Buchungen, Nachrichten oder Ausrüstung. Setze den Status stattdessen auf „Ausgetreten“.')
+            ->body('An diesen Nutzern hängen noch Buchungen, Nachrichten, Ausrüstung oder Einträge im Verbandbuch. Setze den Status stattdessen auf „Ausgetreten“.')
             ->danger()
             ->persistent()
             ->send();
