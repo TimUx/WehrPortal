@@ -113,7 +113,7 @@ test('the editor saves the blocks, vehicles and crew', function () {
         ->set('form.police', true)
         ->call('save')
         ->assertHasNoErrors()
-        ->assertDispatched('report-saved', message: 'Gespeichert. Noch offen: Mindestens eine Einsatzkraft.', field: 'crew', warn: true)
+        ->assertDispatched('report-saved', message: 'Entwurf gespeichert. Noch offen: Mindestens eine Einsatzkraft.', field: 'crew', warn: true)
         ->set('newVehicle', (string) $this->hlf->id)->call('addVehicle')
         ->assertSee('HLF 20');
 
@@ -142,7 +142,7 @@ test('saving reports "Gespeichert" and jumps to the first empty mandatory field'
 
     $editor->set('form.keyword', 'FEU 2')->set('form.alarmed_at', '2027-05-10T19:12')->set('form.commander_id', (string) $this->leader->id)
         ->call('save')
-        ->assertDispatched('report-saved', message: 'Gespeichert.', field: null, warn: false);
+        ->assertDispatched('report-saved', message: 'Entwurf gespeichert.', field: null, warn: false);
 });
 
 test('an invalid input is not saved and the page jumps to it', function () {
@@ -199,8 +199,8 @@ test('a closed report is locked for the Einsatzleiter; the Wehrführung releases
 
     Livewire::actingAs($this->chief)->test(ReportEditor::class, ['report' => $report])
         ->assertSee('Freigegeben')->assertSee('Änderungen')
-        ->call('reopen')->assertSee('wieder ein Entwurf');
-    expect($report->refresh()->status)->toBe('draft');
+        ->call('reopen')->assertSee('wieder offen (aktuell)');
+    expect($report->refresh()->status)->toBe('active');
 });
 
 test('the editor walks through close and release', function () {

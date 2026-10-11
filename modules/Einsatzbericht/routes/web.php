@@ -22,7 +22,7 @@ Route::middleware(['auth', 'active', 'module:einsatzbericht'])->group(function (
         Route::get('/', fn () => ReportService::canLead(auth()->user())
             ? view('einsatzbericht::pages.index')
             : view('einsatzbericht::pages.running', [
-                'running' => Report::where('status', 'draft')->whereNull('ended_at')->orderByDesc('alarmed_at')->get(),
+                'running' => Report::where('status', 'active')->whereNull('ended_at')->orderByDesc('alarmed_at')->get(),
             ]))->name('index');
 
         // Lagemeldungen: everyone with the module while the Einsatz runs, Einsatzleiter and Wehrführung always

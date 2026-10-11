@@ -19,7 +19,7 @@
     <section class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm space-y-4">
         <div>
             <h2 class="text-base font-semibold text-gray-900">DIVERA 24/7 (Webhook)</h2>
-            <p class="text-sm text-gray-500">Bei jeder Alarmierung schickt DIVERA die Einsatzdaten an die Adresse unten. Daraus entsteht ein Einsatz als Entwurf mit Stichwort, Meldung, Adresse und Alarmzeit; Besatzung, Ausrück- und Endzeiten trägt der Einsatzleiter nach. Nur mit DIVERA-Lizenz ALARM oder PRO.</p>
+            <p class="text-sm text-gray-500">Bei jeder Alarmierung schickt DIVERA die Einsatzdaten an die Adresse unten. Daraus entsteht ein aktueller Einsatz mit Stichwort, Meldung, Adresse und Alarmzeit; Besatzung, Ausrück- und Endzeiten trägt der Einsatzleiter nach. Nur mit DIVERA-Lizenz ALARM oder PRO.</p>
         </div>
 
         <form wire:submit="saveDivera" class="space-y-4">
@@ -52,7 +52,7 @@
                 </div>
             </div>
 
-            <label class="block text-sm text-gray-700">Kein Entwurf bei diesen Stichwörtern (eins pro Zeile, Teil von Stichwort oder Meldung genügt)
+            <label class="block text-sm text-gray-700">Kein Einsatz bei diesen Stichwörtern (eins pro Zeile, Teil von Stichwort oder Meldung genügt)
                 <textarea wire:model="filters" rows="3" class="{{ $input }}"></textarea>
             </label>
 
@@ -63,7 +63,7 @@
         <form wire:submit="sendTestAlarm" class="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 space-y-3">
             <div>
                 <p class="text-sm font-semibold text-gray-900">Test-Alarm</p>
-                <p class="text-xs text-gray-500">Schickt einen Alarm wie von DIVERA – mit den Feldnamen der Zuordnung oben – durch denselben Ablauf: Rohdaten, Filter, Duplikate, Entwurf, Geocoding. Ohne „Probealarm“ entsteht ein echter Entwurf, der danach gelöscht werden kann. Ob DIVERA dieselben Feldnamen schickt, zeigt erst ein echter Alarm.</p>
+                <p class="text-xs text-gray-500">Schickt einen Alarm wie von DIVERA – mit den Feldnamen der Zuordnung oben – durch denselben Ablauf: Rohdaten, Filter, Duplikate, Einsatz, Geocoding. Ohne „Probealarm“ entsteht ein echter Einsatz, der danach gelöscht werden kann. Ob DIVERA dieselben Feldnamen schickt, zeigt erst ein echter Alarm.</p>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label class="block text-sm text-gray-700">Stichwort<input type="text" wire:model="test.keyword" maxlength="150" class="{{ $input }}"></label>
@@ -75,7 +75,7 @@
                 <label class="block text-sm text-gray-700">Längengrad (optional)<input type="text" inputmode="decimal" wire:model="test.longitude" placeholder="10.4515" class="{{ $input }}"></label>
             </div>
             @foreach(['test.keyword', 'test.latitude', 'test.longitude'] as $field)@error($field)<p class="text-sm text-red-600">{{ $message }}</p>@enderror @endforeach
-            <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="test.probe" class="h-5 w-5 rounded border-gray-300 text-fw-red focus:ring-fw-red"> Als Probealarm kennzeichnen (wird gefiltert, kein Entwurf)</label>
+            <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="test.probe" class="h-5 w-5 rounded border-gray-300 text-fw-red focus:ring-fw-red"> Als Probealarm kennzeichnen (wird gefiltert, kein Einsatz)</label>
             <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="test.via_url" class="h-5 w-5 rounded border-gray-300 text-fw-red focus:ring-fw-red"> Über die öffentliche Adresse senden (prüft auch Erreichbarkeit und Schlüssel)</label>
             <div class="flex flex-wrap items-center gap-3">
                 <button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-fw-navy px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Test-Alarm senden</button>

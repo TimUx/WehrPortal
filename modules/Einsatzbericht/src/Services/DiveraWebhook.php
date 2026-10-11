@@ -38,7 +38,7 @@ class DiveraWebhook
         'address' => 'Adresse',
         'latitude' => 'Breitengrad',
         'longitude' => 'Längengrad',
-        'test' => 'Kennzeichen Probealarm (ja = kein Entwurf)',
+        'test' => 'Kennzeichen Probealarm (ja = kein Einsatz)',
     ];
 
     public const DEFAULT_FILTERS = "Probealarm\nTestalarm";
@@ -215,7 +215,7 @@ class DiveraWebhook
                 'divera_id' => $fields['external_id'],
             ], $entry->received_at);
 
-            $entry->update(['status' => 'created', 'report_id' => $report->id, 'message' => 'Entwurf '.$report->number]);
+            $entry->update(['status' => 'created', 'report_id' => $report->id, 'message' => 'Einsatz '.$report->number]);
 
             if (! $report->latitude && $report->address && ($point = $this->geocoder->locate($report->address))) {
                 $report->update(['latitude' => $point['lat'], 'longitude' => $point['lng']]);

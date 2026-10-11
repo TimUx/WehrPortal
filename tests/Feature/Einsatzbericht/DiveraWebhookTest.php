@@ -28,7 +28,7 @@ test('an alarm becomes a draft with keyword, message, address, coordinates and a
 
     $report = Report::sole();
     expect($report)
-        ->status->toBe('draft')->source->toBe('divera')->divera_id->toBe('4711')
+        ->status->toBe('active')->source->toBe('divera')->divera_id->toBe('4711')
         ->keyword->toBe('FEU 2 – Scheunenbrand')->alarm_message->toBe('Rauchentwicklung aus Scheune, Personen nicht in Gefahr')
         ->address->toBe('Dorfstraße 1, 12345 Musterstadt')->latitude->toBe(51.1657)->longitude->toBe(10.4515)
         ->number->toBe('2027/001');
@@ -131,7 +131,7 @@ test('the Wehrführung switches the webhook, copies the address, sets mapping an
 
     Livewire::actingAs($chief)->test(Settings::class)
         ->assertSee($this->url)
-        ->assertSee('Entwurf angelegt')
+        ->assertSee('Einsatz angelegt')
         ->assertSee('Felder im letzten Request')->assertSee('address')
         ->set('mapping.keyword', 'stichwort')
         ->set('filters', "Probealarm\nÜbung")
@@ -176,7 +176,7 @@ test('a test alarm from the app runs the same way as a DIVERA request and makes 
         ->set('test.longitude', '10.45')
         ->call('sendTestAlarm')
         ->assertHasNoErrors()
-        ->assertSee('Test-Alarm: Entwurf angelegt');
+        ->assertSee('Test-Alarm: Einsatz angelegt');
 
     $report = Report::sole();
     expect($report)->source->toBe('divera')->keyword->toBe('TH 1 – Test')->address->toBe('Am Teich 3, Musterstadt')->latitude->toBe(51.17)

@@ -9,7 +9,7 @@
             <button type="button" onclick="window.print()" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold">Drucken / PDF</button>
         </div>
     </div>
-    <p class="text-sm text-gray-500">Gezählt werden abgeschlossene und freigegebene Berichte nach dem Datum der Alarmierung.@if($stats['drafts'] > 0) {{ $stats['drafts'] }} {{ $stats['drafts'] === 1 ? 'Bericht ist' : 'Berichte sind' }} noch Entwurf.@endif</p>
+    <p class="text-sm text-gray-500">Gezählt werden abgeschlossene und freigegebene Berichte nach dem Datum der Alarmierung.@if($stats['drafts'] > 0) {{ $stats['drafts'] }} {{ $stats['drafts'] === 1 ? 'Bericht ist' : 'Berichte sind' }} noch Entwurf oder aktuell.@endif</p>
 
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
         @foreach([

@@ -156,6 +156,7 @@ test('who is out at an Einsatz or booked right now, and the Einsatzhistorie', fu
     $leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
     $reports = app(ReportService::class);
     $report = $reports->create($leader);
+    $reports->start($leader, $report);
     $reports->update($leader, $report, ['keyword' => 'FEU 2']);
     $rv = $reports->addVehicle($leader, $report, $this->hlf->id);
     $reports->assign($leader, $rv, $this->hanna, 'gruppenfuehrer');

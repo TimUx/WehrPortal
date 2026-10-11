@@ -63,7 +63,7 @@ class Overview extends Component
             'busyCount' => $busy->count(),
             'counts' => $readiness->poolCounts(),
             'reports' => $monitor && app(ModuleRegistry::class)->isActive('einsatzbericht')
-                ? Report::where(fn ($q) => $q->where('status', 'draft')->orWhere('id', (int) $this->reportId))->latest('alarmed_at')->limit(20)->get(['id', 'number', 'keyword', 'alarmed_at'])
+                ? Report::where(fn ($q) => $q->whereIn('status', Report::OPEN)->orWhere('id', (int) $this->reportId))->latest('alarmed_at')->limit(20)->get(['id', 'number', 'keyword', 'alarmed_at'])
                 : collect(),
         ]);
     }

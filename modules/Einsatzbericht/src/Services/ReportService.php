@@ -40,7 +40,7 @@ class ReportService
 
     public static function canEdit(User $user, Report $report): bool
     {
-        return $report->status === 'draft' ? self::canLead($user) : self::canRelease($user);
+        return in_array($report->status, Report::OPEN, true) ? self::canLead($user) : self::canRelease($user);
     }
 
     /** @return list<string> fields that must be filled before closing */
@@ -64,10 +64,17 @@ class ReportService
         return $this->numbered(['commander_id' => $by->id, 'created_by' => $by->id], $alarmedAt ?? now());
     }
 
-    /** A draft from an alarm (DIVERA), without anyone logged in */
+    /** A current (aktuell) Einsatz from an alarm (DIVERA), without anyone logged in: the alarm has happened */
     public function createFromAlarm(array $data, Carbon $alarmedAt): Report
     {
-        return $this->numbered([...collect($data)->only(['keyword', 'alarm_message', 'address', 'latitude', 'longitude', 'divera_id'])->all(), 'source' => 'divera'], $alarmedAt);
+        return $this->numbered([...collect($data)->only(['keyword', 'alarm_message', 'address', 'latitude', 'longitude', 'divera_id'])->all(), 'source' => 'divera', 'status' => 'active'], $alarmedAt);
+    }
+
+    /** "Einsatz starten": the draft becomes the current Einsatz (Lagemeldungen, QR for external Wehren) */
+    public function start(User $by, Report $report): void
+    {
+        $this->assert(self::canLead($by) && $report->status === 'draft', 'Nur ein Entwurf lässt sich starten.');
+        $report->update(['status' => 'active']);
     }
 
     private function numbered(array $attributes, Carbon $alarmedAt): Report
@@ -265,7 +272,7 @@ class ReportService
     /** The Einsatzleiter confirms; the report is then locked for him. Mandatory fields must be there. */
     public function close(User $by, Report $report): void
     {
-        $this->assert(self::canLead($by) && $report->status === 'draft', 'Nur ein Entwurf lässt sich abschließen.');
+        $this->assert(self::canLead($by) && in_array($report->status, Report::OPEN, true), 'Nur ein Entwurf oder aktueller Einsatz lässt sich abschließen.');
 
         $missing = $this->missing($report);
         if ($missing) {
@@ -282,16 +289,16 @@ class ReportService
         $report->update(['status' => 'released', 'released_at' => now(), 'released_by' => $by->id]);
     }
 
-    /** The Wehrführung hands a report back to the Einsatzleiter as draft */
+    /** The Wehrführung hands a closed report back to the Einsatzleiter; it was a real Einsatz, so it is aktuell again */
     public function reopen(User $by, Report $report): void
     {
-        $this->assert(self::canRelease($by) && $report->status !== 'draft');
-        $report->update(['status' => 'draft', 'closed_at' => null, 'closed_by' => null, 'released_at' => null, 'released_by' => null]);
+        $this->assert(self::canRelease($by) && in_array($report->status, Report::DONE, true));
+        $report->update(['status' => 'active', 'closed_at' => null, 'closed_by' => null, 'released_at' => null, 'released_by' => null]);
     }
 
     public function delete(User $by, Report $report): void
     {
-        $this->assert($report->status === 'draft' ? self::canLead($by) : self::canRelease($by));
+        $this->assert(in_array($report->status, Report::OPEN, true) ? self::canLead($by) : self::canRelease($by));
         $report->delete();
     }
 
@@ -334,11 +341,11 @@ class ReportService
         return self::strength($report->vehicles->reject->is_standby->flatMap->crew);
     }
 
-    /** One Kamerad's Einsätze (not drafts) with counters */
+    /** One Kamerad's Einsätze (closed and released) with counters */
     public function memberRecord(User $member): array
     {
         $crew = CrewMember::with(['report', 'reportVehicle'])->where('user_id', $member->id)
-            ->whereHas('report', fn ($q) => $q->where('status', '!=', 'draft'))
+            ->whereHas('report', fn ($q) => $q->whereIn('status', Report::DONE))
             ->get()->sortByDesc(fn (CrewMember $c) => $c->report->alarmed_at?->timestamp ?? 0)->values();
         $year = now('Europe/Berlin')->year;
 
@@ -374,7 +381,7 @@ class ReportService
             'injured' => $reports->sum('injured'),
             'dead' => $reports->sum('dead'),
             'breathing' => $reports->flatMap->crew->where('breathing_apparatus', true)->count(),
-            'drafts' => Report::where('status', 'draft')->count(),
+            'drafts' => Report::whereIn('status', Report::OPEN)->count(),
         ];
     }
 

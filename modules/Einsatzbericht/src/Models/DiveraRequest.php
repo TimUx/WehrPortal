@@ -15,7 +15,7 @@ class DiveraRequest extends Model
     public const KEEP_DAYS = 90;
 
     public const STATUSES = [
-        'pending' => 'In Arbeit', 'created' => 'Entwurf angelegt', 'attached' => 'An bestehenden Einsatz gehängt',
+        'pending' => 'In Arbeit', 'created' => 'Einsatz angelegt', 'attached' => 'An bestehenden Einsatz gehängt',
         'filtered' => 'Gefiltert', 'disabled' => 'Webhook aus', 'error' => 'Fehler',
     ];
 

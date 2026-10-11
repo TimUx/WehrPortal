@@ -10,7 +10,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /** One Einsatz: Entwurf → abgeschlossen (by the Einsatzleiter) → freigegeben (by the Wehrführung) */
 class Report extends Model
 {
-    public const STATUSES = ['draft' => 'Entwurf', 'closed' => 'Abgeschlossen', 'released' => 'Freigegeben'];
+    public const STATUSES = ['draft' => 'Entwurf', 'active' => 'Aktuell', 'closed' => 'Abgeschlossen', 'released' => 'Freigegeben'];
+
+    /** Still with the Einsatzleiter: a draft or a started (aktuell) Einsatz */
+    public const OPEN = ['draft', 'active'];
+
+    /** Counted in statistics and the Personalakte */
+    public const DONE = ['closed', 'released'];
 
     public const CATEGORIES = [
         'brand_klein' => 'Brand – Kleinbrand',
@@ -93,7 +99,7 @@ class Report extends Model
     /** Still going: a draft without Einsatzende – Kameraden can send Lagemeldungen */
     public function isRunning(): bool
     {
-        return $this->status === 'draft' && $this->ended_at === null;
+        return $this->status === 'active' && $this->ended_at === null;
     }
 
     public function externalUnits(): HasMany

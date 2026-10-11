@@ -4,7 +4,10 @@ namespace Modules\Einsatzbericht\src\Livewire;
 
 use App\Models\ActivityLog;
 use App\Models\User;
+use App\Services\AddressSuggestions;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Modules\Einsatzbericht\src\Models\CrewMember;
@@ -36,6 +39,15 @@ class ReportEditor extends Component
 
     public ?string $flash = null;
 
+    /** @var list<array{id: string, main: string, secondary: string}> Google suggestions for the address being typed */
+    public array $addressSuggestions = [];
+
+    /** Groups the typing and the chosen place into one Google session (billed once) */
+    public string $placesSession = '';
+
+    /** @var ?array{address: string, lat: ?float, lng: ?float} the chosen suggestion, so its point is saved without geocoding again */
+    public ?array $pickedAddress = null;
+
     private const TEXT = ['dispatch_number', 'keyword', 'address', 'object', 'affected_parties', 'category', 'situation', 'measures', 'equipment_used',
         'property_damage', 'environmental_damage', 'neighbor_brigades', 'other_parties', 'handover', 'fire_watch_notes'];
 
@@ -43,6 +55,50 @@ class ReportEditor extends Component
     {
         abort_unless(ReportService::canLead(auth()->user()), 403);
         $this->fillForm();
+        $this->placesSession = (string) Str::uuid();
+    }
+
+    /** Typing the address: suggestions from Google (when a key is set) */
+    public function updated(string $name): void
+    {
+        if ($name !== 'form.address') {
+            return;
+        }
+        if ($this->pickedAddress && $this->pickedAddress['address'] !== $this->form['address']) {
+            $this->pickedAddress = null;
+        }
+        $this->addressSuggestions = ReportService::canEdit(auth()->user(), $this->report)
+            ? app(AddressSuggestions::class)->suggest((string) $this->form['address'], $this->placesSession, $this->near())
+            : [];
+    }
+
+    /** A suggestion was tapped: its address, the point on the map and, for a place, its name as Objekt */
+    public function chooseAddress(string $placeId, AddressSuggestions $suggestions): void
+    {
+        $place = $suggestions->details($placeId, $this->placesSession);
+        $this->addressSuggestions = [];
+        $this->placesSession = (string) Str::uuid();
+        if (! $place) {
+            return;
+        }
+
+        $this->form['address'] = mb_substr($place['address'], 0, 255);
+        if ($place['name'] && trim((string) ($this->form['object'] ?? '')) === '') {
+            $this->form['object'] = mb_substr($place['name'], 0, 255);
+        }
+        $this->pickedAddress = ['address' => $this->form['address'], 'lat' => $place['lat'], 'lng' => $place['lng']];
+        if ($place['lat'] !== null) {
+            $this->dispatch('einsatz-location', lat: $place['lat'], lng: $place['lng']);
+        }
+    }
+
+    /** The middle of the earlier Einsätze: suggestions near the Wehr first */
+    private function near(): ?array
+    {
+        $recent = Report::whereNotNull('latitude')->whereNotNull('longitude')->latest('alarmed_at')->limit(50)->toBase()->select(['latitude', 'longitude']);
+        $point = DB::query()->fromSub($recent, 'recent')->selectRaw('avg(latitude) as lat, avg(longitude) as lng')->first();
+
+        return $point && $point->lat !== null ? ['lat' => (float) $point->lat, 'lng' => (float) $point->lng] : null;
     }
 
     private function fillForm(): void
@@ -64,6 +120,14 @@ class ReportEditor extends Component
 
     public function save(ReportService $reports): void
     {
+        if ($this->persist($reports)) {
+            $this->announceSaved($reports);
+        }
+    }
+
+    /** Validates and saves the fields; false when something was refused */
+    private function persist(ReportService $reports): bool
+    {
         $this->validateAndJump([
             'form.keyword' => ['nullable', 'string', 'max:150'],
             'form.dispatch_number' => ['nullable', 'string', 'max:50'],
@@ -76,7 +140,7 @@ class ReportEditor extends Component
             ...collect(array_keys(Report::TIMES))->mapWithKeys(fn ($f) => ["form.$f" => ['nullable', 'date_format:Y-m-d\TH:i']])->all(),
         ], ['*.date_format' => 'Bitte Datum und Uhrzeit angeben.', '*.integer' => 'Bitte eine Zahl angeben.']);
         if ($this->getErrorBag()->isNotEmpty()) {
-            return;
+            return false;
         }
 
         $data = [
@@ -85,10 +149,24 @@ class ReportEditor extends Component
             'rescued' => (int) ($this->form['rescued'] ?: 0), 'injured' => (int) ($this->form['injured'] ?: 0), 'dead' => (int) ($this->form['dead'] ?: 0),
             'police' => (bool) $this->form['police'], 'ems' => (bool) $this->form['ems'], 'fire_watch' => (bool) $this->form['fire_watch'],
             'commander_id' => $this->form['commander_id'] !== '' ? (int) $this->form['commander_id'] : null,
+            // A chosen suggestion brings its point along; otherwise a new address is geocoded
+            ...($this->pickedAddress && $this->pickedAddress['address'] === $this->form['address'] && $this->pickedAddress['lat'] !== null
+                ? ['latitude' => $this->pickedAddress['lat'], 'longitude' => $this->pickedAddress['lng']] : []),
         ];
 
-        if ($this->attempt(fn () => $reports->update(auth()->user(), $this->report, $data))) {
-            $this->announceSaved($reports);
+        return $this->attempt(fn () => $reports->update(auth()->user(), $this->report, $data));
+    }
+
+    /** "Einsatz starten": saves and makes the draft the current Einsatz; missing fields don't stop it */
+    public function start(ReportService $reports): void
+    {
+        if (! $this->persist($reports)) {
+            return;
+        }
+
+        if ($this->attempt(fn () => $reports->start(auth()->user(), $this->report))) {
+            $this->report->refresh();
+            $this->dispatch('report-saved', message: 'Einsatz gestartet. Kameraden sehen ihn unter „Laufende Einsätze“ und schicken Lagemeldungen.', field: null, warn: false);
         }
     }
 
@@ -98,8 +176,9 @@ class ReportEditor extends Component
         $missing = $reports->missingFields($this->report->refresh());
         $labels = array_map(fn ($field) => Report::REQUIRABLE[$field], $missing);
 
+        $saved = $this->report->status === 'draft' ? 'Entwurf gespeichert.' : 'Gespeichert.';
         $this->dispatch('report-saved',
-            message: $missing ? 'Gespeichert. Noch offen: '.implode(', ', $labels).'.' : 'Gespeichert.',
+            message: $missing ? $saved.' Noch offen: '.implode(', ', $labels).'.' : $saved,
             field: $missing[0] ?? null,
             warn: $missing !== [],
         );
@@ -239,7 +318,7 @@ class ReportEditor extends Component
     public function reopen(ReportService $reports): void
     {
         if ($this->attempt(fn () => $reports->reopen(auth()->user(), $this->report))) {
-            $this->flash = 'Bericht ist wieder ein Entwurf.';
+            $this->flash = 'Bericht ist wieder offen (aktuell).';
         }
     }
 
@@ -262,7 +341,8 @@ class ReportEditor extends Component
             'canEdit' => ReportService::canEdit($user, $report),
             'canRelease' => ReportService::canRelease($user),
             'required' => ReportService::required(),
-            'missing' => $report->status === 'draft' ? app(ReportService::class)->missing($report) : [],
+            'missing' => in_array($report->status, Report::OPEN, true) ? app(ReportService::class)->missing($report) : [],
+            'canSuggest' => app(AddressSuggestions::class)->available(),
             'strength' => ReportService::reportStrength($report),
             'vehicleOptions' => Vehicle::active()->whereNotIn('id', $report->vehicles->pluck('vehicle_id')->filter())->pluck('name', 'id'),
             'hasStandby' => $report->vehicles->contains('is_standby', true),

@@ -26,7 +26,7 @@
                         <p class="text-sm text-gray-600">{{ $report->alarmed_at?->setTimezone('Europe/Berlin')->format('d.m.Y H:i') ?? 'ohne Zeit' }} · {{ $report->address ?: 'ohne Adresse' }}</p>
                         <p class="text-xs text-gray-500">{{ $report->categoryLabel() }} · Stärke {{ $strength['label'] }} · {{ $report->vehicles->reject->is_standby->pluck('name')->implode(', ') ?: 'keine Fahrzeuge' }}</p>
                     </div>
-                    <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold {{ ['draft' => 'bg-gray-100 text-gray-700', 'closed' => 'bg-amber-100 text-amber-800', 'released' => 'bg-green-100 text-green-800'][$report->status] }}">{{ $report->statusLabel() }}</span>
+                    <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold {{ ['draft' => 'bg-gray-100 text-gray-700', 'active' => 'bg-red-100 text-red-800', 'closed' => 'bg-amber-100 text-amber-800', 'released' => 'bg-green-100 text-green-800'][$report->status] }}">{{ $report->statusLabel() }}</span>
                 </div>
             </a>
         @empty

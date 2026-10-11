@@ -32,6 +32,12 @@ document.addEventListener('alpine:init', () => {
             if (editable) {
                 this.map.on('click', (e) => this.save(e.latlng));
             }
+            // A chosen address suggestion brings its point: show it right away (saved with the report)
+            window.addEventListener('einsatz-location', (e) => {
+                const point = [e.detail.lat, e.detail.lng];
+                this.place(point);
+                this.map.setView(point, 16);
+            });
         },
         place(point) {
             if (this.marker) {

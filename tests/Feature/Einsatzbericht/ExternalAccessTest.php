@@ -27,6 +27,7 @@ beforeEach(function () {
 
     $this->r = app(ReportService::class);
     $this->report = $this->r->create($this->leader);
+    $this->r->start($this->leader, $this->report);
     $this->r->update($this->leader, $this->report, ['keyword' => 'FEU 4 – Großbrand Scheune', 'address' => 'Hof Lindenhof 3, Musterstadt', 'affected_parties' => 'Landwirt Max Muster']);
     $this->access = app(ExternalAccess::class);
 });

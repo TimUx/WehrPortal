@@ -77,12 +77,14 @@ class EinsatzberichtServiceProvider extends ServiceProvider
 
         app(PersonnelFileRegistry::class)->register('einsatzbericht', 'Einsätze', 'einsatzbericht.personnel-file');
 
-        // Start page: open drafts for the Einsatzleiter, reports to release for the Wehrführung
+        // Start page: drafts and current Einsätze for the Einsatzleiter, reports to release for the Wehrführung
         app(DashboardRegistry::class)->register('einsatzbericht', 'open', function (User $user) {
-            $drafts = ReportService::canLead($user) ? Report::where('status', 'draft')->count() : 0;
+            $lead = ReportService::canLead($user);
+            $drafts = $lead ? Report::where('status', 'draft')->count() : 0;
+            $active = $lead ? Report::where('status', 'active')->count() : 0;
             $toRelease = ReportService::canRelease($user) ? Report::where('status', 'closed')->count() : 0;
 
-            return $drafts + $toRelease === 0 ? null : view('einsatzbericht::cards.open', compact('drafts', 'toRelease'))->render();
+            return $drafts + $active + $toRelease === 0 ? null : view('einsatzbericht::cards.open', compact('drafts', 'active', 'toRelease'))->render();
         });
     }
 }

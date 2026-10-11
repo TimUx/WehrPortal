@@ -172,7 +172,7 @@ class OrganizationSettingsPage extends Page implements HasForms
         return $schema
             ->components([
                 Section::make('Google Maps')
-                    ->description('Für Karten und Adressfunktionen. Den Schlüssel legst du in der Google Cloud Console an (Geocoding- und Maps-JavaScript-API aktivieren).')
+                    ->description('Für Karten und Adressfunktionen. Den Schlüssel legst du in der Google Cloud Console an (Geocoding API und Places API (New) aktivieren – die Places API liefert die Adressvorschläge im Einsatzbericht).')
                     ->schema([
                         Forms\Components\TextInput::make('google_maps_key')
                             ->label('API-Schlüssel')

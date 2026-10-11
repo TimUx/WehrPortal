@@ -30,6 +30,7 @@ beforeEach(function () {
 
     $this->r = app(ReportService::class);
     $this->report = $this->r->create($this->leader);
+    $this->r->start($this->leader, $this->report);
     $this->r->update($this->leader, $this->report, ['keyword' => 'FEU 2', 'address' => 'Dorfstraße 1, Musterstadt', 'category' => 'brand_mittel']);
 });
 

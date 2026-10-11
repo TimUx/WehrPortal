@@ -9,7 +9,7 @@
             <div>
                 <h1 class="text-xl font-bold text-gray-900">Einsatz {{ $report->number }}{{ $report->keyword ? ' · '.$report->keyword : '' }}</h1>
                 <p class="text-sm text-gray-500">
-                    <span class="rounded-full px-2 py-0.5 text-xs font-semibold {{ ['draft' => 'bg-gray-100 text-gray-700', 'closed' => 'bg-amber-100 text-amber-800', 'released' => 'bg-green-100 text-green-800'][$report->status] }}">{{ $report->statusLabel() }}</span>
+                    <span class="rounded-full px-2 py-0.5 text-xs font-semibold {{ ['draft' => 'bg-gray-100 text-gray-700', 'active' => 'bg-red-100 text-red-800', 'closed' => 'bg-amber-100 text-amber-800', 'released' => 'bg-green-100 text-green-800'][$report->status] }}">{{ $report->statusLabel() }}</span>
                     @if($report->closed_at) · abgeschlossen {{ $report->closed_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }} von {{ $report->closer?->name }}@endif
                     @if($report->released_at) · freigegeben {{ $report->released_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }} von {{ $report->releaser?->name }}@endif
                 </p>
@@ -64,7 +64,20 @@
         {{-- Einsatzstelle --}}
         <section class="{{ $card }}">
             <h2 class="text-sm font-semibold text-gray-900">Einsatzstelle</h2>
-            <label class="block text-sm text-gray-700">Adresse{{ $req('address') }}<input type="text" id="field-address" wire:model="form.address" maxlength="255" autocomplete="off" placeholder="Straße Hausnummer, Ort" class="{{ $input }}"></label>
+            <div class="relative">
+                <label class="block text-sm text-gray-700">Adresse{{ $req('address') }}<input type="text" id="field-address" @if($canSuggest && $canEdit) wire:model.live.debounce.400ms="form.address" @else wire:model="form.address" @endif maxlength="255" autocomplete="off" placeholder="{{ $canSuggest ? 'Straße oder Ort eingeben – Vorschläge erscheinen' : 'Straße Hausnummer, Ort' }}" class="{{ $input }}"></label>
+                {{-- Google suggestions: tap one, so the address is spelled right and the point is set --}}
+                @if($addressSuggestions)
+                    <ul class="absolute inset-x-0 top-full z-20 mt-1 divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200 bg-white text-sm shadow-lg" role="listbox">
+                        @foreach($addressSuggestions as $s)
+                            <li wire:key="as-{{ $s['id'] }}"><button type="button" wire:click="chooseAddress(@js($s['id']))" class="w-full px-3 py-2 text-left hover:bg-gray-50" role="option">
+                                <span class="block text-gray-900">{{ $s['main'] }}</span>@if($s['secondary'])<span class="block text-xs text-gray-500">{{ $s['secondary'] }}</span>@endif
+                            </button></li>
+                        @endforeach
+                        <li class="px-3 py-1 text-right text-[10px] text-gray-400">Vorschläge von Google</li>
+                    </ul>
+                @endif
+            </div>
             {{-- Map: shows the point; editable: drag the pin or tap the map --}}
             <div wire:ignore x-data="einsatzMap({ lat: @js($report->latitude), lng: @js($report->longitude), editable: @js($canEdit) })" class="overflow-hidden rounded-xl border border-gray-200">
                 <div x-ref="map" class="h-56 sm:h-72 w-full"></div>
@@ -307,7 +320,7 @@
             <h2 class="text-sm font-semibold text-gray-900">Lagemeldungen</h2>
             <a href="{{ route('einsatzbericht.situation', $report) }}" class="text-sm text-fw-navy underline">Eigene Seite (für Kameraden teilen)</a>
         </div>
-        @if($report->isRunning())<p class="text-xs text-gray-500">Solange der Einsatz läuft (Entwurf ohne Einsatzende), können alle Kameraden mit Zugang über „Einsätze“ Lagemeldungen mit Foto schicken.</p>@endif
+        @if($report->isRunning())<p class="text-xs text-gray-500">Solange der Einsatz läuft (aktuell, ohne Einsatzende), können alle Kameraden mit Zugang über „Einsätze“ Lagemeldungen mit Foto schicken.</p>@endif
         <livewire:einsatzbericht.situation-log :report="$report" :key="'log-'.$report->id" />
     </section>
 
@@ -341,19 +354,22 @@
            class="mx-auto mb-2 max-w-4xl rounded-lg px-3 py-2 text-sm font-medium"
            :class="warn ? 'bg-amber-50 text-amber-900 ring-1 ring-amber-200' : 'bg-green-50 text-green-800 ring-1 ring-green-200'" x-text="note"></p>
         <div class="mx-auto flex max-w-4xl flex-wrap items-center gap-2">
-            @if($canEdit)
+            @if($canEdit && $report->status === 'draft')
+                <button type="button" wire:click="start" wire:loading.attr="disabled" class="rounded-lg bg-fw-red px-4 py-2.5 text-sm font-semibold text-white">Einsatz starten</button>
+                <button type="button" wire:click="save" wire:loading.attr="disabled" class="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700">Entwurf speichern</button>
+            @elseif($canEdit)
                 <button type="button" wire:click="save" wire:loading.attr="disabled" class="rounded-lg bg-fw-navy px-4 py-2.5 text-sm font-semibold text-white">Speichern</button>
             @endif
-            @if($report->status === 'draft')
-                <button type="button" wire:click="close" wire:confirm="Bericht abschließen? Danach kann ihn nur noch die Wehrführung ändern." class="rounded-lg bg-fw-red px-4 py-2.5 text-sm font-semibold text-white">Abschließen</button>
+            @if(in_array($report->status, \Modules\Einsatzbericht\src\Models\Report::OPEN, true))
+                <button type="button" wire:click="close" wire:confirm="Bericht abschließen? Danach kann ihn nur noch die Wehrführung ändern." class="rounded-lg {{ $report->status === 'draft' ? 'border border-gray-300 bg-white text-gray-700' : 'bg-fw-red text-white' }} px-4 py-2.5 text-sm font-semibold">Abschließen</button>
             @endif
             @if($canRelease && $report->status === 'closed')
                 <button type="button" wire:click="release" class="rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white">Freigeben</button>
             @endif
-            @if($canRelease && $report->status !== 'draft')
-                <button type="button" wire:click="reopen" wire:confirm="Bericht wieder zum Entwurf machen?" class="text-sm text-gray-600 underline">Wieder öffnen</button>
+            @if($canRelease && in_array($report->status, \Modules\Einsatzbericht\src\Models\Report::DONE, true))
+                <button type="button" wire:click="reopen" wire:confirm="Bericht wieder öffnen? Der Einsatzleiter kann ihn dann wieder bearbeiten." class="text-sm text-gray-600 underline">Wieder öffnen</button>
             @endif
-            @if($report->status === 'draft' || $canRelease)
+            @if(in_array($report->status, \Modules\Einsatzbericht\src\Models\Report::OPEN, true) || $canRelease)
                 <button type="button" wire:click="delete" wire:confirm="Einsatz {{ $report->number }} endgültig löschen?" class="ml-auto text-sm text-red-600 underline">Löschen</button>
             @endif
         </div>
