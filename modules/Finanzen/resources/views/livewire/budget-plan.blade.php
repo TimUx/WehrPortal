@@ -1,5 +1,5 @@
 @php($input = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-fw-red focus:ring-fw-red')
-@php($money = fn ($c) => \Modules\Finanzen\src\Support\Money::format($c))
+@php($money = fn ($c) => \App\Support\Money::format($c))
 <div class="space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>

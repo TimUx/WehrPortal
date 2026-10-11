@@ -2,6 +2,7 @@
 
 namespace Modules\Finanzen\src\Livewire;
 
+use App\Support\Money;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -9,7 +10,6 @@ use Livewire\WithFileUploads;
 use Modules\Finanzen\src\Models\CostCenter;
 use Modules\Finanzen\src\Models\Entry;
 use Modules\Finanzen\src\Services\FinanceService;
-use Modules\Finanzen\src\Support\Money;
 
 /**
  * Submit an Ausgabe with Beleg (every Kamerad), book an Ausgabe or Einnahme directly (Kassenwart,

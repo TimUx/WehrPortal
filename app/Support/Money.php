@@ -1,8 +1,8 @@
 <?php
 
-namespace Modules\Finanzen\src\Support;
+namespace App\Support;
 
-/** Amounts are kept in cent; shown and typed the German way ("1.234,56 €") */
+/** Amounts are kept in cent; shown and typed the German way ("1.234,56 €"). Used by Finanzen and Wartung. */
 class Money
 {
     public static function format(int $cents, bool $sign = false): string

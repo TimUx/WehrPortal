@@ -3,10 +3,10 @@
 namespace Modules\Finanzen\src\Models;
 
 use App\Models\User;
+use App\Support\Money;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Modules\Finanzen\src\Support\Money;
 
 /**
  * A Buchung with Belegnummer: an Ausgabe (a Kamerad submits it, Kassenwart or Wehrführung approve

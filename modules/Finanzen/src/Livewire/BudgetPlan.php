@@ -2,13 +2,13 @@
 
 namespace Modules\Finanzen\src\Livewire;
 
+use App\Support\Money;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Modules\Finanzen\src\Models\Budget;
 use Modules\Finanzen\src\Models\CostCenter;
 use Modules\Finanzen\src\Services\FinanceService;
-use Modules\Finanzen\src\Support\Money;
 
 /** The Kassenwart plans the budget per Kostenstelle and year and keeps the Kostenstellen */
 class BudgetPlan extends Component

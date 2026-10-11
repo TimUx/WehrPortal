@@ -1,5 +1,5 @@
 @inject('org', \App\Services\OrganizationSettings::class)
-@php($money = fn ($c) => \Modules\Finanzen\src\Support\Money::format($c))
+@php($money = fn ($c) => \App\Support\Money::format($c))
 <!DOCTYPE html>
 <html lang="de">
 <head>

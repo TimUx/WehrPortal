@@ -1,4 +1,4 @@
-{{-- A pad to sign on; $model is the Livewire property that gets the PNG --}}
+{{-- A pad to sign on (resources/js/signature-pad.js); $model is the Livewire property that gets the PNG, checked by App\Support\SignatureImage --}}
 <div x-data="signaturePad(@js($model))" class="space-y-1">
     <div wire:ignore class="relative rounded-lg border-2 border-dashed border-gray-300 bg-white">
         <canvas x-ref="canvas" x-on:pointerdown="start" x-on:pointermove="move" x-on:pointerup="end" x-on:pointercancel="end"

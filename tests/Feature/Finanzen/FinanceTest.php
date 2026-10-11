@@ -3,6 +3,7 @@
 use App\Livewire\Dashboard\Home;
 use App\Models\Module;
 use App\Models\User;
+use App\Support\Money;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -22,7 +23,6 @@ use Modules\Finanzen\src\Notifications\ExpensePaidNotification;
 use Modules\Finanzen\src\Notifications\ExpenseSubmittedNotification;
 use Modules\Finanzen\src\Services\FinanceExport;
 use Modules\Finanzen\src\Services\FinanceService;
-use Modules\Finanzen\src\Support\Money;
 
 beforeEach(function () {
     Module::where('key', 'finanzen')->update(['is_active' => true]);

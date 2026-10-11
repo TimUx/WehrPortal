@@ -82,12 +82,12 @@
         <p class="text-sm font-semibold text-gray-900">Unterschrift</p>
         <p class="text-sm text-gray-500">Mit deiner Unterschrift bestätigst du die Angaben. Danach ist der Eintrag gesperrt; Ergänzungen gehen nur noch als Nachtrag.</p>
         <div wire:key="pad-recorder">
-            @include('verbandbuch::partials.signature-pad', ['model' => 'signature', 'label' => 'Ersthelfer / Erfasser: '.auth()->user()->name])
+            @include('partials.signature-pad', ['model' => 'signature', 'label' => 'Ersthelfer / Erfasser: '.auth()->user()->name])
         </div>
         @error('signature')<p class="{{ $error }}">{{ $message }}</p>@enderror
         @if($injuredLabel && $injuredUserId !== (string) auth()->id())
             <div wire:key="pad-injured-{{ $injuredUserId }}">
-                @include('verbandbuch::partials.signature-pad', ['model' => 'injuredSignature', 'label' => 'Verletzte Person (optional): '.$injuredLabel])
+                @include('partials.signature-pad', ['model' => 'injuredSignature', 'label' => 'Verletzte Person (optional): '.$injuredLabel])
             </div>
             @error('injured_signature')<p class="{{ $error }}">{{ $message }}</p>@enderror
         @endif

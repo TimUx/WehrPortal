@@ -3,6 +3,7 @@
 namespace Modules\Verbandbuch\src\Services;
 
 use App\Models\User;
+use App\Support\SignatureImage;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Carbon;
@@ -30,9 +31,6 @@ class VerbandbuchService
     public const MODULE = 'verbandbuch';
 
     public const MANAGER_ROLES = ['sicherheitsbeauftragter', 'wehrführung'];
-
-    /** Largest signature we take (PNG, base64-decoded) */
-    public const MAX_SIGNATURE_BYTES = 300 * 1024;
 
     // ─── who may do what ─────────────────────────────────────────────────────
 
@@ -88,12 +86,12 @@ class VerbandbuchService
     public function create(User $by, array $data, string $signature, ?string $injuredSignature = null): Entry
     {
         $clean = $this->validate($data);
-        $signatures = ['recorder' => $this->signatureData($signature, 'signature')];
+        $signatures = ['recorder' => SignatureImage::fromDataUrl($signature, 'signature')];
         if (filled($injuredSignature)) {
             if ($clean['injured_name'] === null) {
                 throw ValidationException::withMessages(['injured_signature' => 'Ohne Namen der verletzten Person kann sie nicht unterschreiben.']);
             }
-            $signatures['injured'] = $this->signatureData($injuredSignature, 'injured_signature');
+            $signatures['injured'] = SignatureImage::fromDataUrl($injuredSignature, 'injured_signature');
         }
 
         $entry = DB::transaction(function () use ($by, $clean, $signatures) {
@@ -323,56 +321,6 @@ class VerbandbuchService
         }
 
         return [null, $this->text($name, 150)];
-    }
-
-    /**
-     * The PNG of a signature from the pad, as base64. Checked to be a real PNG that is not empty,
-     * so neither a blank pad nor something else ends up as "signed".
-     */
-    private function signatureData(string $dataUrl, string $field): string
-    {
-        $fail = fn (string $message) => throw ValidationException::withMessages([$field => $message]);
-
-        if (! str_starts_with($dataUrl, 'data:image/png;base64,')) {
-            $fail('Bitte unterschreiben.');
-        }
-        $png = base64_decode(substr($dataUrl, 22), true);
-        if ($png === false || strlen($png) > self::MAX_SIGNATURE_BYTES) {
-            $fail('Die Unterschrift konnte nicht gelesen werden. Bitte noch einmal unterschreiben.');
-        }
-        $size = @getimagesizefromstring($png);
-        if (! $size || $size[2] !== IMAGETYPE_PNG || $size[0] < 50 || $size[1] < 20 || $size[0] > 3000 || $size[1] > 1500) {
-            $fail('Die Unterschrift konnte nicht gelesen werden. Bitte noch einmal unterschreiben.');
-        }
-        if ($this->inkPixels($png) < 30) {
-            $fail('Die Unterschrift ist zu kurz. Bitte richtig unterschreiben.');
-        }
-
-        return base64_encode($png);
-    }
-
-    /** Visible pixels of the strokes, counted on every third pixel */
-    private function inkPixels(string $png): int
-    {
-        $image = @imagecreatefromstring($png);
-        if (! $image) {
-            return 0;
-        }
-
-        $count = 0;
-        for ($x = 0, $w = imagesx($image), $h = imagesy($image); $x < $w; $x += 3) {
-            for ($y = 0; $y < $h; $y += 3) {
-                $rgba = imagecolorat($image, $x, $y);
-                $alpha = ($rgba >> 24) & 0x7F;
-                $dark = (($rgba >> 16) & 0xFF) + (($rgba >> 8) & 0xFF) + ($rgba & 0xFF) < 600;
-                if ($alpha < 100 && $dark) {
-                    $count++;
-                }
-            }
-        }
-        imagedestroy($image);
-
-        return $count;
     }
 
     /** SHA-256 over everything that was signed */

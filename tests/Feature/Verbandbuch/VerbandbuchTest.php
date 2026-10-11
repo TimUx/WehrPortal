@@ -38,25 +38,6 @@ beforeEach(function () {
     $this->vb = app(VerbandbuchService::class);
 });
 
-/** A signature as the pad sends it: a stroke on a transparent PNG */
-function signaturePng(bool $blank = false): string
-{
-    $image = imagecreatetruecolor(600, 160);
-    imagesavealpha($image, true);
-    imagefill($image, 0, 0, imagecolorallocatealpha($image, 0, 0, 0, 127));
-    if (! $blank) {
-        imagesetthickness($image, 3);
-        imageline($image, 40, 120, 300, 40, imagecolorallocate($image, 17, 24, 39));
-        imageline($image, 300, 40, 560, 110, imagecolorallocate($image, 17, 24, 39));
-    }
-    ob_start();
-    imagepng($image);
-    $png = ob_get_clean();
-    imagedestroy($image);
-
-    return 'data:image/png;base64,'.base64_encode($png);
-}
-
 function injuryEntry(User $by, array $overrides = [], ?string $injuredSignature = null): Entry
 {
     return app(VerbandbuchService::class)->create($by, [
