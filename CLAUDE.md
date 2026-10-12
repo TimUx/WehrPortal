@@ -30,7 +30,7 @@ docker run --rm --network host -v "$PWD":/app -w /app --user root -e SHOW_WELCOM
   sh -c "install-php-extensions gd intl >/dev/null 2>&1; ./vendor/bin/pest --parallel; chown -R 1000:1000 storage bootstrap/cache"
 ```
 
-Test data, seeders and commits use invented people only ("Hanna Hydrant", "Bernd Blaulicht", `example.com` addresses), never names or addresses of real members. The repository is public: no names, addresses, domains, servers or settings of a real Wehr or of the maintainer in code, docs, tests or commit messages (example Wehr: "FF Musterstadt", `ff-musterstadt.de`). The only exception is the legally required `docs/impressum.html` of the project page (GitHub Pages from `main` /docs, www.openwehr.de), by the maintainer's decision.
+Test data, seeders and commits use invented people only ("Hanna Hydrant", "Bernd Blaulicht", `example.com` addresses), never names or addresses of real members. The repository is public: no names, addresses, domains, servers or settings of a real Wehr or of the maintainer in code, docs, tests or commit messages (example Wehr: "FF Musterstadt", `ff-musterstadt.de`). The only exceptions are the legally required `docs/impressum.html` and `docs/datenschutz.html` of the project page (GitHub Pages from `main` /docs, www.openwehr.de), by the maintainer's decision.
 
 The trailing `chown` matters: root-owned files left in `storage/` break `docker build` (permission denied in the build context).
 
