@@ -115,6 +115,8 @@ test('a Werkstatt downtime blocks bookings in the Fahrzeugbuchung and tells who 
 });
 
 test('changes inside a downtime: ending early works, moving into it does not; without the module nothing blocks', function () {
+    // A fixed midday: between 23:00 and midnight the booking ended "now" would overlap the one from 23:00
+    $this->travelTo(Carbon::parse('2027-05-10 12:00', 'Europe/Berlin'));
     $booking = bookMtw($this->hanna, 'today 00:00', 'tomorrow 23:00');
     $this->f->addDowntime($this->wart, $this->mtw, now('Europe/Berlin')->addHours(2)->format('Y-m-d\TH:i'), now('Europe/Berlin')->addHours(5)->format('Y-m-d\TH:i'), 'Werkstatt');
 

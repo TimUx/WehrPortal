@@ -230,7 +230,7 @@ test('the Atemschutzwart keeps the pool: G26.3, chip, trainings for several at o
         ->set('consumption', '50')->call('saveSettings')->assertHasNoErrors();
 
     expect($this->r->forWearer(Wearer::where('user_id', $klara->id)->first())['ready'])->toBeTrue()
-        ->and(Training::where('kind', 'belastungsuebung')->where('done_on', now()->toDateString())->count())->toBe(2)
+        ->and(Training::where('kind', 'belastungsuebung')->where('done_on', now('Europe/Berlin')->toDateString())->count())->toBe(2)
         ->and(MonitorService::settings()['consumption_lpm'])->toBe(50);
 });
 
