@@ -22,6 +22,7 @@ use Modules\Schichtplan\SchichtplanServiceProvider;
 use Modules\Uebungsdienste\UebungsdiensteServiceProvider;
 use Modules\Verbandbuch\VerbandbuchServiceProvider;
 use Modules\Wartung\WartungServiceProvider;
+use Modules\Objektplaene\ObjektplaeneServiceProvider;
 use Modules\Wasserkarte\WasserkarteServiceProvider;
 
 return [
@@ -48,4 +49,5 @@ return [
     FahrzeugeServiceProvider::class,
     FahrtenbuchServiceProvider::class,
     WasserkarteServiceProvider::class,
+    ObjektplaeneServiceProvider::class,
 ];

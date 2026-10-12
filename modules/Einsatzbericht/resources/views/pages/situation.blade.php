@@ -9,6 +9,10 @@
         @if(app(\App\Services\ModuleRegistry::class)->isActive('wasserkarte') && auth()->user()->canUseModule('wasserkarte'))
             @include('wasserkarte::partials.report-section', ['report' => $report, 'class' => ''])
         @endif
+        {{-- Lagemonitor: the plans of the object at the Einsatzstelle, when the Objektpläne are on --}}
+        @if(app(\App\Services\ModuleRegistry::class)->isActive('objektplaene') && auth()->user()->canUseModule('objektplaene'))
+            @include('objektplaene::partials.report-section', ['report' => $report, 'class' => ''])
+        @endif
         <livewire:einsatzbericht.situation-log :report="$report" :key="'log-'.$report->id" />
     </div>
 </x-layouts.app>

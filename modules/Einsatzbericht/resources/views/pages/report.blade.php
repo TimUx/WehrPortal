@@ -4,6 +4,9 @@
     @if(app(\App\Services\ModuleRegistry::class)->isActive('wasserkarte') && auth()->user()->canUseModule('wasserkarte'))
         @include('wasserkarte::partials.report-section', ['report' => $report])
     @endif
+    @if(app(\App\Services\ModuleRegistry::class)->isActive('objektplaene') && auth()->user()->canUseModule('objektplaene'))
+        @include('objektplaene::partials.report-section', ['report' => $report])
+    @endif
     @if(app(\App\Services\ModuleRegistry::class)->isActive('fahrtenbuch'))
         @include('fahrtenbuch::partials.report-section', ['report' => $report])
     @endif
