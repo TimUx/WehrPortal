@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>openwehr – die Web-App für Freiwillige Feuerwehren</title>
+  <meta name="description" content="openwehr ist eine kostenlose Open-Source-Web-App für Freiwillige Feuerwehren: Einsatzbericht, Atemschutzüberwachung, Fahrzeugbuchung, Kleiderkammer, Kalender und mehr – für das Handy gemacht und auf dem eigenen Server.">
+  <meta name="theme-color" content="#1B2645">
+  <meta property="og:title" content="openwehr – die Web-App für Freiwillige Feuerwehren">
+  <meta property="og:description" content="Ein gemeinsamer Kern und 18 Module, die jede Wehr einzeln einschaltet. Open Source, kostenlos, auf dem eigenen Server.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="#top" aria-label="openwehr – zum Seitenanfang">
+        <img src="logo.svg" alt="" width="28" height="33">
+        <span>openwehr</span>
+      </a>
+      <nav class="nav" aria-label="Seitennavigation">
+        <a href="#module">Module</a>
+        <a href="#einsatz">Im Einsatz</a>
+        <a href="#installation">Installation</a>
+        <a class="nav-github" href="https://github.com/roberteinsle/openwehr">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="wrap hero-inner">
+        <div class="hero-text">
+          <p class="eyebrow">Open Source · kostenlos · auf dem eigenen Server</p>
+          <h1>Die Web-App für Freiwillige Feuerwehren</h1>
+          <p class="lead">Ein gemeinsamer Kern und 18 Module, die jede Wehr einzeln einschaltet – vom Einsatzbericht über die Atemschutzüberwachung bis zur Kleiderkammer. Für das Handy gemacht, Anmeldung ohne Passwort, Oberfläche komplett auf Deutsch.</p>
+          <div class="actions">
+            <a class="button primary" href="#installation">Installieren</a>
+            <a class="button secondary" href="https://github.com/roberteinsle/openwehr">Quellcode auf GitHub</a>
+          </div>
+          <ul class="facts">
+            <li><strong>18</strong> Module</li>
+            <li><strong>AGPL-3.0</strong> Lizenz</li>
+            <li><strong>0 €</strong> Lizenzkosten</li>
+          </ul>
+        </div>
+
+        <div class="phone" aria-hidden="true">
+          <div class="phone-screen">
+            <div class="app-bar"><img src="logo.svg" alt="" width="16" height="19"><span>FF Musterstadt</span><span class="dots"></span></div>
+            <div class="app-card alert">
+              <p class="app-label">Einsatz BMA · Schulstraße 1</p>
+              <p class="app-title">Grundschule Musterstadt</p>
+              <p class="app-meta">Gefährdung erhöht · Brandmeldeanlage · FSD</p>
+              <span class="app-chip">Feuerwehrplan öffnen</span>
+            </div>
+            <div class="app-card">
+              <p class="app-label">Nächster Termin</p>
+              <p class="app-title">Übungsdienst · Di 19:00</p>
+              <p class="app-meta">Technische Hilfe · 14 Zusagen</p>
+            </div>
+            <div class="app-card">
+              <p class="app-label">Fahrzeugbuchung</p>
+              <p class="app-title">MTW · Sa 09:00–13:00</p>
+              <p class="app-meta">Jugendfeuerwehr, Ausflug</p>
+            </div>
+            <div class="app-grid">
+              <span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="warum">
+      <div class="wrap">
+        <h2>Gemacht für den Feuerwehralltag</h2>
+        <p class="section-lead">Keine Zettelwirtschaft, keine Excel-Listen in fünf Versionen, keine teure Branchensoftware: openwehr bündelt, was eine Wehr im Alltag und im Einsatz braucht.</p>
+        <div class="features">
+          <article class="feature">
+            <h3>Für das Handy gemacht</h3>
+            <p>Jede Seite funktioniert auf dem Smartphone. Die Kameraden nutzen ihr eigenes Handy – ohne App-Store, direkt im Browser.</p>
+          </article>
+          <article class="feature">
+            <h3>Anmeldung ohne Passwort</h3>
+            <p>Ein Link per E-Mail genügt. Kein Passwort, das vergessen wird, kein Passwortzettel im Gerätehaus.</p>
+          </article>
+          <article class="feature">
+            <h3>Module nach Bedarf</h3>
+            <p>Jedes Modul ist zunächst aus. Die Wehr schaltet nur ein, was sie braucht, und gibt es allen oder einzelnen Kameraden frei.</p>
+          </article>
+          <article class="feature">
+            <h3>Rollen statt Wildwuchs</h3>
+            <p>Gerätewart, Kassenwart, Hydrantenwart, Einsatzleiter: Jede Aufgabe hat ihre Rolle, Admins behalten den Überblick.</p>
+          </article>
+          <article class="feature">
+            <h3>Benachrichtigungen</h3>
+            <p>Termine, Entscheidungen, Mängel und Fristen landen in der Glocke und per E-Mail – genau dort, wo etwas zu tun ist.</p>
+          </article>
+          <article class="feature">
+            <h3>Eure Daten, euer Server</h3>
+            <p>openwehr läuft auf einem eigenen Server der Wehr. Gesundheitsdaten im Verbandbuch werden verschlüsselt gespeichert, alle Änderungen protokolliert.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section tinted" id="module">
+      <div class="wrap">
+        <h2>18 Module, ein System</h2>
+        <p class="section-lead">Alle Module greifen ineinander: Fahrzeuge, Kameraden, Abteilungen und Funktionen gibt es nur einmal.</p>
+        <div class="modules">
+        <article class="module">
+          <span class="module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2zM13 3v5a1 1 0 001 1h5"/></svg></span>
+          <div>
+            <h3>Einsatzbericht</h3>
+            <p>Einsätze digital erfassen und freigeben, Besatzung und Stärke, DIVERA-24/7-Anbindung, Lagemeldungen mit Fotos und Jahresstatistik.</p>
+          </div>
+        </article>
+        <article class="module">
+          <span class="module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3c-3.9 0-7 2.7-7 6.5 0 2.4 1.2 4.3 3 5.5v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2c1.8-1.2 3-3.1 3-5.5C19 5.7 15.9 3 12 3zM9 10h.01M15 10h.01M10 21h4M12 18v3"/></svg></span>
+          <div>
+            <h3>Atemschutzüberwachung</h3>
+            <p>Trupps im Einsatz mit Uhr, Drücken, Rückzugsdruck und Warnungen nach FwDV 7, Protokoll als PDF und im Einsatzbericht.</p>
+          </div>
+        </article>
+        <article class="module">
+          <span class="module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3V6zM9 3v15M15 6v15"/></svg></span>
+          <div>
+            <h3>Objektpläne &amp; Brandschutzunterlagen</h3>
+            <p>Feuerwehrpläne und Brandschutzunterlagen mit Versionen – bei Alarm die Pläne der Einsatzstelle per GPS, auch offline.</p>
+          </div>
+        </article>
+        <article class="module">
+          <span class="module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3s-6 6.5-6 11a6 6 0 0 0 12 0c0-4.5-6-11-6-11zM9.5 15a2.5 2.5 0 0 0 2.5 2.5"/></svg></span>
+          <div>
+            <h3>Wasserkarte &amp; Hydranten</h3>
+            <p>Alle Löschwasserquellen auf der Karte mit Status und Leistung, Prüffristen und Mängelmeldung, im Einsatz die nächsten Quellen.</p>
+          </div>
+        </article>
+        <article class="module">
+          <span class="module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/> <circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg></span>
+          <div>
+            <h3>Fahrzeugbuchung</h3>
+            <p>Fahrzeuge im gemeinsamen Kalender reservieren; bei Überschneidungen entscheidet ein Entscheider. Mit Wachen-Monitor.</p>
+          </div>
+        </article>
+        <article class="module">
+          <span class="module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 17V8a1 1 0 0 1 1-1h10v10M14 10h4l3 3v4h-2M3 17h2m4 0h6"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path stroke-linecap="round" d="M6 10h5"/></svg></span>
+          <div>
+            <h3>Fahrzeugverwaltung &amp; Flotte</h3>
+            <p>Fahrzeugprofile, Status, Werkstattzeiten und Fristen wie HU, SP und UVV mit Dokumentation.</p>
+          </div>
+        </article>
+        <article class="module">
+          <span class="module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 4h11a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM4 17a2 2 0 0 1 2-2h12M8 8h6M8 11h4"/></svg></span>
+          <div>
+            <h3>Fahrtenbuch</h3>
+            <p>Fahrten mit Kilometerstand am Handy, verknüpft mit Buchung und Einsatz, Tanken, Verbrauch und Export.</p>
+          </div>
+        </article>
+        <article class="module">
+          <span class="module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2zM9 15h.01M12 15h.01M15 15h.01"/></svg></span>
+          <div>
+            <h3>Kalender &amp; Termine</h3>
+            <p>Übungen, Dienste und Arbeitsdienste mit Rückmeldung, Terminabfragen im Doodle-Stil und Abo im eigenen Kalender.</p>
+          </div>
+        </article>
+        <article class="module">
+          <span class="module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5h18M3 10h18M3 15h18M3 20h18M9 5v15M15 5v15"/></svg></span>
+          <div>
+            <h3>Schichtplan</h3>
+            <p>Arbeitsdienste, Feste und Stände: Schichten gerecht verteilen oder Mitglieder selbst eintragen lassen.</p>
+          </div>
+        </article>
+        <article class="module">
+          <span class="module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg></span>
+          <div>
+            <h3>Übungsdienstplaner</h3>
+            <p>Wer welchen Übungsdienst mit welchem Thema übernimmt – für den Vorstand.</p>
+          </div>
+        </article>
+        <article class="module">
+          <span class="module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.42A12 12 0 0119 17.5 11.95 11.95 0 0012 20a11.95 11.95 0 00-7-2.5 12 12 0 01.84-6.92L12 14zm-4 6v-7.5l4-2.22"/></svg></span>
+          <div>
+            <h3>Lehrgänge &amp; Qualifikationen</h3>
+            <p>Interesse an Lehrgängen melden, Anmeldung über die Ausbildungsleitung, absolvierte Lehrgänge in der Personalakte.</p>
+          </div>
+        </article>
+        <article class="module">
+          <span class="module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M11.4 4.6a3 3 0 0 0-4 3.9L3 13l-.5 3.5L6 16l4.5-4.4a3 3 0 0 0 3.9-4l-2 2-1.9-.5-.5-1.9 2-2zM14 14l6 6M17 17l-2 2"/></svg></span>
+          <div>
+            <h3>Ausrüstungsverwaltung</h3>
+            <p>Geräte mit Prüffristen, Ausleihe, Herstellerrückrufen und Beladeplan.</p>
+          </div>
+        </article>
+        <article class="module">
+          <span class="module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M12 11v3l2 2"/><circle cx="12" cy="14" r="4"/></svg></span>
+          <div>
+            <h3>Wartungsmanagement</h3>
+            <p>Prüfungen nach Vorlage mit Checkliste, unterschriebene Prüfprotokolle als PDF, Fachfirmen und Kosten.</p>
+          </div>
+        </article>
+        <article class="module">
+          <span class="module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3H5l-3 5h4l3-3m6 0 3 3h4l-3-5h-4M9 3l3 3 3-3M3 8v13h18V8"/></svg></span>
+          <div>
+            <h3>Kleiderkammer</h3>
+            <p>Ausgabe und Rücknahme der Bekleidung, Größen, Bestand und QR-Etiketten.</p>
+          </div>
+        </article>
+        <article class="module">
+          <span class="module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span>
+          <div>
+            <h3>Mängelmanagement</h3>
+            <p>Mängel per QR-Code melden, bearbeiten und bis zur Erledigung verfolgen.</p>
+          </div>
+        </article>
+        <article class="module">
+          <span class="module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M12 10.5v6M9 13.5h6"/></svg></span>
+          <div>
+            <h3>Verbandbuch &amp; Vorfälle</h3>
+            <p>Verletzungen und Vorfälle nach DGUV dokumentieren – mit Unterschrift auf dem Bildschirm, verschlüsselt und mit Löschfrist.</p>
+          </div>
+        </article>
+        <article class="module">
+          <span class="module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path stroke-linecap="round" d="M6 12h.01M18 12h.01"/></svg></span>
+          <div>
+            <h3>Budget &amp; Finanzen</h3>
+            <p>Budgets je Kostenstelle, Ausgaben mit Beleg und Genehmigung, Jahresabschluss und Export.</p>
+          </div>
+        </article>
+        <article class="module">
+          <span class="module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5.88V19.24a1.76 1.76 0 01-3.42.59l-2.15-6.15M18 13a3 3 0 100-6M5.44 13.68A4 4 0 017 6h1.83c4.1 0 7.62-1.23 9.17-3v16c-1.55-1.77-5.07-3-9.17-3H7a3.99 3.99 0 01-1.56-.32z"/></svg></span>
+          <div>
+            <h3>Mitteilungen</h3>
+            <p>Nachrichten der Wehrführung an die Kameraden, wichtige ganz oben auf der Startseite.</p>
+          </div>
+        </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="einsatz">
+      <div class="wrap split">
+        <div>
+          <h2>Im Einsatz alles an einem Ort</h2>
+          <p class="section-lead">Mit der Alarmierung beginnt der Einsatzbericht – auf Wunsch automatisch über DIVERA 24/7. Ab da kommt zusammen, was die Einsatzstelle braucht.</p>
+        </div>
+        <ol class="steps">
+          <li><strong>Alarm</strong><span>Der Einsatz entsteht mit Stichwort und Einsatzstelle, aus DIVERA oder von Hand.</span></li>
+          <li><strong>Lage</strong><span>Die nächsten Hydranten und die Objektpläne der Einsatzstelle erscheinen von selbst, die Pläne auch ohne Netz.</span></li>
+          <li><strong>Atemschutz</strong><span>Trupps mit Uhr, Drücken und Rückzugswarnung; Nachbarwehren melden sich per QR-Code ohne Login.</span></li>
+          <li><strong>Bericht</strong><span>Besatzung, Stärke und Fahrzeuge erfasst, die Wehrführung gibt frei – und die Jahresstatistik ist fertig.</span></li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="section tinted" id="installation">
+      <div class="wrap">
+        <h2>Installation</h2>
+        <p class="section-lead">openwehr läuft als Docker-Image mit PostgreSQL. Die Schritt-für-Schritt-Anleitung im README führt ohne Vorwissen durch die Einrichtung.</p>
+        <ol class="install">
+          <li><span class="num">1</span><div><h3>Server</h3><p>Eine kleine virtuelle Maschine, z. B. bei einem europäischen Cloud-Anbieter, mit Coolify als Verwaltungsoberfläche.</p></div></li>
+          <li><span class="num">2</span><div><h3>Datenbank und App</h3><p>PostgreSQL anlegen, das Image <code>ghcr.io/roberteinsle/openwehr</code> starten. Die Datenbank wird beim Start automatisch eingerichtet.</p></div></li>
+          <li><span class="num">3</span><div><h3>Loslegen</h3><p>Als Admin anmelden, Fahrzeuge, Abteilungen und Funktionen anlegen und die gewünschten Module einschalten.</p></div></li>
+        </ol>
+        <div class="actions center">
+          <a class="button primary" href="https://github.com/roberteinsle/openwehr#installation">Zur Installationsanleitung</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="open-source">
+      <div class="wrap split">
+        <div>
+          <h2>Open Source</h2>
+          <p class="section-lead">openwehr steht unter der GNU AGPL-3.0. Jede Wehr darf die App kostenlos nutzen, anpassen und weitergeben – Verbesserungen bleiben für alle offen.</p>
+          <div class="actions">
+            <a class="button secondary" href="https://github.com/roberteinsle/openwehr/issues">Idee oder Fehler melden</a>
+          </div>
+        </div>
+        <dl class="tech">
+          <div><dt>Backend</dt><dd>Laravel 12, PHP 8.4</dd></div>
+          <div><dt>Oberfläche</dt><dd>Livewire 4, Tailwind 4, Alpine</dd></div>
+          <div><dt>Admin-Bereich</dt><dd>Filament 5</dd></div>
+          <div><dt>Datenbank</dt><dd>PostgreSQL 18</dd></div>
+          <div><dt>Betrieb</dt><dd>Docker-Image, z. B. mit Coolify</dd></div>
+          <div><dt>Karten</dt><dd>OpenStreetMap, ohne API-Schlüssel</dd></div>
+        </dl>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <span><img src="logo.svg" alt="" width="18" height="21"> openwehr · Open Source unter AGPL-3.0</span>
+      <nav aria-label="Fußnavigation">
+        <a href="https://github.com/roberteinsle/openwehr">GitHub</a>
+        <a href="https://github.com/roberteinsle/openwehr/blob/main/LICENSE">Lizenz</a>
+        <a href="https://github.com/roberteinsle/openwehr/releases">Versionen</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

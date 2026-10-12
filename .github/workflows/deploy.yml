@@ -3,6 +3,9 @@ name: Build & Deploy
 on:
   push:
     branches: [main]
+    # The project page in docs/ (GitHub Pages) needs no tests and no new image
+    paths-ignore:
+      - 'docs/**'
 
 env:
   REGISTRY: ghcr.io
