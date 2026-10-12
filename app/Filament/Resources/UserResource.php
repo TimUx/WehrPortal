@@ -271,7 +271,7 @@ class UserResource extends Resource
         $modules = $registry->all();
 
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['moduleAccess', 'groups', 'functions']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['groups', 'functions.parent']))
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->label('Name')
@@ -293,13 +293,12 @@ class UserResource extends Resource
                         '(select min(groups.sort_order) from groups join group_user on group_user.group_id = groups.id where group_user.user_id = users.id) '.($direction === 'desc' ? 'desc' : 'asc').' nulls last'
                     )),
 
-                Tables\Columns\TextColumn::make('modules')
-                    ->label('Module')
+                Tables\Columns\TextColumn::make('functions')
+                    ->label('Funktionen')
                     ->badge()
                     ->color('gray')
-                    ->state(fn (User $record) => $record->is_admin
-                        ? ['Alle (Admin)']
-                        : $record->moduleAccess->map(fn ($access) => $modules[$access->module]['name'] ?? $access->module)->values()->all())
+                    // "Maschinist › HLF" for sub-functions, like in the form
+                    ->state(fn (User $record) => $record->functions->map(fn (MemberFunction $f) => $f->fullLabel())->sort()->values()->all())
                     ->placeholder('–')
                     ->toggleable(),
 
@@ -318,12 +317,6 @@ class UserResource extends Resource
                         MemberStatus::Inactive => 'warning',
                         MemberStatus::Left => 'danger',
                     }),
-
-                Tables\Columns\TextColumn::make('functions.name')
-                    ->label('Funktionen')
-                    ->badge()
-                    ->placeholder('–')
-                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('last_login_at')
                     ->label('Letzter Login')

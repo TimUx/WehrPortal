@@ -29,6 +29,12 @@ class BookingEndReminderNotification extends Notification
         ], URL::signedRoute('fahrzeugbuchung.bookings.return', $this->booking));
     }
 
+    /** The signed return link only holds under the address it was made for; "Meine Buchungen" has the button too */
+    public function inApp(object $notifiable): array
+    {
+        return ['url' => route('fahrzeugbuchung.my-bookings')];
+    }
+
     /** Usually an hour; less when the booking was created or extended shortly before its end */
     private function timeLeft(): string
     {

@@ -120,7 +120,7 @@
             @if($candidates->isNotEmpty())
                 <div class="flex flex-wrap items-start gap-2">
                     <select multiple wire:model="addUserIds" size="5" class="flex-1 min-w-0 {{ $input }}">
-                        @foreach($candidates as $candidate)<option value="{{ $candidate->id }}">{{ $candidate->name }}</option>@endforeach
+                        @foreach($candidates as $candidate)<option value="{{ $candidate->id }}">{{ $candidate->name.($candidate->groups->isNotEmpty() ? ' ('.$candidate->groups->pluck('name')->implode(', ').')' : '') }}</option>@endforeach
                     </select>
                     <button type="button" wire:click="addParticipants" class="inline-flex items-center rounded-lg bg-fw-navy px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90">Hinzufügen</button>
                 </div>
@@ -131,7 +131,10 @@
                 @foreach($participants as $participant)
                     <div class="py-2" wire:key="p-{{ $participant->user_id }}" x-data="{ open: false }">
                         <div class="flex items-center justify-between gap-2 text-sm">
-                            <span class="font-medium text-gray-900">{{ $participant->user->name }}</span>
+                            <span class="min-w-0">
+                                <span class="font-medium text-gray-900">{{ $participant->user->name }}</span>
+                                @if($participant->user->groups->isNotEmpty())<span class="text-xs text-gray-500"> · {{ $participant->user->groups->pluck('name')->implode(', ') }}</span>@endif
+                            </span>
                             <span class="flex items-center gap-3 text-xs">
                                 @if($participant->available_from || $participant->available_until)
                                     <span class="text-gray-500">{{ $participant->available_from ? 'ab '.$participant->available_from->setTimezone('Europe/Berlin')->format('H:i') : '' }} {{ $participant->available_until ? 'bis '.$participant->available_until->setTimezone('Europe/Berlin')->format('H:i') : '' }}</span>

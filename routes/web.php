@@ -49,10 +49,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         }
         $url = parse_url((string) ($notification->data['url'] ?? ''));
 
-        // Only links into the app itself (APP_URL or this host), always opened on this host
-        $own = in_array($url['host'] ?? null, [parse_url(config('app.url'), PHP_URL_HOST), request()->getHost()], true);
-
-        return redirect()->to($own ? ($url['path'] ?? '/').(isset($url['query']) ? '?'.$url['query'] : '') : route('notifications.index'));
+        // Only path and query are used, always on this host: a link written under another address
+        // (APP_URL from the scheduler, an earlier domain) still opens here, and none leads away
+        // (a leading "//" would read as another host, so it becomes one slash)
+        return redirect()->to(filled($url['path'] ?? null) ? '/'.ltrim($url['path'], '/').(isset($url['query']) ? '?'.$url['query'] : '') : route('notifications.index'));
     })->whereUuid('id')->name('notifications.open');
 
     // Feedback conversation with the admins (own threads only)

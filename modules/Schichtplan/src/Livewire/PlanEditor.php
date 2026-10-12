@@ -308,11 +308,11 @@ class PlanEditor extends Component
 
     public function render(PlanService $plans)
     {
-        $plan = $this->plan->load(['stations.lead', 'slots', 'participants.user']);
+        $plan = $this->plan->load(['stations.lead', 'slots', 'participants.user.groups']);
         $assignments = $plan->assignments()->with('user')->get();
 
         $participantIds = $plan->participants->pluck('user_id');
-        $candidates = User::active()->whereNotIn('id', $participantIds)->orderBy('name')->get()
+        $candidates = User::active()->with('groups')->whereNotIn('id', $participantIds)->orderBy('name')->get()
             ->filter(fn (User $u) => $u->canUseModule('schichtplan'));
 
         return view('schichtplan::livewire.plan-editor', [

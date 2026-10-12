@@ -4,11 +4,11 @@ use App\Filament\Resources\UserResource;
 use App\Filament\Resources\UserResource\Pages\EditUser;
 use App\Filament\Resources\UserResource\Pages\ListUsers;
 use App\Models\Group;
+use App\Models\MemberFunction;
 use App\Models\Module;
 use App\Models\User;
 use App\Support\FireRanks;
 use Filament\Facades\Filament;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
@@ -88,16 +88,15 @@ test('the list is called Kameraden', function () {
         ->and(UserResource::getPluralModelLabel())->toBe('Kameraden');
 });
 
-test('the e-mail column can be hidden and the modules are listed', function () {
-    Module::where('key', 'kleiderkammer')->update(['is_active' => true]);
-    Cache::forget('modules_active_keys');
+test('the e-mail column can be hidden and the Funktionen are listed instead of the modules', function () {
     $member = User::factory()->create(['name' => 'Hanna Hydrant']);
-    $member->moduleAccess()->create(['module' => 'kleiderkammer', 'role' => 'kleiderwart']);
+    $machinist = MemberFunction::create(['name' => 'Maschinist', 'sort_order' => 1]);
+    $member->functions()->attach([$machinist->id, MemberFunction::create(['name' => 'HLF', 'parent_id' => $machinist->id, 'sort_order' => 1])->id]);
 
     Livewire::test(ListUsers::class)
         ->assertTableColumnExists('email', fn ($column) => $column->isToggleable())
-        ->assertTableColumnStateSet('modules', ['Kleiderkammer'], $member)
-        ->assertTableColumnStateSet('modules', ['Alle (Admin)'], $this->admin);
+        ->assertTableColumnDoesNotExist('modules')
+        ->assertTableColumnStateSet('functions', ['Maschinist', 'Maschinist › HLF'], $member);
 });
 
 // ─── Module für viele ────────────────────────────────────────────────────────

@@ -92,6 +92,18 @@ test('a planer creates a plan with stations from a template', function () {
         ->and($plan->timeLabel())->toContain('18:00–01:00');
 });
 
+test('participants and the people to add show their Abteilung', function () {
+    $youth = Group::create(['name' => 'Jugendfeuerwehr', 'sort_order' => 1]);
+    $this->kid->groups()->attach($youth);
+    $new = User::factory()->create(['name' => 'Tim Tanklösch', 'phone' => null]);
+    $new->moduleAccess()->create(['module' => 'schichtplan']);
+    $new->groups()->attach(Group::create(['name' => 'Einsatzabteilung', 'sort_order' => 2]));
+
+    Livewire::actingAs($this->planer)->test(PlanEditor::class, ['plan' => $this->plan])
+        ->assertSeeHtml('Hanna Hydrant</span>')->assertSee('· Jugendfeuerwehr')
+        ->assertSee('Tim Tanklösch (Einsatzabteilung)');
+});
+
 test('the editor adds a department, fills the plan and swaps by hand', function () {
     $group = Group::create(['name' => 'Jugendfeuerwehr', 'sort_order' => 1]);
     $new = User::factory()->create(['name' => 'Tim Tanklösch', 'phone' => null]);
