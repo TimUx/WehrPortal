@@ -162,11 +162,20 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
   .features, .modules, .tech { grid-template-columns: 1fr; }
 }
 
+/* Impressum */
+.page-legal { min-height: 100vh; display: flex; flex-direction: column; }
+.legal { flex: 1; }
+.legal h1 { font-size: clamp(1.8rem, 4vw, 2.4rem); letter-spacing: -.015em; }
+.legal-basis { margin: 10px 0 24px; color: var(--muted); }
+.legal address { font-style: normal; line-height: 1.7; margin-bottom: 16px; }
+.legal a { color: var(--red); }
+@media (prefers-color-scheme: dark) { .legal a { color: #FF8A73; } }
+
 /* Footer */
 .site-footer { background: var(--navy); color: rgba(255, 255, 255, .8); padding: 28px 0; font-size: .92rem; }
 .footer-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; }
 .footer-inner span { display: inline-flex; align-items: center; gap: 8px; }
-.footer-inner nav { display: flex; gap: 20px; }
+.footer-inner nav { display: flex; flex-wrap: wrap; gap: 20px; }
 .footer-inner a { text-decoration: none; }
 .footer-inner a:hover { color: #fff; text-decoration: underline; }
 
