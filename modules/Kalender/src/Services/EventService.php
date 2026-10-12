@@ -13,6 +13,7 @@ use Illuminate\Validation\ValidationException;
 use Modules\Kalender\src\Models\Event;
 use Modules\Kalender\src\Models\Response;
 use Modules\Kalender\src\Notifications\EventCancelledNotification;
+use Modules\Kalender\src\Notifications\EventChangedNotification;
 use Modules\Kalender\src\Notifications\EventCreatedNotification;
 use Modules\Kalender\src\Notifications\RsvpReminderNotification;
 use Modules\Kalender\src\Support\Audience;
@@ -77,11 +78,12 @@ class EventService
      * Saves changes to one event. With $following, title, type, place, description, Rückmeldung and
      * audience also go to the later events of the same repetition; times only change for this one.
      */
-    public function update(Event $event, array $data, array $groupIds, bool $following = false, array $userIds = [], ?array $functionIds = null): void
+    public function update(Event $event, array $data, array $groupIds, bool $following = false, array $userIds = [], ?array $functionIds = null, ?User $by = null, bool $notify = false): void
     {
         $this->assertTimes($data['starts_at'], $data['ends_at']);
         // Callers that don't know Funktionen keep the ones set
         $functionIds ??= $event->functions()->pluck('member_functions.id')->all();
+        [$oldTime, $oldLocation] = [$event->timeLabel(), (string) $event->location];
 
         DB::transaction(function () use ($event, $data, $groupIds, $userIds, $functionIds, $following) {
             $event->update([...$data, 'starts_at' => $data['starts_at']->copy()->utc(), 'ends_at' => $data['ends_at']->copy()->utc()]);
@@ -100,6 +102,32 @@ class EventService
                     });
             }
         });
+
+        $this->tellChange($event->refresh(), $oldTime, $oldLocation, $by, $notify);
+    }
+
+    /**
+     * A new time or place goes to everyone who said yes or maybe; with "per E-Mail informieren" every
+     * change goes to the whole target group. Past and cancelled events stay quiet.
+     */
+    private function tellChange(Event $event, string $oldTime, string $oldLocation, ?User $by, bool $everyone): void
+    {
+        $moved = $oldTime !== $event->timeLabel() || $oldLocation !== (string) $event->location;
+        if ($event->isCancelled() || $event->ends_at->isPast() || (! $moved && ! $everyone)) {
+            return;
+        }
+
+        $people = $everyone ? $this->audience($event) : $this->committed($event);
+        $this->notify($people->reject(fn (User $u) => $by && $u->is($by)), new EventChangedNotification($event, $oldTime, $oldLocation));
+    }
+
+    /** Who said yes or maybe and is still invited */
+    private function committed(Event $event): Collection
+    {
+        $audience = $this->audience($event)->pluck('id');
+
+        return $event->responses()->whereIn('status', ['yes', 'maybe'])->with('user')->get()
+            ->pluck('user')->filter()->filter(fn (User $u) => $audience->contains($u->id))->values();
     }
 
     /** The event stays visible as "abgesagt"; everyone who said yes or maybe is told */
@@ -112,9 +140,14 @@ class EventService
         $this->notify($affected, new EventCancelledNotification($event));
     }
 
-    public function reinstate(Event $event): void
+    /** Takes place after all: everyone who had said yes or maybe hears it */
+    public function reinstate(Event $event, ?User $by = null): void
     {
         $event->update(['cancelled_at' => null]);
+
+        if (! $event->ends_at->isPast()) {
+            $this->notify($this->committed($event)->reject(fn (User $u) => $by && $u->is($by)), new EventChangedNotification($event, reinstated: true));
+        }
     }
 
     /** Deletes the event, or with $following also the later ones of the repetition */

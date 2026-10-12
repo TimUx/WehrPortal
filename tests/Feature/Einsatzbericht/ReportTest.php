@@ -7,6 +7,7 @@ use App\Models\Module;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Modules\Einsatzbericht\src\Livewire\MemberMissions;
@@ -15,6 +16,7 @@ use Modules\Einsatzbericht\src\Livewire\ReportList;
 use Modules\Einsatzbericht\src\Livewire\Settings;
 use Modules\Einsatzbericht\src\Livewire\Statistics;
 use Modules\Einsatzbericht\src\Models\Report;
+use Modules\Einsatzbericht\src\Notifications\ReportStatusNotification;
 use Modules\Einsatzbericht\src\Services\ReportService;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 
@@ -183,8 +185,12 @@ test('closing needs the mandatory fields the Wehrführung chose', function () {
 });
 
 test('a closed report is locked for the Einsatzleiter; the Wehrführung releases, corrects with history and can reopen', function () {
+    Notification::fake();
     $report = fullReport();
     $this->r->close($this->leader, $report);
+    Notification::assertSentTo($this->chief, ReportStatusNotification::class, fn ($n, $c, $u) => $n->toMail($u)->subject === 'Einsatzbericht zur Freigabe: '.$report->number
+        && $n->toMail($u)->actionUrl === route('einsatzbericht.show', $report));
+    Notification::assertNotSentTo([$this->leader, $this->member], ReportStatusNotification::class);
 
     expect(fn () => $this->r->update($this->leader, $report->refresh(), ['keyword' => 'FEU 3']))->toThrow(ValidationException::class, 'Wehrführung')
         ->and(fn () => $this->r->release($this->leader, $report))->toThrow(ValidationException::class);
@@ -201,6 +207,7 @@ test('a closed report is locked for the Einsatzleiter; the Wehrführung releases
         ->assertSee('Freigegeben')->assertSee('Änderungen')
         ->call('reopen')->assertSee('wieder offen (aktuell)');
     expect($report->refresh()->status)->toBe('active');
+    Notification::assertSentTo($this->leader, ReportStatusNotification::class, fn ($n, $c, $u) => str_starts_with($n->toMail($u)->subject, 'Einsatzbericht zurückgegeben'));
 });
 
 test('the editor walks through close and release', function () {

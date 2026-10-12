@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
+use Modules\Schichtplan\src\Console\Commands\NotifyShiftChanges;
 use Modules\Schichtplan\src\Console\Commands\SendShiftReminders;
 use Modules\Schichtplan\src\Livewire\PlanCreate;
 use Modules\Schichtplan\src\Livewire\PlanEditor;
@@ -42,7 +43,7 @@ class SchichtplanServiceProvider extends ServiceProvider
         }
         $this->loadMigrationsFrom($base.'/database/migrations');
 
-        $this->commands([SendShiftReminders::class]);
+        $this->commands([SendShiftReminders::class, NotifyShiftChanges::class]);
 
         // Scheduled commands write to /dev/null by default, so send their output to the container log
         $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
@@ -50,6 +51,8 @@ class SchichtplanServiceProvider extends ServiceProvider
 
             // The day before: each Kamerad gets their confirmed shifts once
             $schedule->command(SendShiftReminders::class)->hourly()->withoutOverlapping()->appendOutputTo($output);
+            // Changes after publishing, once the planer has stopped editing
+            $schedule->command(NotifyShiftChanges::class)->everyFiveMinutes()->withoutOverlapping()->appendOutputTo($output);
         });
 
         Gate::policy(Plan::class, PlanPolicy::class);

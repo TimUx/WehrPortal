@@ -48,4 +48,22 @@ class PlanNotification extends Notification
                 'salutation' => app(OrganizationSettings::class)->salutation(),
             ]);
     }
+
+    /** The mail is its own template: the bell gets the own shifts and the link to the plan */
+    public function inApp(object $notifiable): array
+    {
+        $plan = $this->plan->load(['stations', 'slots']);
+        $shifts = $plan->assignments()->where('user_id', $notifiable->id)->get()
+            ->sortBy(fn ($a) => $plan->slots->firstWhere('id', $a->slot_id)?->starts_at)
+            ->map(fn ($a) => $plan->slots->firstWhere('id', $a->slot_id)?->label().' '.$plan->stations->firstWhere('id', $a->station_id)?->name);
+        $leading = $plan->stations->where('lead_user_id', $notifiable->id)->pluck('name');
+
+        $body = match (true) {
+            $shifts->isNotEmpty() => 'Deine Schichten: '.$shifts->implode(', '),
+            $leading->isNotEmpty() => 'Du hast die Stationsverantwortung für '.$leading->implode(', ').'.',
+            default => $plan->timeLabel(),
+        };
+
+        return ['body' => $body, 'url' => route('schichtplan.show', $plan)];
+    }
 }

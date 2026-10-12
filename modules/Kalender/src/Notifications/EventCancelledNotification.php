@@ -20,7 +20,7 @@ class EventCancelledNotification extends Notification
             ->subject('Abgesagt: '.$this->event->title)
             ->greeting('Hallo '.$notifiable->name.',')
             ->line('Der Termin **'.$this->event->title.'** am '.$this->event->timeLabel().' fällt aus.')
-            ->action('Zum Kalender', route('kalender.index'))
+            ->action('Zum Termin', route('kalender.show', $this->event))
             ->salutation(app(OrganizationSettings::class)->salutation());
     }
 }

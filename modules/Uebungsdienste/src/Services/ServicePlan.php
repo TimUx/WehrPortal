@@ -7,6 +7,8 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Modules\Uebungsdienste\src\Models\Service;
+use Modules\Uebungsdienste\src\Notifications\ResponsibleNotification;
+use Throwable;
 
 /**
  * Changes to the Übungsdienstplan. Date, time and place are planned at the start of the year and
@@ -76,13 +78,22 @@ class ServicePlan
         $service->update(['topic' => $topic !== '' ? $topic : null]);
     }
 
-    public function addResponsible(Service $service, User $user): void
+    /** Whoever is added to a coming Übungsdienst hears about it, unless they added themselves */
+    public function addResponsible(Service $service, User $user, ?User $by = null): void
     {
         if (! $user->is_active) {
             throw ValidationException::withMessages(['responsible' => 'Nur aktive Kameraden können verantwortlich sein.']);
         }
 
-        $service->responsible()->syncWithoutDetaching([$user->id]);
+        $added = $service->responsible()->syncWithoutDetaching([$user->id])['attached'] !== [];
+
+        if ($added && ! $user->is($by) && $service->date->gte(self::today())) {
+            try {
+                $user->notify(new ResponsibleNotification($service, $by));
+            } catch (Throwable $e) {
+                report($e);
+            }
+        }
     }
 
     public function removeResponsible(Service $service, int $userId): void

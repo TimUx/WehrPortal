@@ -15,7 +15,9 @@ use Modules\Einsatzbericht\src\Models\Material;
 use Modules\Einsatzbericht\src\Models\Report;
 use Modules\Einsatzbericht\src\Models\ReportMaterial;
 use Modules\Einsatzbericht\src\Models\ReportVehicle;
+use Modules\Einsatzbericht\src\Notifications\ReportStatusNotification;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
+use Throwable;
 
 /**
  * Everything that changes an Einsatzbericht. Einsatzleiter (and Gruppenführer) write drafts and
@@ -280,6 +282,10 @@ class ReportService
         }
 
         $report->update(['status' => 'closed', 'closed_at' => now(), 'closed_by' => $by->id]);
+
+        // The Wehrführung (and admins) hear that a report waits for them
+        $releasers = User::active()->get()->filter(fn (User $u) => self::canRelease($u) && ! $u->is($by));
+        $this->tell($releasers, new ReportStatusNotification($report, $by));
     }
 
     /** The Wehrführung checks and releases */
@@ -293,7 +299,24 @@ class ReportService
     public function reopen(User $by, Report $report): void
     {
         $this->assert(self::canRelease($by) && in_array($report->status, Report::DONE, true));
+        $closer = $report->closed_by ? User::find($report->closed_by) : null;
         $report->update(['status' => 'active', 'closed_at' => null, 'closed_by' => null, 'released_at' => null, 'released_by' => null]);
+
+        if ($closer && $closer->is_active && ! $closer->is($by)) {
+            $this->tell(collect([$closer]), new ReportStatusNotification($report, $by, returned: true));
+        }
+    }
+
+    /** A mail problem is logged, never thrown */
+    private function tell(Collection $users, ReportStatusNotification $notification): void
+    {
+        $users->each(function (User $user) use ($notification) {
+            try {
+                $user->notify($notification);
+            } catch (Throwable $e) {
+                report($e);
+            }
+        });
     }
 
     public function delete(User $by, Report $report): void

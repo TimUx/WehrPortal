@@ -58,7 +58,7 @@ class EventDetail extends Component
     public function reinstate(EventService $events): void
     {
         $this->authorize('manage', $this->event);
-        $events->reinstate($this->event);
+        $events->reinstate($this->event, auth()->user());
         $this->event->refresh();
     }
 

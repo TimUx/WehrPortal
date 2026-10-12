@@ -9,7 +9,8 @@ use Illuminate\Support\Str;
 /**
  * A notification that also appears under the bell next to "Profil". The entry is taken from the
  * mail: subject, first line and the button's link, so both always say the same. Mail to a bare
- * address (no Kamerad behind it) stays mail only.
+ * address (no Kamerad behind it) stays mail only. A mail built from its own template (no lines,
+ * no button) defines inApp($notifiable) returning the text and the link instead.
  */
 trait InApp
 {
@@ -26,10 +27,12 @@ trait InApp
         $module = self::moduleKey();
         $first = collect($mail->introLines)->map(fn ($line) => trim(str_replace(['**', '__'], '', strip_tags((string) $line))))->first(fn ($line) => $line !== '');
 
+        $own = method_exists($this, 'inApp') ? $this->inApp($notifiable) : [];
+
         return [
             'title' => (string) $mail->subject,
-            'body' => Str::limit((string) $first, 200),
-            'url' => $mail->actionUrl ?: self::moduleUrl($module),
+            'body' => Str::limit((string) ($own['body'] ?? $first), 200),
+            'url' => array_key_exists('url', $own) ? $own['url'] : ($mail->actionUrl ?: self::moduleUrl($module)),
             'module' => $module,
         ];
     }

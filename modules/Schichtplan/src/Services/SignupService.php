@@ -13,6 +13,7 @@ use Modules\Schichtplan\src\Models\Station;
 use Modules\Schichtplan\src\Notifications\ShiftDecidedNotification;
 use Modules\Schichtplan\src\Notifications\ShiftReminderNotification;
 use Modules\Schichtplan\src\Notifications\ShiftRequestedNotification;
+use Modules\Schichtplan\src\Notifications\ShiftsChangedNotification;
 use Modules\Schichtplan\src\Notifications\SignupOpenNotification;
 use Throwable;
 
@@ -123,7 +124,15 @@ class SignupService
             }
         }
 
+        $assignment->load(['plan', 'slot', 'station', 'user']);
         $this->remove($assignment);
+
+        // Taken off by the planer or at the kiosk by someone else: the Kamerad hears about it
+        if ($assignment->user && ! $assignment->user->is($by)) {
+            $left = Assignment::where('plan_id', $plan->id)->where('user_id', $assignment->user_id)->with(['slot', 'station'])->get()
+                ->sortBy(fn (Assignment $a) => $a->slot->starts_at)->map(fn (Assignment $a) => ChangeNotifier::label($a))->values()->all();
+            $this->notify(collect([$assignment->user]), new ShiftsChangedNotification($plan, $left, $by));
+        }
     }
 
     public function approve(User $by, Assignment $assignment): void

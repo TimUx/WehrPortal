@@ -115,8 +115,12 @@
                 @endif
             </div>
             <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="notify" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> Kameraden per E-Mail informieren</label>
-        @elseif($inSeries)
-            <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="applyToFollowing" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> Titel, Art, Ort, Beschreibung, Rückmeldung und Zielgruppe auch für die folgenden Termine dieser Reihe übernehmen (Zeiten bleiben)</label>
+        @else
+            @if($inSeries)
+                <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="applyToFollowing" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> Titel, Art, Ort, Beschreibung, Rückmeldung und Zielgruppe auch für die folgenden Termine dieser Reihe übernehmen (Zeiten bleiben)</label>
+            @endif
+            <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="notify" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> Änderung an alle der Zielgruppe per E-Mail schicken</label>
+            <p class="text-xs text-gray-500">Neue Zeit oder neuer Ort gehen auch ohne Häkchen an alle, die zu- oder vielleicht zugesagt haben.</p>
         @endif
 
         <div class="flex flex-wrap items-center gap-3">

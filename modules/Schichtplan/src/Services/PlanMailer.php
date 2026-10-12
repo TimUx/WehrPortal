@@ -18,6 +18,7 @@ class PlanMailer
 
         if ($plan->isSelfSignup()) {
             $plan->update(['mailed_at' => now()]);
+            app(ChangeNotifier::class)->remember($plan);
 
             return app(SignupService::class)->invite($plan);
         }
@@ -47,6 +48,7 @@ class PlanMailer
         }
 
         $plan->update(['mailed_at' => now()]);
+        app(ChangeNotifier::class)->remember($plan);
 
         return $sent;
     }

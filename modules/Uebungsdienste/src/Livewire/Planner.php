@@ -41,7 +41,7 @@ class Planner extends Component
             return;
         }
 
-        $this->attempt(fn () => $plan->addResponsible(Service::findOrFail($serviceId), User::findOrFail((int) $userId)));
+        $this->attempt(fn () => $plan->addResponsible(Service::findOrFail($serviceId), User::findOrFail((int) $userId), auth()->user()));
     }
 
     public function removeResponsible(int $serviceId, int $userId, ServicePlan $plan): void

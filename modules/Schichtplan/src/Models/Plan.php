@@ -45,6 +45,8 @@ class Plan extends Model
             'audience_groups' => 'array',
             'audience_functions' => 'array',
             'event_owned' => 'boolean',
+            'notified_snapshot' => 'array',
+            'pending_since' => 'datetime',
         ];
     }
 

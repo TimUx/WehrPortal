@@ -2,6 +2,7 @@
 
 namespace Modules\Fahrzeugbuchung\src\Services;
 
+use App\Models\User;
 use App\Services\VehicleBlockRegistry;
 use Carbon\Carbon;
 use Illuminate\Database\QueryException;
@@ -9,6 +10,9 @@ use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Modules\Fahrzeugbuchung\src\Models\Booking;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
+use Modules\Fahrzeugbuchung\src\Notifications\BookingChangedByOtherNotification;
+use Modules\Fahrzeugbuchung\src\Notifications\BookingSummary;
+use Throwable;
 
 class BookingService
 {
@@ -56,7 +60,7 @@ class BookingService
         $this->assertNotBlocked((int) $data['vehicle_id'], Carbon::parse($data['starts_at']), Carbon::parse($data['ends_at']));
 
         try {
-            return Booking::create([
+            $booking = Booking::create([
                 'vehicle_id' => $data['vehicle_id'],
                 'user_id' => $userId,
                 'group_id' => $data['group_id'] ?? null,
@@ -74,10 +78,19 @@ class BookingService
             }
             throw $e;
         }
+        $this->tellOwner($booking, 'created');
+
+        return $booking;
     }
 
     public function update(Booking $booking, array $data): Booking
     {
+        return $this->change($booking, $data, 'updated');
+    }
+
+    private function change(Booking $booking, array $data, string $action): Booking
+    {
+        $before = BookingSummary::line($booking);
         // Moving into a downtime is refused; ending early or other changes inside one are fine
         $vehicleId = (int) ($data['vehicle_id'] ?? $booking->vehicle_id);
         $starts = $data['starts_at'] ?? $booking->starts_at;
@@ -98,6 +111,9 @@ class BookingService
         }
 
         app(DecisionService::class)->releaseSlotsFreedBy($booking);
+        if ($booking->wasChanged(['vehicle_id', 'user_id', 'starts_at', 'ends_at', 'purpose', 'destination'])) {
+            $this->tellOwner($booking, $action, $before);
+        }
 
         return $booking->fresh();
     }
@@ -105,6 +121,7 @@ class BookingService
     public function cancel(Booking $booking): void
     {
         $booking->update(['cancelled_at' => now()]);
+        $this->tellOwner($booking, 'cancelled');
 
         if ($booking->isPending() && $booking->decision) {
             app(DecisionService::class)->withdraw($booking->decision);
@@ -123,7 +140,26 @@ class BookingService
             $endsAt = now();
         }
 
-        return $this->update($booking, ['ends_at' => $endsAt]);
+        return $this->change($booking, ['ends_at' => $endsAt], 'ended');
+    }
+
+    /**
+     * Someone else (an admin or Entscheider) booked, changed, cancelled or ended the Kamerad's
+     * booking: the Kamerad hears about it. Their own changes stay quiet; a mail problem is logged.
+     */
+    public function tellOwner(Booking $booking, string $action, ?string $before = null, ?User $by = null): void
+    {
+        $by ??= auth()->user();
+        $owner = $booking->user()->first();
+        if (! $by || ! $owner || $owner->is($by) || ! $owner->is_active) {
+            return;
+        }
+
+        try {
+            $owner->notify(new BookingChangedByOtherNotification($booking->fresh(['vehicle', 'user']), $action, $by, $before));
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 
     /** A vehicle in the Werkstatt (or another downtime) can't be booked in that time */

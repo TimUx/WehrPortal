@@ -37,8 +37,10 @@ class AnnouncementService
         $groupIds = $announcement->groups()->pluck('groups.id');
         $sent = 0;
 
+        // Only Kameraden who may open the Mitteilungen, so the link doesn't end in "kein Zugriff"
         User::active()
             ->when($groupIds->isNotEmpty(), fn ($q) => $q->whereHas('groups', fn ($g) => $g->whereIn('groups.id', $groupIds)))
+            ->get()->filter(fn (User $user) => $user->canUseModule('mitteilungen'))
             ->each(function (User $user) use ($announcement, &$sent) {
                 try {
                     $user->notify(new AnnouncementNotification($announcement));

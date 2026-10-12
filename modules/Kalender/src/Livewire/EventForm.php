@@ -250,7 +250,7 @@ class EventForm extends Component
         try {
             if ($this->event) {
                 $data['rsvp_deadline'] = $data['rsvp_deadline']?->utc();
-                $events->update($this->event, $data, $groups, $this->applyToFollowing, $invitees, $functions);
+                $events->update($this->event, $data, $groups, $this->applyToFollowing, $invitees, $functions, auth()->user(), $this->notify);
                 $target = $this->event;
             } else {
                 $repeat = filled($this->repeat) ? ['freq' => $this->repeat, 'until' => $day($this->repeatUntil)] : null;
