@@ -1,0 +1,34 @@
+# openwehr
+
+> Kostenlose Open-Source-Web-App (AGPL-3.0) für Freiwillige Feuerwehren in Deutschland: ein gemeinsamer Kern mit Anmeldung ohne Passwort, Kameraden, Startseite, Benachrichtigungen und Admin-Bereich, dazu 18 Module, die jede Wehr einzeln einschaltet. Für das Handy gemacht, Oberfläche auf Deutsch, Betrieb auf dem eigenen Server (Docker-Image mit PostgreSQL).
+
+- Projektseite: https://www.openwehr.de/
+- Quellcode und ausführliche Dokumentation (README): https://github.com/roberteinsle/openwehr
+- Installationsanleitung: https://github.com/roberteinsle/openwehr#installation
+- Docker-Image: ghcr.io/roberteinsle/openwehr
+- Versionen: https://github.com/roberteinsle/openwehr/releases
+
+## Module
+
+- Einsatzbericht: Einsätze erfassen und freigeben, Besatzung und Stärke, DIVERA-24/7-Anbindung, Lagemeldungen, Jahresstatistik
+- Atemschutzüberwachung: Trupps mit Uhr, Drücken, Rückzugsdruck und Warnungen nach FwDV 7, Protokoll als PDF
+- Objektpläne & Brandschutzunterlagen: Feuerwehrpläne mit Versionen, bei Alarm die Pläne der Einsatzstelle per GPS, offline verfügbar
+- Wasserkarte & Hydranten: Löschwasserquellen auf der Karte mit Status, Leistung und Prüffristen
+- Fahrzeugbuchung: Fahrzeuge im gemeinsamen Kalender reservieren, Konfliktentscheidung, Wachen-Monitor
+- Fahrzeugverwaltung & Flotte: Fahrzeugprofile, Status, Werkstattzeiten, Fristen (HU, SP, UVV)
+- Fahrtenbuch: Fahrten mit Kilometerstand, verknüpft mit Buchung und Einsatz, Tanken und Export
+- Kalender & Termine: Termine mit Rückmeldung, Terminabfragen, Kalender-Abo
+- Schichtplan: Schichten verteilen oder Mitglieder selbst eintragen lassen
+- Übungsdienstplaner: Übungsdienste mit Thema und Verantwortlichen für den Vorstand
+- Lehrgänge & Qualifikationen: Interesse an Lehrgängen, Anmeldung über die Ausbildungsleitung
+- Ausrüstungsverwaltung: Geräte, Prüffristen, Ausleihe, Rückrufe, Beladeplan
+- Wartungsmanagement: Prüfungen nach Vorlage, unterschriebene Prüfprotokolle als PDF
+- Kleiderkammer: Ausgabe und Rücknahme der Bekleidung, Größen, Bestand, QR-Etiketten
+- Mängelmanagement: Mängel per QR-Code melden und verfolgen
+- Verbandbuch & Vorfälle: Dokumentation nach DGUV, verschlüsselt, mit Unterschrift und Löschfrist
+- Budget & Finanzen: Budgets, Ausgaben mit Beleg und Genehmigung, Jahresabschluss
+- Mitteilungen: Nachrichten der Wehrführung an die Kameraden
+
+## Technik
+
+Laravel 12 (PHP 8.4), Livewire 4, Filament 5, Tailwind 4, PostgreSQL 18, OpenStreetMap-Karten. Betrieb als Docker-Image, z. B. mit Coolify.
