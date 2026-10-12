@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\EmailChangeService;
 use App\Services\Impersonation;
 use App\Services\MagicLinkService;
+use App\Services\MemberRemoval;
 use App\Services\ModuleRegistry;
 use App\Support\FireRanks;
 use App\Support\MemberFields;
@@ -31,6 +32,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class UserResource extends Resource
 {
@@ -468,7 +470,7 @@ class UserResource extends Resource
     {
         Notification::make()
             ->title('Nicht gelöscht: '.$names)
-            ->body('An diesen Nutzern hängen noch Buchungen, Nachrichten, Ausrüstung oder Einträge im Verbandbuch. Setze den Status stattdessen auf „Ausgetreten“.')
+            ->body('An diesen Nutzern hängen noch Buchungen, Nachrichten, Ausrüstung oder Einträge im Verbandbuch. Setze den Status stattdessen auf „Ausgetreten“ – oder lösche einzeln mit „Löschen mit Übertragung“ (im Kamerad oben).')
             ->danger()
             ->persistent()
             ->send();
@@ -512,6 +514,60 @@ class UserResource extends Resource
     }
 
     /** "Als Kamerad ansehen": in the Kameraden list and on "Kamerad bearbeiten" */
+    /**
+     * "Löschen mit Übertragung": for a Kamerad that data hangs on. Everything goes to the chosen
+     * Kamerad (MemberRemoval), then this one is deleted.
+     */
+    public static function transferDeleteAction(Actions\Action $action): Actions\Action
+    {
+        return $action
+            ->label('Löschen mit Übertragung')
+            ->icon('heroicon-o-arrow-right-start-on-rectangle')
+            ->color('danger')
+            ->visible(fn (User $record) => ! $record->is(auth()->user()))
+            ->modalHeading(fn (User $record) => $record->name.' löschen und Daten übertragen')
+            ->modalDescription('Für Kameraden, die nicht nur austreten, sondern gelöscht werden müssen. Alles, was an ihnen hängt, geht vorher auf den gewählten Kameraden über. Das lässt sich nicht rückgängig machen.')
+            ->modalSubmitActionLabel('Übertragen und löschen')
+            ->schema(fn (User $record) => [
+                Forms\Components\Placeholder::make('what')
+                    ->label('Wird übertragen')
+                    ->content(function () use ($record) {
+                        $areas = app(MemberRemoval::class)->preview($record);
+
+                        return $areas === [] ? 'Nichts – es hängen keine Daten an diesem Kameraden.'
+                            : collect($areas)->map(fn (int $count, string $area) => $area.': '.$count)->implode(' · ');
+                    }),
+                Forms\Components\Placeholder::make('stays')
+                    ->label('Bleibt nicht')
+                    ->content('Zugänge, Abteilungen, Funktionen, Lehrgänge, Atemschutz-Daten, eigene Rückmeldungen, Schichten und das Profilbild werden mit dem Kameraden gelöscht. Im Verbandbuch und in den Logs wird nicht übertragen: dort bleibt der Name stehen, nur die Verknüpfung entfällt.'),
+                Forms\Components\Select::make('to')
+                    ->label('Übertragen auf')
+                    ->helperText('Tipp: einen Kameraden wie „Ehemalige Mitglieder“ (Status ausgetreten) anlegen und dorthin übertragen, damit nichts bei einem aktiven Kameraden landet.')
+                    ->options(fn () => User::whereKeyNot($record->id)->orderBy('name')->pluck('name', 'id'))
+                    ->searchable()
+                    ->required(),
+                Forms\Components\Checkbox::make('confirm')
+                    ->label(fn () => $record->name.' endgültig löschen')
+                    ->accepted()
+                    ->validationMessages(['accepted' => 'Bitte bestätigen.']),
+            ])
+            ->action(function (User $record, array $data) {
+                try {
+                    $areas = app(MemberRemoval::class)->transferAndDelete($record, User::findOrFail($data['to']), auth()->user());
+                } catch (ValidationException $e) {
+                    Notification::make()->title(collect($e->errors())->flatten()->first())->danger()->send();
+
+                    return null;
+                }
+
+                Notification::make()->title($record->name.' gelöscht')
+                    ->body($areas === [] ? null : 'Übertragen: '.collect($areas)->map(fn (int $count, string $area) => $area.' '.$count)->implode(', '))
+                    ->success()->send();
+
+                return redirect(static::getUrl('index'));
+            });
+    }
+
     public static function impersonateAction(Actions\Action $action): Actions\Action
     {
         return $action

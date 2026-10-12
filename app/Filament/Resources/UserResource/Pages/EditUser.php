@@ -27,6 +27,7 @@ class EditUser extends EditRecord
 
                     $action->success();
                 }),
+            UserResource::transferDeleteAction(Actions\Action::make('transfer_delete')),
         ];
     }
 

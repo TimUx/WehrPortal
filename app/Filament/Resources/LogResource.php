@@ -62,7 +62,7 @@ class LogResource extends Resource
                     ->formatStateUsing(fn (ActivityLog $record) => $record->eventLabel())
                     ->color(fn (string $state) => match ($state) {
                         'created' => 'success',
-                        'deleted' => 'danger',
+                        'deleted', 'transferred' => 'danger',
                         'mail' => 'info',
                         'login', 'impersonate' => 'warning',
                         default => 'gray',

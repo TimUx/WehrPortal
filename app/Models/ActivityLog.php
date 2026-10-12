@@ -21,6 +21,7 @@ class ActivityLog extends Model
         'created' => 'Angelegt',
         'updated' => 'Geändert',
         'deleted' => 'Gelöscht',
+        'transferred' => 'Übertragen und gelöscht',
         'login' => 'Anmeldung',
         'impersonate' => 'Als Kamerad angesehen',
         'mail' => 'E-Mail',
