@@ -14,10 +14,23 @@ use Illuminate\Support\Str;
  */
 trait InApp
 {
+    /** @var list<string>|null set by onlyVia(): just the bell, or just the mail */
+    public ?array $onlyChannels = null;
+
     /** @return list<string> */
     public function via(object $notifiable): array
     {
-        return $notifiable instanceof User ? ['mail', 'database'] : ['mail'];
+        $channels = $notifiable instanceof User ? ['mail', 'database'] : ['mail'];
+
+        return $this->onlyChannels === null ? $channels : array_values(array_intersect($channels, $this->onlyChannels));
+    }
+
+    /** @param  list<string>  $channels  'mail' and/or 'database' (the bell) */
+    public function onlyVia(array $channels): static
+    {
+        $this->onlyChannels = $channels;
+
+        return $this;
     }
 
     /** @return array{title: string, body: string, url: ?string, module: ?string} */

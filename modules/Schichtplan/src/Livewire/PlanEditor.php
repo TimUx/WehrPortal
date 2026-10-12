@@ -286,16 +286,16 @@ class PlanEditor extends Component
     {
         $sent = $mailer->publish($this->plan);
         $this->plan->refresh();
-        $this->flash = $this->plan->isSelfSignup()
-            ? 'Veröffentlicht – '.$sent.' Kameraden sind zum Eintragen eingeladen.'
-            : 'Veröffentlicht und an '.$sent.' Teilnehmer geschickt.';
+        $this->flash = ($this->plan->isSelfSignup()
+            ? 'Veröffentlicht – '.$sent.' Kameraden sind in der App zum Eintragen eingeladen.'
+            : 'Veröffentlicht – '.$sent.' Kameraden sind in der App benachrichtigt.').' Per E-Mail geht der Plan erst mit „Per E-Mail senden“.';
     }
 
     public function sendMail(PlanMailer $mailer): void
     {
         $sent = $mailer->send($this->plan);
         $this->plan->refresh();
-        $this->flash = 'Plan an '.$sent.' Teilnehmer geschickt.';
+        $this->flash = 'Per E-Mail an '.$sent.' Kameraden geschickt.';
     }
 
     public function delete()

@@ -13,9 +13,11 @@ use Modules\Schichtplan\src\Models\Assignment;
 use Modules\Schichtplan\src\Models\Plan;
 use Modules\Schichtplan\src\Models\Template;
 use Modules\Schichtplan\src\Notifications\PlanNotification;
+use Modules\Schichtplan\src\Notifications\SignupOpenNotification;
 use Modules\Schichtplan\src\Services\PlanMailer;
 use Modules\Schichtplan\src\Services\PlanService;
 use Modules\Schichtplan\src\Services\ShiftPlanner;
+use Modules\Schichtplan\src\Services\SignupService;
 
 beforeEach(function () {
     Module::where('key', 'schichtplan')->update(['is_active' => true]);
@@ -206,6 +208,35 @@ test('the planer sets a Stationsverantwortung, also for someone without shifts',
     });
     $this->actingAs($lead)->get('/schichtplan/'.$this->plan->id)->assertOk()->assertSee('Du hast die Stationsverantwortung für Kasse');
     $this->actingAs($lead)->get('/schichtplan')->assertSee('Stationsverantwortung: Kasse');
+});
+
+test('"Veröffentlichen" tells under the bell only; "Per E-Mail senden" mails the plan', function () {
+    Livewire::actingAs($this->planer)->test(PlanEditor::class, ['plan' => $this->plan])
+        ->assertSee('Veröffentlichen')->assertDontSee('Veröffentlichen &amp; senden', false)
+        ->call('publish')->assertSee('2 Kameraden sind in der App benachrichtigt')->assertSee('Per E-Mail senden');
+
+    Notification::assertSentTo($this->kid, PlanNotification::class, fn ($n, $channels) => $channels === ['database']);
+    expect($this->plan->refresh()->mailed_at)->toBeNull();
+
+    Notification::fake();
+    Livewire::actingAs($this->planer)->test(PlanEditor::class, ['plan' => $this->plan])->call('sendMail')->assertSee('Per E-Mail an 2 Kameraden geschickt');
+    Notification::assertSentTo([$this->kid, $this->other], PlanNotification::class, fn ($n, $channels, $u) => $channels === ['mail'] && $n->toMail($u)->subject === 'Schichtplan: Dorffest – Pommesstand');
+    expect($this->plan->refresh()->mailed_at)->not->toBeNull();
+});
+
+test('self sign-up: the invitation goes under the bell; by mail the target group is invited, who signed up gets the shifts', function () {
+    $this->plan->assignments()->delete();
+    $this->plan->participants()->delete();
+    $this->plan->update(['signup' => 'self']);
+    app(PlanMailer::class)->publish($this->plan->refresh());
+    Notification::assertSentTo([$this->kid, $this->other], SignupOpenNotification::class, fn ($n, $channels) => $channels === ['database']);
+
+    app(SignupService::class)->signUp($this->kid, $this->plan, $this->plan->slots()->first(), $this->plan->stations()->first());
+    Notification::fake();
+    app(PlanMailer::class)->send($this->plan->refresh());
+    Notification::assertSentTo($this->kid, PlanNotification::class, fn ($n, $channels) => $channels === ['mail']);
+    Notification::assertNotSentTo($this->kid, SignupOpenNotification::class);
+    Notification::assertSentTo($this->other, SignupOpenNotification::class, fn ($n, $channels) => $channels === ['mail']);
 });
 
 test('a participant can lead a station and still have shifts', function () {

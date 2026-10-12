@@ -21,13 +21,13 @@
                     <a href="{{ route('schichtplan.signup', $plan) }}" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">Eintragung{{ $requests ? ' ('.$requests.' Anfrage'.($requests === 1 ? '' : 'n').')' : '' }}</a>
                 @endif
                 @if($plan->isPublished())
-                    <button type="button" wire:click="sendMail" wire:confirm="Den aktuellen Plan an alle {{ $participants->count() }} Teilnehmer schicken?" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">Per E-Mail senden</button>
+                    <button type="button" wire:click="sendMail"
+                            wire:confirm="{{ $plan->isSelfSignup() ? 'Den Plan per E-Mail schicken – Eingetragenen ihre Schichten, der übrigen Zielgruppe die Einladung zum Eintragen?' : 'Den aktuellen Plan per E-Mail an alle '.$participants->count().' Teilnehmer und die Stationsverantwortlichen schicken?' }}"
+                            class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">Per E-Mail senden</button>
                 @else
-                    @if($plan->isSelfSignup())
-                        <button type="button" wire:click="publish" wire:confirm="Veröffentlichen und die Zielgruppe zum Eintragen einladen?" class="inline-flex items-center rounded-lg bg-fw-red px-3 py-1.5 text-sm font-semibold text-white hover:bg-fw-red-dark">Veröffentlichen &amp; einladen</button>
-                    @else
-                        <button type="button" wire:click="publish" wire:confirm="Veröffentlichen und den Plan an alle {{ $participants->count() }} Teilnehmer schicken?" class="inline-flex items-center rounded-lg bg-fw-red px-3 py-1.5 text-sm font-semibold text-white hover:bg-fw-red-dark">Veröffentlichen &amp; senden</button>
-                    @endif
+                    <button type="button" wire:click="publish"
+                            wire:confirm="{{ $plan->isSelfSignup() ? 'Veröffentlichen? Die Zielgruppe wird in der App (Glocke) zum Eintragen eingeladen. Eine E-Mail geht erst mit „Per E-Mail senden“.' : 'Veröffentlichen? Die '.$participants->count().' Teilnehmer werden in der App (Glocke) benachrichtigt. Eine E-Mail geht erst mit „Per E-Mail senden“.' }}"
+                            class="inline-flex items-center rounded-lg bg-fw-red px-3 py-1.5 text-sm font-semibold text-white hover:bg-fw-red-dark">Veröffentlichen</button>
                 @endif
             </div>
         </div>

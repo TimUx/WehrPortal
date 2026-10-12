@@ -166,13 +166,19 @@ class SignupService
         });
     }
 
-    /** Self sign-up plan published: everyone of the target group is invited to pick places */
-    public function invite(Plan $plan): int
+    /**
+     * Everyone of the target group is invited to pick places: under the bell when the plan is
+     * published, by mail with "Per E-Mail senden".
+     *
+     * @param  list<string>  $channels
+     * @param  list<int>  $except
+     */
+    public function invite(Plan $plan, array $channels = ['mail', 'database'], array $except = []): int
     {
         $sent = 0;
-        foreach ($this->audience($plan) as $user) {
+        foreach ($this->audience($plan)->reject(fn (User $u) => in_array($u->id, $except, true)) as $user) {
             try {
-                $user->notify(new SignupOpenNotification($plan));
+                $user->notify((new SignupOpenNotification($plan))->onlyVia($channels));
                 $sent++;
             } catch (Throwable $e) {
                 report($e);
