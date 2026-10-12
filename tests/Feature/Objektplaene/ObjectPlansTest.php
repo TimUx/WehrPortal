@@ -10,7 +10,6 @@ use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Modules\Einsatzbericht\src\Services\ReportService;
-use Modules\Objektplaene\src\Livewire\Kiosk;
 use Modules\Objektplaene\src\Livewire\Library;
 use Modules\Objektplaene\src\Livewire\ObjectDetail;
 use Modules\Objektplaene\src\Livewire\ObjectForm;
@@ -110,8 +109,7 @@ test('at an Einsatz the plans of the Einsatzstelle come up everywhere; a far obj
     $this->actingAs($leader)->get(route('einsatzbericht.show', $report))->assertOk()->assertSee('Objektpläne zur Einsatzstelle')->assertSee('Feuerwehrplan Hauptgebäude')->assertDontSee('Hof Lindenweg');
     $this->actingAs($leader)->get(route('einsatzbericht.situation', $report))->assertOk()->assertSee('Grundschule Musterstadt')->assertSee('167 m');
     Livewire::actingAs($this->hanna)->test(Home::class)->assertSee('Einsatz BMA')->assertSee('Feuerwehrplan Hauptgebäude');
-    Livewire::actingAs($this->hanna)->test(Kiosk::class)->assertSee('Einsatz BMA')->assertSee('Brandmeldeanlage · Schlüsseldepot (FSD)')
-        ->set('search', 'Linden')->assertSee('Hof Lindenweg');
+    Livewire::actingAs($this->hanna)->test(Library::class)->assertSee('Laufender Einsatz BMA')->assertSee('Brandmeldeanlage · Schlüsseldepot (FSD)');
 
     $this->school->update(['is_active' => false]);
     expect($this->p->running())->toHaveCount(0);

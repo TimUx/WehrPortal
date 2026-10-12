@@ -21,7 +21,7 @@ use Modules\Fahrtenbuch\src\Services\LogbookService;
 
 /**
  * Fahrtenbuch: every trip of the vehicles of Fahrzeugbuchung and Fahrzeugverwaltung, recorded on
- * the phone or at the kiosk in the Gerätehaus, linked to bookings and Einsätze, with fuel stops,
+ * the phone, linked to bookings and Einsätze, with fuel stops,
  * consumption, statistics and export for Steuer and Versicherung.
  */
 class FahrtenbuchServiceProvider extends ServiceProvider

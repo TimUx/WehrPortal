@@ -52,9 +52,36 @@
         @endif
 
         {{-- The whole plan; your own places stand out --}}
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 overflow-x-auto">
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:overflow-x-auto">
             <h2 class="text-sm font-semibold text-gray-900 mb-2">Gesamter Schichtplan</h2>
-            <table class="min-w-full text-sm">
+            {{-- Phone: one station after the other, with its time blocks --}}
+            <div class="space-y-4 sm:hidden">
+                @foreach($plan->stations as $station)
+                    <div class="rounded-xl border border-gray-100">
+                        <div class="rounded-t-xl bg-gray-50 px-3 py-2">
+                            <p class="text-sm font-semibold text-gray-900">{{ $station->name }}</p>
+                            @if($station->lead)<p class="text-xs {{ $station->lead_user_id === $me ? 'font-semibold text-fw-red' : 'text-fw-navy' }}">Verantw.: {{ $station->lead->name }}</p>@endif
+                        </div>
+                        <div class="divide-y divide-gray-100">
+                            @foreach($plan->slots as $slot)
+                                @php($seat = $assignments->where('slot_id', $slot->id)->where('station_id', $station->id))
+                                @php($isMine = $seat->contains('user_id', $me))
+                                <div class="flex gap-3 px-3 py-2 text-sm {{ $isMine ? 'bg-fw-red/10 ring-2 ring-inset ring-fw-red' : '' }}">
+                                    <span class="w-24 shrink-0 font-medium {{ $isMine ? 'text-fw-red' : 'text-gray-900' }}">{{ $slot->label() }}</span>
+                                    <span class="min-w-0">
+                                        @forelse($seat as $a)
+                                            <span class="block {{ $a->user_id === $me ? 'font-bold text-fw-red' : 'text-gray-800' }}">{{ $a->user->name }}{{ $a->isRequested() ? ' (angefragt)' : '' }}</span>
+                                        @empty
+                                            <span class="text-gray-300">–</span>
+                                        @endforelse
+                                    </span>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+            <table class="hidden min-w-full text-sm sm:table">
                 <thead>
                     <tr class="text-left text-xs uppercase tracking-wide text-gray-500">
                         <th class="sticky left-0 bg-white py-2 pr-3">Zeit</th>

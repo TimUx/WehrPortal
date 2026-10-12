@@ -1,7 +1,5 @@
 {{-- Every page of the module: the tabs and one Livewire component --}}
 <x-layouts.app :title="$title">
-    @unless(request()->boolean('kiosk') || ($kiosk ?? false))
-        @include('objektplaene::partials.nav')
-    @endunless
+    @include('objektplaene::partials.nav')
     @livewire($livewireComponent, $params ?? [])
 </x-layouts.app>

@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use Modules\Objektplaene\src\Console\Commands\SendReviewReminders;
-use Modules\Objektplaene\src\Livewire\Kiosk;
 use Modules\Objektplaene\src\Livewire\Library;
 use Modules\Objektplaene\src\Livewire\ObjectDetail;
 use Modules\Objektplaene\src\Livewire\ObjectForm;
@@ -21,7 +20,7 @@ use Modules\Objektplaene\src\Services\ObjectPlanService;
 /**
  * Objektpläne & Brandschutzunterlagen: Feuerwehrpläne, Objektpläne and Brandschutzordnungen per
  * object with versions; at an Einsatz the plans of the Einsatzstelle come up by themselves
- * (Einsatzbericht, Lagemeldungen, start page, kiosk), and they can be kept offline.
+ * (Einsatzbericht, Lagemeldungen, start page), and they can be kept offline.
  */
 class ObjektplaeneServiceProvider extends ServiceProvider
 {
@@ -51,7 +50,7 @@ class ObjektplaeneServiceProvider extends ServiceProvider
 
         Gate::define('objektplaene-manage', fn (User $user) => ObjectPlanService::canManage($user));
 
-        foreach (['library' => Library::class, 'object-detail' => ObjectDetail::class, 'object-form' => ObjectForm::class, 'kiosk' => Kiosk::class] as $name => $class) {
+        foreach (['library' => Library::class, 'object-detail' => ObjectDetail::class, 'object-form' => ObjectForm::class] as $name => $class) {
             Livewire::component('objektplaene.'.$name, $class);
         }
 

@@ -41,9 +41,12 @@ function phone(string $key, string $device = 'phonea')
 test('the Einsatzleiter makes a QR code; the address opens without login', function () {
     $this->actingAs($this->leader);
     Livewire::test(ReportEditor::class, ['report' => $this->report])
+        ->assertSee('QR-Code erzeugen')
         ->call('enableExternal')
         ->assertSee('QR-Zugang erzeugt')
-        ->assertSee('QR groß anzeigen');
+        ->assertSee('QR groß anzeigen')
+        // Also on top, next to "Navigation" and "Drucken / PDF"
+        ->assertSeeHtml('target="_blank" rel="noopener" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">QR-Code</a>');
 
     $url = ExternalAccess::url($this->report->refresh());
     expect($url)->toMatch('#/extern/[A-Za-z0-9]{40}$#')

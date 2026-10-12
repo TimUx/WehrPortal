@@ -1,14 +1,14 @@
 @php($input = 'mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-base sm:text-sm focus:border-fw-red focus:ring-fw-red')
 @php($card = 'rounded-2xl border border-gray-100 bg-white p-4 shadow-sm')
 <div class="mx-auto max-w-4xl space-y-4">
-    <a href="{{ $kiosk ? route('objektplaene.kiosk') : route('objektplaene.index') }}" class="text-sm text-gray-500 hover:text-gray-900">← {{ $kiosk ? 'Kiosk' : 'Bibliothek' }}</a>
+    <a href="{{ route('objektplaene.index') }}" class="text-sm text-gray-500 hover:text-gray-900">← Bibliothek</a>
     @if($flash)<p class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{{ $flash }}</p>@endif
     @error('objektplaene')<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{ $message }}</p>@enderror
 
     <section class="{{ $card }} space-y-3">
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0">
-                <h1 class="{{ $kiosk ? 'text-3xl' : 'text-xl' }} font-bold text-gray-900">{{ $object->name }}</h1>
+                <h1 class="text-xl font-bold text-gray-900">{{ $object->name }}</h1>
                 <p class="text-sm text-gray-500">{{ $object->typeLabel() }}@if($object->address) · {{ $object->address }}@endif
                     @if($object->navigationUrl()) · <a href="{{ $object->navigationUrl() }}" target="_blank" rel="noopener" class="underline">Navigation</a>@endif</p>
                 @unless($object->is_active)<p class="mt-1 text-xs font-semibold text-gray-500">Archiviert – erscheint nicht in der Bibliothek und nicht im Einsatz.</p>@endunless

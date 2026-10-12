@@ -8,10 +8,9 @@ use Modules\Objektplaene\src\Services\ObjectPlanService;
 Route::prefix('objektplaene')->name('objektplaene.')
     ->middleware(['auth', 'active', 'module:objektplaene'])
     ->group(function () {
-        $page = fn (string $component, string $title, array $params = [], bool $kiosk = false) => view('objektplaene::pages.page', ['livewireComponent' => $component, 'title' => $title, 'params' => $params, 'kiosk' => $kiosk]);
+        $page = fn (string $component, string $title, array $params = []) => view('objektplaene::pages.page', ['livewireComponent' => $component, 'title' => $title, 'params' => $params]);
 
         Route::get('/', fn () => $page('objektplaene.library', 'Objektpläne'))->name('index');
-        Route::get('/kiosk', fn () => $page('objektplaene.kiosk', 'Objektpläne – Kiosk', kiosk: true))->name('kiosk');
         Route::get('/objekt/{object}', fn (PlanObject $object) => $page('objektplaene.object-detail', $object->name, ['object' => $object]))->whereNumber('object')->name('object');
 
         // Versions never change, so the browser (and the offline cache) may keep them; earlier ones only for Planverwalter

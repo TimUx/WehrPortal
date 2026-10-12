@@ -3,7 +3,7 @@
 @php($editStart = in_array($mode, ['start', 'record', 'correct'], true))
 @php($editEnd = in_array($mode, ['end', 'record', 'correct'], true))
 <form wire:submit="save" class="mx-auto max-w-2xl space-y-4">
-    <h1 class="{{ $kiosk ? 'text-3xl' : 'text-xl' }} font-bold text-gray-900">{{ ['start' => 'Fahrt beginnen', 'end' => 'Fahrt beenden', 'record' => 'Fahrt nachtragen', 'correct' => 'Fahrt korrigieren', 'view' => 'Fahrt'][$mode] }}</h1>
+    <h1 class="text-xl font-bold text-gray-900">{{ ['start' => 'Fahrt beginnen', 'end' => 'Fahrt beenden', 'record' => 'Fahrt nachtragen', 'correct' => 'Fahrt korrigieren', 'view' => 'Fahrt'][$mode] }}</h1>
     @error('trip')<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{ $message }}</p>@enderror
     @if($trip?->voided_at)<p class="rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-700">Storniert: {{ $trip->void_reason }}</p>@endif
 
@@ -33,7 +33,7 @@
             @error('driver_id')<p class="{{ $error }}">{{ $message }}</p>@enderror
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label class="block text-sm text-gray-700">Losgefahren<input type="datetime-local" wire:model="startedAt" class="{{ $input }}"></label>
-                <label class="block text-sm text-gray-700">Kilometerstand beim Losfahren<input type="number" inputmode="numeric" wire:model="startKm" class="{{ $input }} {{ $kiosk ? 'text-2xl' : '' }}"></label>
+                <label class="block text-sm text-gray-700">Kilometerstand beim Losfahren<input type="number" inputmode="numeric" wire:model="startKm" class="{{ $input }} "></label>
             </div>
             @if($lastKm !== null)<p class="text-xs text-gray-500">Zuletzt bekannt: {{ number_format($lastKm, 0, ',', '.') }} km</p>@endif
             @error('started_at')<p class="{{ $error }}">{{ $message }}</p>@enderror
@@ -62,7 +62,7 @@
         <section class="space-y-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label class="block text-sm text-gray-700">Zurück<input type="datetime-local" wire:model="endedAt" class="{{ $input }}"></label>
-                <label class="block text-sm text-gray-700">Kilometerstand bei der Rückkehr<input type="number" inputmode="numeric" wire:model="endKm" class="{{ $input }} {{ $kiosk ? 'text-2xl' : '' }}"></label>
+                <label class="block text-sm text-gray-700">Kilometerstand bei der Rückkehr<input type="number" inputmode="numeric" wire:model="endKm" class="{{ $input }} "></label>
             </div>
             @error('ended_at')<p class="{{ $error }}">{{ $message }}</p>@enderror
             @error('end_km')<p class="{{ $error }}">{{ $message }}</p>@enderror
@@ -96,10 +96,10 @@
 
     <div class="flex items-center gap-3">
         @if($mode !== 'view')
-            <button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-fw-red px-5 {{ $kiosk ? 'py-4 text-lg' : 'py-2.5 text-sm' }} font-semibold text-white hover:bg-fw-red-dark disabled:opacity-50">
+            <button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-fw-red px-5 py-2.5 text-sm font-semibold text-white hover:bg-fw-red-dark disabled:opacity-50">
                 {{ ['start' => 'Losfahren', 'end' => 'Fahrt beenden', 'record' => 'Nachtragen', 'correct' => 'Korrektur speichern'][$mode] }}
             </button>
         @endif
-        <a href="{{ $kiosk ? route('fahrtenbuch.index', ['kiosk' => 1]) : ($trip ? route('fahrtenbuch.vehicle', $trip->vehicle_id) : route('fahrtenbuch.index')) }}" class="text-sm text-gray-500 underline">{{ $mode === 'view' ? 'Zurück' : 'Abbrechen' }}</a>
+        <a href="{{ $trip ? route('fahrtenbuch.vehicle', $trip->vehicle_id) : route('fahrtenbuch.index') }}" class="text-sm text-gray-500 underline">{{ $mode === 'view' ? 'Zurück' : 'Abbrechen' }}</a>
     </div>
 </form>

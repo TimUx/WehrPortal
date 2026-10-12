@@ -3,7 +3,6 @@
 namespace Modules\Objektplaene\src\Livewire;
 
 use Illuminate\Validation\ValidationException;
-use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Modules\Objektplaene\src\Models\Document;
@@ -16,9 +15,6 @@ class ObjectDetail extends Component
     use WithFileUploads;
 
     public PlanObject $object;
-
-    #[Url]
-    public bool $kiosk = false;
 
     /** New document or new version of document $versionFor */
     public ?string $mode = null;

@@ -51,12 +51,9 @@ class TripForm extends Component
     /** Shown under the form: what was filled in by itself */
     public array $hints = [];
 
-    public bool $kiosk = false;
-
     public function mount(LogbookService $logbook): void
     {
         $user = auth()->user();
-        $this->kiosk = request()->boolean('kiosk');
         $this->driverId = (string) $user->id;
         $this->origin = 'Gerätehaus';
         $now = now('Europe/Berlin')->format('Y-m-d\TH:i');
@@ -122,7 +119,7 @@ class TripForm extends Component
             default => 'Korrektur gespeichert.',
         });
 
-        return $this->kiosk ? redirect()->route('fahrtenbuch.index', ['kiosk' => 1]) : redirect()->route('fahrtenbuch.vehicle', $trip->vehicle_id);
+        return redirect()->route('fahrtenbuch.vehicle', $trip->vehicle_id);
     }
 
     public function void(LogbookService $logbook)

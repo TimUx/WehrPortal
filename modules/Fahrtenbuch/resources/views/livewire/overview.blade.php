@@ -1,29 +1,28 @@
-<div class="space-y-4" @if($kiosk) wire:poll.30s @endif>
+<div class="space-y-4">
     @if(session('fahrtenbuch.flash'))<p class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{{ session('fahrtenbuch.flash') }}</p>@endif
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-            <h1 class="{{ $kiosk ? 'text-3xl' : 'text-xl' }} font-bold text-gray-900">Fahrtenbuch</h1>
-            @unless($kiosk)<p class="text-sm text-gray-500">Fahrt beginnen, wenn du losfährst, und beenden, wenn du zurück bist – mit Kilometerstand. Die Fahrzeuge sind dieselben wie in Fahrzeugbuchung und Fahrzeugverwaltung.</p>@endunless
+            <h1 class="text-xl font-bold text-gray-900">Fahrtenbuch</h1>
+            <p class="text-sm text-gray-500">Fahrt beginnen, wenn du losfährst, und beenden, wenn du zurück bist – mit Kilometerstand. Die Fahrzeuge sind dieselben wie in Fahrzeugbuchung und Fahrzeugverwaltung.</p>
         </div>
         <div class="flex flex-wrap gap-2 text-sm">
             <a href="{{ route('fahrtenbuch.trip', ['nachtragen' => 1]) }}" class="rounded-lg border border-gray-300 bg-white px-3 py-2 font-semibold text-gray-700">Fahrt nachtragen</a>
-            @if($kiosk)<a href="{{ route('fahrtenbuch.index') }}" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-700">Kiosk verlassen</a>@endif
         </div>
     </div>
 
     @foreach($mine as $trip)
-        <a href="{{ route('fahrtenbuch.trip', ['fahrt' => $trip->id, 'kiosk' => $kiosk ?: null]) }}" class="flex items-center justify-between gap-3 rounded-2xl border-2 border-amber-300 bg-amber-50 p-4">
+        <a href="{{ route('fahrtenbuch.trip', ['fahrt' => $trip->id]) }}" class="flex items-center justify-between gap-3 rounded-2xl border-2 border-amber-300 bg-amber-50 p-4">
             <span><span class="block font-semibold text-gray-900">Du bist mit {{ $trip->vehicle->name }} unterwegs</span><span class="text-sm text-gray-600">seit {{ $trip->started_at->setTimezone('Europe/Berlin')->format('d.m. H:i') }} Uhr, ab {{ number_format($trip->start_km, 0, ',', '.') }} km</span></span>
             <span class="rounded-lg bg-fw-red px-4 py-2 text-sm font-semibold text-white">Fahrt beenden</span>
         </a>
     @endforeach
 
-    <div class="grid grid-cols-1 gap-3 {{ $kiosk ? 'sm:grid-cols-2 lg:grid-cols-3' : 'sm:grid-cols-2' }}">
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
         @forelse($vehicles as $vehicle)
             @php($trip = $open[$vehicle->id] ?? null)
             <div class="space-y-2 rounded-2xl border bg-white p-4 shadow-sm {{ $trip ? 'border-amber-300' : 'border-gray-100' }}" wire:key="v-{{ $vehicle->id }}">
                 <div class="flex items-start justify-between gap-2">
-                    <a href="{{ route('fahrtenbuch.vehicle', $vehicle) }}" class="{{ $kiosk ? 'text-2xl' : 'text-lg' }} font-bold text-gray-900 hover:underline">{{ $vehicle->name }}</a>
+                    <a href="{{ route('fahrtenbuch.vehicle', $vehicle) }}" class="text-lg font-bold text-gray-900 hover:underline">{{ $vehicle->name }}</a>
                     <span class="h-3 w-3 shrink-0 rounded-full" style="background-color: {{ $vehicle->color }}"></span>
                 </div>
                 @if($trip)
@@ -33,11 +32,11 @@
                 @endif
                 <div class="flex flex-wrap gap-2">
                     @if($trip)
-                        <a href="{{ route('fahrtenbuch.trip', ['fahrt' => $trip->id, 'kiosk' => $kiosk ?: null]) }}" class="flex-1 rounded-lg bg-fw-red px-4 {{ $kiosk ? 'py-4 text-lg' : 'py-2 text-sm' }} text-center font-semibold text-white">Fahrt beenden</a>
+                        <a href="{{ route('fahrtenbuch.trip', ['fahrt' => $trip->id]) }}" class="flex-1 rounded-lg bg-fw-red px-4 py-2 text-sm text-center font-semibold text-white">Fahrt beenden</a>
                     @else
-                        <a href="{{ route('fahrtenbuch.trip', ['fahrzeug' => $vehicle->id, 'kiosk' => $kiosk ?: null]) }}" class="flex-1 rounded-lg bg-fw-navy px-4 {{ $kiosk ? 'py-4 text-lg' : 'py-2 text-sm' }} text-center font-semibold text-white">Fahrt beginnen</a>
+                        <a href="{{ route('fahrtenbuch.trip', ['fahrzeug' => $vehicle->id]) }}" class="flex-1 rounded-lg bg-fw-navy px-4 py-2 text-sm text-center font-semibold text-white">Fahrt beginnen</a>
                     @endif
-                    <a href="{{ route('fahrtenbuch.fuel', ['fahrzeug' => $vehicle->id]) }}" class="rounded-lg border border-gray-300 bg-white px-4 {{ $kiosk ? 'py-4 text-lg' : 'py-2 text-sm' }} font-semibold text-gray-700">Tanken</a>
+                    <a href="{{ route('fahrtenbuch.fuel', ['fahrzeug' => $vehicle->id]) }}" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700">Tanken</a>
                 </div>
             </div>
         @empty

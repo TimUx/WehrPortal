@@ -264,7 +264,9 @@ test('members see the whole plan with their own places highlighted and who works
     expect($html)->toContain('14:00–15:00 Uhr</span> · Ausgabe')
         ->toContain('mit Klara Kübel')
         ->toContain('ring-fw-red')
-        ->toContain('font-bold text-fw-red">Hanna Hydrant');
+        ->toContain('font-bold text-fw-red">Hanna Hydrant')
+        // Phone: the stations one after the other
+        ->toContain('space-y-4 sm:hidden')->toContain('hidden min-w-full text-sm sm:table');
 });
 
 test('the plan is exported as CSV like the printed plan', function () {

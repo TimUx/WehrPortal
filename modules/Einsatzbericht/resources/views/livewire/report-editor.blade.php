@@ -19,6 +19,12 @@
                     <a href="{{ $report->navigationUrl() }}" target="_blank" rel="noopener" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Navigation</a>
                 @endif
                 <a href="{{ route('einsatzbericht.print', $report) }}" target="_blank" rel="noopener" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Drucken / PDF</a>
+                {{-- QR access for neighbouring Wehren, also further down with its explanation --}}
+                @if($externalUrl)
+                    <a href="{{ route('einsatzbericht.qr', $report) }}" target="_blank" rel="noopener" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">QR-Code</a>
+                @elseif($report->isRunning() && $canEdit)
+                    <button type="button" wire:click="enableExternal" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">QR-Code erzeugen</button>
+                @endif
             </div>
         </div>
     </div>
@@ -337,7 +343,7 @@
     @endif
 
     {{-- Actions, always reachable on the phone. After saving: a short note, and a jump to the first empty mandatory field --}}
-    <div class="fixed inset-x-0 bottom-16 sm:bottom-0 z-30 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur"
+    <div class="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur"
          x-data="{ note: null, warn: false, timer: null }"
          x-on:report-saved.window="
             note = $event.detail.message; warn = $event.detail.warn;

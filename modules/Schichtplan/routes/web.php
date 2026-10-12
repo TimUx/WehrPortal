@@ -16,7 +16,7 @@ Route::prefix('schichtplan')->name('schichtplan.')
         Route::get('/{plan}', fn (Plan $plan) => view('schichtplan::pages.show', compact('plan')))
             ->whereNumber('plan')->middleware('can:view,plan')->name('show');
 
-        // Self sign-up: pick and give back places; ?kiosk=1 is the tablet view
+        // Self sign-up: pick and give back places
         Route::get('/{plan}/eintragen', fn (Plan $plan) => view('schichtplan::pages.signup', compact('plan')))
             ->whereNumber('plan')->middleware('can:view,plan')->name('signup');
 

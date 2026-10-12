@@ -11,16 +11,14 @@ use Modules\Schichtplan\src\Services\SignupService;
 
 /**
  * Self sign-up: every station and block with its free places; take a place or give it back until
- * the deadline. Planer and Stationsverantwortung confirm requests here. ?kiosk=1 is the tablet in
- * the Gerätehaus: pick the person, big buttons, refreshes by itself.
+ * the deadline. Planer and Stationsverantwortung confirm requests here; a planer can also sign up
+ * someone else.
  */
 class SignupBoard extends Component
 {
     public Plan $plan;
 
-    public bool $kiosk = false;
-
-    /** Whose places: oneself, or (kiosk, planer) someone else of the target group */
+    /** Whose places: oneself, or (planer) someone else of the target group */
     public string $personId = '';
 
     public string $rejectReason = '';
@@ -29,13 +27,12 @@ class SignupBoard extends Component
 
     public function mount(): void
     {
-        $this->kiosk = request()->boolean('kiosk');
-        $this->personId = $this->kiosk ? '' : (string) auth()->id();
+        $this->personId = (string) auth()->id();
     }
 
     private function canChoosePerson(): bool
     {
-        return $this->kiosk || auth()->user()->canManageSchichtplan();
+        return auth()->user()->canManageSchichtplan();
     }
 
     private function person(): ?User

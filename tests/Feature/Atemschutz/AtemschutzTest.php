@@ -243,7 +243,7 @@ test('who may do what, the pages and the PDF', function () {
     $this->actingAs($this->hanna)->get(route('atemschutz.personnel-file'))->assertOk()->assertSee('Einsatzbereit unter Atemschutz')->assertSee('Angriffstrupp 1');
     $this->actingAs($this->watch)->get(route('atemschutz.wearers'))->assertForbidden();
     $this->actingAs($this->watch)->get(route('atemschutz.index'))->assertOk()->assertSee('Überwachung starten')->assertSee('läuft seit');
-    $this->actingAs($this->watch)->get(route('atemschutz.board', $team->operation))->assertOk()->assertSee('Angriffstrupp 1');
+    $this->actingAs($this->watch)->get(route('atemschutz.board', $team->operation))->assertOk()->assertSee('Angriffstrupp 1')->assertSee('← Übersicht', false);
     $this->actingAs($this->wart)->get(route('atemschutz.wearers'))->assertOk()->assertSee('Otto Ortsbrand');
     expect(fn () => $this->m->startOperation($this->hanna, '', 'uebung', null))->toThrow(ValidationException::class);
 

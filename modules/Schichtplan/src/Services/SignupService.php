@@ -19,7 +19,7 @@ use Throwable;
 
 /**
  * Self sign-up for Arbeitsdienste and Feste: Kameraden of the target group pick their places in a
- * published plan until the deadline, also at the kiosk tablet for someone else. With approval a
+ * published plan until the deadline; a planer can also do it for someone else. With approval a
  * place stays "angefragt" until the planer or the Stationsverantwortung confirms. Capacity, one
  * place per block, "höchstens am Stück" and the limit per person are checked here; the unique key
  * (slot, user) of the database guards the rest.
@@ -52,7 +52,7 @@ class SignupService
     }
 
     /**
-     * $by takes the place for $for (themselves, or someone else at the kiosk). Planer bypass the
+     * $by takes the place for $for (themselves; a planer also for someone else). Planer bypass the
      * approval; everyone else gets "angefragt" when the plan asks for it.
      */
     public function signUp(User $by, Plan $plan, Slot $slot, Station $station, ?User $for = null): Assignment
@@ -68,6 +68,9 @@ class SignupService
         }
         if (! self::mayJoin($by, $plan) && ! $by->canManageSchichtplan()) {
             $fail('Du gehörst nicht zur Zielgruppe dieses Plans.');
+        }
+        if (! $for->is($by) && ! $by->canManageSchichtplan()) {
+            $fail('Eintragen kann man nur sich selbst.');
         }
         if (! self::mayJoin($for, $plan)) {
             $fail($for->name.' gehört nicht zur Zielgruppe dieses Plans.');
@@ -111,12 +114,12 @@ class SignupService
         return $assignment;
     }
 
-    /** Give a place back until the deadline; a planer or the kiosk can do it for someone else */
+    /** Give a place back until the deadline; a planer can do it for someone else, also later */
     public function withdraw(User $by, Assignment $assignment): void
     {
         $plan = $assignment->plan;
         if (! $by->canManageSchichtplan()) {
-            if ($assignment->user_id !== $by->id && ! self::mayJoin($by, $plan)) {
+            if ($assignment->user_id !== $by->id) {
                 throw ValidationException::withMessages(['signup' => 'Diese Schicht gehört jemand anderem.']);
             }
             if (! $plan->signupOpen()) {
@@ -127,7 +130,7 @@ class SignupService
         $assignment->load(['plan', 'slot', 'station', 'user']);
         $this->remove($assignment);
 
-        // Taken off by the planer or at the kiosk by someone else: the Kamerad hears about it
+        // Taken off by the planer: the Kamerad hears about it
         if ($assignment->user && ! $assignment->user->is($by)) {
             $left = Assignment::where('plan_id', $plan->id)->where('user_id', $assignment->user_id)->with(['slot', 'station'])->get()
                 ->sortBy(fn (Assignment $a) => $a->slot->starts_at)->map(fn (Assignment $a) => ChangeNotifier::label($a))->values()->all();

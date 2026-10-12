@@ -10,7 +10,7 @@ Route::prefix('fahrtenbuch')->name('fahrtenbuch.')
     ->group(function () {
         $page = fn (string $component, string $title, array $params = []) => view('fahrtenbuch::pages.page', ['livewireComponent' => $component, 'title' => $title, 'params' => $params]);
 
-        // Overview; ?kiosk=1 is the big view for the tablet in the Gerätehaus
+        // Overview of the vehicles
         Route::get('/', fn () => $page('fahrtenbuch.overview', 'Fahrtenbuch'))->name('index');
         // Start (?fahrzeug=), end (?fahrt=), enter afterwards (?nachtragen=1) or correct (?fahrt=&korrigieren=1)
         Route::get('/fahrt', fn () => $page('fahrtenbuch.trip-form', 'Fahrt'))->name('trip');

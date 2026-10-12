@@ -1,11 +1,11 @@
 @php($input = 'rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-fw-red focus:ring-fw-red')
-@php($big = $kiosk ? 'text-base py-3' : 'text-xs py-1')
-<div class="space-y-4" @if($kiosk) wire:poll.30s @endif>
+@php($big = 'text-xs py-1')
+<div class="space-y-4">
     <div>
-        @unless($kiosk)<a href="{{ route('schichtplan.index') }}" class="text-sm text-gray-500 hover:text-gray-900">← Schichtplan</a>@endunless
+        <a href="{{ route('schichtplan.index') }}" class="text-sm text-gray-500 hover:text-gray-900">← Schichtplan</a>
         <div class="mt-1 flex flex-wrap items-start justify-between gap-3">
             <div>
-                <h1 class="{{ $kiosk ? 'text-3xl' : 'text-xl' }} font-bold text-gray-900">{{ $plan->title }}</h1>
+                <h1 class="text-xl font-bold text-gray-900">{{ $plan->title }}</h1>
                 <p class="text-sm text-gray-500">{{ $plan->timeLabel() }}@if($plan->location) · {{ $plan->location }}@endif</p>
                 <p class="text-sm {{ $open ? 'text-green-700' : 'text-gray-600' }}">
                     @if($open) Eintragen bis {{ $plan->signupDeadline()->copy()->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }} Uhr{{ $plan->needs_approval ? ' · Eintragungen werden bestätigt' : '' }}{{ $plan->max_shifts ? ' · höchstens '.$plan->max_shifts.' Schicht'.($plan->max_shifts === 1 ? '' : 'en').' je Person' : '' }}
@@ -14,22 +14,17 @@
                 </p>
             </div>
             <div class="flex flex-wrap gap-2 text-sm">
-                @unless($kiosk)
-                    <a href="{{ route('schichtplan.signup', ['plan' => $plan, 'kiosk' => 1]) }}" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 font-semibold text-gray-700">Kiosk-Ansicht</a>
-                    <a href="{{ route('schichtplan.show', $plan) }}" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 font-semibold text-gray-700">Gesamter Plan</a>
-                @else
-                    <a href="{{ route('schichtplan.signup', $plan) }}" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-700">Kiosk verlassen</a>
-                @endunless
+                <a href="{{ route('schichtplan.show', $plan) }}" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 font-semibold text-gray-700">Gesamter Plan</a>
             </div>
         </div>
     </div>
 
-    @if($flash)<p class="rounded-lg bg-green-50 px-3 py-2 {{ $kiosk ? 'text-lg' : 'text-sm' }} text-green-800">{{ $flash }}</p>@endif
-    @error('signup')<p class="rounded-lg bg-red-50 px-3 py-2 {{ $kiosk ? 'text-lg' : 'text-sm' }} text-red-800">{{ $message }}</p>@enderror
+    @if($flash)<p class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{{ $flash }}</p>@endif
+    @error('signup')<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{ $message }}</p>@enderror
 
     @if($canChoose)
-        <label class="block {{ $kiosk ? 'text-lg' : 'text-sm' }} font-semibold text-gray-900">Wer trägt sich ein?
-            <select wire:model.live="personId" class="mt-1 w-full {{ $input }} {{ $kiosk ? 'text-xl py-3' : '' }}">
+        <label class="block text-sm font-semibold text-gray-900">Wer trägt sich ein?
+            <select wire:model.live="personId" class="mt-1 w-full {{ $input }}">
                 <option value="">– Name wählen –</option>
                 @foreach($people as $p)<option value="{{ $p->id }}">{{ $p->name }}</option>@endforeach
             </select>
@@ -81,7 +76,7 @@
                     @php($past = $slot->starts_at->lte(now()))
                     @php($busy = $person && $mine->contains('slot_id', $slot->id))
                     <tr wire:key="s-{{ $slot->id }}">
-                        <td class="sticky left-0 whitespace-nowrap bg-white py-2 pr-3 font-medium {{ $kiosk ? 'text-lg' : '' }}">{{ $slot->label() }}</td>
+                        <td class="sticky left-0 whitespace-nowrap bg-white py-2 pr-3 font-medium ">{{ $slot->label() }}</td>
                         @foreach($stations as $station)
                             @php($seat = $cells[$slot->id.'-'.$station->id] ?? collect())
                             @php($free = $station->capacity - $seat->count())

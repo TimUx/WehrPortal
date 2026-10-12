@@ -158,7 +158,7 @@ test('export and statistics are for the Fahrtenbuchwart', function () {
     $this->actingAs($this->wart)->get(route('fahrtenbuch.statistics'))->assertOk()->assertSee('MTW')->assertSee('100');
 });
 
-test('open trips: reminder after hours, start page card, kiosk and the Fahrzeugverwaltung', function () {
+test('open trips: reminder after hours, start page card, overview and the Fahrzeugverwaltung', function () {
     $trip = $this->l->start($this->hanna, tripData());
     Livewire::actingAs($this->hanna)->test(Home::class)->assertSee('Du bist mit MTW unterwegs');
 
@@ -169,8 +169,7 @@ test('open trips: reminder after hours, start page card, kiosk and the Fahrzeugv
     $this->artisan('fahrtenbuch:remind')->assertSuccessful();
     Notification::assertNothingSent();
 
-    $this->actingAs($this->hanna)->get(route('fahrtenbuch.index', ['kiosk' => 1]))->assertOk()->assertSee('Unterwegs: Hanna Hydrant')->assertSee('Kiosk verlassen');
-    $this->actingAs($this->hanna)->get(route('fahrtenbuch.index'))->assertOk()->assertSee('Du bist mit MTW unterwegs');
+    $this->actingAs($this->hanna)->get(route('fahrtenbuch.index'))->assertOk()->assertSee('Du bist mit MTW unterwegs')->assertSee('Unterwegs: Hanna Hydrant')->assertDontSee('Kiosk');
     $this->actingAs($this->hanna)->get(route('fahrzeuge.show', $this->mtw))->assertOk()->assertSee('Fahrtenbuch '.now('Europe/Berlin')->year)->assertSee('1 Fahrten');
     expect($trip->fresh()->reminded_at)->not->toBeNull();
 });

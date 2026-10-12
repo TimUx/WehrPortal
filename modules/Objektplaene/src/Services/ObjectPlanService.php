@@ -217,7 +217,6 @@ class ObjectPlanService
 
         return [
             route('objektplaene.index', absolute: false),
-            route('objektplaene.kiosk', absolute: false),
             ...$objects->map(fn (PlanObject $o) => route('objektplaene.object', $o, absolute: false))->all(),
             ...$objects->flatMap(fn (PlanObject $o) => $o->documents->pluck('current')->filter())->map(fn (Version $v) => route('objektplaene.file', $v, absolute: false))->all(),
         ];

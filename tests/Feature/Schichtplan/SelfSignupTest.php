@@ -126,19 +126,23 @@ test('with approval a place is held until the Stationsverantwortung or the plane
     expect($this->s->signUp($this->planer, $this->plan, $this->slots[2], $this->kasse, $this->bernd)->status)->toBe('confirmed');
 });
 
-test('at the kiosk anyone picks their name; elsewhere only the own places', function () {
+test('Kameraden sign up and give back only themselves; the planer can pick a name', function () {
     publishPlan();
 
-    Livewire::actingAs($this->hanna)->withQueryParams(['kiosk' => 1])->test(SignupBoard::class, ['plan' => $this->plan])
-        ->assertSee('Wer trägt sich ein?')->assertSee('Bernd Blaulicht')->assertDontSee('Otto Ortsbrand')
-        ->call('signUp', $this->slots[0]->id, $this->grill->id)->assertHasErrors('signup')
-        ->set('personId', (string) $this->bernd->id)->call('signUp', $this->slots[0]->id, $this->grill->id)->assertSee('Bernd Blaulicht ist eingetragen');
-    expect(Assignment::sole())->user_id->toBe($this->bernd->id)->signed_up_by->toBe($this->hanna->id);
+    Livewire::actingAs($this->hanna)->test(SignupBoard::class, ['plan' => $this->plan])
+        ->assertDontSee('Wer trägt sich ein?')->assertDontSee('Kiosk')->set('personId', (string) $this->bernd->id)
+        ->call('signUp', $this->slots[1]->id, $this->kasse->id)->assertSee('Hanna Hydrant ist eingetragen');
+    expect(fn () => $this->s->signUp($this->hanna, $this->plan, $this->slots[0], $this->grill, $this->bernd))->toThrow(ValidationException::class, 'nur sich selbst');
 
-    Livewire::withQueryParams([])->actingAs($this->hanna)->test(SignupBoard::class, ['plan' => $this->plan])
-        ->assertDontSee('Wer trägt sich ein?')->set('personId', (string) $this->bernd->id)
-        ->call('signUp', $this->slots[1]->id, $this->kasse->id)->assertSee('Hanna Hydrant ist eingetragen')
-        ->call('withdraw', Assignment::where('user_id', $this->bernd->id)->value('id'))->assertHasErrors('signup');
+    Livewire::actingAs($this->planer)->test(SignupBoard::class, ['plan' => $this->plan])
+        ->assertSee('Wer trägt sich ein?')->assertSee('Bernd Blaulicht')->assertDontSee('Otto Ortsbrand')
+        ->set('personId', (string) $this->bernd->id)->call('signUp', $this->slots[0]->id, $this->grill->id)->assertSee('Bernd Blaulicht ist eingetragen');
+    $bernds = Assignment::where('user_id', $this->bernd->id)->sole();
+    expect($bernds->signed_up_by)->toBe($this->planer->id);
+
+    Livewire::actingAs($this->hanna)->test(SignupBoard::class, ['plan' => $this->plan])
+        ->call('withdraw', $bernds->id)->assertHasErrors('signup');
+    expect(fn () => $this->s->withdraw($this->hanna, $bernds))->toThrow(ValidationException::class, 'jemand anderem');
 });
 
 test('the target group can also be a Funktion, including its sub-functions', function () {
