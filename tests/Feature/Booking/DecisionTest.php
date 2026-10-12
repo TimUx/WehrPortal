@@ -378,16 +378,17 @@ test('cancelling the kept booking confirms the rejected request', function () {
     Notification::assertSentTo($this->requester, BookingReactivatedNotification::class);
 });
 
-test('mobile tab bar shows decisions for deciders and admin for admins', function () {
+test('mobile tab bar shows decisions for deciders; Profil and Admin are in the 3×3 menu', function () {
     $this->actingAs($this->requester)->get(route('fahrzeugbuchung.calendar'))
         ->assertDontSee('Entscheid.')
-        ->assertDontSee('grid-template-columns: repeat(4', false);
+        ->assertSee('grid-template-columns: repeat(2', false);
 
     $this->actingAs($this->deciderA)->get(route('fahrzeugbuchung.calendar'))
         ->assertSee('Entscheid.')
-        ->assertSee('grid-template-columns: repeat(4', false);
+        ->assertSee('grid-template-columns: repeat(3', false);
 
     $this->actingAs(User::factory()->admin()->create())->get(route('fahrzeugbuchung.calendar'))
         ->assertSee('Entscheid.')
-        ->assertSee('grid-template-columns: repeat(5', false);
+        ->assertSee('grid-template-columns: repeat(3', false)
+        ->assertSee('data-launcher-admin', false);
 });

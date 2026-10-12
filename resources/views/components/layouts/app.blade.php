@@ -34,6 +34,9 @@
             $inAusruestung => auth()->user()->canManageAusruestung(),
             default => auth()->user()->is_admin,
         };
+        // Phone: module tabs at the bottom only inside a module; Profil and Admin are in the 3×3 menu
+        $canDecide = auth()->user()?->canDecide() ?? false;
+        $bottomTabs = auth()->check() ? ($inFahrzeugbuchung ? 2 + (int) $canDecide : 0) + ($inMaengel ? 2 : 0) + ($inAusruestung ? 2 : 0) + ($inSchichtplan ? 1 : 0) + ($inKalender ? 1 : 0) + ($inLehrgaenge ? 1 : 0) : 0;
     @endphp
     <div class="min-h-full flex flex-col">
         {{-- Top Header --}}
@@ -99,16 +102,8 @@
                         @endif
                     </nav>
                     <livewire:notifications.bell />
-                    {{-- On the phone the text navigation is hidden: the admin area as an icon next to the bell --}}
-                    @if($showAdmin)
-                    <a href="{{ route($adminRoute) }}" class="sm:hidden flex h-9 w-9 items-center justify-center rounded-lg hover:bg-white/10" aria-label="Admin" title="Admin" data-mobile-admin>
-                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                        </svg>
-                    </a>
-                    @endif
-                    <x-app-launcher />
+                    {{-- On the phone the text navigation is hidden: Profil and Admin are in the 3×3 menu --}}
+                    <x-app-launcher :admin-url="$showAdmin ? route($adminRoute) : null" :unread-feedback="$unreadFeedback" />
                     </div>
                     @endauth
                 </div>
@@ -116,18 +111,15 @@
         </header>
 
 {{-- Main content --}}
-        <main class="flex-1 pb-20 sm:pb-0 px-4 sm:px-6 lg:px-8 py-4 max-w-7xl mx-auto w-full">
+        <main class="flex-1 {{ $bottomTabs > 0 ? 'pb-20 sm:pb-0' : '' }} px-4 sm:px-6 lg:px-8 py-4 max-w-7xl mx-auto w-full">
             {{ $slot }}
         </main>
 
         {{-- Mobile bottom tab bar --}}
         @auth
-        @php
-            $canDecide = auth()->user()->canDecide();
-            $isAdmin = $showAdmin;
-        @endphp
+        @if($bottomTabs > 0)
         <nav class="sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40">
-            <div class="grid h-16" style="grid-template-columns: repeat({{ 1 + ($inFahrzeugbuchung ? 2 + (int) $canDecide : 0) + ($inMaengel ? 2 : 0) + ($inAusruestung ? 2 : 0) + ($inSchichtplan ? 1 : 0) + ($inKalender ? 1 : 0) + ($inLehrgaenge ? 1 : 0) + (int) $isAdmin }}, minmax(0, 1fr));">
+            <div class="grid h-16" style="grid-template-columns: repeat({{ $bottomTabs }}, minmax(0, 1fr));">
                 @if($inFahrzeugbuchung)
                 <a href="{{ route('fahrzeugbuchung.calendar') }}"
                    class="flex flex-col items-center justify-center gap-1 text-xs {{ request()->routeIs('fahrzeugbuchung.calendar') ? 'text-fw-red' : 'text-gray-500' }}">
@@ -211,25 +203,9 @@
                     Lehrgänge
                 </a>
                 @endif
-                <a href="{{ route('profile') }}"
-                   class="flex flex-col items-center justify-center gap-1 text-xs {{ request()->routeIs('profile') ? 'text-fw-red' : 'text-gray-500' }}">
-                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                    </svg>
-                    <span>Profil @if($unreadFeedback)<span class="ml-1 inline-block w-2 h-2 rounded-full bg-fw-red align-middle"></span>@endif</span>
-                </a>
-                @if($isAdmin)
-                <a href="{{ route($adminRoute) }}"
-                   class="flex flex-col items-center justify-center gap-1 text-xs text-gray-500">
-                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                    </svg>
-                    Admin
-                </a>
-                @endif
             </div>
         </nav>
+        @endif
         @endauth
     </div>
     @livewireScripts

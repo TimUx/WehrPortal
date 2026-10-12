@@ -174,11 +174,17 @@ test('the launcher lists the modules in the own order and marks the current one'
         ->and($launcher)->toContain('bg-fw-navy text-white');
 });
 
-test('on the phone admins find the admin area at the top next to the bell, members do not', function () {
+test('on the phone Profil and Admin are in the 3×3 menu; the bottom bar only holds module tabs', function () {
     $admin = User::factory()->admin()->create(['name' => 'Anna Admin']);
 
     $this->actingAs($admin)->get(route('home'))->assertOk()
-        ->assertSee('data-mobile-admin', false)
-        ->assertSee('href="'.route('filament.admin.pages.dashboard').'" class="sm:hidden', false);
-    $this->actingAs($this->member)->get(route('home'))->assertOk()->assertDontSee('data-mobile-admin', false);
+        ->assertSee('data-launcher-profile', false)
+        ->assertSee('href="'.route('filament.admin.pages.dashboard').'" class="sm:hidden', false)
+        ->assertDontSee('fixed bottom-0', false);
+    $this->actingAs($this->member)->get(route('home'))->assertOk()
+        ->assertSee('data-launcher-profile', false)->assertDontSee('data-launcher-admin', false);
+
+    // Inside a module the tabs stay, without Profil and Admin
+    $this->actingAs($admin)->get(route('fahrzeugbuchung.calendar'))->assertOk()
+        ->assertSee('fixed bottom-0', false)->assertSee('repeat(3, minmax(0, 1fr))', false);
 });
