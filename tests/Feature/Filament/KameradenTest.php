@@ -108,11 +108,31 @@ test('the header action grants a module to everyone the filters match, beyond th
 
     Livewire::test(ListUsers::class)
         ->filterTable('groups', [$youth->id])
-        ->callAction('grant_module_all', data: ['module' => 'maengelmanagement', 'role_maengelmanagement' => 'verantwortlicher']);
+        ->callAction('grant_module_all', data: ['modules' => ['maengelmanagement'], 'role_maengelmanagement' => 'verantwortlicher']);
 
     expect(DB::table('module_user')->where('module', 'maengelmanagement')->whereIn('user_id', $inGroup->pluck('id'))->count())->toBe(30);
     expect($other->moduleAccess()->exists())->toBeFalse();
     expect(DB::table('module_user')->where('module', 'maengelmanagement')->where('role', 'verantwortlicher')->count())->toBe(30);
+});
+
+test('several modules are ticked at once; a role someone already has stays without a new one', function () {
+    $hanna = User::factory()->create(['name' => 'Hanna Hydrant']);
+    $hanna->moduleAccess()->create(['module' => 'fahrzeugbuchung', 'role' => 'entscheider']);
+    $bernd = User::factory()->create(['name' => 'Bernd Blaulicht']);
+
+    Livewire::test(ListUsers::class)
+        ->callAction('grant_module_all', data: ['modules' => []])
+        ->assertHasActionErrors(['modules' => 'required']);
+
+    Livewire::test(ListUsers::class)
+        ->searchTable('Hydrant')
+        ->callAction('grant_module_all', data: ['modules' => ['fahrzeugbuchung', 'kalender', 'maengelmanagement'], 'role_maengelmanagement' => 'verantwortlicher'])
+        ->assertHasNoActionErrors()
+        ->assertNotified('Module „Fahrzeugbuchung“, „Kalender & Termine“, „Mängelmanagement“ für 1 Kameraden freigeschaltet');
+
+    expect($hanna->moduleAccess()->pluck('role', 'module')->all())
+        ->toEqualCanonicalizing(['fahrzeugbuchung' => 'entscheider', 'kalender' => null, 'maengelmanagement' => 'verantwortlicher'])
+        ->and($bernd->moduleAccess()->exists())->toBeFalse();
 });
 
 test('the header action revokes a module from the filtered members only', function () {

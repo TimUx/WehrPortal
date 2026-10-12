@@ -173,3 +173,12 @@ test('the launcher lists the modules in the own order and marks the current one'
         ->and(strpos($launcher, 'Fahrzeugbuchung'))->toBeLessThan(strpos($launcher, 'Kleiderkammer'))
         ->and($launcher)->toContain('bg-fw-navy text-white');
 });
+
+test('on the phone admins find the admin area at the top next to the bell, members do not', function () {
+    $admin = User::factory()->admin()->create(['name' => 'Anna Admin']);
+
+    $this->actingAs($admin)->get(route('home'))->assertOk()
+        ->assertSee('data-mobile-admin', false)
+        ->assertSee('href="'.route('filament.admin.pages.dashboard').'" class="sm:hidden', false);
+    $this->actingAs($this->member)->get(route('home'))->assertOk()->assertDontSee('data-mobile-admin', false);
+});

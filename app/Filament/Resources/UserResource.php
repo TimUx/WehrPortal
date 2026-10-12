@@ -593,23 +593,28 @@ class UserResource extends Resource
     public static function grantModuleAction(Actions\Action $action, array $modules): Actions\Action
     {
         return $action
-            ->label('Modul freischalten')
+            ->label('Module freischalten')
             ->icon('heroicon-o-plus-circle')
             ->schema(static function () use ($modules): array {
                 $fields = [
-                    Forms\Components\Select::make('module')
-                        ->label('Modul')
+                    Forms\Components\CheckboxList::make('modules')
+                        ->label('Module')
                         ->options(array_map(fn ($def) => $def['name'], $modules))
+                        ->columns(2)
+                        ->bulkToggleable()
                         ->required()
+                        ->validationMessages(['required' => 'Bitte mindestens ein Modul ankreuzen.'])
                         ->live(),
                 ];
 
+                // A role for each ticked module that has roles; empty keeps a role someone already has
                 foreach ($modules as $key => $def) {
                     if (! empty($def['roles'])) {
                         $fields[] = Forms\Components\Select::make("role_{$key}")
-                            ->label('Rolle')
+                            ->label('Rolle in „'.$def['name'].'“')
                             ->options(array_combine($def['roles'], array_map('ucfirst', $def['roles'])))
-                            ->visible(fn (Get $get) => $get('module') === $key);
+                            ->placeholder('Ohne Rolle')
+                            ->visible(fn (Get $get) => in_array($key, (array) $get('modules'), true));
                     }
                 }
 
@@ -637,17 +642,29 @@ class UserResource extends Resource
     /** @param  iterable<int>  $userIds */
     public static function grantModule(iterable $userIds, array $data): void
     {
-        $key = $data['module'];
-        $role = $data["role_{$key}"] ?? null;
-        $count = 0;
+        $keys = array_values((array) ($data['modules'] ?? $data['module'] ?? []));
+        $userIds = collect($userIds)->all();
 
-        foreach ($userIds as $userId) {
-            DB::table('module_user')->updateOrInsert(['user_id' => $userId, 'module' => $key], ['role' => $role]);
-            $count++;
-        }
+        DB::transaction(function () use ($keys, $userIds, $data) {
+            foreach ($keys as $key) {
+                $role = filled($data["role_{$key}"] ?? null) ? $data["role_{$key}"] : null;
+                foreach ($userIds as $userId) {
+                    $exists = DB::table('module_user')->where('user_id', $userId)->where('module', $key);
+                    if ($exists->exists()) {
+                        // Without a chosen role an existing one (e.g. Entscheider) stays
+                        if ($role !== null) {
+                            $exists->update(['role' => $role]);
+                        }
+                    } else {
+                        DB::table('module_user')->insert(['user_id' => $userId, 'module' => $key, 'role' => $role]);
+                    }
+                }
+            }
+        });
 
+        $names = collect($keys)->map(fn ($key) => '„'.(app(ModuleRegistry::class)->get($key)['name'] ?? $key).'“')->implode(', ');
         Notification::make()
-            ->title('Modul „'.(app(ModuleRegistry::class)->get($key)['name'] ?? $key).'“ für '.$count.' Kameraden freigeschaltet')
+            ->title((count($keys) === 1 ? 'Modul ' : 'Module ').$names.' für '.count($userIds).' Kameraden freigeschaltet')
             ->success()
             ->send();
     }
