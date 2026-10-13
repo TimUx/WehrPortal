@@ -2,10 +2,12 @@
 
 namespace Modules\Personalverwaltung;
 
+use App\Livewire\Profile\Hours;
 use App\Models\User;
 use App\Services\AnnualReportRegistry;
 use App\Services\CredentialRegistry;
 use App\Services\DashboardRegistry;
+use App\Services\HoursRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\PersonnelFileRegistry;
 use Illuminate\Console\Scheduling\Schedule;
@@ -18,6 +20,7 @@ use Modules\Personalverwaltung\src\Livewire\Access;
 use Modules\Personalverwaltung\src\Livewire\Attendance;
 use Modules\Personalverwaltung\src\Livewire\ChangeRequests;
 use Modules\Personalverwaltung\src\Livewire\Honors;
+use Modules\Personalverwaltung\src\Livewire\HoursOverview;
 use Modules\Personalverwaltung\src\Livewire\MemberFile;
 use Modules\Personalverwaltung\src\Livewire\MemberList;
 use Modules\Personalverwaltung\src\Livewire\OwnData;
@@ -82,7 +85,7 @@ class PersonalverwaltungServiceProvider extends ServiceProvider
 
         foreach (['member-list' => MemberList::class, 'member-file' => MemberFile::class, 'honors' => Honors::class,
             'attendance' => Attendance::class, 'access' => Access::class, 'own-file' => OwnFile::class,
-            'settings' => Settings::class, 'own-data' => OwnData::class, 'change-requests' => ChangeRequests::class] as $name => $class) {
+            'settings' => Settings::class, 'own-data' => OwnData::class, 'change-requests' => ChangeRequests::class, 'hours-overview' => HoursOverview::class] as $name => $class) {
             Livewire::component('personalverwaltung.'.$name, $class);
         }
 
@@ -119,6 +122,15 @@ class PersonalverwaltungServiceProvider extends ServiceProvider
             fn (User $user) => ($id = PersonnelService::digitalIdFor($user)) ? view('personalverwaltung::credentials.id-card', ['id' => $id])->render() : null,
             fn (User $user) => ($id = PersonnelService::digitalIdFor($user)) ? view('personalverwaltung::credentials.id-check', ['id' => $id])->render() : null,
         );
+
+        // Jahresbericht: the hours of all active Kameraden by source
+        app(AnnualReportRegistry::class)->register('personalverwaltung', 'Geleistete Stunden', function (int $year) {
+            $rows = app(HoursRegistry::class)->rows(User::active()->pluck('id')->all(), ...Hours::period($year));
+
+            return $rows->isEmpty() ? null : view('personalverwaltung::annual.hours', [
+                'bySource' => $rows->groupBy('source')->map->sum('minutes'), 'total' => $rows->sum('minutes'), 'people' => $rows->pluck('user_id')->unique()->count(),
+            ])->render();
+        }, 22);
 
         // Jahresbericht: strength, Eintritte, Austritte, Beförderungen, Ehrungen
         app(AnnualReportRegistry::class)->register('personalverwaltung', 'Mitglieder', fn (int $year) => view('personalverwaltung::annual.section', [

@@ -3,12 +3,15 @@
 use App\Http\Controllers\Auth\EmailChangeController;
 use App\Http\Controllers\Auth\MagicLinkController;
 use App\Http\Controllers\ScanController;
+use App\Livewire\Profile\Hours;
 use App\Models\Contact;
 use App\Models\FeedbackThread;
 use App\Models\User;
 use App\Services\CredentialRegistry;
+use App\Services\HoursRegistry;
 use App\Services\Impersonation;
 use App\Services\OrganizationSettings;
+use App\Support\HoursCsv;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 
@@ -44,6 +47,15 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/personalakte', fn () => view('pages.profile'))->name('profile');
     // Digitale Nachweise (Dienstausweis, Atemschutzpass) with a QR code for checking
     Route::get('/personalakte/nachweise', fn () => view('pages.credentials'))->name('credentials');
+    // Stundennachweis from Dienste, Einsätze, Lehrgänge and Schichten
+    Route::get('/personalakte/stunden', fn () => view('pages.hours'))->name('hours');
+    Route::get('/personalakte/stunden.csv', function (HoursRegistry $hours) {
+        $year = max(2000, min(2100, request()->integer('jahr') ?: (int) now('Europe/Berlin')->year));
+
+        return response(HoursCsv::make($hours->forUser(auth()->user(), ...Hours::period($year)), [auth()->user()->id => auth()->user()->name]), 200, [
+            'Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="Stunden-'.$year.'.csv"',
+        ]);
+    })->name('hours.csv');
     Route::get('/ansprechpartner', fn () => view('pages.contacts', ['contacts' => Contact::with('group')->orderBy('sort_order')->orderBy('id')->get()]))->name('contacts');
 
     // Notifications (the bell): the list, and opening one marks it read and leads to where something is to do

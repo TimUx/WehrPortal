@@ -44,8 +44,8 @@ class IcsExporter
                 $lines[] = 'LOCATION:'.$this->escape($event->place?->label() ?? $event->location);
             }
             $dress = DressCode::names($event->dress_code_ids);
-            if ($event->description || $dress) {
-                $lines[] = 'DESCRIPTION:'.$this->escape(trim(($dress ? 'Kleidung: '.implode(', ', $dress)."\n" : '').(string) $event->description));
+            if ($event->description || $dress || $event->partners) {
+                $lines[] = 'DESCRIPTION:'.$this->escape(trim(($event->partners ? 'Gemeinsam mit '.$event->partners."\n" : '').($dress ? 'Kleidung: '.implode(', ', $dress)."\n" : '').(string) $event->description));
             }
             if ($event->isCancelled()) {
                 $lines[] = 'STATUS:CANCELLED';

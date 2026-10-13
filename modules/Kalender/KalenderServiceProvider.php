@@ -5,6 +5,7 @@ namespace Modules\Kalender;
 use App\Models\User;
 use App\Services\AnnualReportRegistry;
 use App\Services\DashboardRegistry;
+use App\Services\HoursRegistry;
 use App\Services\ModuleRegistry;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Carbon;
@@ -104,6 +105,16 @@ class KalenderServiceProvider extends ServiceProvider
         });
 
         // Jahresbericht: the Termine of the year, with the attendance where it was taken
+        // Stundennachweis: the Dienste and Termine a Kamerad was marked present at (all-day ones have no hours)
+        app(HoursRegistry::class)->register('kalender', 'Dienste und Termine', fn (array $ids, Carbon $from, Carbon $to) => Event::query()
+            ->join('kal_responses', 'kal_responses.event_id', '=', 'kal_events.id')
+            ->whereIn('kal_responses.user_id', $ids)->where('kal_responses.attended', true)
+            ->whereNull('kal_events.source_id')->whereNull('kal_events.cancelled_at')->where('kal_events.all_day', false)
+            ->whereBetween('kal_events.starts_at', [$from, $to])
+            ->get(['kal_events.*', 'kal_responses.user_id as attendee_id'])
+            ->map(fn (Event $e) => ['user_id' => (int) $e->attendee_id, 'date' => $e->starts_at, 'title' => $e->typeLabel().': '.$e->title,
+                'minutes' => min(1440, (int) $e->starts_at->diffInMinutes($e->ends_at))]));
+
         app(AnnualReportRegistry::class)->register('kalender', 'Dienste und Termine', function (int $year) {
             $from = Carbon::create($year, 1, 1, 0, 0, 0, 'Europe/Berlin')->utc();
             $events = Event::whereNull('source_id')->whereNull('cancelled_at')->whereBetween('starts_at', [$from, $from->copy()->addYear()]);

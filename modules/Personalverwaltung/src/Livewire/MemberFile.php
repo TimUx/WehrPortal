@@ -2,7 +2,9 @@
 
 namespace Modules\Personalverwaltung\src\Livewire;
 
+use App\Livewire\Profile\Hours;
 use App\Models\User;
+use App\Services\HoursRegistry;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -168,6 +170,8 @@ class MemberFile extends Component
             'years' => PersonnelService::serviceYears($member),
             'attendance' => PersonnelService::attendanceAvailable()
                 ? collect([$year, $year - 1, $year - 2])->mapWithKeys(fn ($y) => [$y => $personnel->attendance($member, $y)]) : collect(),
+            'hours' => app(HoursRegistry::class)->forUser($member, ...Hours::period($year))->groupBy('source')->map->sum('minutes'),
+            'year' => $year,
             'isAdmin' => auth()->user()->is_admin,
             'guardians' => $member->guardians()->get(),
             'fields' => PersonnelService::activeFields(),

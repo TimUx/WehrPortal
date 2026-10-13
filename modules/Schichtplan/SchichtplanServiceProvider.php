@@ -4,8 +4,10 @@ namespace Modules\Schichtplan;
 
 use App\Models\User;
 use App\Services\DashboardRegistry;
+use App\Services\HoursRegistry;
 use App\Services\ModuleRegistry;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -72,6 +74,14 @@ class SchichtplanServiceProvider extends ServiceProvider
         );
 
         // Start page: plans to sign up for, and requests waiting for the planer or Stationsverantwortung
+        // Stundennachweis: confirmed shifts of published plans that are over
+        app(HoursRegistry::class)->register('schichtplan', 'Schichten', fn (array $ids, Carbon $from, Carbon $to) => Assignment::with(['slot', 'plan', 'station'])
+            ->whereIn('user_id', $ids)->where('status', Assignment::CONFIRMED)
+            ->whereHas('plan', fn ($q) => $q->where('status', Plan::PUBLISHED))
+            ->whereHas('slot', fn ($q) => $q->whereBetween('starts_at', [$from, $to])->where('ends_at', '<=', now()))->get()
+            ->map(fn (Assignment $a) => ['user_id' => $a->user_id, 'date' => $a->slot->starts_at, 'title' => $a->plan->title.($a->station ? ' · '.$a->station->name : ''),
+                'minutes' => (int) $a->slot->starts_at->diffInMinutes($a->slot->ends_at)]));
+
         app(DashboardRegistry::class)->register('schichtplan', 'signup', function (User $user) {
             $open = app(SignupService::class)->openPlansFor($user);
             $requests = Assignment::where('status', Assignment::REQUESTED)->with('plan')->get()

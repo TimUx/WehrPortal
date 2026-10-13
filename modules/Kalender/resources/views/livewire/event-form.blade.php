@@ -50,6 +50,9 @@
         @foreach(['startsAt', 'endsAt', 'startDate', 'endDate'] as $field)@error($field)<p class="text-sm text-red-600">{{ $message }}</p>@enderror @endforeach
 
         @include('partials.place-dress-fields', ['input' => $input, 'places' => $places, 'dressCodes' => $dressCodes, 'placeId' => $placeId, 'manageUrl' => route('kalender.places')])
+        <label class="block text-sm font-medium text-gray-700">Gemeinsam mit (optional)
+            <input type="text" wire:model="partners" maxlength="300" placeholder="z. B. FF Nachbarstadt, THW Ortsverband – für gemeinsame Übungen" class="mt-1 {{ $input }}">
+        </label>
         <label class="block text-sm font-medium text-gray-700">Beschreibung
             <textarea wire:model="description" rows="3" maxlength="5000" class="mt-1 {{ $input }}"></textarea>
         </label>

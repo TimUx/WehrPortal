@@ -29,6 +29,9 @@ class EventCreatedNotification extends Notification
         } elseif ($event->location) {
             $mail->line('Ort: '.$event->location);
         }
+        if ($event->partners) {
+            $mail->line('Gemeinsam mit '.$event->partners);
+        }
         if ($dress = DressCode::names($event->dress_code_ids)) {
             $mail->line('Kleidung: '.implode(', ', $dress));
         }

@@ -5,9 +5,11 @@ namespace Modules\Lehrgaenge;
 use App\Models\User;
 use App\Services\AnnualReportRegistry;
 use App\Services\DashboardRegistry;
+use App\Services\HoursRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\PersonnelFileRegistry;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -20,6 +22,7 @@ use Modules\Lehrgaenge\src\Livewire\Members;
 use Modules\Lehrgaenge\src\Livewire\MyCourses;
 use Modules\Lehrgaenge\src\Livewire\Registrations;
 use Modules\Lehrgaenge\src\Models\Record;
+use Modules\Lehrgaenge\src\Models\Session;
 use Modules\Lehrgaenge\src\Services\CatalogImporter;
 use Modules\Lehrgaenge\src\Services\RegistrationService;
 
@@ -84,6 +87,14 @@ class LehrgaengeServiceProvider extends ServiceProvider
 
         // Personalakte → Lehrgänge: the Kamerad's absolvierte and confirmed Lehrgänge
         app(PersonnelFileRegistry::class)->register('lehrgaenge', 'Lehrgänge', 'lehrgaenge.personnel-file');
+
+        // Stundennachweis: the Lehrgangstage with time (confirmed or absolviert, up to today)
+        app(HoursRegistry::class)->register('lehrgaenge', 'Aus- und Fortbildung', fn (array $ids, Carbon $from, Carbon $to) => Session::with('record.course')
+            ->whereHas('record', fn ($q) => $q->whereIn('user_id', $ids)->whereIn('status', ['confirmed', 'completed']))
+            ->whereBetween('date', [$from->toDateString(), min($to->toDateString(), RegistrationService::today()->toDateString())])
+            ->whereNotNull('starts_at')->whereNotNull('ends_at')->get()
+            ->map(fn (Session $s) => ['user_id' => $s->record->user_id, 'date' => $s->date, 'title' => 'Lehrgang: '.$s->record->course?->name,
+                'minutes' => max(0, (int) Carbon::parse($s->starts_at)->diffInMinutes(Carbon::parse($s->ends_at), false))]));
 
         // Jahresbericht: Lehrgänge completed in the year
         app(AnnualReportRegistry::class)->register('lehrgaenge', 'Aus- und Fortbildung', function (int $year) {

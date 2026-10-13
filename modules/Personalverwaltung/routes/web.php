@@ -1,6 +1,9 @@
 <?php
 
+use App\Livewire\Profile\Hours;
 use App\Models\User;
+use App\Services\HoursRegistry;
+use App\Support\HoursCsv;
 use Illuminate\Support\Facades\Route;
 use Modules\Personalverwaltung\src\Models\HistoryFile;
 use Modules\Personalverwaltung\src\Services\PersonnelService;
@@ -27,6 +30,15 @@ Route::middleware(['auth', 'active', 'module:personalverwaltung'])->group(functi
         Route::get('/', fn () => $page('personalverwaltung.member-list', 'Personalverwaltung'))->name('index');
         Route::get('/kamerad/{member}', fn (User $member) => $page('personalverwaltung.member-file', $member->name, ['member' => $member]))->whereNumber('member')->name('member');
         Route::get('/aenderungswuensche', fn () => $page('personalverwaltung.change-requests', 'Änderungswünsche'))->name('requests');
+        Route::get('/stunden', fn () => $page('personalverwaltung.hours-overview', 'Stundennachweis'))->name('hours');
+        Route::get('/stunden.csv', function (HoursRegistry $hours) {
+            $year = max(2000, min(2100, request()->integer('jahr') ?: (int) now('Europe/Berlin')->year));
+            $members = PersonnelService::visibleMembers(auth()->user())->where('status', 'active')->pluck('name', 'id')->all();
+
+            return response(HoursCsv::make($hours->rows(array_keys($members), ...Hours::period($year)), $members), 200, [
+                'Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="Stundennachweis-'.$year.'.csv"',
+            ]);
+        })->name('hours.csv');
         Route::get('/ehrungen', fn () => $page('personalverwaltung.honors', 'Ehrungen'))->name('honors');
         Route::get('/dienstbeteiligung', function () use ($page) {
             abort_unless(PersonnelService::attendanceAvailable(), 404);

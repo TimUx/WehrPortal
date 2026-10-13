@@ -1,6 +1,7 @@
 {{-- Menu of the Personalakte: Profil and what the modules add (e.g. Einsätze) --}}
 @php($items = app(\App\Services\PersonnelFileRegistry::class)->for(auth()->user()))
 @php($items = app(\App\Services\CredentialRegistry::class)->cards(auth()->user()) ? [...$items, ['label' => 'Nachweise', 'route' => 'credentials']] : $items)
+@php($items = app(\App\Services\HoursRegistry::class)->sources() ? [...$items, ['label' => 'Stunden', 'route' => 'hours']] : $items)
 @if($items)
     <nav class="flex flex-wrap gap-2 text-sm" aria-label="Personalakte">
         @foreach([['label' => 'Profil', 'route' => 'profile'], ...$items] as $item)

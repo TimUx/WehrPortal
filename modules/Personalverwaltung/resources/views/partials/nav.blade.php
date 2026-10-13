@@ -3,6 +3,7 @@
         'personalverwaltung.index' => 'Kameraden',
         'personalverwaltung.requests' => 'Änderungswünsche',
         'personalverwaltung.honors' => 'Ehrungen',
+        'personalverwaltung.hours' => app(\App\Services\HoursRegistry::class)->sources() ? 'Stunden' : null,
         'personalverwaltung.attendance' => \Modules\Personalverwaltung\src\Services\PersonnelService::attendanceAvailable() ? 'Dienstbeteiligung' : null,
         'personalverwaltung.settings' => 'Einstellungen',
         'personalverwaltung.access' => auth()->user()->is_admin ? 'Zugriff' : null,

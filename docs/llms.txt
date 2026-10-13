@@ -17,7 +17,7 @@
 - Fahrzeugbuchung: Fahrzeuge im gemeinsamen Kalender reservieren, Konfliktentscheidung, Wachen-Monitor
 - Fahrzeugverwaltung & Flotte: Fahrzeugprofile, Status, Werkstattzeiten, Fristen (HU, SP, UVV)
 - Fahrtenbuch: Fahrten mit Kilometerstand, verknüpft mit Buchung und Einsatz, Tanken und Export
-- Kalender & Termine: Termine für eine Zielgruppe mit Ort samt Navigation, Kleidung und Rückmeldung, Terminabfragen, Kalender-Abo; Erziehungsberechtigte (z. B. Jugendfeuerwehr) bekommen die Termin-Mails und sagen ohne eigenes Konto für das Kind zu oder ab
+- Kalender & Termine: Termine für eine Zielgruppe mit Ort samt Navigation, Kleidung und Rückmeldung, Terminabfragen, Kalender-Abo, gemeinsame Übungen mit Nachbarwehren; Erziehungsberechtigte (z. B. Jugendfeuerwehr) bekommen die Termin-Mails und sagen ohne eigenes Konto für das Kind zu oder ab
 - Schichtplan: Schichten verteilen oder Mitglieder selbst eintragen lassen
 - Übungsdienstplaner: Übungsdienste mit Thema und Verantwortlichen für den Vorstand; jeder Dienst steht ohne Thema im Kalender der Zielgruppe
 - Personalverwaltung: eigener Bereich für Personalverwalter, persönliche Daten (Anschrift, Geburtsdatum, Mobilnummer) zuschaltbar mit Selbstpflege und Benachrichtigung, Diensthistorie (Dienstgrade, Abteilungen, Funktionen, Ereignisse, Dienstzeiten in anderen Wehren) mit Nachweisen und anrechenbarer Dienstzeit, Ehrungen nach Dienstjahren, Dienstausweis (auch digital auf dem Handy mit Prüf-QR-Code), Änderungswünsche der Kameraden zur eigenen Akte, Dienstbeteiligung aus dem Kalender, Zugriff je Abteilung
@@ -34,6 +34,7 @@
 
 ## Kern
 
+- Stundennachweis je Kamerad und für die Wehr, automatisch aus Diensten, Einsätzen, Lehrgängen und Schichten
 - Als App auf dem Startbildschirm (PWA) mit Push-Benachrichtigungen, ohne App-Store
 - Ansprechpartner der Wehr mit Telefon zum direkten Anrufen
 - Erziehungsberechtigte je Kamerad, z. B. für die Jugendfeuerwehr

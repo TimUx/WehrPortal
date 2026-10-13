@@ -137,6 +137,13 @@
                 <button type="submit" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700">Speichern</button>
             </form>
         </section>
+        @if($hours->isNotEmpty())
+            <section class="{{ $card }}">
+                <h2 class="text-sm font-semibold text-gray-900">Stunden {{ $year }}: {{ \App\Services\HoursRegistry::format($hours->sum()) }}</h2>
+                <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">@foreach($hours as $source => $minutes)<dt class="text-gray-500">{{ $source }}</dt><dd class="text-right">{{ \App\Services\HoursRegistry::format($minutes) }}</dd>@endforeach</dl>
+                <a href="{{ route('personalverwaltung.hours') }}" class="text-xs text-fw-navy underline">Stundennachweis aller Kameraden</a>
+            </section>
+        @endif
         @if($attendance->isNotEmpty())
             <section class="{{ $card }}">
                 <h2 class="text-sm font-semibold text-gray-900">Dienstbeteiligung</h2>

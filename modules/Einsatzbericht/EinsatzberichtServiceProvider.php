@@ -5,10 +5,12 @@ namespace Modules\Einsatzbericht;
 use App\Models\User;
 use App\Services\AnnualReportRegistry;
 use App\Services\DashboardRegistry;
+use App\Services\HoursRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\PersonnelFileRegistry;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
@@ -89,6 +91,13 @@ class EinsatzberichtServiceProvider extends ServiceProvider
         });
 
         // Jahresbericht: the Einsätze come first
+        // Stundennachweis: every closed or released Einsatz in the crew, from Alarmierung to Einsatzende
+        app(HoursRegistry::class)->register('einsatzbericht', 'Einsätze', fn (array $ids, Carbon $from, Carbon $to) => Report::whereIn('status', Report::DONE)
+            ->whereBetween('alarmed_at', [$from, $to])->with(['crew' => fn ($q) => $q->whereIn('user_id', $ids)])
+            ->whereHas('crew', fn ($q) => $q->whereIn('user_id', $ids))->get()
+            ->flatMap(fn (Report $r) => $r->crew->map(fn ($c) => ['user_id' => $c->user_id, 'date' => $r->alarmed_at,
+                'title' => 'Einsatz '.$r->number.($r->keyword ? ' · '.$r->keyword : ''), 'minutes' => min(2880, (int) $r->durationMinutes())])));
+
         app(AnnualReportRegistry::class)->register('einsatzbericht', 'Einsätze', fn (int $year) => view('einsatzbericht::annual.section', [
             'stats' => app(ReportService::class)->statistics($year),
         ])->render(), 10);

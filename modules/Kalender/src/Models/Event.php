@@ -39,7 +39,7 @@ class Event extends Model
     protected $attributes = ['type' => 'uebung', 'all_day' => false, 'rsvp' => false, 'is_public' => false];
 
     protected $fillable = [
-        'title', 'type', 'starts_at', 'ends_at', 'all_day', 'location', 'description', 'rsvp', 'rsvp_deadline',
+        'title', 'type', 'starts_at', 'ends_at', 'all_day', 'location', 'partners', 'description', 'rsvp', 'rsvp_deadline',
         'min_participants', 'is_public', 'reminder_sent_at', 'series_id', 'source_id', 'external_uid', 'cancelled_at', 'created_by',
         'place_id', 'dress_code_ids', 'managed_by',
     ];
