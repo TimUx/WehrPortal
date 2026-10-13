@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\ModuleRegistry;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -19,12 +20,14 @@ use Modules\Kalender\src\Models\Response;
 use Modules\Kalender\src\Support\Audience;
 use Modules\Personalverwaltung\src\Models\ChangeRequest;
 use Modules\Personalverwaltung\src\Models\HistoryEntry;
+use Modules\Personalverwaltung\src\Models\HistoryFile;
 use Modules\Personalverwaltung\src\Models\Honor;
 use Modules\Personalverwaltung\src\Models\HonorType;
 use Modules\Personalverwaltung\src\Models\MemberProfile;
 use Modules\Personalverwaltung\src\Notifications\ChangeRequestAnsweredNotification;
 use Modules\Personalverwaltung\src\Notifications\ChangeRequestedNotification;
 use Modules\Personalverwaltung\src\Notifications\PersonalDataChangedNotification;
+use Modules\Personalverwaltung\src\Support\ServiceTime;
 use Throwable;
 
 /**
@@ -43,6 +46,9 @@ class PersonnelService
     public const FIELDS = ['address' => 'Anschrift', 'birth_date' => 'Geburtsdatum', 'phone' => 'Mobilnummer'];
 
     private const SETTINGS_KEY = 'personalverwaltung.fields';
+
+    /** How the Dienstzeit is counted (Jugendfeuerwehr) */
+    private const RULES_KEY = 'personalverwaltung.service_rules';
 
     public static function today(): Carbon
     {
@@ -316,7 +322,7 @@ class PersonnelService
     public function addHistory(User $by, User $member, array $data): HistoryEntry
     {
         $this->assertMayView($by, $member);
-        [$kind, $label, $since, $until] = $this->validStage($data, true);
+        [$kind, $label, $since, $until] = $this->validStage($data, ($data['kind'] ?? '') !== 'event');
 
         return HistoryEntry::create(['user_id' => $member->id, 'kind' => $kind, 'label' => $label, 'since' => $since, 'until' => $until,
             'note' => filled($data['note'] ?? null) ? mb_substr(trim($data['note']), 0, 300) : null, 'created_by' => $by->id]);
@@ -326,18 +332,38 @@ class PersonnelService
     public function updateHistory(User $by, HistoryEntry $entry, array $data): void
     {
         $this->assertMayView($by, $entry->user);
-        [, $label, $since, $until] = $this->validStage([...$data, 'kind' => $entry->kind, 'label' => $data['label'] ?? $entry->label], $entry->until !== null);
-        $entry->update(['label' => $entry->until === null ? $entry->label : $label, 'since' => $since,
-            'until' => $entry->until === null ? null : $until, 'note' => filled($data['note'] ?? null) ? mb_substr(trim($data['note']), 0, 300) : null]);
+        [, $label, $since, $until] = $this->validStage([...$data, 'kind' => $entry->kind, 'label' => $data['label'] ?? $entry->label], ! $entry->isCurrent() && $entry->kind !== 'event');
+        $entry->update(['label' => $entry->isCurrent() ? $entry->label : $label, 'since' => $since,
+            'until' => $entry->isCurrent() ? null : $until, 'note' => filled($data['note'] ?? null) ? mb_substr(trim($data['note']), 0, 300) : null]);
     }
 
     public function deleteHistory(User $by, HistoryEntry $entry): void
     {
         $this->assertMayView($by, $entry->user);
-        if ($entry->until === null) {
+        if ($entry->isCurrent()) {
             throw ValidationException::withMessages(['history' => 'Die aktuelle Station kommt aus den Mitgliedsdaten. Dort ändern, dann wird sie hier abgeschlossen.']);
         }
         $entry->delete();
+    }
+
+    /** A Nachweis (PDF or photo) at an entry of the Diensthistorie */
+    public function attachHistoryFile(User $by, HistoryEntry $entry, UploadedFile $file): HistoryFile
+    {
+        $this->assertMayView($by, $entry->user);
+        if (! in_array($file->getMimeType(), HistoryFile::MIMES, true) || $file->getSize() > HistoryFile::MAX_KB * 1024) {
+            throw ValidationException::withMessages(['upload' => 'Bitte ein PDF oder ein Foto (JPG, PNG) bis 10 MB.']);
+        }
+
+        return HistoryFile::create([
+            'entry_id' => $entry->id, 'filename' => mb_substr($file->getClientOriginalName() ?: 'Nachweis', 0, 200), 'mime' => $file->getMimeType(),
+            'size' => $file->getSize(), 'data' => base64_encode((string) file_get_contents($file->getRealPath())), 'uploaded_by' => $by->id,
+        ]);
+    }
+
+    public function deleteHistoryFile(User $by, HistoryFile $file): void
+    {
+        $this->assertMayView($by, $file->entry->user);
+        $file->delete();
     }
 
     // ─── Ehrungen ────────────────────────────────────────────────────────────
@@ -393,9 +419,37 @@ class PersonnelService
     }
 
     /** Full Dienstjahre on a day, counted from the Eintritt */
+    /** Anrechenbare Dienstjahre from the Diensthistorie (see ServiceTime) */
     public static function serviceYears(User $user, ?Carbon $on = null): ?int
     {
-        return $user->joined_at ? (int) $user->joined_at->diffInYears($on ?? self::today()) : null;
+        return ServiceTime::years($user, $on);
+    }
+
+    /**
+     * How Jugendfeuerwehr time counts: fully, only from an age, or not at all – for the Abteilung chosen as
+     * Jugendfeuerwehr (without one, nothing is deducted).
+     *
+     * @return array{youth_group_id: ?int, youth_rule: string, youth_age: int}
+     */
+    public static function serviceRules(): array
+    {
+        $stored = json_decode((string) Setting::get(self::RULES_KEY, ''), true) ?: [];
+        $rule = in_array($stored['youth_rule'] ?? null, ['full', 'age', 'none'], true) ? $stored['youth_rule'] : 'full';
+
+        return ['youth_group_id' => filled($stored['youth_group_id'] ?? null) ? (int) $stored['youth_group_id'] : null, 'youth_rule' => $rule,
+            'youth_age' => max(6, min(27, (int) ($stored['youth_age'] ?? 16)))];
+    }
+
+    public function saveServiceRules(User $by, ?int $groupId, string $rule, int $age): void
+    {
+        $this->assertManager($by);
+        if ($groupId !== null && ! Group::whereKey($groupId)->exists()) {
+            throw ValidationException::withMessages(['rules' => 'Diese Abteilung gibt es nicht.']);
+        }
+        if (! in_array($rule, ['full', 'age', 'none'], true) || $age < 6 || $age > 27) {
+            throw ValidationException::withMessages(['rules' => 'Bitte eine Regel und ein Alter zwischen 6 und 27 wählen.']);
+        }
+        Setting::set(self::RULES_KEY, json_encode(['youth_group_id' => $groupId, 'youth_rule' => $rule, 'youth_age' => $age]));
     }
 
     /**
@@ -417,11 +471,12 @@ class PersonnelService
         $received = Honor::whereIn('user_id', $members->pluck('id'))->whereNotNull('honor_type_id')->get()
             ->groupBy('user_id')->map(fn ($honors) => $honors->pluck('honor_type_id')->all());
 
+        // When each Ehrung is reached follows the anrechenbare Dienstzeit, not just the Eintritt
         return $members->flatMap(fn (User $member) => $types
-            ->filter(fn (HonorType $t) => $member->joined_at->copy()->addYears($t->after_years)->lte($endOfYear)
-                && ! in_array($t->id, $received[$member->id] ?? [], true))
-            ->map(fn (HonorType $t) => ['user' => $member, 'type' => $t, 'reached_on' => $reached = $member->joined_at->copy()->addYears($t->after_years),
-                'overdue' => $reached->year < $year]))
+            ->reject(fn (HonorType $t) => in_array($t->id, $received[$member->id] ?? [], true))
+            ->map(fn (HonorType $t) => ['user' => $member, 'type' => $t, 'reached_on' => ServiceTime::reachedOn($member, $t->after_years)])
+            ->filter(fn ($row) => $row['reached_on'] && $row['reached_on']->lte($endOfYear))
+            ->map(fn ($row) => [...$row, 'overdue' => $row['reached_on']->year < $year]))
             ->sortBy(fn ($row) => $row['reached_on']->timestamp)->values();
     }
 
@@ -532,6 +587,20 @@ class PersonnelService
         }
         $since = $this->date($data['since'] ?? null, 'history_since');
         $until = $this->date($data['until'] ?? null, 'history_until');
+        if ($kind === 'event') {
+            // An Ereignis has one day
+            if (! $since) {
+                throw ValidationException::withMessages(['history_since' => 'Bitte das Datum des Ereignisses angeben.']);
+            }
+            if ($since->gt(self::today())) {
+                throw ValidationException::withMessages(['history_since' => 'Das Datum liegt in der Zukunft.']);
+            }
+
+            return [$kind, $label, $since, null];
+        }
+        if ($kind === 'service' && ! $since) {
+            throw ValidationException::withMessages(['history_since' => 'Bitte angeben, seit wann – sonst lässt sich die Dienstzeit nicht anrechnen.']);
+        }
         if ($needsUntil && ! $until) {
             throw ValidationException::withMessages(['history_until' => 'Eine frühere Station braucht ein Ende. Die aktuelle kommt aus den Mitgliedsdaten.']);
         }

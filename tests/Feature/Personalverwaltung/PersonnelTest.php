@@ -84,7 +84,7 @@ test('a Personalverwalter can be limited to Abteilungen; Kameraden only see thei
     expect(fn () => $this->p->addHonor($this->jugendwart, $this->hanna, ['title' => 'x', 'awarded_on' => '2026-01-01']))->toThrow(ValidationException::class);
 
     $this->actingAs($this->hanna)->get(route('personalverwaltung.index'))->assertForbidden();
-    $this->actingAs($this->hanna)->get(route('personalverwaltung.own'))->assertOk()->assertSee('25 Dienstjahre')->assertSee('Oberfeuerwehrfrau');
+    $this->actingAs($this->hanna)->get(route('personalverwaltung.own'))->assertOk()->assertSee('Anrechenbare Dienstzeit: 25 Jahre')->assertSee('Oberfeuerwehrfrau');
     $this->actingAs($this->hanna)->get(route('profile'))->assertSee('Laufbahn &amp; Ehrungen', false);
 
     Livewire::actingAs($this->admin)->test(Access::class)->assertSee('Jana Jugendwart')->assertSet("scopes.{$this->jugendwart->id}", [(string) $this->youth->id])

@@ -5,7 +5,9 @@ namespace Modules\Personalverwaltung\src\Livewire;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Modules\Personalverwaltung\src\Models\HistoryEntry;
+use Modules\Personalverwaltung\src\Models\HistoryFile;
 use Modules\Personalverwaltung\src\Models\Honor;
 use Modules\Personalverwaltung\src\Models\HonorType;
 use Modules\Personalverwaltung\src\Models\MemberProfile;
@@ -14,6 +16,13 @@ use Modules\Personalverwaltung\src\Services\PersonnelService;
 /** The Personalakte of one Kamerad for the Personalverwaltung: data, career, Ehrungen, Dienstausweis, Dienstbeteiligung */
 class MemberFile extends Component
 {
+    use WithFileUploads;
+
+    /** Entry of the Diensthistorie a Nachweis is being attached to */
+    public ?int $attaching = null;
+
+    public $upload = null;
+
     public User $member;
 
     public array $idCard = ['number' => '', 'valid_until' => ''];
@@ -55,7 +64,7 @@ class MemberFile extends Component
 
     public function addStage(PersonnelService $personnel): void
     {
-        if ($this->run(fn () => $personnel->addHistory(auth()->user(), $this->member, $this->stage), 'Frühere Station nachgetragen.')) {
+        if ($this->run(fn () => $personnel->addHistory(auth()->user(), $this->member, $this->stage), ($this->stage['kind'] ?? '') === 'event' ? 'Ereignis eingetragen.' : 'Nachgetragen.')) {
             $this->stage = ['kind' => $this->stage['kind'], 'label' => '', 'since' => '', 'until' => '', 'note' => ''];
         }
     }
@@ -101,6 +110,23 @@ class MemberFile extends Component
         $this->run(fn () => $personnel->deleteGuardian(auth()->user(), $this->member->guardians()->findOrFail($id)), 'Erziehungsberechtigte(n) entfernt.');
     }
 
+    public function saveFile(PersonnelService $personnel): void
+    {
+        $this->validate(['upload' => ['required', 'file', 'max:'.HistoryFile::MAX_KB, 'mimetypes:'.implode(',', HistoryFile::MIMES)]], [
+            'upload.required' => 'Bitte eine Datei wählen.', 'upload.max' => 'Die Datei ist zu groß (höchstens 10 MB).', 'upload.mimetypes' => 'Bitte ein PDF oder ein Foto (JPG, PNG).',
+        ]);
+        $entry = $this->entry($this->attaching);
+        if ($this->run(fn () => $personnel->attachHistoryFile(auth()->user(), $entry, $this->upload), 'Nachweis gespeichert.')) {
+            $this->reset('upload', 'attaching');
+        }
+    }
+
+    public function deleteFile(int $id, PersonnelService $personnel): void
+    {
+        $file = HistoryFile::whereHas('entry', fn ($q) => $q->where('user_id', $this->member->id))->findOrFail($id);
+        $this->run(fn () => $personnel->deleteHistoryFile(auth()->user(), $file), 'Nachweis gelöscht.');
+    }
+
     public function deleteHonor(int $id, PersonnelService $personnel): void
     {
         $this->run(fn () => $personnel->deleteHonor(auth()->user(), Honor::where('user_id', $this->member->id)->findOrFail($id)), 'Ehrung gelöscht.');
@@ -135,7 +161,7 @@ class MemberFile extends Component
         $year = (int) now('Europe/Berlin')->year;
 
         return view('personalverwaltung::livewire.member-file', [
-            'history' => HistoryEntry::where('user_id', $member->id)->orderByRaw('until is not null')->orderByDesc('since')->orderByDesc('id')->get()->groupBy('kind'),
+            'history' => HistoryEntry::with('files')->where('user_id', $member->id)->orderByRaw('until is not null')->orderByDesc('since')->orderByDesc('id')->get()->groupBy('kind'),
             'honors' => Honor::where('user_id', $member->id)->orderByDesc('awarded_on')->get(),
             'types' => HonorType::orderBy('sort_order')->orderBy('name')->get(),
             'due' => $personnel->dueHonors(auth()->user(), $year, $member),

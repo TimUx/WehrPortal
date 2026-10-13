@@ -2,12 +2,23 @@
 
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
+use Modules\Personalverwaltung\src\Models\HistoryFile;
 use Modules\Personalverwaltung\src\Services\PersonnelService;
 
 Route::middleware(['auth', 'active', 'module:personalverwaltung'])->group(function () {
     // Personalakte → Laufbahn & Ehrungen: every Kamerad with access sees their own
     Route::get('/personalakte/laufbahn', fn () => view('personalverwaltung::pages.own-file'))->name('personalverwaltung.own');
     // Personalakte → Persönliche Daten: self-service, while the Personalverwalter allow it
+    // A Nachweis of the Diensthistorie: for the Personalverwalter of the Kamerad and the Kamerad
+    Route::get('/personalakte/nachweis/{file}', function (HistoryFile $file) {
+        $owner = $file->entry->user;
+        abort_unless($owner->is(auth()->user()) || (PersonnelService::canManage(auth()->user()) && PersonnelService::mayView(auth()->user(), $owner)), 403);
+        $data = HistoryFile::whereKey($file->id)->value('data');
+
+        return response(base64_decode($data), 200, [
+            'Content-Type' => $file->mime, 'Content-Disposition' => 'inline; filename="'.addcslashes($file->filename, '"\\').'"', 'Cache-Control' => 'private, max-age=3600',
+        ]);
+    })->whereNumber('file')->name('personalverwaltung.history-file');
     Route::get('/personalakte/persoenliche-daten', fn () => view('personalverwaltung::pages.own-data'))->name('personalverwaltung.own-data');
 
     Route::prefix('personalverwaltung')->name('personalverwaltung.')->middleware('can:personalverwaltung-manage')->group(function () {

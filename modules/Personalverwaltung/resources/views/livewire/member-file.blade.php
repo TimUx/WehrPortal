@@ -22,7 +22,8 @@
             <div><dt class="text-xs uppercase tracking-wide text-gray-500">Abteilungen</dt><dd>{{ $member->groups->pluck('name')->implode(', ') ?: '–' }}</dd></div>
             <div><dt class="text-xs uppercase tracking-wide text-gray-500">Funktionen</dt><dd>{{ $member->functions->map->fullLabel()->implode(', ') ?: '–' }}</dd></div>
         </dl>
-        <p class="text-xs text-gray-500">Dienstgrad, Abteilungen, Funktionen und Status ändern Admins unter Admin → Kameraden; jede Änderung landet hier von selbst in der Laufbahn.</p>
+        @include('personalverwaltung::partials.service-time', ['member' => $member])
+        <p class="text-xs text-gray-500">Dienstgrad, Abteilungen, Funktionen und Status ändern Admins unter Admin → Kameraden; jede Änderung landet hier von selbst in der Diensthistorie.</p>
     </section>
 
     @if($fields)
@@ -40,13 +41,14 @@
     @endif
 
     <section class="{{ $card }}">
-        <h2 class="text-sm font-semibold text-gray-900">Laufbahn</h2>
+        <h2 class="text-sm font-semibold text-gray-900">Diensthistorie</h2>
         @include('personalverwaltung::partials.history', ['history' => $history, 'edit' => true])
         <form wire:submit="addStage" class="space-y-2 border-t border-gray-100 pt-3">
-            <p class="text-sm font-medium text-gray-700">Frühere Station nachtragen (z. B. aus der Papierakte)</p>
+            <p class="text-sm font-medium text-gray-700">Nachtragen (z. B. aus der Papierakte)</p>
+            <p class="text-xs text-gray-500">Frühere Stationen mit „seit“ und „bis“. Ein <b>Ereignis</b> (Verpflichtung, Ernennung, Versetzung, Übertritt …) hat nur ein Datum („seit“). Eine <b>Dienstzeit in anderer Wehr</b> (z. B. „FF Nachbarstadt“) zählt zur anrechenbaren Dienstzeit.</p>
             <div class="grid grid-cols-1 gap-2 sm:grid-cols-5">
                 <select wire:model="stage.kind" class="{{ $input }}">@foreach(\Modules\Personalverwaltung\src\Models\HistoryEntry::KINDS as $v => $l)<option value="{{ $v }}">{{ $l }}</option>@endforeach</select>
-                <input type="text" wire:model="stage.label" maxlength="200" placeholder="z. B. Oberfeuerwehrmann" class="{{ $input }} sm:col-span-2">
+                <input type="text" wire:model="stage.label" maxlength="200" placeholder="z. B. Oberfeuerwehrmann, Verpflichtung" class="{{ $input }} sm:col-span-2">
                 <input type="date" wire:model="stage.since" title="seit" class="{{ $input }}">
                 <input type="date" wire:model="stage.until" title="bis" class="{{ $input }}">
             </div>

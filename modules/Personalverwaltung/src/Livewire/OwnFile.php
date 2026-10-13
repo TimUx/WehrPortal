@@ -43,7 +43,7 @@ class OwnFile extends Component
         $year = (int) now('Europe/Berlin')->year;
 
         return view('personalverwaltung::livewire.own-file', [
-            'history' => HistoryEntry::where('user_id', $me->id)->orderByRaw('until is not null')->orderByDesc('since')->orderByDesc('id')->get()->groupBy('kind'),
+            'history' => HistoryEntry::with('files')->where('user_id', $me->id)->orderByRaw('until is not null')->orderByDesc('since')->orderByDesc('id')->get()->groupBy('kind'),
             'honors' => Honor::where('user_id', $me->id)->orderByDesc('awarded_on')->get(),
             'profile' => MemberProfile::find($me->id),
             'requests' => ChangeRequest::where('user_id', $me->id)->latest()->limit(10)->get(),

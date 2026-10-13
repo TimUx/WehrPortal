@@ -4,8 +4,8 @@
         <a href="{{ route('personalverwaltung.index') }}" class="block rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-fw-navy hover:border-fw-navy">Zur Personalverwaltung (alle Kameraden, Ehrungen, Dienstbeteiligung) →</a>
     @endif
     <section class="{{ $card }}">
-        <h2 class="text-sm font-semibold text-gray-900">Laufbahn</h2>
-        @if($years !== null)<p class="text-sm text-gray-600">{{ $years }} Dienstjahre seit dem Eintritt am {{ auth()->user()->joined_at->format('d.m.Y') }}.</p>@endif
+        <h2 class="text-sm font-semibold text-gray-900">Diensthistorie</h2>
+        @include('personalverwaltung::partials.service-time', ['member' => auth()->user()])
         @include('personalverwaltung::partials.history', ['history' => $history])
     </section>
     <section class="{{ $card }}">

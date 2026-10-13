@@ -25,4 +25,18 @@
         </fieldset>
         <button type="submit" class="rounded-lg bg-fw-navy px-4 py-2 text-sm font-semibold text-white">Speichern</button>
     </form>
+    <form wire:submit="saveRules" class="space-y-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+        <p class="text-sm font-semibold text-gray-900">Dienstzeit</p>
+        <p class="text-xs text-gray-500">Die anrechenbare Dienstzeit ergibt sich aus der Diensthistorie: Zeiten mit Status „Aktiv“ und Dienstzeiten in anderen Wehren, ohne Unterbrechungen. Sie gilt für die Dienstjahre in der Akte und für die fälligen Ehrungen. Ob und ab wann die Zeit in der Jugendfeuerwehr zählt, regelt das jeweilige Land bzw. die Satzung der Ehrung.</p>
+        @error('rules')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <label class="block text-sm text-gray-700">Abteilung Jugendfeuerwehr
+                <select wire:model="youthGroupId" class="mt-1 w-full rounded-lg border-gray-300 text-sm"><option value="">– keine –</option>@foreach($groups as $g)<option value="{{ $g->id }}">{{ $g->name }}</option>@endforeach</select></label>
+            <label class="block text-sm text-gray-700">Zeit in der Jugendfeuerwehr
+                <select wire:model="youthRule" class="mt-1 w-full rounded-lg border-gray-300 text-sm"><option value="full">zählt voll</option><option value="age">zählt ab einem Alter</option><option value="none">zählt nicht</option></select></label>
+            <label class="block text-sm text-gray-700">ab Alter (Jahre)<input type="number" min="6" max="27" wire:model="youthAge" class="mt-1 w-full rounded-lg border-gray-300 text-sm"></label>
+        </div>
+        <p class="text-xs text-gray-500">„Ab einem Alter“ braucht das Geburtsdatum (Feld oben einschalten); ohne zählt die Jugendfeuerwehr-Zeit ganz, die Akte weist darauf hin.</p>
+        <button type="submit" class="rounded-lg bg-fw-navy px-4 py-2 text-sm font-semibold text-white">Regeln speichern</button>
+    </form>
 </div>
