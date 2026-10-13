@@ -88,6 +88,10 @@
         </form>
     </section>
 
+    @if(app(\App\Services\ModuleRegistry::class)->isActive('atemschutz'))
+        @include('atemschutz::partials.member-status', ['member' => $member])
+    @endif
+
     @if(app(\App\Services\ModuleRegistry::class)->isActive('lehrgaenge'))
         @include('lehrgaenge::partials.member-summary', ['member' => $member])
     @endif

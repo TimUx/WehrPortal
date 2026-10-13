@@ -3,6 +3,7 @@
 namespace Modules\Atemschutz;
 
 use App\Models\User;
+use App\Services\AnnualReportRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\PersonnelFileRegistry;
@@ -16,6 +17,9 @@ use Modules\Atemschutz\src\Livewire\Board;
 use Modules\Atemschutz\src\Livewire\MyStatus;
 use Modules\Atemschutz\src\Livewire\Overview;
 use Modules\Atemschutz\src\Livewire\Wearers;
+use Modules\Atemschutz\src\Models\Operation;
+use Modules\Atemschutz\src\Models\TeamMember;
+use Modules\Atemschutz\src\Models\Training;
 use Modules\Atemschutz\src\Models\Wearer;
 use Modules\Atemschutz\src\Services\AtemschutzPdf;
 use Modules\Atemschutz\src\Services\MonitorService;
@@ -72,6 +76,24 @@ class AtemschutzServiceProvider extends ServiceProvider
         );
 
         app(PersonnelFileRegistry::class)->register('atemschutz', 'Atemschutz', 'atemschutz.personnel-file');
+
+        // Jahresbericht: Überwachungen and Trupps of the year, Nachweise, the pool as of today
+        app(AnnualReportRegistry::class)->register('atemschutz', 'Atemschutz', function (int $year) {
+            $operations = Operation::whereYear('started_at', $year)->get()->groupBy('kind')
+                ->mapWithKeys(fn ($rows, $kind) => [(Operation::KINDS[$kind] ?? $kind) => $rows->count()]);
+            $members = TeamMember::whereHas('team', fn ($q) => $q->whereNotNull('started_at')->whereYear('started_at', $year))->get(['team_id', 'user_id']);
+            $trainings = Training::whereYear('done_on', $year)->get()->groupBy('kind')
+                ->mapWithKeys(fn ($rows, $kind) => [Training::KINDS[$kind] ?? $kind => $rows->count()]);
+            if ($operations->isEmpty() && $trainings->isEmpty()) {
+                return null;
+            }
+
+            return view('atemschutz::annual.section', [
+                'operations' => $operations, 'teams' => $members->pluck('team_id')->unique()->count(),
+                'people' => $members->pluck('user_id')->filter()->unique()->count(), 'trainings' => $trainings,
+                'pool' => $year === (int) now('Europe/Berlin')->year ? app(ReadinessService::class)->poolCounts() : null,
+            ])->render();
+        }, 50);
 
         // Start page: the pool for Atemschutzwarte and Überwacher, the own status for Geräteträger
         app(DashboardRegistry::class)->register('atemschutz', 'pool', function (User $user) {

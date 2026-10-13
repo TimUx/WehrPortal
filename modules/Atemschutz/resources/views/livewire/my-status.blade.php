@@ -18,7 +18,7 @@
         </section>
     @endif
 
-    @if($missions->isNotEmpty())
+    @if($missions->isNotEmpty() || $reportMissions->isNotEmpty())
         <section class="space-y-2">
             <p class="text-sm font-semibold text-gray-900">Unter Atemschutz</p>
             <div class="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white shadow-sm">
@@ -26,6 +26,12 @@
                     <div class="p-3 text-sm">
                         <p class="text-gray-900">{{ $m->team->operation->title }}</p>
                         <p class="text-xs text-gray-500">{{ $m->team->started_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }} · {{ $m->team->name }} · {{ $m->team->minutes() }} min · {{ $m->start_pressure }}→{{ $m->end_pressure ?? '…' }} bar</p>
+                    </div>
+                @endforeach
+                @foreach($reportMissions as $r)
+                    <div class="p-3 text-sm">
+                        <p class="text-gray-900">Einsatz {{ $r->number }}{{ $r->keyword ? ' · '.$r->keyword : '' }}</p>
+                        <p class="text-xs text-gray-500">{{ \Illuminate\Support\Carbon::parse($r->alarmed_at)->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }} · laut Einsatzbericht, ohne Überwachung</p>
                     </div>
                 @endforeach
             </div>

@@ -16,6 +16,12 @@
             <option value="not_ready">Nicht einsatzbereit ({{ $counts['not_ready'] }})</option>
             <option value="inactive">Nicht mehr im Pool</option>
         </select>
+        @if($groups->isNotEmpty())
+            <select wire:model.live="group" class="{{ $select }}" aria-label="Abteilung">
+                <option value="">Alle Abteilungen</option>
+                @foreach($groups as $g)<option value="{{ $g->id }}">{{ $g->name }}</option>@endforeach
+            </select>
+        @endif
         <select wire:model="addUserId" class="{{ $select }}" aria-label="Kamerad hinzufügen">
             <option value="">Kamerad in den Pool aufnehmen …</option>
             @foreach($candidates as $c)<option value="{{ $c->id }}">{{ $c->name }}</option>@endforeach
@@ -69,7 +75,8 @@
                 @forelse($states as $s)
                     <tr wire:key="w-{{ $s['wearer']->id }}">
                         <td class="p-2"><input type="checkbox" wire:model.live="selected" value="{{ $s['wearer']->user_id }}" class="rounded" aria-label="auswählen"></td>
-                        <td class="p-2"><button type="button" wire:click="edit({{ $s['wearer']->id }})" class="font-medium text-fw-navy underline">{{ $s['wearer']->user->name }}</button></td>
+                        <td class="p-2"><button type="button" wire:click="edit({{ $s['wearer']->id }})" class="font-medium text-fw-navy underline">{{ $s['wearer']->user->name }}</button>
+                            @if($s['wearer']->user->rank || $s['wearer']->user->groups->isNotEmpty())<span class="block text-[11px] text-gray-500">{{ collect([$s['wearer']->user->rank, $s['wearer']->user->groups->pluck('name')->implode(', ')])->filter()->implode(' · ') }}</span>@endif</td>
                         <td class="p-2 text-xs font-semibold {{ $s['ready'] ? ($s['soon'] ? 'text-amber-800' : 'text-green-700') : 'text-red-700' }}">{{ $s['ready'] ? ($s['soon'] ? 'läuft ab' : 'bereit') : 'nicht bereit' }}</td>
                         @foreach($s['items'] as $key => $item)
                             <td class="p-2 text-xs {{ $item['ok'] ? ($item['until'] && $item['until']->lte(now()->addDays(\Modules\Atemschutz\src\Services\ReadinessService::SOON_DAYS)) ? 'text-amber-800' : 'text-gray-700') : (in_array($key, \Modules\Atemschutz\src\Services\ReadinessService::BLOCKING) ? 'font-semibold text-red-700' : 'text-gray-400') }}">

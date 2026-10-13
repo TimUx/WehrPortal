@@ -1,6 +1,7 @@
 <?php
 
 use App\Livewire\Dashboard\Home;
+use App\Models\Group;
 use App\Models\Module;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
@@ -252,4 +253,63 @@ test('who may do what, the pages and the PDF', function () {
 
     Livewire::actingAs($this->watch)->test(Home::class)->assertSee('2 einsatzbereit')->assertSee('1 nicht einsatzbereit');
     Livewire::actingAs($this->hanna)->test(Home::class)->assertSee('Ich: einsatzbereit');
+});
+
+test('an Einsatz marked unter Atemschutz in the Einsatzbericht counts, also without Überwachung', function () {
+    $leader = User::factory()->create();
+    $leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
+    $reports = app(ReportService::class);
+    $report = $reports->create($leader, now()->subDays(3));
+    $reports->update($leader, $report, ['keyword' => 'FEU 2']);
+    $hlf = $reports->addVehicle($leader, $report, Vehicle::factory()->create(['is_active' => true])->id);
+    $reports->assign($leader, $hlf, $this->hanna, 'angriffstrupp', true);
+    $reports->assign($leader, $hlf, $this->bernd, 'maschinist');
+
+    // A draft does not count yet
+    expect($this->r->forWearer(Wearer::where('user_id', $this->hanna->id)->sole())['items']['einsatzuebung']['ok'])->toBeFalse();
+
+    $reports->start($leader, $report->refresh());
+    $hanna = $this->r->forWearer(Wearer::where('user_id', $this->hanna->id)->sole())['items']['einsatzuebung'];
+    expect($hanna['ok'])->toBeTrue()->and($hanna['last']->toDateString())->toBe(now('Europe/Berlin')->subDays(3)->toDateString())
+        ->and($this->r->forWearer(Wearer::where('user_id', $this->bernd->id)->sole())['items']['einsatzuebung']['ok'])->toBeFalse();
+
+    // In the Personalakte under "Unter Atemschutz"
+    $this->actingAs($this->hanna)->get(route('atemschutz.personnel-file'))->assertOk()
+        ->assertSee('Einsatz '.$report->number.' · FEU 2')->assertSee('laut Einsatzbericht, ohne Überwachung');
+
+    // Einsatzbericht switched off: no longer read
+    Module::where('key', 'einsatzbericht')->update(['is_active' => false]);
+    Cache::forget('modules_active_keys');
+    expect($this->r->forWearer(Wearer::where('user_id', $this->hanna->id)->sole())['items']['einsatzuebung']['ok'])->toBeFalse();
+});
+
+test('the pool shows Dienstgrad and Abteilung and filters by Abteilung', function () {
+    $jf = Group::create(['name' => 'Jugendfeuerwehr', 'sort_order' => 2]);
+    $ea = Group::create(['name' => 'Einsatzabteilung', 'sort_order' => 1]);
+    $this->hanna->update(['rank' => 'Oberfeuerwehrfrau']);
+    $this->hanna->groups()->attach($ea);
+    $this->bernd->groups()->attach($jf);
+
+    Livewire::actingAs($this->wart)->test(Wearers::class)
+        ->assertSee('Oberfeuerwehrfrau · Einsatzabteilung')->assertSee('Bernd Blaulicht')
+        ->set('group', (string) $ea->id)->assertSee('Hanna Hydrant')->assertDontSee('Bernd Blaulicht')->assertDontSee('Otto Ortsbrand');
+});
+
+test('the Personalverwaltung file and the Jahresbericht show Atemschutz', function () {
+    $this->travelTo(now()->setDate(2027, 5, 1));
+    startedTeam();
+    Training::create(['user_id' => $this->otto->id, 'kind' => 'unterweisung', 'done_on' => '2027-04-01']);
+
+    Module::where('key', 'personalverwaltung')->update(['is_active' => true]);
+    Cache::forget('modules_active_keys');
+    $pv = User::factory()->create();
+    $pv->moduleAccess()->create(['module' => 'personalverwaltung', 'role' => 'personalverwalter']);
+    $this->actingAs($pv)->get(route('personalverwaltung.member', $this->otto))->assertOk()
+        ->assertSee('Atemschutz')->assertSee('Nicht einsatzbereit: G26.3 abgelaufen');
+
+    $chief = User::factory()->create();
+    $chief->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'wehrführung']);
+    $html = $this->actingAs($chief)->get(route('einsatzbericht.annual', ['jahr' => 2027]))->assertOk()->getContent();
+    expect($html)->toContain('<h2>Atemschutz</h2>')->toContain('Überwachungen Einsatz')->toContain('Trupps unter Atemschutz')
+        ->toContain('Pool heute')->toContain('Unterweisung (eingetragene Nachweise)');
 });

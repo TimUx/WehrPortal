@@ -2,6 +2,7 @@
 
 namespace Modules\Atemschutz\src\Livewire;
 
+use App\Models\Group;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
@@ -22,6 +23,10 @@ class Wearers extends Component
 {
     #[Url]
     public string $filter = '';
+
+    /** Abteilung, from the member data */
+    #[Url]
+    public string $group = '';
 
     public string $addUserId = '';
 
@@ -179,7 +184,9 @@ class Wearers extends Component
 
     public function render(ReadinessService $readiness)
     {
-        $states = $readiness->forWearers(Wearer::with('user')->get())
+        $wearers = Wearer::with('user.groups')
+            ->when($this->group !== '', fn ($q) => $q->whereHas('user.groups', fn ($g) => $g->whereKey((int) $this->group)))->get();
+        $states = $readiness->forWearers($wearers)
             ->filter(fn ($s) => match ($this->filter) {
                 'ready' => $s['wearer']->is_active && $s['ready'] && ! $s['soon'],
                 'soon' => $s['wearer']->is_active && $s['soon'],
@@ -192,6 +199,7 @@ class Wearers extends Component
         return view('atemschutz::livewire.wearers', [
             'states' => $states,
             'counts' => $readiness->poolCounts(),
+            'groups' => Group::orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
             'candidates' => User::active()->whereNotIn('id', Wearer::where('is_active', true)->pluck('user_id'))->orderBy('name')->get(['id', 'name']),
             'editingWearer' => $this->editing ? Wearer::with('user')->find($this->editing) : null,
             'trainings' => $this->editing ? Training::where('user_id', Wearer::find($this->editing)?->user_id)->latest('done_on')->limit(20)->get() : collect(),

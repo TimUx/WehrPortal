@@ -17,7 +17,9 @@ use Throwable;
  * Whether an Atemschutzgeräteträger may go under Atemschutz (FwDV 7): AGT-Lehrgang, valid G26.3,
  * Belastungsübung and Unterweisung within the last twelve months. The yearly Einsatz or Übung
  * under Atemschutz is shown, but doesn't block. When the Lehrgänge module is on, a completed
- * Lehrgang "Atemschutzgeräteträger…" and Belastungsübungen recorded there count too.
+ * Lehrgang "Atemschutzgeräteträger…" and Belastungsübungen recorded there count too; when the
+ * Einsatzbericht is on, every Einsatz in which the Kamerad is marked "unter Atemschutz" counts as
+ * Einsatz under Atemschutz, also without an Überwachung.
  */
 class ReadinessService
 {
@@ -60,8 +62,9 @@ class ReadinessService
             ->whereIn('as_team_members.user_id', $ids)->whereNotNull('as_teams.started_at')
             ->selectRaw('as_team_members.user_id, max(as_teams.started_at) as last')->groupBy('as_team_members.user_id')->pluck('last', 'user_id');
         $lq = $this->fromLehrgaenge($ids);
+        $reports = $this->reportMissions($ids)->groupBy('user_id')->map(fn ($rows) => $rows->max('alarmed_at'));
 
-        return $wearers->mapWithKeys(fn (Wearer $w) => [$w->user_id => $this->evaluate($w, $own[$w->user_id] ?? collect(), $teams[$w->user_id] ?? null, $lq[$w->user_id] ?? [])]);
+        return $wearers->mapWithKeys(fn (Wearer $w) => [$w->user_id => $this->evaluate($w, $own[$w->user_id] ?? collect(), collect([$teams[$w->user_id] ?? null, $reports[$w->user_id] ?? null])->filter()->max(), $lq[$w->user_id] ?? [])]);
     }
 
     /** @return array{wearer: Wearer, ready: bool, soon: bool, reasons: list<string>, items: array<string, array{ok: bool, until: ?Carbon, last: ?Carbon, source: ?string}>} */
@@ -157,6 +160,29 @@ class ReadinessService
             'wearer' => $wearer, 'ready' => $ready, 'items' => $items, 'reasons' => $reasons,
             'soon' => $ready && collect(self::BLOCKING)->contains(fn ($key) => $items[$key]['until']?->lte($soonLimit)),
         ];
+    }
+
+    /**
+     * Einsätze from the Einsatzbericht (started, not a draft) in which the Kamerad is marked "unter
+     * Atemschutz", newest first: user_id, report_id, number, keyword, alarmed_at
+     */
+    public function reportMissions(array $userIds, ?int $limit = null): Collection
+    {
+        if ($userIds === [] || ! app(ModuleRegistry::class)->isActive('einsatzbericht')) {
+            return collect();
+        }
+
+        try {
+            return DB::table('eb_report_crew')->join('eb_reports', 'eb_reports.id', '=', 'eb_report_crew.report_id')
+                ->whereIn('eb_report_crew.user_id', $userIds)->where('eb_report_crew.breathing_apparatus', true)
+                ->where('eb_reports.status', '!=', 'draft')->whereNotNull('eb_reports.alarmed_at')
+                ->orderByDesc('eb_reports.alarmed_at')->when($limit, fn ($q) => $q->limit($limit))
+                ->get(['eb_report_crew.user_id', 'eb_reports.id as report_id', 'eb_reports.number', 'eb_reports.keyword', 'eb_reports.alarmed_at']);
+        } catch (Throwable $e) {
+            report($e);
+
+            return collect();
+        }
     }
 
     /** @return array<int, array{agt?: string, belastungsuebung?: string}> completed Lehrgänge by user */
