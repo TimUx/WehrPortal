@@ -20,6 +20,10 @@ class DefectList extends Component
     #[Url(as: 'q')]
     public string $search = '';
 
+    /** alle | meine (reported by me) | mir (assigned to me) | rueckfrage (Rückfrage open) */
+    #[Url(as: 'ansicht')]
+    public string $view = 'alle';
+
     public function updating(): void
     {
         $this->resetPage();
@@ -27,7 +31,11 @@ class DefectList extends Component
 
     public function render()
     {
-        $defects = Defect::with(['device', 'vehicle', 'reporter', 'assignee'])
+        $userId = auth()->id();
+        $defects = Defect::with(['device', 'vehicle', 'equipment', 'reporter', 'assignee'])
+            ->when($this->view === 'meine', fn ($q) => $q->where('reporter_id', $userId))
+            ->when($this->view === 'mir', fn ($q) => $q->where('assigned_to', $userId))
+            ->when($this->view === 'rueckfrage', fn ($q) => $q->whereNotNull('question_open_at'))
             ->withCount('photos')
             ->when($this->filter === 'active', fn ($q) => $q->active())
             ->when(DefectStatus::tryFrom($this->filter), fn ($q, $status) => $q->where('status', $status->value))
@@ -46,6 +54,8 @@ class DefectList extends Component
         return view('maengelmanagement::livewire.defect-list', [
             'defects' => $defects,
             'openCount' => Defect::active()->count(),
+            'counts' => ['meine' => Defect::active()->where('reporter_id', $userId)->count(), 'mir' => Defect::active()->where('assigned_to', $userId)->count(),
+                'rueckfrage' => Defect::active()->whereNotNull('question_open_at')->count()],
         ]);
     }
 }

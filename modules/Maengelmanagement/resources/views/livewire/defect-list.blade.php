@@ -11,6 +11,12 @@
         </a>
     </div>
 
+    <div class="flex flex-wrap items-center gap-2 mb-2 text-sm">
+        @foreach(['alle' => 'Alle', 'meine' => 'Meine Meldungen', 'mir' => 'Mir zugewiesen', 'rueckfrage' => 'Rückfrage offen'] as $value => $label)
+            <button type="button" wire:click="$set('view', '{{ $value }}')"
+                    class="px-3 py-1 rounded-lg {{ $view === $value ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-100' }}">{{ $label }}@if(($counts[$value] ?? 0) > 0) <span class="ml-1 text-xs opacity-75">{{ $counts[$value] }}</span>@endif</button>
+        @endforeach
+    </div>
     <div class="flex flex-wrap items-center gap-2 mb-4">
         @foreach(['active' => 'Aktiv', 'all' => 'Alle', 'resolved' => 'Erledigt', 'rejected' => 'Abgelehnt'] as $value => $label)
             <button type="button" wire:click="$set('filter', '{{ $value }}')"
@@ -44,6 +50,7 @@
                         <div class="flex flex-col items-end gap-1 shrink-0">
                             <span class="px-2 py-0.5 rounded-full text-xs font-semibold {{ $defect->status->badgeClasses() }}">{{ $defect->status->label() }}</span>
                             <span class="px-2 py-0.5 rounded-full text-xs font-semibold {{ $defect->urgency->badgeClasses() }}">{{ $defect->urgency->label() }}</span>
+                            @if($defect->question_open_at)<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-900">Rückfrage</span>@endif
                         </div>
                     </div>
                 </a>

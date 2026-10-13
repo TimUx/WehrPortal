@@ -38,6 +38,10 @@ class DeviceResource extends Resource
                 ->schema([
                     Forms\Components\TextInput::make('name')->label('Name')->required()->maxLength(150),
                     Forms\Components\TextInput::make('location')->label('Standort')->maxLength(150)->placeholder('z. B. Fahrzeughalle'),
+                    Forms\Components\Select::make('responsible_id')->label('Zuständig')
+                        ->relationship('responsible', 'name', fn ($query) => $query->where('is_active', true)->orderBy('name'))
+                        ->searchable()->preload()->placeholder('– niemand –')
+                        ->helperText('Neue Mängel an diesem Objekt werden dieser Person gleich zugewiesen.'),
                     Forms\Components\TextInput::make('code')
                         ->label('Code')
                         ->unique(ignoreRecord: true)

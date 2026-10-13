@@ -154,7 +154,7 @@ test('members can comment and the reporter is told', function () {
     Livewire::actingAs($this->manager)
         ->test(DefectDetail::class, ['defect' => $defect])
         ->set('comment', 'Wir schauen nach.')
-        ->call('addComment')
+        ->call('send')
         ->assertHasNoErrors();
 
     expect($defect->events()->where('type', 'comment')->sole()->body)->toBe('Wir schauen nach.');

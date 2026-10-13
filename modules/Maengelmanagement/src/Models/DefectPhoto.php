@@ -9,7 +9,7 @@ class DefectPhoto extends Model
 {
     protected $table = 'mm_defect_photos';
 
-    protected $fillable = ['defect_id', 'mime', 'data'];
+    protected $fillable = ['defect_id', 'event_id', 'mime', 'data'];
 
     protected $hidden = ['data'];
 

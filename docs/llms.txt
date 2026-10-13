@@ -27,7 +27,7 @@
 - Schlüsselverwaltung: Schlüssel und Transponder mit Ausgabe, unterschriebener Schlüsselquittung, Rückgabefristen, Verlust und QR-Etikett
 - Wartungsmanagement: Prüfungen nach Vorlage, unterschriebene Prüfprotokolle als PDF
 - Kleiderkammer: Ausgabe und Rücknahme der Bekleidung, Größen, Bestand, QR-Etiketten
-- Mängelmanagement: Mängel per QR-Code melden und verfolgen
+- Mängelmanagement: Mängel mit Foto per QR-Code melden – an Objekten, Fahrzeugen oder Geräten der Ausrüstung –, Bearbeitung und Zuständigkeit direkt in der App, Rückfragen an den Melder, Fotos im Verlauf, „doch nicht behoben“, Zuständige je Objekt, Erinnerung an liegengebliebene Mängel, Jahresbericht
 - Expositionen (Gefahrstoffe): Gefahrstoff-Expositionen nach Einsatz und Übung erfassen, für die Besatzung aus dem Einsatzbericht vorschlagen, verschlüsselt und 40 Jahre aufbewahrt, Meldeliste und CSV für die Zentrale Expositionsdatenbank (ZED) der DGUV, Expositionsnachweis für die Einsatzkraft
 - Führerscheine: Kontrolle per Foto statt Termin in der Wache, Fotos nach der Prüfung gelöscht, Klassen und Feuerwehr-Fahrberechtigung (4,75 t / 7,5 t) mit Fristen, Erinnerung und Kalender, Klassen je Abteilung, wer welches Fahrzeug fahren darf, Warnung im Fahrtenbuch
 - Unterweisungen: Unterweisungen und Einweisungen (auch auf Fahrzeuge) mit Kürzel, Wiederholungsintervall und Zielgruppe, Teilnehmer unterschreiben auf dem Tablet oder dem eigenen Handy, Nachweis zum Drucken, Fristen mit Erinnerung, Übersicht je Kamerad, zählt auf Wunsch als Atemschutz-Unterweisung

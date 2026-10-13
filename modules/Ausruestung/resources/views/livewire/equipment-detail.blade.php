@@ -59,6 +59,9 @@
                       class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-fw-red focus:ring-fw-red"></textarea>
             @error('damage')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
             <p class="text-xs text-gray-500">Das Gerät wird als defekt gekennzeichnet und der Gerätewart informiert.</p>
+            @if(app(\App\Services\ModuleRegistry::class)->isActive('maengelmanagement') && auth()->user()->canUseModule('maengelmanagement'))
+                <a href="{{ route('maengelmanagement.report', ['geraet' => $equipment->code]) }}" class="block text-xs text-fw-navy underline">Lieber mit Foto im Mängelmanagement melden (mit Rückfragen und Status)</a>
+            @endif
             <button type="submit" class="inline-flex items-center rounded-lg bg-fw-red px-3 py-1.5 text-sm font-semibold text-white hover:bg-fw-red-dark">Melden</button>
         </form>
         @endif

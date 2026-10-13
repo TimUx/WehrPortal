@@ -5,6 +5,7 @@ namespace Modules\Maengelmanagement\src\Models;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\Maengelmanagement\src\Enums\DefectStatus;
 use Modules\Maengelmanagement\src\Enums\Urgency;
 
@@ -21,6 +22,12 @@ class DefectEvent extends Model
 
     public const COMMENT = 'comment';
 
+    public const QUESTION = 'question';
+
+    public const ANSWER = 'answer';
+
+    public const REOPENED = 'reopened';
+
     protected $table = 'mm_defect_events';
 
     protected $fillable = ['defect_id', 'user_id', 'type', 'from_value', 'to_value', 'body'];
@@ -28,6 +35,11 @@ class DefectEvent extends Model
     public function defect(): BelongsTo
     {
         return $this->belongsTo(Defect::class, 'defect_id');
+    }
+
+    public function photos(): HasMany
+    {
+        return $this->hasMany(DefectPhoto::class, 'event_id');
     }
 
     public function user(): BelongsTo
@@ -43,6 +55,9 @@ class DefectEvent extends Model
             self::STATUS => 'hat den Status geändert: '.(DefectStatus::tryFrom((string) $this->from_value)?->label() ?? '–').' → '.(DefectStatus::tryFrom((string) $this->to_value)?->label() ?? '–'),
             self::URGENCY => 'hat die Dringlichkeit geändert: '.(Urgency::tryFrom((string) $this->from_value)?->label() ?? '–').' → '.(Urgency::tryFrom((string) $this->to_value)?->label() ?? '–'),
             self::ASSIGNED => $this->to_value ? 'hat den Mangel zugewiesen an '.$this->to_value : 'hat die Zuweisung aufgehoben',
+            self::QUESTION => 'hat eine Rückfrage gestellt',
+            self::ANSWER => 'hat die Rückfrage beantwortet',
+            self::REOPENED => 'hat den Mangel wieder geöffnet – doch nicht behoben',
             default => 'hat kommentiert',
         };
     }

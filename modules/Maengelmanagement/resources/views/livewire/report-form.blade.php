@@ -22,7 +22,16 @@
                 </select>
             @endif
 
-            @if(blank($deviceId) && blank($vehicleId))
+            @if(blank($deviceId) && blank($vehicleId) && $equipment->isNotEmpty())
+                <label for="mm-equipment" class="mt-3 block text-sm font-medium text-gray-700 mb-1">Gerät der Ausrüstung</label>
+                <select id="mm-equipment" wire:model.live="equipmentId" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-fw-red focus:ring-fw-red">
+                    <option value="">– kein Gerät –</option>
+                    @foreach($equipment as $item)<option value="{{ $item->id }}">{{ $item->name }} · {{ $item->code }}</option>@endforeach
+                </select>
+                @if($equipmentId)<p class="mt-1 text-xs text-gray-500">Das Gerät wird in der Ausrüstungsverwaltung als defekt gekennzeichnet, bis der Mangel erledigt ist.</p>@endif
+            @endif
+
+            @if(blank($deviceId) && blank($vehicleId) && blank($equipmentId))
                 <input type="text" wire:model="location" maxlength="150" placeholder="Wo ist der Mangel? z. B. Fahrzeughalle, Tor 2"
                        class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-fw-red focus:ring-fw-red">
                 @error('location')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror

@@ -15,8 +15,9 @@ class DefectPhotoService
     public function __construct(private readonly ImageResizer $images) {}
 
     /** Scale to at most 1280 px on the long side and store as WebP */
-    public function store(Defect $defect, string $path): DefectPhoto
+    public function store(Defect $defect, string $path, ?int $eventId = null): DefectPhoto
     {
-        return $defect->photos()->create(['mime' => 'image/webp', 'data' => base64_encode($this->images->toWebp($path, self::MAX_SIDE))]);
+        return DefectPhoto::create(['defect_id' => $defect->id, 'event_id' => $eventId, 'mime' => 'image/webp',
+            'data' => base64_encode($this->images->toWebp($path, self::MAX_SIDE))]);
     }
 }

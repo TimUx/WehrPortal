@@ -2,7 +2,9 @@
 
 namespace Modules\Maengelmanagement\src\Models;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /** Something a defect can be reported for. The code on its QR label opens the report form. */
@@ -10,7 +12,7 @@ class Device extends Model
 {
     protected $table = 'mm_devices';
 
-    protected $fillable = ['code', 'name', 'location', 'description', 'is_active'];
+    protected $fillable = ['code', 'name', 'location', 'description', 'is_active', 'responsible_id'];
 
     protected function casts(): array
     {
@@ -37,6 +39,12 @@ class Device extends Model
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
+    }
+
+    /** Gets new defects of this object assigned right away */
+    public function responsible(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'responsible_id');
     }
 
     public function defects(): HasMany
