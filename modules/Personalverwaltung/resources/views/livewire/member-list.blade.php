@@ -3,6 +3,9 @@
     <div>
         <h1 class="text-xl font-bold text-gray-900">Personalverwaltung</h1>
         <p class="text-sm text-gray-500">Laufbahn, Ehrungen, Dienstausweis und Dienstbeteiligung je Kamerad.@if($scoped) Du siehst die Kameraden deiner Abteilungen.@endif</p>
+        @if(\Modules\Personalverwaltung\src\Services\PersonnelService::activeFields())
+            <a href="{{ route('personalverwaltung.addresses') }}" class="mt-1 inline-block text-sm text-fw-navy underline">Adressliste (CSV)</a>
+        @endif
     </div>
     <div class="flex flex-wrap items-center gap-2">
         <input type="search" wire:model.live.debounce.300ms="search" placeholder="Name oder E-Mail" class="min-w-0 flex-1 {{ $input }}">

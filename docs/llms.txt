@@ -20,7 +20,7 @@
 - Kalender & Termine: Termine für eine Zielgruppe mit Ort samt Navigation, Kleidung und Rückmeldung, Terminabfragen, Kalender-Abo
 - Schichtplan: Schichten verteilen oder Mitglieder selbst eintragen lassen
 - Übungsdienstplaner: Übungsdienste mit Thema und Verantwortlichen für den Vorstand; jeder Dienst steht ohne Thema im Kalender der Zielgruppe
-- Personalverwaltung: Laufbahn (Dienstgrade, Abteilungen, Funktionen) mit Historie, Ehrungen nach Dienstjahren, Dienstausweis, Dienstbeteiligung aus dem Kalender, Zugriff je Abteilung
+- Personalverwaltung: eigener Bereich für Personalverwalter, persönliche Daten (Anschrift, Geburtsdatum, Mobilnummer) zuschaltbar mit Selbstpflege und Benachrichtigung, Laufbahn (Dienstgrade, Abteilungen, Funktionen) mit Historie, Ehrungen nach Dienstjahren, Dienstausweis, Dienstbeteiligung aus dem Kalender, Zugriff je Abteilung
 - Lehrgänge & Qualifikationen: Interesse an Lehrgängen, Anmeldung über die Ausbildungsleitung
 - Ausrüstungsverwaltung: Geräte, Prüffristen, Ausleihe, Rückrufe, Beladeplan
 - Wartungsmanagement: Prüfungen nach Vorlage, unterschriebene Prüfprotokolle als PDF

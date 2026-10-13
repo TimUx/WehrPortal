@@ -24,9 +24,29 @@ class ModuleRegistry
      *                                          someone else needs a confirmation, and "automatisch freischalten" covers only them
      * @param  ?string  $audienceLabel  that group in the text, e.g. "Vorstand"
      */
-    public function register(string $key, string $name, string $description, array $roles = [], ?string $provider = null, string $route = '/', ?Closure $audience = null, ?string $audienceLabel = null): void
+    /**
+     * $adminRoute/$canAdmin: a module administered inside the app by a role (not the Filament panel),
+     * e.g. the Personalverwalter; the header's "Admin" leads there while inside the module.
+     */
+    public function register(string $key, string $name, string $description, array $roles = [], ?string $provider = null, string $route = '/', ?Closure $audience = null, ?string $audienceLabel = null, ?string $adminRoute = null, ?Closure $canAdmin = null): void
     {
-        $this->definitions[$key] = ['name' => $name, 'description' => $description, 'route' => $route, 'provider' => $provider, 'roles' => $roles, 'audience' => $audience, 'audience_label' => $audienceLabel];
+        $this->definitions[$key] = ['name' => $name, 'description' => $description, 'route' => $route, 'provider' => $provider, 'roles' => $roles, 'audience' => $audience, 'audience_label' => $audienceLabel,
+            'admin_route' => $adminRoute, 'can_admin' => $canAdmin];
+    }
+
+    /** The in-app admin page of the module the current route belongs to, if the user may open it */
+    public function adminRouteFor(?string $routeName, ?User $user): ?string
+    {
+        if (! $routeName || ! $user) {
+            return null;
+        }
+        foreach ($this->definitions as $key => $def) {
+            if ($def['admin_route'] && str_starts_with($routeName, $key.'.') && $def['can_admin'] && ($def['can_admin'])($user)) {
+                return $def['admin_route'];
+            }
+        }
+
+        return null;
     }
 
     /** Whether the module is meant for this user: true for modules without a restricted audience and for admins */

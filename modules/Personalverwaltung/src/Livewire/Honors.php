@@ -83,6 +83,7 @@ class Honors extends Component
 
         return view('personalverwaltung::livewire.honors', [
             'due' => $personnel->dueHonors($manager, $this->year),
+            'birthdays' => $personnel->roundBirthdays($manager, $this->year),
             'types' => HonorType::orderBy('sort_order')->orderBy('name')->get(),
             'awarded' => Honor::with('user')->whereIn('user_id', PersonnelService::visibleMembers($manager)->select('id'))
                 ->whereYear('awarded_on', $this->year)->orderByDesc('awarded_on')->get(),

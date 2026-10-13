@@ -25,6 +25,20 @@
         <p class="text-xs text-gray-500">Dienstgrad, Abteilungen, Funktionen und Status ändern Admins unter Admin → Kameraden; jede Änderung landet hier von selbst in der Laufbahn.</p>
     </section>
 
+    @if($fields)
+        <section class="{{ $card }}">
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 class="text-sm font-semibold text-gray-900">Persönliche Daten</h2>
+                @if($member->birth_date && in_array('birth_date', $fields, true))<span class="text-xs text-gray-500">{{ (int) $member->birth_date->diffInYears(now('Europe/Berlin')) }} Jahre</span>@endif
+            </div>
+            <form wire:submit="savePersonalData" class="space-y-3">
+                @include('personalverwaltung::partials.personal-fields', ['fields' => $fields, 'input' => $input])
+                <button type="submit" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700">Speichern</button>
+            </form>
+            <p class="text-xs text-gray-500">Nur für Personalverwalter und den Kameraden selbst sichtbar.</p>
+        </section>
+    @endif
+
     <section class="{{ $card }}">
         <h2 class="text-sm font-semibold text-gray-900">Laufbahn</h2>
         @include('personalverwaltung::partials.history', ['history' => $history, 'edit' => true])

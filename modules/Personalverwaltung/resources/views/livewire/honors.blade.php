@@ -30,6 +30,17 @@
         </ul>
     </section>
 
+    @if($birthdays->isNotEmpty())
+        <section class="{{ $card }}">
+            <h2 class="text-sm font-semibold text-gray-900">Runde Geburtstage {{ $year }} ({{ $birthdays->count() }})</h2>
+            <ul class="divide-y divide-gray-100 text-sm">
+                @foreach($birthdays as $row)
+                    <li class="flex flex-wrap justify-between gap-2 py-1.5"><a href="{{ route('personalverwaltung.member', $row['user']) }}" class="font-medium text-gray-900 hover:underline">{{ $row['user']->name }}</a><span class="text-gray-600">{{ $row['age'] }} Jahre am {{ $row['on']->format('d.m.') }}</span></li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
+
     <section class="{{ $card }}">
         <h2 class="text-sm font-semibold text-gray-900">Verliehen {{ $year }} ({{ $awarded->count() }})</h2>
         <ul class="divide-y divide-gray-100 text-sm">

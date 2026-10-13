@@ -1,11 +1,14 @@
 <?php
 
 use App\Livewire\Dashboard\Home;
+use App\Models\ActivityLog;
 use App\Models\Group;
 use App\Models\Module;
 use App\Models\User;
+use App\Support\MemberFields;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Modules\Kalender\src\Services\EventService;
@@ -14,8 +17,11 @@ use Modules\Personalverwaltung\src\Livewire\Attendance;
 use Modules\Personalverwaltung\src\Livewire\Honors;
 use Modules\Personalverwaltung\src\Livewire\MemberFile;
 use Modules\Personalverwaltung\src\Livewire\MemberList;
+use Modules\Personalverwaltung\src\Livewire\OwnData;
+use Modules\Personalverwaltung\src\Livewire\Settings;
 use Modules\Personalverwaltung\src\Models\HistoryEntry;
 use Modules\Personalverwaltung\src\Models\Honor;
+use Modules\Personalverwaltung\src\Notifications\PersonalDataChangedNotification;
 use Modules\Personalverwaltung\src\Services\PersonnelService;
 
 beforeEach(function () {
@@ -137,4 +143,71 @@ test('the Dienstausweis is kept; one running out shows on the start page', funct
 
     Livewire::actingAs($this->manager)->test(Home::class)->assertSee('1 Dienstausweis läuft bald ab');
     $this->actingAs($this->bernd)->get(route('personalverwaltung.own'))->assertSee('Nr. FW-0815')->assertSee('31.07.2026');
+});
+
+test('the Personalverwalter switch personal data on in their own admin area – no admin needed', function () {
+    $this->actingAs($this->manager)->get(route('personalverwaltung.index'))->assertOk()
+        ->assertSee('href="'.route('personalverwaltung.settings').'"', false);
+    $this->actingAs($this->hanna)->get(route('personalverwaltung.own'))->assertOk()->assertDontSee(route('personalverwaltung.settings'));
+
+    expect(PersonnelService::activeFields())->toBe([]);
+    $this->actingAs($this->hanna)->get(route('personalverwaltung.own-data'))->assertNotFound();
+    $this->actingAs($this->hanna)->get(route('profile'))->assertDontSee('Persönliche Daten');
+
+    Livewire::actingAs($this->manager)->test(Settings::class)
+        ->set('fields.address', true)->set('fields.birth_date', true)->set('fields.phone', true)->call('save')->assertSee('Gespeichert');
+    expect(PersonnelService::activeFields())->toBe(['address', 'birth_date', 'phone'])->and(PersonnelService::selfService())->toBeTrue();
+    expect(fn () => $this->p->saveSettings($this->hanna, ['address' => false]))->toThrow(ValidationException::class);
+
+    // The admin form of Admin → Kameraden stays as it is
+    expect(MemberFields::PHONE)->toBeFalse();
+});
+
+test('Kameraden keep their own data; the responsible Personalverwalter hear which fields changed', function () {
+    Notification::fake();
+    $this->p->saveSettings($this->manager, ['address' => true, 'birth_date' => true, 'phone' => true, 'self_service' => true]);
+    $this->actingAs($this->hanna)->get(route('profile'))->assertSee('Persönliche Daten');
+
+    Livewire::actingAs($this->hanna)->test(OwnData::class)
+        ->set('data.postal_code', '1234x')->call('save')->assertHasErrors('postal_code')
+        ->set('data.postal_code', '12345')->set('data.street', 'Hauptstraße 1')->set('data.city', 'Musterstadt')->set('data.phone', '0171 1234567')
+        ->call('save')->assertSee('die Personalverwaltung ist informiert');
+
+    expect($this->hanna->fresh())->street->toBe('Hauptstraße 1')->phone->toBe('0171 1234567');
+    // Hanna is in the Einsatzabteilung: the unlimited Personalverwalter, not the Jugendwart
+    Notification::assertSentTo($this->manager, PersonalDataChangedNotification::class, function ($n, $channels, $u) {
+        $mail = $n->toMail($u);
+
+        return $channels === ['mail', 'database'] && str_contains(implode(' ', $mail->introLines), 'Anschrift, Mobilnummer') && ! str_contains(implode(' ', $mail->introLines), 'Hauptstraße');
+    });
+    Notification::assertNotSentTo($this->jugendwart, PersonalDataChangedNotification::class);
+
+    Livewire::actingAs($this->bernd)->test(OwnData::class)->set('data.birth_date', '2010-05-02')->call('save');
+    Notification::assertSentTo([$this->manager, $this->jugendwart], PersonalDataChangedNotification::class);
+
+    // The Personalverwalter see and keep them, within their Abteilungen; changes by them are not reported
+    Notification::fake();
+    Livewire::actingAs($this->manager)->test(MemberFile::class, ['member' => $this->hanna])->assertSee('Persönliche Daten')
+        ->assertSet('data.street', 'Hauptstraße 1')->set('data.birth_date', '1976-04-20')->call('savePersonalData')->assertSee('Persönliche Daten gespeichert');
+    Notification::assertNothingSent();
+    expect(fn () => $this->p->savePersonalData($this->jugendwart, $this->hanna, ['phone' => '1']))->toThrow(ValidationException::class);
+    expect(fn () => $this->p->savePersonalData($this->hanna, $this->bernd, ['phone' => '1']))->toThrow(ValidationException::class);
+
+    // Round birthdays and the address list
+    expect($this->p->roundBirthdays($this->manager, 2026)->map(fn ($r) => $r['user']->name.' '.$r['age'])->all())->toBe(['Hanna Hydrant 50']);
+    Livewire::actingAs($this->manager)->test(Honors::class)->assertSee('Runde Geburtstage 2026')->assertSee('50 Jahre am 20.04.');
+    $csv = $this->actingAs($this->manager)->get(route('personalverwaltung.addresses'))->assertOk()->getContent();
+    expect($csv)->toContain('Straße;PLZ;Ort;Geburtsdatum;Mobilnummer')->toContain('"Hauptstraße 1";12345;Musterstadt;20.04.1976;"0171 1234567"');
+
+    // Without self-service the page is gone
+    $this->p->saveSettings($this->manager, ['address' => true, 'self_service' => false]);
+    $this->actingAs($this->hanna)->get(route('personalverwaltung.own-data'))->assertNotFound();
+});
+
+test('the activity log shows that personal data changed, never the values', function () {
+    $this->actingAs($this->hanna);
+    $this->hanna->update(['phone' => '0171 9999999', 'street' => 'Geheimweg 7']);
+
+    $entry = ActivityLog::where('subject_type', User::class)->where('subject_id', $this->hanna->id)->where('event', 'updated')->latest('id')->first();
+    expect($entry->changes['phone'][1])->toBe('(verborgen)')->and($entry->changes['street'][1])->toBe('(verborgen)');
 });

@@ -17,7 +17,9 @@ use Modules\Personalverwaltung\src\Livewire\Attendance;
 use Modules\Personalverwaltung\src\Livewire\Honors;
 use Modules\Personalverwaltung\src\Livewire\MemberFile;
 use Modules\Personalverwaltung\src\Livewire\MemberList;
+use Modules\Personalverwaltung\src\Livewire\OwnData;
 use Modules\Personalverwaltung\src\Livewire\OwnFile;
+use Modules\Personalverwaltung\src\Livewire\Settings;
 use Modules\Personalverwaltung\src\Models\MemberProfile;
 use Modules\Personalverwaltung\src\Services\PersonnelService;
 use Throwable;
@@ -76,20 +78,25 @@ class PersonalverwaltungServiceProvider extends ServiceProvider
         Gate::define('personalverwaltung-manage', fn (User $user) => PersonnelService::canManage($user));
 
         foreach (['member-list' => MemberList::class, 'member-file' => MemberFile::class, 'honors' => Honors::class,
-            'attendance' => Attendance::class, 'access' => Access::class, 'own-file' => OwnFile::class] as $name => $class) {
+            'attendance' => Attendance::class, 'access' => Access::class, 'own-file' => OwnFile::class,
+            'settings' => Settings::class, 'own-data' => OwnData::class] as $name => $class) {
             Livewire::component('personalverwaltung.'.$name, $class);
         }
 
         app(ModuleRegistry::class)->register(
             'personalverwaltung',
             'Personalverwaltung',
-            'Laufbahn mit Dienstgraden, Abteilungen und Funktionen, Ehrungen, Dienstausweis und Dienstbeteiligung je Kamerad',
+            'Persönliche Daten, Laufbahn mit Dienstgraden, Abteilungen und Funktionen, Ehrungen, Dienstausweis und Dienstbeteiligung je Kamerad',
             roles: ['personalverwalter'],
             provider: self::class,
             route: 'personalverwaltung.own',
+            // Its own admin area for the Personalverwalter, who need not be admins
+            adminRoute: 'personalverwaltung.settings',
+            canAdmin: fn (User $user) => PersonnelService::canManage($user),
         );
 
         app(PersonnelFileRegistry::class)->register('personalverwaltung', 'Laufbahn & Ehrungen', 'personalverwaltung.own');
+        app(PersonnelFileRegistry::class)->register('personalverwaltung', 'Persönliche Daten', 'personalverwaltung.own-data', fn () => PersonnelService::selfService());
 
         // Personalverwalter: Ehrungen due this year and Dienstausweise running out
         app(DashboardRegistry::class)->register('personalverwaltung', 'due', function (User $user) {

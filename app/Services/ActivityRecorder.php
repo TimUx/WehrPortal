@@ -50,6 +50,9 @@ class ActivityRecorder
     /** Never written to the log */
     private const SECRET = '/password|token|secret|hash$|_key$|^data$|^value$|signature|^photo$|^receipt$/i';
 
+    /** Personal data of a Kamerad: only the Personalverwaltung sees it, so the log shows that it changed, not to what */
+    private const PERSONAL = ['street', 'postal_code', 'city', 'phone', 'birth_date'];
+
     private bool $paused = false;
 
     public function handle(string $eventName, array $payload): void
@@ -108,7 +111,8 @@ class ActivityRecorder
     private function safe(Model $model, string $field, mixed $value): mixed
     {
         // Settings hold API keys and the logo
-        if (preg_match(self::SECRET, $field) && ! ($model instanceof Setting && $field === 'value' && ! preg_match('/key|token|secret|logo/i', (string) $model->key))) {
+        if ((preg_match(self::SECRET, $field) && ! ($model instanceof Setting && $field === 'value' && ! preg_match('/key|token|secret|logo/i', (string) $model->key)))
+            || ($model instanceof User && in_array($field, self::PERSONAL, true))) {
             return $value === null ? null : '(verborgen)';
         }
 

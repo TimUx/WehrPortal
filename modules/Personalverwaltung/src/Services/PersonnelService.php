@@ -4,6 +4,7 @@ namespace Modules\Personalverwaltung\src\Services;
 
 use App\Models\Group;
 use App\Models\MemberFunction;
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\ModuleRegistry;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,6 +19,7 @@ use Modules\Personalverwaltung\src\Models\HistoryEntry;
 use Modules\Personalverwaltung\src\Models\Honor;
 use Modules\Personalverwaltung\src\Models\HonorType;
 use Modules\Personalverwaltung\src\Models\MemberProfile;
+use Modules\Personalverwaltung\src\Notifications\PersonalDataChangedNotification;
 use Throwable;
 
 /**
@@ -31,6 +33,11 @@ class PersonnelService
 
     /** Kalender types that count as Dienst for the Dienstbeteiligung by default */
     public const DUTY_TYPES = ['uebung', 'dienst', 'arbeitsdienst'];
+
+    /** Personal data the Personalverwalter can switch on; the columns live on users */
+    public const FIELDS = ['address' => 'Anschrift', 'birth_date' => 'Geburtsdatum', 'phone' => 'Mobilnummer'];
+
+    private const SETTINGS_KEY = 'personalverwaltung.fields';
 
     public static function today(): Carbon
     {
@@ -79,6 +86,153 @@ class PersonnelService
             $ids = Group::whereIn('id', array_map('intval', $groupIds))->pluck('id');
             DB::table('pm_scopes')->insert($ids->map(fn ($id) => ['user_id' => $manager->id, 'group_id' => $id])->all());
         });
+    }
+
+    // ─── personal data ───────────────────────────────────────────────────────
+
+    /**
+     * Which personal data the Personalverwaltung keeps (all off until switched on) and whether
+     * Kameraden keep their own in the Personalakte.
+     *
+     * @return array{address: bool, birth_date: bool, phone: bool, self_service: bool}
+     */
+    public static function settings(): array
+    {
+        $stored = json_decode((string) Setting::get(self::SETTINGS_KEY, ''), true) ?: [];
+
+        return ['address' => (bool) ($stored['address'] ?? false), 'birth_date' => (bool) ($stored['birth_date'] ?? false),
+            'phone' => (bool) ($stored['phone'] ?? false), 'self_service' => (bool) ($stored['self_service'] ?? true)];
+    }
+
+    /** @return list<string> the switched-on fields */
+    public static function activeFields(): array
+    {
+        return array_keys(array_filter(array_intersect_key(self::settings(), self::FIELDS)));
+    }
+
+    /** Kameraden see "Persönliche Daten" in their Personalakte */
+    public static function selfService(): bool
+    {
+        return self::activeFields() !== [] && self::settings()['self_service'];
+    }
+
+    public function saveSettings(User $by, array $data): void
+    {
+        $this->assertManager($by);
+        Setting::set(self::SETTINGS_KEY, json_encode([
+            'address' => (bool) ($data['address'] ?? false), 'birth_date' => (bool) ($data['birth_date'] ?? false),
+            'phone' => (bool) ($data['phone'] ?? false), 'self_service' => (bool) ($data['self_service'] ?? false),
+        ]));
+    }
+
+    /**
+     * Saves the switched-on personal data of $member, by a Personalverwalter or (self-service) by the
+     * Kamerad. A change by the Kamerad goes to the Personalverwalter under the bell and by mail –
+     * which fields, not the values. Returns the labels of the changed fields.
+     *
+     * @return list<string>
+     */
+    public function savePersonalData(User $by, User $member, array $data): array
+    {
+        $self = $by->is($member);
+        if ($self ? ! (self::selfService() && $member->canUseModule(self::MODULE)) : ! self::mayView($by, $member)) {
+            throw ValidationException::withMessages(['personal' => 'Diese Daten darfst du nicht ändern.']);
+        }
+        $fields = self::activeFields();
+        $values = [];
+        if (in_array('phone', $fields, true)) {
+            $phone = trim((string) ($data['phone'] ?? ''));
+            if ($phone !== '' && (mb_strlen($phone) > 30 || ! preg_match('/^[0-9+\-\s()\/.]+$/', $phone))) {
+                throw ValidationException::withMessages(['phone' => 'Bitte eine gültige Telefonnummer angeben, z. B. 0171 1234567.']);
+            }
+            $values['phone'] = $phone !== '' ? $phone : null;
+        }
+        if (in_array('birth_date', $fields, true)) {
+            $birth = $this->date($data['birth_date'] ?? null, 'birth_date');
+            if ($birth && ($birth->gt(self::today()) || $birth->year < 1900)) {
+                throw ValidationException::withMessages(['birth_date' => 'Bitte ein gültiges Geburtsdatum angeben.']);
+            }
+            $values['birth_date'] = $birth?->toDateString();
+        }
+        if (in_array('address', $fields, true)) {
+            $postal = trim((string) ($data['postal_code'] ?? ''));
+            if ($postal !== '' && ! preg_match('/^[0-9]{4,5}$/', $postal)) {
+                throw ValidationException::withMessages(['postal_code' => 'Bitte eine Postleitzahl mit 4 oder 5 Ziffern angeben.']);
+            }
+            foreach (['street' => 150, 'city' => 100] as $key => $max) {
+                $values[$key] = filled($data[$key] ?? null) ? mb_substr(trim($data[$key]), 0, $max) : null;
+            }
+            $values['postal_code'] = $postal !== '' ? $postal : null;
+        }
+
+        // Compare with what is stored, not with an object that may hold more (e.g. a time with the date)
+        $member->refresh()->fill($values);
+        $changed = collect(array_keys($member->getDirty()))
+            ->map(fn ($column) => match ($column) {
+                'phone' => 'Mobilnummer', 'birth_date' => 'Geburtsdatum', default => 'Anschrift'
+            })
+            ->unique()->sortBy(fn ($label) => array_search($label, array_values(self::FIELDS), true))->values()->all();
+        $member->save();
+
+        if ($self && $changed !== []) {
+            $this->responsibleManagers($member)->each(function (User $manager) use ($member, $changed) {
+                try {
+                    $manager->notify(new PersonalDataChangedNotification($member, $changed));
+                } catch (Throwable $e) {
+                    report($e);
+                }
+            });
+        }
+
+        return $changed;
+    }
+
+    /** The Personalverwalter whose Abteilungen include the Kamerad (unlimited ones always); without any, the admins */
+    public function responsibleManagers(User $member): Collection
+    {
+        $groups = $member->groups()->pluck('groups.id')->all();
+        $managers = User::active()->whereKeyNot($member->id)
+            ->whereHas('moduleAccess', fn ($q) => $q->where('module', self::MODULE)->where('role', 'personalverwalter'))->get()
+            ->filter(fn (User $m) => ($scope = self::scopeOf($m)) === [] || array_intersect($scope, $groups) !== [])->values();
+
+        return $managers->isNotEmpty() ? $managers : User::active()->where('is_admin', true)->whereKeyNot($member->id)->get();
+    }
+
+    /**
+     * Round birthdays of the year (50, 60 … and from 70 every five years) – for congratulations and
+     * honours; only while the birth date is kept.
+     *
+     * @return Collection<int, array{user: User, age: int, on: Carbon}>
+     */
+    public function roundBirthdays(User $manager, int $year): Collection
+    {
+        if (! in_array('birth_date', self::activeFields(), true)) {
+            return collect();
+        }
+
+        return self::visibleMembers($manager)->where('status', 'active')->whereNotNull('birth_date')->get()
+            ->map(fn (User $u) => ['user' => $u, 'age' => $year - $u->birth_date->year, 'on' => $u->birth_date->copy()->setYear($year)])
+            ->filter(fn ($row) => $row['age'] >= 50 && ($row['age'] % 10 === 0 || ($row['age'] >= 70 && $row['age'] % 5 === 0)))
+            ->sortBy(fn ($row) => $row['on']->timestamp)->values();
+    }
+
+    /** CSV of the switched-on personal data, for letters and lists */
+    public function addressCsv(User $manager): string
+    {
+        $fields = self::activeFields();
+        $out = fopen('php://temp', 'r+');
+        fwrite($out, "\xEF\xBB\xBF");
+        fputcsv($out, ['Name', 'E-Mail', 'Abteilungen', ...(in_array('address', $fields, true) ? ['Straße', 'PLZ', 'Ort'] : []),
+            ...(in_array('birth_date', $fields, true) ? ['Geburtsdatum'] : []), ...(in_array('phone', $fields, true) ? ['Mobilnummer'] : [])], ';');
+        foreach (self::visibleMembers($manager)->where('status', 'active')->with('groups')->orderBy('name')->get() as $m) {
+            fputcsv($out, [$m->name, $m->email, $m->groups->pluck('name')->implode(', '),
+                ...(in_array('address', $fields, true) ? [$m->street, $m->postal_code, $m->city] : []),
+                ...(in_array('birth_date', $fields, true) ? [$m->birth_date?->format('d.m.Y')] : []),
+                ...(in_array('phone', $fields, true) ? [$m->phone] : [])], ';');
+        }
+        rewind($out);
+
+        return stream_get_contents($out);
     }
 
     // ─── career ──────────────────────────────────────────────────────────────

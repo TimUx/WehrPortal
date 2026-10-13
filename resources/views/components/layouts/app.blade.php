@@ -34,6 +34,10 @@
             $inAusruestung => auth()->user()->canManageAusruestung(),
             default => auth()->user()->is_admin,
         };
+        // A module administered in the app by a role (e.g. Personalverwaltung): "Admin" leads to its admin page
+        if ($moduleAdmin = app(\App\Services\ModuleRegistry::class)->adminRouteFor(request()->route()?->getName(), auth()->user())) {
+            [$adminRoute, $showAdmin] = [$moduleAdmin, true];
+        }
         // Phone: module tabs at the bottom only inside a module; Profil and Admin are in the 3×3 menu
         $canDecide = auth()->user()?->canDecide() ?? false;
         $bottomTabs = auth()->check() ? ($inFahrzeugbuchung ? 2 + (int) $canDecide : 0) + ($inMaengel ? 2 : 0) + ($inAusruestung ? 2 : 0) + ($inSchichtplan ? 1 : 0) + ($inKalender ? 1 : 0) + ($inLehrgaenge ? 1 : 0) : 0;

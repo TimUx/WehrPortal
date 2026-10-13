@@ -26,6 +26,9 @@ class MemberFile extends Component
 
     public array $honor = ['honor_type_id' => '', 'title' => '', 'awarded_on' => '', 'awarded_by' => '', 'note' => ''];
 
+    /** Switched-on personal data (Anschrift, Geburtsdatum, Mobilnummer) */
+    public array $data = [];
+
     public ?string $flash = null;
 
     public function mount(PersonnelService $personnel): void
@@ -35,6 +38,14 @@ class MemberFile extends Component
         $profile = MemberProfile::find($this->member->id);
         $this->idCard = ['number' => (string) $profile?->id_card_number, 'valid_until' => (string) $profile?->id_card_valid_until?->toDateString()];
         $this->honor['awarded_on'] = PersonnelService::today()->toDateString();
+        $m = $this->member;
+        $this->data = ['street' => (string) $m->street, 'postal_code' => (string) $m->postal_code, 'city' => (string) $m->city,
+            'birth_date' => (string) $m->birth_date?->toDateString(), 'phone' => (string) $m->phone];
+    }
+
+    public function savePersonalData(PersonnelService $personnel): void
+    {
+        $this->run(fn () => $personnel->savePersonalData(auth()->user(), $this->member, $this->data), 'Persönliche Daten gespeichert.');
     }
 
     public function saveIdCard(PersonnelService $personnel): void
@@ -117,6 +128,7 @@ class MemberFile extends Component
             'attendance' => PersonnelService::attendanceAvailable()
                 ? collect([$year, $year - 1, $year - 2])->mapWithKeys(fn ($y) => [$y => $personnel->attendance($member, $y)]) : collect(),
             'isAdmin' => auth()->user()->is_admin,
+            'fields' => PersonnelService::activeFields(),
         ]);
     }
 }
