@@ -5,6 +5,7 @@ namespace Modules\Personalverwaltung\src\Livewire;
 use App\Models\Group;
 use App\Models\MemberFunction;
 use App\Models\User;
+use App\Services\BadgeRegistry;
 use App\Support\FireRanks;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Url;
@@ -101,6 +102,7 @@ class MemberList extends Component
             'withAttendance' => $withAttendance,
             'scoped' => $scope !== [],
             'canEdit' => PersonnelService::canManage($manager),
+            'badges' => app(BadgeRegistry::class)->for($members->getCollection()->pluck('id')->all()),
             'steps' => collect(range(0, FireRanks::maxStep()))->mapWithKeys(fn ($s) => [$s => FireRanks::label($s)]),
             'honorTypes' => HonorType::orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
             'functions' => MemberFunction::assignable()->with('parent')->get()->mapWithKeys(fn (MemberFunction $f) => [$f->id => $f->fullLabel()])->sort(),

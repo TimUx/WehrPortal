@@ -17,7 +17,7 @@ class Course extends Model
 
     protected $attributes = ['listed' => false, 'is_standard' => false];
 
-    protected $fillable = ['name', 'titles', 'listed', 'is_standard', 'last_seen_at', 'repeat_months', 'suggested_at', 'ignored_at', 'removed_at', 'gone_since'];
+    protected $fillable = ['name', 'titles', 'listed', 'is_standard', 'last_seen_at', 'repeat_months', 'short', 'suggested_at', 'ignored_at', 'removed_at', 'gone_since'];
 
     protected function casts(): array
     {

@@ -134,6 +134,14 @@ class CourseList extends Component
         $course->update(['is_standard' => true, 'suggested_at' => null, 'ignored_at' => null, 'removed_at' => null]);
     }
 
+    /** Kürzel, shown next to the Kameraden who have the Lehrgang */
+    public function setShort(int $courseId, string $short): void
+    {
+        $course = Course::findOrFail($courseId);
+        $course->update(['short' => trim($short) !== '' ? mb_substr(trim($short), 0, 12) : null]);
+        $this->flash = '„'.$course->name.'“: '.($course->short ? 'Kürzel „'.$course->short.'“.' : 'ohne Kürzel.');
+    }
+
     /** Wiederholungsintervall in months; empty = none */
     public function setRepeat(int $courseId, string $months, RegistrationService $registrations): void
     {

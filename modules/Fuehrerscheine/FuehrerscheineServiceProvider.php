@@ -3,6 +3,7 @@
 namespace Modules\Fuehrerscheine;
 
 use App\Models\User;
+use App\Services\BadgeRegistry;
 use App\Services\CredentialRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\DriverRegistry;
@@ -66,6 +67,11 @@ class FuehrerscheineServiceProvider extends ServiceProvider
             fn (User $driver, int $vehicleId) => app(LicenseService::class)->warning($driver, $vehicleId),
             fn (int $vehicleId) => app(LicenseService::class)->drivers($vehicleId),
         );
+
+        // Kürzel next to the Kameraden: the valid classes that matter for Feuerwehr vehicles
+        app(BadgeRegistry::class)->register('fuehrerscheine', fn (array $ids) => License::whereIn('user_id', $ids)->get()->filter->usable()
+            ->mapWithKeys(fn (License $l) => [$l->user_id => array_values(array_map(fn ($c) => ['FW475' => 'FW4,75', 'FW75' => 'FW7,5'][$c] ?? $c,
+                array_intersect($l->validClasses(), ['C1', 'C1E', 'C', 'CE', 'D1', 'D', 'FW475', 'FW75'])))])->filter()->all());
 
         // Personalakte → Nachweise: the checked Fahrerlaubnis
         $usable = fn (User $user) => ($l = License::where('user_id', $user->id)->first()) && $l->usable() ? $l : null;

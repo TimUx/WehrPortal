@@ -4,6 +4,7 @@ namespace Modules\Lehrgaenge;
 
 use App\Models\User;
 use App\Services\AnnualReportRegistry;
+use App\Services\BadgeRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\HoursRegistry;
 use App\Services\ModuleRegistry;
@@ -107,6 +108,11 @@ class LehrgaengeServiceProvider extends ServiceProvider
             ->whereNotNull('starts_at')->whereNotNull('ends_at')->get()
             ->map(fn (Session $s) => ['user_id' => $s->record->user_id, 'date' => $s->date, 'title' => 'Lehrgang: '.$s->record->course?->name,
                 'minutes' => max(0, (int) Carbon::parse($s->starts_at)->diffInMinutes(Carbon::parse($s->ends_at), false))]));
+
+        // Kürzel next to the Kameraden: absolvierte Lehrgänge with a Kürzel that are still valid
+        app(BadgeRegistry::class)->register('lehrgaenge', fn (array $ids) => Record::with('course')->where('status', 'completed')->whereIn('user_id', $ids)
+            ->whereHas('course', fn ($q) => $q->whereNotNull('short'))->get()->reject(fn (Record $r) => $r->refreshState() === 'expired')
+            ->groupBy('user_id')->map(fn ($rows) => $rows->pluck('course.short')->unique()->values()->all())->all());
 
         // Jahresbericht: Lehrgänge completed in the year
         app(AnnualReportRegistry::class)->register('lehrgaenge', 'Aus- und Fortbildung', function (int $year) {

@@ -1,6 +1,6 @@
 # openwehr
 
-> Kostenlose Open-Source-Web-App (AGPL-3.0) für Freiwillige Feuerwehren in Deutschland: ein gemeinsamer Kern mit Anmeldung ohne Passwort, Kameraden, Startseite, Benachrichtigungen und Admin-Bereich, dazu 22 Module, die jede Wehr einzeln einschaltet. Für das Handy gemacht, Oberfläche auf Deutsch, Betrieb auf dem eigenen Server (Docker-Image mit PostgreSQL).
+> Kostenlose Open-Source-Web-App (AGPL-3.0) für Freiwillige Feuerwehren in Deutschland: ein gemeinsamer Kern mit Anmeldung ohne Passwort, Kameraden, Startseite, Benachrichtigungen und Admin-Bereich, dazu 23 Module, die jede Wehr einzeln einschaltet. Für das Handy gemacht, Oberfläche auf Deutsch, Betrieb auf dem eigenen Server (Docker-Image mit PostgreSQL).
 
 - Projektseite: https://www.openwehr.de/
 - Quellcode und ausführliche Dokumentation (README): https://github.com/roberteinsle/openwehr
@@ -29,6 +29,7 @@
 - Mängelmanagement: Mängel per QR-Code melden und verfolgen
 - Expositionen (Gefahrstoffe): Gefahrstoff-Expositionen nach Einsatz und Übung erfassen, für die Besatzung aus dem Einsatzbericht vorschlagen, verschlüsselt und 40 Jahre aufbewahrt, Meldeliste und CSV für die Zentrale Expositionsdatenbank (ZED) der DGUV, Expositionsnachweis für die Einsatzkraft
 - Führerscheine: Kontrolle per Foto statt Termin in der Wache, Fotos nach der Prüfung gelöscht, Klassen und Feuerwehr-Fahrberechtigung (4,75 t / 7,5 t) mit Fristen, Erinnerung und Kalender, Klassen je Abteilung, wer welches Fahrzeug fahren darf, Warnung im Fahrtenbuch
+- Unterweisungen: Unterweisungen und Einweisungen (auch auf Fahrzeuge) mit Kürzel, Wiederholungsintervall und Zielgruppe, Teilnehmer unterschreiben auf dem Tablet oder dem eigenen Handy, Nachweis zum Drucken, Fristen mit Erinnerung, Übersicht je Kamerad, zählt auf Wunsch als Atemschutz-Unterweisung
 - Verbandbuch & Vorfälle: Dokumentation nach DGUV, verschlüsselt, mit Unterschrift und Löschfrist
 - Budget & Finanzen: Budgets, Ausgaben mit Beleg und Genehmigung, Jahresabschluss
 - Mitteilungen: Nachrichten der Wehrführung an Abteilungen oder Funktionen, mit Gültigkeitszeitraum, Priorität, Anhängen und Lesebestätigung, auf Wunsch per E-Mail oder als kurzfristige Push-Ansage

@@ -69,6 +69,11 @@ class ReadinessService
             ->whereIn('as_team_members.user_id', $ids)->whereNotNull('as_teams.started_at')
             ->selectRaw('as_team_members.user_id, max(as_teams.started_at) as last')->groupBy('as_team_members.user_id')->pluck('last', 'user_id');
         $lq = $this->fromLehrgaenge($ids);
+        // An Unterweisung of the module Unterweisungen marked "zählt als Atemschutz-Unterweisung" counts too
+        foreach ($this->fromUnterweisungen($ids) as $userId => $day) {
+            $known = $own->get($userId, collect());
+            $own->put($userId, $known->put('unterweisung', max((string) $known->get('unterweisung'), $day)));
+        }
         $reports = $this->reportMissions($ids)->groupBy('user_id')->map(fn ($rows) => $rows->max('alarmed_at'));
         // Last time under CSA: a CSA-Übung, any Nachweis worn with CSA, or a CSA-Trupp of the Überwachung
         $csaTrainings = Training::whereIn('user_id', $ids)->where(fn ($q) => $q->where('kind', 'csa_uebung')->orWhere('csa', true))
@@ -243,6 +248,24 @@ class ReadinessService
             report($e);
 
             return collect();
+        }
+    }
+
+    /** @return array<int, string> user id → last Atemschutz-Unterweisung held in the module Unterweisungen */
+    private function fromUnterweisungen(array $userIds): array
+    {
+        if (! app(ModuleRegistry::class)->isActive('unterweisungen')) {
+            return [];
+        }
+        try {
+            return DB::table('uw_attendances')->join('uw_sessions', 'uw_sessions.id', '=', 'uw_attendances.session_id')
+                ->join('uw_topics', 'uw_topics.id', '=', 'uw_sessions.topic_id')->where('uw_topics.counts_as', 'atemschutz')
+                ->whereIn('uw_attendances.user_id', $userIds)->selectRaw('uw_attendances.user_id, max(uw_sessions.held_on) as last')
+                ->groupBy('uw_attendances.user_id')->pluck('last', 'user_id')->map(fn ($d) => (string) $d)->all();
+        } catch (Throwable $e) {
+            report($e);
+
+            return [];
         }
     }
 

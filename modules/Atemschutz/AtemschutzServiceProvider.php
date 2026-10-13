@@ -4,6 +4,7 @@ namespace Modules\Atemschutz;
 
 use App\Models\User;
 use App\Services\AnnualReportRegistry;
+use App\Services\BadgeRegistry;
 use App\Services\CredentialRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
@@ -77,6 +78,10 @@ class AtemschutzServiceProvider extends ServiceProvider
         );
 
         app(PersonnelFileRegistry::class)->register('atemschutz', 'Atemschutz', 'atemschutz.personnel-file');
+
+        // Kürzel next to the Kameraden: einsatzbereit as AGT, and as CSA-Träger
+        app(BadgeRegistry::class)->register('atemschutz', fn (array $ids) => app(ReadinessService::class)->forWearers(Wearer::active()->whereIn('user_id', $ids)->get())
+            ->map(fn ($s) => array_values(array_filter([$s['ready'] ? 'AGT' : null, ($s['csa']['ready'] ?? false) ? 'CSA' : null])))->filter()->all());
 
         // Personalakte → Nachweise: the Atemschutzpass of everyone in the pool (dates only, never findings)
         $state = fn (User $user) => ($wearer = Wearer::where('user_id', $user->id)->where('is_active', true)->first()) ? app(ReadinessService::class)->forWearer($wearer) : null;

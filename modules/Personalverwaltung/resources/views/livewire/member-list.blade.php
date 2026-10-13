@@ -42,7 +42,7 @@
     <div class="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
         <table class="min-w-full text-sm">
             <thead><tr class="border-b border-gray-100 text-left text-xs uppercase tracking-wide text-gray-500">
-                <th class="px-2 py-2"></th><th class="px-4 py-2">Name</th><th class="px-4 py-2">Abteilungen</th><th class="px-4 py-2">Dienstgrad</th><th class="px-4 py-2">Funktionen</th><th class="px-4 py-2 text-right">Dienstjahre</th>
+                <th class="px-2 py-2"></th><th class="px-4 py-2">Name</th><th class="px-4 py-2">Abteilungen</th><th class="px-4 py-2">Dienstgrad</th><th class="px-4 py-2">Funktionen · Qualifikationen</th><th class="px-4 py-2 text-right">Dienstjahre</th>
                 @if($withAttendance)<th class="px-4 py-2 text-right">Beteiligung {{ $year }}</th>@endif
                 <th class="px-4 py-2"></th>
             </tr></thead>
@@ -53,7 +53,8 @@
                         <td class="px-4 py-2"><a href="{{ route('personalverwaltung.member', $member) }}" class="font-medium text-gray-900 hover:underline">{{ $member->name }}</a></td>
                         <td class="px-4 py-2 text-gray-600">{{ $member->groups->pluck('name')->implode(', ') ?: '–' }}</td>
                         <td class="px-4 py-2 text-gray-600">{{ $member->rank ?: '–' }}</td>
-                        <td class="px-4 py-2 text-xs text-gray-600">{{ $member->functions->map->fullLabel()->implode(', ') ?: '–' }}</td>
+                        <td class="px-4 py-2 text-xs text-gray-600">{{ $member->functions->map->fullLabel()->implode(', ') ?: '–' }}
+                            @if($badges[$member->id] ?? null)<span class="mt-0.5 flex flex-wrap gap-1">@foreach($badges[$member->id] as $b)<span class="rounded bg-fw-navy/10 px-1.5 py-0.5 text-[10px] font-semibold text-fw-navy">{{ $b }}</span>@endforeach</span>@endif</td>
                         <td class="px-4 py-2 text-right text-gray-600">{{ \Modules\Personalverwaltung\src\Services\PersonnelService::serviceYears($member) ?? '–' }}</td>
                         @if($withAttendance)
                             @php($a = $attendance[$member->id] ?? null)

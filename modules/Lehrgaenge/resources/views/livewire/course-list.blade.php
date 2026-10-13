@@ -75,6 +75,8 @@
                             @unless($course->isOffered()) · wird nicht angeboten @endunless
                         </p>
                     </div>
+                    <label class="flex items-center gap-1 text-xs text-gray-600" title="Steht neben den Kameraden, die den Lehrgang haben">Kürzel
+                        <input type="text" maxlength="12" value="{{ $course->short }}" wire:change="setShort({{ $course->id }}, $event.target.value)" class="w-16 rounded border-gray-300 px-1 py-0.5 text-xs" aria-label="Kürzel"></label>
                     <label class="flex items-center gap-1 text-xs text-gray-600" title="Leer = einmal absolviert gilt für immer">Auffrischung alle
                         <input type="number" min="1" max="120" value="{{ $course->repeat_months }}" wire:change="setRepeat({{ $course->id }}, $event.target.value)" class="w-16 rounded border-gray-300 px-1 py-0.5 text-xs" aria-label="Auffrischung in Monaten"> Monate</label>
                     <button type="button" role="switch" aria-checked="{{ $course->is_standard ? 'true' : 'false' }}" wire:click="toggle({{ $course->id }})"

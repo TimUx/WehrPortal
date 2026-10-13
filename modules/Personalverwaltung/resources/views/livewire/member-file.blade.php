@@ -133,6 +133,10 @@
     </section>
     @endif
 
+    @if(app(\App\Services\ModuleRegistry::class)->isActive('unterweisungen'))
+        @include('unterweisungen::partials.member-summary', ['member' => $member])
+    @endif
+
     @if(app(\App\Services\ModuleRegistry::class)->isActive('fuehrerscheine'))
         @include('fuehrerscheine::partials.member-status', ['member' => $member])
     @endif

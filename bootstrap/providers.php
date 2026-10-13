@@ -25,6 +25,7 @@ use Modules\Personalverwaltung\PersonalverwaltungServiceProvider;
 use Modules\Schichtplan\SchichtplanServiceProvider;
 use Modules\Schluessel\SchluesselServiceProvider;
 use Modules\Uebungsdienste\UebungsdiensteServiceProvider;
+use Modules\Unterweisungen\UnterweisungenServiceProvider;
 use Modules\Verbandbuch\VerbandbuchServiceProvider;
 use Modules\Wartung\WartungServiceProvider;
 use Modules\Wasserkarte\WasserkarteServiceProvider;
@@ -58,4 +59,5 @@ return [
     SchluesselServiceProvider::class,
     ExpositionenServiceProvider::class,
     FuehrerscheineServiceProvider::class,
+    UnterweisungenServiceProvider::class,
 ];

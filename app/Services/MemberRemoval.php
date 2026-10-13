@@ -22,7 +22,7 @@ class MemberRemoval
     /** Left to the database (ON DELETE SET NULL): who did what in the past stays true */
     public const KEEP = [
         'activity_logs.user_id', 'activity_logs.impersonator_id', 'mail_logs.user_id', 'mail_logs.resent_by',
-        'vb_access_logs.user_id', 'vb_signatures.user_id', 'vb_amendments.user_id', 'ex_events.user_id', 'fs_licenses.validated_by', 'fs_checks.checked_by',
+        'vb_access_logs.user_id', 'vb_signatures.user_id', 'vb_amendments.user_id', 'ex_events.user_id', 'fs_licenses.validated_by', 'fs_checks.checked_by', 'uw_sessions.instructor_id',
     ];
 
     /** Emptied instead of moved: entries about this person, with the name kept as text */
@@ -35,7 +35,7 @@ class MemberRemoval
         'booking' => 'Fahrzeugbuchung', 'kk_' => 'Kleiderkammer', 'mm_' => 'Mängelmanagement', 'ar_' => 'Ausrüstung',
         'eb_' => 'Einsatzbericht', 'vb_' => 'Verbandbuch', 'ft_' => 'Fahrtenbuch', 'fin_' => 'Finanzen', 'wm_' => 'Wartung',
         'as_' => 'Atemschutz', 'fv_' => 'Fahrzeuge', 'wk_' => 'Wasserkarte', 'kal_' => 'Kalender', 'sp_' => 'Schichtplan',
-        'lq_' => 'Lehrgänge', 'ex_' => 'Expositionen', 'fs_' => 'Führerscheine', 'ud_' => 'Übungsdienste', 'announcement' => 'Mitteilungen', 'feedback' => 'Feedback',
+        'lq_' => 'Lehrgänge', 'ex_' => 'Expositionen', 'fs_' => 'Führerscheine', 'uw_' => 'Unterweisungen', 'ud_' => 'Übungsdienste', 'announcement' => 'Mitteilungen', 'feedback' => 'Feedback',
     ];
 
     /**
