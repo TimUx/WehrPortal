@@ -2,6 +2,7 @@
 
 namespace Modules\Kalender\src\Services;
 
+use App\Models\Guardian;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Notifications\Notification;
@@ -15,6 +16,7 @@ use Modules\Kalender\src\Models\Response;
 use Modules\Kalender\src\Notifications\EventCancelledNotification;
 use Modules\Kalender\src\Notifications\EventChangedNotification;
 use Modules\Kalender\src\Notifications\EventCreatedNotification;
+use Modules\Kalender\src\Notifications\GuardianCopyNotification;
 use Modules\Kalender\src\Notifications\RsvpReminderNotification;
 use Modules\Kalender\src\Support\Audience;
 use Throwable;
@@ -71,7 +73,7 @@ class EventService
     /** Mails the target group about a new event (or series) */
     public function announce(Event $event, ?User $by, int $count = 1): void
     {
-        $this->notify($this->audience($event)->reject(fn (User $u) => $by && $u->is($by)), new EventCreatedNotification($event, $count));
+        $this->notify($this->audience($event)->reject(fn (User $u) => $by && $u->is($by)), new EventCreatedNotification($event, $count), $event);
     }
 
     /**
@@ -118,7 +120,7 @@ class EventService
         }
 
         $people = $everyone ? $this->audience($event) : $this->committed($event);
-        $this->notify($people->reject(fn (User $u) => $by && $u->is($by)), new EventChangedNotification($event, $oldTime, $oldLocation));
+        $this->notify($people->reject(fn (User $u) => $by && $u->is($by)), new EventChangedNotification($event, $oldTime, $oldLocation), $event);
     }
 
     /** Who said yes or maybe and is still invited */
@@ -137,7 +139,7 @@ class EventService
 
         $affected = $event->responses()->whereIn('status', ['yes', 'maybe'])->with('user')->get()
             ->pluck('user')->filter()->reject(fn (User $u) => $by && $u->is($by));
-        $this->notify($affected, new EventCancelledNotification($event));
+        $this->notify($affected, new EventCancelledNotification($event), $event);
     }
 
     /** Takes place after all: everyone who had said yes or maybe hears it */
@@ -146,7 +148,7 @@ class EventService
         $event->update(['cancelled_at' => null]);
 
         if (! $event->ends_at->isPast()) {
-            $this->notify($this->committed($event)->reject(fn (User $u) => $by && $u->is($by)), new EventChangedNotification($event, reinstated: true));
+            $this->notify($this->committed($event)->reject(fn (User $u) => $by && $u->is($by)), new EventChangedNotification($event, reinstated: true), $event);
         }
     }
 
@@ -250,7 +252,7 @@ class EventService
 
             $event = Event::find($id);
             $open = $this->summary($event)['open'];
-            $this->notify($open, new RsvpReminderNotification($event));
+            $this->notify($open, new RsvpReminderNotification($event), $event);
             $sent += $open->count();
         }
 
@@ -333,14 +335,32 @@ class EventService
         }
     }
 
-    private function notify(Collection $users, Notification $notification): void
+    /** To each Kamerad, and a copy to their Erziehungsberechtigte (they answer for the child by link) */
+    private function notify(Collection $users, Notification $notification, ?Event $event = null): void
     {
-        $users->each(function (User $user) use ($notification) {
+        $users->each(function (User $user) use ($notification, $event) {
             try {
                 $user->notify($notification);
             } catch (Throwable $e) {
                 report($e);
             }
+            if ($event) {
+                $user->guardians->each(function (Guardian $guardian) use ($notification, $user, $event) {
+                    try {
+                        $guardian->notify(new GuardianCopyNotification($notification, $user, $event));
+                    } catch (Throwable $e) {
+                        report($e);
+                    }
+                });
+            }
         });
+    }
+
+    /** An Erziehungsberechtigte(r) answers for the child; the comment says who */
+    public function respondAsGuardian(Event $event, Guardian $guardian, string $status, ?string $comment = null): Response
+    {
+        $note = trim((string) $comment);
+
+        return $this->respond($event, $guardian->user, $status, mb_substr(($note !== '' ? $note.' ' : '').'(Rückmeldung von '.$guardian->name.')', 0, 500));
     }
 }

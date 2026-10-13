@@ -1,6 +1,9 @@
 <?php
 
+use App\Models\Guardian;
+use App\Services\ModuleRegistry;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Validation\ValidationException;
 use Modules\Kalender\src\Http\Controllers\FeedController;
 use Modules\Kalender\src\Http\Controllers\PublicCalendarController;
 use Modules\Kalender\src\Models\Event;
@@ -12,6 +15,29 @@ Route::get('/kalender/abo/{token}.ics', FeedController::class)
     ->middleware('throttle:60,1')
     ->where('token', '[A-Za-z0-9]{48}')
     ->name('kalender.feed');
+
+// Erziehungsberechtigte answer for the child from the signed link in their mail (no login). GET only
+// shows the page, the POST answers – mail scanners open links, they don't send forms
+Route::match(['get', 'post'], '/kalender/rueckmeldung/{event}/{guardian}', function (Event $event, Guardian $guardian, EventService $events) {
+    abort_unless(app(ModuleRegistry::class)->isActive('kalender') && $guardian->user?->is_active, 404);
+    $child = $guardian->user;
+    $error = null;
+    if (request()->isMethod('post')) {
+        try {
+            $events->respondAsGuardian($event, $guardian, (string) request('status'), request('comment'));
+            session()->flash('kalender-guardian', 'Danke! Die Rückmeldung für '.$child->name.' ist gespeichert.');
+
+            return redirect()->to(request()->fullUrl());
+        } catch (ValidationException $e) {
+            $error = collect($e->errors())->flatten()->first();
+        }
+    }
+
+    return view('kalender::pages.guardian', [
+        'event' => $event, 'guardian' => $guardian, 'child' => $child, 'error' => $error,
+        'response' => $event->responses()->where('user_id', $child->id)->first(),
+    ]);
+})->middleware(['signed', 'throttle:30,1'])->whereNumber(['event', 'guardian'])->name('kalender.guardian');
 
 // Public events for the Wehr's website (iframe and iCal), no login
 Route::middleware('throttle:120,1')->group(function () {

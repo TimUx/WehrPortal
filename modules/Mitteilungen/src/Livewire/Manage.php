@@ -28,6 +28,9 @@ class Manage extends Component
 
     public bool $mail = false;
 
+    /** Only bell and push, no mail: a short notice to the phones */
+    public bool $push = false;
+
     public ?string $flash = null;
 
     public function edit(int $id): void
@@ -41,11 +44,12 @@ class Manage extends Component
         $this->visibleUntil = $a->visible_until?->setTimezone('Europe/Berlin')->format('d.m.Y') ?? '';
         $this->groupIds = $a->groups->pluck('id')->map(fn ($id) => (string) $id)->all();
         $this->mail = false;
+        $this->push = false;
     }
 
     public function cancel(): void
     {
-        $this->reset('editingId', 'title', 'body', 'important', 'visibleFrom', 'visibleUntil', 'groupIds', 'mail');
+        $this->reset('editingId', 'title', 'body', 'important', 'visibleFrom', 'visibleUntil', 'groupIds', 'mail', 'push');
     }
 
     public function save(AnnouncementService $announcements): void
@@ -78,9 +82,10 @@ class Manage extends Component
             array_map('intval', $this->groupIds),
             auth()->user(),
             $this->mail,
+            $this->push,
         );
 
-        $this->flash = 'Mitteilung „'.$announcement->title.'“ gespeichert'.($this->mail ? ' und per E-Mail verschickt.' : '.');
+        $this->flash = 'Mitteilung „'.$announcement->title.'“ gespeichert'.($this->mail ? ' und per E-Mail verschickt.' : ($this->push ? ' und als Push verschickt.' : '.'));
         $this->cancel();
     }
 

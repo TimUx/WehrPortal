@@ -198,6 +198,27 @@ class UserResource extends Resource
                 ->columns(['default' => 1, 'md' => 3])
                 ->columnSpanFull(),
 
+            Section::make('Erziehungsberechtigte')
+                ->description('Z. B. für die Jugendfeuerwehr: Sie bekommen die Kalender-Mails des Kameraden (neue, geänderte und abgesagte Termine, Erinnerungen) und können ohne eigenes Konto über einen Link für ihn zu- oder absagen.')
+                ->schema([
+                    Forms\Components\Repeater::make('guardians')
+                        ->relationship()
+                        ->hiddenLabel()
+                        ->schema([
+                            Forms\Components\TextInput::make('name')->label('Name')->required()->maxLength(150),
+                            Forms\Components\TextInput::make('email')->label('E-Mail')->email()->required()->maxLength(255)->distinct(),
+                            Forms\Components\TextInput::make('phone')->label('Telefon')->tel()->maxLength(50),
+                        ])
+                        ->columns(['default' => 1, 'md' => 3])
+                        ->defaultItems(0)
+                        ->maxItems(4)
+                        ->addActionLabel('Erziehungsberechtigte(n) hinzufügen')
+                        ->columnSpanFull(),
+                ])
+                ->collapsible()
+                ->collapsed(fn (?User $record) => ! $record?->guardians()->exists())
+                ->columnSpanFull(),
+
             Section::make('Modul-Zugriff')
                 ->description('Welche Module dieser Kamerad verwenden darf.')
                 ->schema(static function () use ($modules) {

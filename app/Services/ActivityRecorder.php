@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Models\ActivityLog;
 use App\Models\EmailChangeRequest;
+use App\Models\Guardian;
 use App\Models\LoginToken;
 use App\Models\MailLog;
+use App\Models\PushSubscription;
 use App\Models\Setting;
 use App\Models\User;
 use App\Models\UserModulePreference;
@@ -38,7 +40,7 @@ class ActivityRecorder
      * its own access log, so its health data never lands here.
      */
     private const SKIP = [
-        ActivityLog::class, MailLog::class, LoginToken::class, EmailChangeRequest::class, UserModulePreference::class,
+        ActivityLog::class, MailLog::class, LoginToken::class, PushSubscription::class, EmailChangeRequest::class, UserModulePreference::class,
         FeedToken::class, BookingCommentRevision::class, DefectEvent::class, EquipmentEvent::class, DiveraRequest::class,
         VerbandbuchEntry::class, VerbandbuchSignature::class, VerbandbuchAmendment::class, VerbandbuchAccessLog::class,
         AtemschutzReading::class, AtemschutzWarning::class, FahrzeugStatusEvent::class, FahrtenbuchRevision::class, WasserkarteStatusEvent::class,
@@ -52,6 +54,7 @@ class ActivityRecorder
 
     /** Personal data of a Kamerad: only the Personalverwaltung sees it, so the log shows that it changed, not to what */
     private const PERSONAL = ['street', 'postal_code', 'city', 'phone', 'birth_date'];
+    // Erziehungsberechtigte: mail and phone are hidden the same way
 
     private bool $paused = false;
 
@@ -112,7 +115,8 @@ class ActivityRecorder
     {
         // Settings hold API keys and the logo
         if ((preg_match(self::SECRET, $field) && ! ($model instanceof Setting && $field === 'value' && ! preg_match('/key|token|secret|logo/i', (string) $model->key)))
-            || ($model instanceof User && in_array($field, self::PERSONAL, true))) {
+            || ($model instanceof User && in_array($field, self::PERSONAL, true))
+            || ($model instanceof Guardian && in_array($field, ['email', 'phone'], true))) {
             return $value === null ? null : '(verborgen)';
         }
 

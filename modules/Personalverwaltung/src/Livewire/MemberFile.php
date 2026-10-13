@@ -86,6 +86,21 @@ class MemberFile extends Component
         }
     }
 
+    /** @var array{name: string, email: string, phone: string} */
+    public array $guardian = ['name' => '', 'email' => '', 'phone' => ''];
+
+    public function addGuardian(PersonnelService $personnel): void
+    {
+        if ($this->run(fn () => $personnel->addGuardian(auth()->user(), $this->member, $this->guardian), 'Erziehungsberechtigte(n) eingetragen.')) {
+            $this->guardian = ['name' => '', 'email' => '', 'phone' => ''];
+        }
+    }
+
+    public function deleteGuardian(int $id, PersonnelService $personnel): void
+    {
+        $this->run(fn () => $personnel->deleteGuardian(auth()->user(), $this->member->guardians()->findOrFail($id)), 'Erziehungsberechtigte(n) entfernt.');
+    }
+
     public function deleteHonor(int $id, PersonnelService $personnel): void
     {
         $this->run(fn () => $personnel->deleteHonor(auth()->user(), Honor::where('user_id', $this->member->id)->findOrFail($id)), 'Ehrung gelöscht.');
@@ -128,6 +143,7 @@ class MemberFile extends Component
             'attendance' => PersonnelService::attendanceAvailable()
                 ? collect([$year, $year - 1, $year - 2])->mapWithKeys(fn ($y) => [$y => $personnel->attendance($member, $y)]) : collect(),
             'isAdmin' => auth()->user()->is_admin,
+            'guardians' => $member->guardians()->get(),
             'fields' => PersonnelService::activeFields(),
         ]);
     }

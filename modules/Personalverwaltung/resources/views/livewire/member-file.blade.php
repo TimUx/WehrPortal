@@ -88,6 +88,29 @@
         </form>
     </section>
 
+    <section class="{{ $card }}">
+        <h2 class="text-sm font-semibold text-gray-900">Erziehungsberechtigte</h2>
+        <p class="text-xs text-gray-500">Bekommen die Kalender-Mails des Kameraden und sagen über einen Link für ihn zu oder ab – ohne eigenes Konto.</p>
+        <ul class="divide-y divide-gray-100 text-sm">
+            @forelse($guardians as $g)
+                <li class="flex flex-wrap items-center justify-between gap-2 py-1.5" wire:key="g-{{ $g->id }}">
+                    <span><span class="font-medium text-gray-900">{{ $g->name }}</span> <span class="text-gray-500">· {{ $g->email }}</span>
+                        @if($g->phone) · <a href="tel:{{ preg_replace('/[^0-9+]/', '', $g->phone) }}" class="text-fw-navy underline">{{ $g->phone }}</a>@endif</span>
+                    <button type="button" wire:click="deleteGuardian({{ $g->id }})" wire:confirm="Erziehungsberechtigte(n) entfernen?" class="text-xs text-red-600 underline">Entfernen</button>
+                </li>
+            @empty
+                <li class="py-1.5 text-gray-500">Keine eingetragen.</li>
+            @endforelse
+        </ul>
+        <form wire:submit="addGuardian" class="grid grid-cols-1 gap-2 border-t border-gray-100 pt-3 sm:grid-cols-4">
+            <input type="text" wire:model="guardian.name" maxlength="150" placeholder="Name" class="{{ $input }}">
+            <input type="email" wire:model="guardian.email" maxlength="255" placeholder="E-Mail" class="{{ $input }}">
+            <input type="tel" wire:model="guardian.phone" maxlength="50" placeholder="Telefon (optional)" class="{{ $input }}">
+            <button type="submit" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700">Hinzufügen</button>
+            @foreach(['guardian_name', 'guardian_email', 'guardian_phone'] as $f)@error($f)<p class="text-sm text-red-600 sm:col-span-4">{{ $message }}</p>@enderror @endforeach
+        </form>
+    </section>
+
     @if(app(\App\Services\ModuleRegistry::class)->isActive('atemschutz'))
         @include('atemschutz::partials.member-status', ['member' => $member])
     @endif

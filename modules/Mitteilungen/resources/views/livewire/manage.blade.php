@@ -34,7 +34,8 @@
             </div>
         </div>
         <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="important" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> Wichtig (rot, oben, nicht ausblendbar)</label>
-        <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="mail" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> Zusätzlich per E-Mail an alle Empfänger schicken</label>
+        <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="mail" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> Zusätzlich per E-Mail an alle Empfänger schicken (auch in die Glocke und als Push)</label>
+        <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="push" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> Ohne E-Mail nur in die Glocke und als Push aufs Handy – für kurzfristige Ansagen</label>
         <div class="flex gap-3">
             <button type="submit" class="inline-flex items-center rounded-lg bg-fw-red px-4 py-2 text-sm font-semibold text-white hover:bg-fw-red-dark">{{ $editingId ? 'Speichern' : 'Veröffentlichen' }}</button>
             @if($editingId)<button type="button" wire:click="cancel" class="text-sm text-gray-500 underline">Abbrechen</button>@endif

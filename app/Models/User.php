@@ -187,6 +187,12 @@ class User extends Authenticatable implements FilamentUser
         };
     }
 
+    /** Erziehungsberechtigte, e.g. of a member of the Jugendfeuerwehr */
+    public function guardians(): HasMany
+    {
+        return $this->hasMany(Guardian::class)->orderBy('name');
+    }
+
     public function groups(): BelongsToMany
     {
         return $this->belongsToMany(Group::class);

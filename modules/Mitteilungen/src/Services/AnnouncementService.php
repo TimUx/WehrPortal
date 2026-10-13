@@ -14,7 +14,7 @@ class AnnouncementService
      * @param  array{title: string, body?: ?string, important: bool, visible_from?: mixed, visible_until?: mixed}  $data
      * @param  int[]  $groupIds  audience; empty = everyone
      */
-    public function save(?Announcement $announcement, array $data, array $groupIds, User $by, bool $mail = false): Announcement
+    public function save(?Announcement $announcement, array $data, array $groupIds, User $by, bool $mail = false, bool $push = false): Announcement
     {
         $announcement = DB::transaction(function () use ($announcement, $data, $groupIds, $by) {
             $announcement ??= new Announcement(['created_by' => $by->id]);
@@ -26,13 +26,18 @@ class AnnouncementService
 
         if ($mail) {
             $this->mail($announcement);
+        } elseif ($push) {
+            $this->mail($announcement, ['database']);
         }
 
         return $announcement;
     }
 
-    /** Everyone it is meant for gets it by mail; a mail problem is logged, not thrown */
-    public function mail(Announcement $announcement): int
+    /**
+     * Everyone it is meant for gets it by mail, under the bell and as push; with $only = ['database']
+     * just the bell and push (a short notice, e.g. a changed time). A mail problem is logged, not thrown.
+     */
+    public function mail(Announcement $announcement, ?array $only = null): int
     {
         $groupIds = $announcement->groups()->pluck('groups.id');
         $sent = 0;
@@ -41,9 +46,10 @@ class AnnouncementService
         User::active()
             ->when($groupIds->isNotEmpty(), fn ($q) => $q->whereHas('groups', fn ($g) => $g->whereIn('groups.id', $groupIds)))
             ->get()->filter(fn (User $user) => $user->canUseModule('mitteilungen'))
-            ->each(function (User $user) use ($announcement, &$sent) {
+            ->each(function (User $user) use ($announcement, $only, &$sent) {
                 try {
-                    $user->notify(new AnnouncementNotification($announcement));
+                    $notification = new AnnouncementNotification($announcement);
+                    $user->notify($only ? $notification->onlyVia($only) : $notification);
                     $sent++;
                 } catch (Throwable $e) {
                     report($e);

@@ -3,11 +3,13 @@
 use App\Http\Controllers\Auth\EmailChangeController;
 use App\Http\Controllers\Auth\MagicLinkController;
 use App\Http\Controllers\ScanController;
+use App\Models\Contact;
 use App\Models\FeedbackThread;
 use App\Models\User;
 use App\Services\Impersonation;
 use App\Services\OrganizationSettings;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 
 // Root: the personal start page with notices, module cards and the modules (requires login)
 Route::view('/', 'pages.home')->middleware(['auth', 'active'])->name('home');
@@ -39,6 +41,7 @@ Route::name('auth.')->group(function () {
 // -----------------------------------------------------------------------
 Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/personalakte', fn () => view('pages.profile'))->name('profile');
+    Route::get('/ansprechpartner', fn () => view('pages.contacts', ['contacts' => Contact::with('group')->orderBy('sort_order')->orderBy('id')->get()]))->name('contacts');
 
     // Notifications (the bell): the list, and opening one marks it read and leads to where something is to do
     Route::get('/benachrichtigungen', fn () => view('pages.notifications.index'))->name('notifications.index');
@@ -87,6 +90,25 @@ Route::middleware(['auth', 'active'])->group(function () {
 Route::get('/i/{code}', ScanController::class)->name('scan.code');
 
 // Organization logo (public, versioned for browser caching)
+// The app on the home screen (PWA): manifest and the page the service worker shows without network
+Route::get('/manifest.webmanifest', function (OrganizationSettings $org) {
+    return response()->json([
+        'name' => $org->shortName(),
+        'short_name' => Str::limit($org->shortName(), 12, ''),
+        'start_url' => '/',
+        'scope' => '/',
+        'display' => 'standalone',
+        'background_color' => '#1B2645',
+        'theme_color' => '#1B2645',
+        'lang' => 'de',
+        'icons' => [
+            ['src' => '/images/icon-192.png', 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any maskable'],
+            ['src' => '/images/icon-512.png', 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any maskable'],
+        ],
+    ], 200, ['Content-Type' => 'application/manifest+json', 'Cache-Control' => 'public, max-age=3600'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+})->name('manifest');
+Route::view('/offline', 'pages.offline')->name('offline');
+
 Route::get('/organisation/logo', function () {
     $org = app(OrganizationSettings::class);
     abort_unless($org->logoData(), 404);

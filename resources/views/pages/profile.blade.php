@@ -64,6 +64,8 @@
 
         <livewire:profile.settings />
 
+        <livewire:profile.push-settings />
+
         <livewire:feedback.feedback-list />
 
         {{-- Logout --}}

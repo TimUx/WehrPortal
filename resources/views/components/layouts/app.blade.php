@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="theme-color" content="#1B2645">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/images/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <title>{{ $title ? $title.' – '.($orgName ?? 'openwehr') : ($orgName ?? 'openwehr') }}</title>
     @include('partials.og-tags', ['preview' => app(\App\Support\LinkPreview::class)->forRequest(request())])
     @vite(['resources/css/app.css', 'resources/js/app.js'])

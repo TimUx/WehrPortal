@@ -3,6 +3,7 @@
 namespace Modules\Personalverwaltung\src\Services;
 
 use App\Models\Group;
+use App\Models\Guardian;
 use App\Models\MemberFunction;
 use App\Models\Setting;
 use App\Models\User;
@@ -548,6 +549,34 @@ class PersonnelService
         } catch (Throwable) {
             throw ValidationException::withMessages([$field => 'Bitte ein gültiges Datum angeben.']);
         }
+    }
+
+    // ─── Erziehungsberechtigte ───────────────────────────────────────────────
+
+    /** An Erziehungsberechtigte(r) of the Kamerad: gets the Kalender mails and answers for the child */
+    public function addGuardian(User $by, User $member, array $data): Guardian
+    {
+        $this->assertMayView($by, $member);
+        $name = trim((string) ($data['name'] ?? ''));
+        $email = mb_strtolower(trim((string) ($data['email'] ?? '')));
+        $phone = trim((string) ($data['phone'] ?? ''));
+        $errors = array_filter([
+            'guardian_name' => $name === '' || mb_strlen($name) > 150 ? 'Bitte den Namen angeben.' : null,
+            'guardian_email' => ! filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($email) > 255 ? 'Bitte eine gültige E-Mail-Adresse angeben.'
+                : ($member->guardians()->where('email', $email)->exists() ? 'Diese Adresse ist schon eingetragen.' : null),
+            'guardian_phone' => mb_strlen($phone) > 50 ? 'Die Telefonnummer ist zu lang.' : null,
+        ]);
+        if ($errors) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        return $member->guardians()->create(['name' => $name, 'email' => $email, 'phone' => $phone !== '' ? $phone : null]);
+    }
+
+    public function deleteGuardian(User $by, Guardian $guardian): void
+    {
+        $this->assertMayView($by, $guardian->user);
+        $guardian->delete();
     }
 
     private function assertManager(User $user): void

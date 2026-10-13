@@ -2,19 +2,24 @@
 
 namespace App\Providers;
 
+use App\Models\User;
 use App\Services\ActivityRecorder;
 use App\Services\AnnualReportRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\OrganizationSettings;
 use App\Services\PersonnelFileRegistry;
+use App\Services\PushService;
 use App\Services\ScanRegistry;
 use App\Services\VehicleBlockRegistry;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
+use Illuminate\Notifications\DatabaseNotification;
+use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use Throwable;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -28,6 +33,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ActivityRecorder::class);
         $this->app->singleton(PersonnelFileRegistry::class);
         $this->app->singleton(VehicleBlockRegistry::class);
+        $this->app->singleton(PushService::class);
     }
 
     public function boot(): void
@@ -36,6 +42,18 @@ class AppServiceProvider extends ServiceProvider
         foreach (['created', 'updated', 'deleted'] as $event) {
             Event::listen("eloquent.{$event}: *", fn (string $name, array $payload) => app(ActivityRecorder::class)->handle($name, $payload));
         }
+
+        // Every entry under the bell also goes as push to the Kamerad's devices
+        Event::listen(NotificationSent::class, function (NotificationSent $event) {
+            if ($event->channel === 'database' && $event->notifiable instanceof User && $event->response instanceof DatabaseNotification) {
+                try {
+                    $data = $event->response->data;
+                    app(PushService::class)->toUser($event->notifiable, (string) ($data['title'] ?? config('app.name')), (string) ($data['body'] ?? ''), $data['url'] ?? null);
+                } catch (Throwable $e) {
+                    report($e);
+                }
+            }
+        });
 
         FilamentView::registerRenderHook(PanelsRenderHook::STYLES_AFTER, fn () => view('filament.brand-buttons'));
         // A Kamerad's module panels (e.g. Kleiderwart) also show the way back for an admin viewing as them
