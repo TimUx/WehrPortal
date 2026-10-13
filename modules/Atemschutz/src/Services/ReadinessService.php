@@ -40,6 +40,12 @@ class ReadinessService
     /** Missing one of these keeps a Kamerad from going under Atemschutz */
     public const BLOCKING = ['agt', 'g263', 'belastungsuebung', 'unterweisung'];
 
+    /** CSA-Träger additionally need the CSA training and a CSA-Übung within twelve months, on top of being ready for Atemschutz */
+    public const CSA_ITEMS = ['csa' => 'CSA-Ausbildung', 'csa_uebung' => 'CSA-Übung'];
+
+    /** Tragezeit by kind, for the pass, the Personalakte and the Jahresbericht */
+    public const WEAR_KINDS = ['einsatz' => 'Einsatz', 'uebung' => 'Übung', 'belastungsuebung' => 'Belastungsübung', 'csa' => 'mit CSA'];
+
     public static function today(): Carbon
     {
         return Carbon::parse(now('Europe/Berlin')->toDateString());
@@ -64,8 +70,15 @@ class ReadinessService
             ->selectRaw('as_team_members.user_id, max(as_teams.started_at) as last')->groupBy('as_team_members.user_id')->pluck('last', 'user_id');
         $lq = $this->fromLehrgaenge($ids);
         $reports = $this->reportMissions($ids)->groupBy('user_id')->map(fn ($rows) => $rows->max('alarmed_at'));
+        // Last time under CSA: a CSA-Übung, any Nachweis worn with CSA, or a CSA-Trupp of the Überwachung
+        $csaTrainings = Training::whereIn('user_id', $ids)->where(fn ($q) => $q->where('kind', 'csa_uebung')->orWhere('csa', true))
+            ->selectRaw('user_id, max(done_on) as last')->groupBy('user_id')->pluck('last', 'user_id');
+        $csaTeams = DB::table('as_team_members')->join('as_teams', 'as_teams.id', '=', 'as_team_members.team_id')
+            ->whereIn('as_team_members.user_id', $ids)->where('as_teams.csa', true)->whereNotNull('as_teams.started_at')
+            ->selectRaw('as_team_members.user_id, max(as_teams.started_at) as last')->groupBy('as_team_members.user_id')->pluck('last', 'user_id');
 
-        return $wearers->mapWithKeys(fn (Wearer $w) => [$w->user_id => $this->evaluate($w, $own[$w->user_id] ?? collect(), collect([$teams[$w->user_id] ?? null, $reports[$w->user_id] ?? null])->filter()->max(), $lq[$w->user_id] ?? [])]);
+        return $wearers->mapWithKeys(fn (Wearer $w) => [$w->user_id => $this->evaluate($w, $own[$w->user_id] ?? collect(), collect([$teams[$w->user_id] ?? null, $reports[$w->user_id] ?? null])->filter()->max(), $lq[$w->user_id] ?? [],
+            collect([$csaTrainings[$w->user_id] ?? null, $csaTeams[$w->user_id] ?? null])->filter()->max())]);
     }
 
     /** @return array{wearer: Wearer, ready: bool, soon: bool, reasons: list<string>, items: array<string, array{ok: bool, until: ?Carbon, last: ?Carbon, source: ?string}>} */
@@ -74,22 +87,49 @@ class ReadinessService
         return $this->forWearers(collect([$wearer]))->first();
     }
 
-    /** @return array{year: int, minutes: int, teams: int} time under Atemschutz this year, from the Trupps of the Überwachung */
+    /**
+     * Tragezeit of the year: the Trupps of the Überwachung (Einsatz or Übung, CSA-Trupps under CSA) and the
+     * Nachweise with minutes (Belastungsübung, Einsatz/Übung, CSA-Übung or anything worn with CSA).
+     *
+     * @return array{year: int, minutes: int, teams: int, by: array<string, int>}
+     */
     public function wearTime(User $user, ?int $year = null): array
     {
         $year ??= (int) now('Europe/Berlin')->year;
-        $teams = Team::whereNotNull('started_at')->whereYear('started_at', $year)
+        $by = array_fill_keys(array_keys(self::WEAR_KINDS), 0);
+        $teams = Team::with('operation')->whereNotNull('started_at')->whereYear('started_at', $year)
             ->whereHas('members', fn ($q) => $q->where('user_id', $user->id))->get();
+        foreach ($teams as $team) {
+            $by[$team->csa ? 'csa' : ($team->operation?->kind === 'einsatz' ? 'einsatz' : 'uebung')] += (int) $team->minutes();
+        }
+        foreach (Training::where('user_id', $user->id)->whereYear('done_on', $year)->whereNotNull('minutes')->get() as $t) {
+            $by[$t->csa || $t->kind === 'csa_uebung' ? 'csa' : ($t->kind === 'belastungsuebung' ? 'belastungsuebung' : 'uebung')] += (int) $t->minutes;
+        }
 
-        return ['year' => $year, 'minutes' => (int) $teams->sum(fn (Team $t) => $t->minutes()), 'teams' => $teams->count()];
+        return ['year' => $year, 'minutes' => array_sum($by), 'teams' => $teams->count(), 'by' => $by];
     }
 
-    /** @return array{ready: int, soon: int, not_ready: int} the pool in numbers */
+    /** @return array<string, int> minutes of the whole Wehr in the year by kind (Trupps count per Geräteträger) */
+    public function wearTimeAll(int $year): array
+    {
+        $by = array_fill_keys(array_keys(self::WEAR_KINDS), 0);
+        foreach (Team::with('operation')->withCount('members')->whereNotNull('started_at')->whereYear('started_at', $year)->get() as $team) {
+            $by[$team->csa ? 'csa' : ($team->operation?->kind === 'einsatz' ? 'einsatz' : 'uebung')] += (int) $team->minutes() * $team->members_count;
+        }
+        foreach (Training::whereYear('done_on', $year)->whereNotNull('minutes')->get() as $t) {
+            $by[$t->csa || $t->kind === 'csa_uebung' ? 'csa' : ($t->kind === 'belastungsuebung' ? 'belastungsuebung' : 'uebung')] += (int) $t->minutes;
+        }
+
+        return $by;
+    }
+
+    /** @return array{ready: int, soon: int, not_ready: int, csa_ready: int} the pool in numbers */
     public function poolCounts(): array
     {
         $states = $this->forWearers(Wearer::active()->get());
 
         return [
+            'csa_ready' => $states->filter(fn ($s) => $s['csa']['ready'] ?? false)->count(),
             'ready' => $states->where('ready', true)->where('soon', false)->count(),
             'soon' => $states->where('ready', true)->where('soon', true)->count(),
             'not_ready' => $states->where('ready', false)->count(),
@@ -112,7 +152,8 @@ class ReadinessService
         foreach ($this->forWearers(Wearer::active()->with('user')->get()) as $state) {
             $wearer = $state['wearer'];
             $reminded = $wearer->reminded ?? [];
-            $due = collect($state['items'])->only(self::BLOCKING)
+            // CSA-Träger are also reminded of their CSA-Übung
+            $due = collect($state['items'])->only(self::BLOCKING)->merge($state['csa'] ? ['csa_uebung' => $state['csa']['items']['csa_uebung']] : [])
                 ->filter(fn ($item, $key) => $item['until'] && $item['until']->lte($limit) && ($reminded[$key] ?? null) !== $item['until']->toDateString());
             if ($due->isEmpty()) {
                 continue;
@@ -125,7 +166,7 @@ class ReadinessService
                 continue;
             }
 
-            $lines = $due->map(fn ($item, $key) => self::ITEMS[$key].($item['until']->lt(self::today()) ? ' abgelaufen am ' : ' läuft ab am ').$item['until']->format('d.m.Y'))->values();
+            $lines = $due->map(fn ($item, $key) => (self::ITEMS[$key] ?? self::CSA_ITEMS[$key]).($item['until']->lt(self::today()) ? ' abgelaufen am ' : ' läuft ab am ').$item['until']->format('d.m.Y'))->values();
             $digest->push(['name' => $wearer->user->name, 'lines' => $lines]);
             $this->notify(collect([$wearer->user]), new DeadlineNotification($lines->all()));
         }
@@ -137,7 +178,7 @@ class ReadinessService
         return $digest->count();
     }
 
-    private function evaluate(Wearer $wearer, Collection $own, ?string $lastTeam, array $lq): array
+    private function evaluate(Wearer $wearer, Collection $own, ?string $lastTeam, array $lq, ?string $lastCsa = null): array
     {
         $today = self::today();
         $date = fn ($value) => $value ? Carbon::parse(Carbon::parse($value)->setTimezone('Europe/Berlin')->toDateString()) : null;
@@ -167,9 +208,18 @@ class ReadinessService
         $ready = $reasons === [];
         $soonLimit = $today->copy()->addDays(self::SOON_DAYS);
 
+        $csa = null;
+        if ($wearer->is_csa) {
+            $csaItems = ['csa' => ['ok' => true, 'until' => null, 'last' => $date($wearer->csa_qualified_on), 'source' => null], 'csa_uebung' => $yearly($date($lastCsa))];
+            $csaReasons = [...($ready ? [] : ['Atemschutz nicht einsatzbereit']), ...($csaItems['csa_uebung']['ok'] ? [] : [self::CSA_ITEMS['csa_uebung'].($csaItems['csa_uebung']['until'] ? ' abgelaufen' : ' fehlt')])];
+            $csa = ['ready' => $csaReasons === [], 'items' => $csaItems, 'reasons' => $csaReasons,
+                'soon' => $csaReasons === [] && $csaItems['csa_uebung']['until']?->lte($soonLimit)];
+        }
+
         return [
             'wearer' => $wearer, 'ready' => $ready, 'items' => $items, 'reasons' => $reasons,
             'soon' => $ready && collect(self::BLOCKING)->contains(fn ($key) => $items[$key]['until']?->lte($soonLimit)),
+            'csa' => $csa,
         ];
     }
 

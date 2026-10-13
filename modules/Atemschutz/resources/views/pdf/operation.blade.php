@@ -24,7 +24,7 @@
 
     @forelse($operation->teams as $team)
         @php($state = $states[$team->id])
-        <h2>{{ $team->name }}{{ $team->task ? ' – '.$team->task : '' }}</h2>
+        <h2>{{ $team->name }}{{ $team->csa ? ' (CSA)' : '' }}{{ $team->task ? ' – '.$team->task : '' }}</h2>
         <table>
             <tr><th>Anschluss</th><th>Ziel erreicht</th><th>Rückzug</th><th>Abgelegt</th><th>Dauer</th><th>Erwartet</th><th>Rückzugsdruck</th></tr>
             <tr><td>{{ $t($team->started_at) }}</td><td>{{ $t($team->target_reached_at) }}{{ $team->target_pressure ? ' ('.$team->target_pressure.' bar)' : '' }}</td><td>{{ $t($team->withdrawn_at) }}</td><td>{{ $t($team->ended_at) }}</td>

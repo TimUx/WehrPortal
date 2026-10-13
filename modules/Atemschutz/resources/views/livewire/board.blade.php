@@ -42,7 +42,7 @@
             <section class="space-y-3 rounded-2xl border bg-white p-4 shadow-sm {{ $state['warnings'] ? 'border-red-400' : 'border-gray-100' }}" wire:key="t-{{ $team->id }}">
                 <div class="flex items-start justify-between gap-3">
                     <div>
-                        <h2 class="text-lg font-bold text-gray-900">{{ $team->name }}</h2>
+                        <h2 class="text-lg font-bold text-gray-900">{{ $team->name }}@if($team->csa) <span class="rounded bg-amber-100 px-1.5 py-0.5 align-middle text-xs font-semibold text-amber-900">CSA</span>@endif</h2>
                         @if($team->task)<p class="text-sm text-gray-600">{{ $team->task }}</p>@endif
                     </div>
                     @if($team->isActive())
@@ -109,6 +109,7 @@
                 <input type="text" wire:model="teamName" maxlength="100" placeholder="z. B. Angriffstrupp 1" class="{{ $input }}" aria-label="Truppname">
                 <input type="text" wire:model="task" maxlength="300" placeholder="Auftrag, z. B. Menschenrettung 1. OG" class="{{ $input }}" aria-label="Auftrag">
             </div>
+            <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="csa" class="rounded"> Trupp im Chemikalienschutzanzug (CSA) – nur einsatzbereite CSA-Träger</label>
             @error('team_name')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
             <div class="flex flex-wrap items-center gap-2">
                 <input type="text" wire:model="rfid" wire:keydown.enter.prevent="addByRfid" autocomplete="off" placeholder="RFID-Chip scannen …" class="{{ $input }} sm:w-64" aria-label="RFID-Chip">

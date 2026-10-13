@@ -15,5 +15,6 @@
                 <dd class="{{ $item['ok'] ? 'text-gray-800' : 'text-red-700' }}">@if($key === 'agt'){{ $item['ok'] ? 'ja' : 'nein' }}@else{{ $item['until'] ? ($item['ok'] ? 'bis ' : 'abgelaufen ').$item['until']->format('d.m.Y') : 'fehlt' }}@endif</dd>
             @endforeach
         </dl>
+        @include('atemschutz::partials.csa-status', ['csa' => $asState['csa']])
     @endif
 </section>

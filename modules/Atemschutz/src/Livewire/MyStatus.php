@@ -23,6 +23,7 @@ class MyStatus extends Component
 
         return view('atemschutz::livewire.my-status', [
             'state' => $wearer ? $readiness->forWearer($wearer) : null,
+            'wear' => $readiness->wearTime($user),
             'trainings' => Training::where('user_id', $user->id)->latest('done_on')->limit(30)->get(),
             'missions' => $missions,
             'reportMissions' => $readiness->reportMissions([$user->id], 30)->reject(fn ($r) => in_array($r->report_id, $watched, true))->values(),

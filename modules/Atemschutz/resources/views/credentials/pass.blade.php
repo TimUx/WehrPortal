@@ -12,6 +12,7 @@
             </dd>
         @endforeach
         <dt class="text-gray-500">Tragezeit {{ $wear['year'] }}</dt>
-        <dd class="text-gray-900">{{ $wear['minutes'] }} min in {{ $wear['teams'] }} Trupp{{ $wear['teams'] === 1 ? '' : 's' }}</dd>
+        <dd class="text-gray-900">{{ $wear['minutes'] }} min{{ $wear['minutes'] ? ' ('.collect($wear['by'])->filter()->map(fn ($m, $k) => \Modules\Atemschutz\src\Services\ReadinessService::WEAR_KINDS[$k].' '.$m)->implode(', ').')' : '' }}</dd>
     </dl>
+    @if($state['csa'])<div class="border-t border-gray-100 px-4 py-3">@include('atemschutz::partials.csa-status', ['csa' => $state['csa']])</div>@endif
 </div>

@@ -25,6 +25,9 @@ class Board extends Component
 
     public string $task = '';
 
+    /** The Trupp goes in Chemikalienschutzanzügen: every member must be a CSA-ready CSA-Träger */
+    public bool $csa = false;
+
     /** @var list<array{user_id: ?int, name: string, start_pressure: string, is_leader: bool, override: bool, reason: ?string}> */
     public array $draft = [];
 
@@ -90,8 +93,8 @@ class Board extends Component
     public function register(MonitorService $monitor): void
     {
         $this->run(function () use ($monitor) {
-            $monitor->registerTeam(auth()->user(), $this->operation, $this->teamName, $this->task, $this->draft);
-            $this->reset('task', 'draft');
+            $monitor->registerTeam(auth()->user(), $this->operation, $this->teamName, $this->task, $this->draft, $this->csa);
+            $this->reset('task', 'draft', 'csa');
             $this->teamName = $this->suggestName();
         }, 'Trupp registriert.');
     }

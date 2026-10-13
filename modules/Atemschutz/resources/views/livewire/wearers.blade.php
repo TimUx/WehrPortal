@@ -4,7 +4,7 @@
 <div class="space-y-4">
     <div>
         <h1 class="text-xl font-bold text-gray-900">Atemschutzgeräteträger</h1>
-        <p class="text-sm text-gray-500">Einsatzbereit ist, wer den AGT-Lehrgang hat, eine gültige G26.3 und in den letzten {{ \Modules\Atemschutz\src\Services\ReadinessService::VALID_MONTHS }} Monaten Unterweisung und Belastungsübung (FwDV 7). Gespeichert werden nur Daten, keine Befunde. Absolvierte Lehrgänge „Atemschutzgeräteträger…“ und Belastungsübungen aus dem Modul Lehrgänge zählen mit.</p>
+        <p class="text-sm text-gray-500">Einsatzbereit ist, wer den AGT-Lehrgang hat, eine gültige G26.3 und in den letzten {{ \Modules\Atemschutz\src\Services\ReadinessService::VALID_MONTHS }} Monaten Unterweisung und Belastungsübung (FwDV 7). CSA-Träger brauchen zusätzlich die CSA-Ausbildung und eine CSA-Übung in den letzten 12 Monaten. Gespeichert werden nur Daten, keine Befunde. Absolvierte Lehrgänge „Atemschutzgeräteträger…“ und Belastungsübungen aus dem Modul Lehrgänge zählen mit.</p>
     </div>
     @if($flash)<p class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{{ $flash }}</p>@endif
 
@@ -15,6 +15,10 @@
             <option value="soon">Frist läuft ab ({{ $counts['soon'] }})</option>
             <option value="not_ready">Nicht einsatzbereit ({{ $counts['not_ready'] }})</option>
             <option value="inactive">Nicht mehr im Pool</option>
+        </select>
+        <select wire:model.live="carrier" class="{{ $select }}" aria-label="Träger">
+            <option value="">AGT und CSA</option>
+            <option value="csa">Nur CSA-Träger ({{ $counts['csa_ready'] }} CSA-bereit)</option>
         </select>
         @if($groups->isNotEmpty())
             <select wire:model.live="group" class="{{ $select }}" aria-label="Abteilung">
@@ -38,16 +42,18 @@
                 <label class="block text-sm text-gray-700">am (optional)<input type="date" wire:model="form.agt_qualified_on" class="{{ $input }}"></label>
                 <label class="block text-sm text-gray-700">G26.3 untersucht am<input type="date" wire:model.live="form.g263_examined_on" class="{{ $input }}"></label>
                 <label class="block text-sm text-gray-700">G26.3 gültig bis<input type="date" wire:model="form.g263_valid_until" class="{{ $input }}"></label>
+                <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="form.is_csa" class="rounded"> CSA-Träger (Chemikalienschutzanzug)</label>
+                <label class="block text-sm text-gray-700">CSA-Ausbildung am (optional)<input type="date" wire:model="form.csa_qualified_on" class="{{ $input }}"></label>
                 <label class="block text-sm text-gray-700">RFID-Chip<input type="text" wire:model="form.rfid_uid" maxlength="100" autocomplete="off" placeholder="Feld antippen, Chip an den Leser halten" class="{{ $input }}"></label>
                 <label class="block text-sm text-gray-700">Notiz (keine Befunde!)<input type="text" wire:model="form.notes" maxlength="500" class="{{ $input }}"></label>
             </div>
-            @foreach(['form.agt_qualified_on', 'form.g263_examined_on', 'form.g263_valid_until', 'form.rfid_uid', 'form.notes'] as $field)@error($field)<p class="text-sm text-red-600">{{ $message }}</p>@enderror @endforeach
+            @foreach(['form.agt_qualified_on', 'form.csa_qualified_on', 'form.g263_examined_on', 'form.g263_valid_until', 'form.rfid_uid', 'form.notes'] as $field)@error($field)<p class="text-sm text-red-600">{{ $message }}</p>@enderror @endforeach
             <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="form.is_active" class="rounded"> Im Atemschutz-Pool</label>
             <div class="flex gap-3"><button type="submit" class="rounded-lg bg-fw-red px-4 py-2 text-sm font-semibold text-white">Speichern</button><button type="button" wire:click="cancel" class="text-sm text-gray-500 underline">Schließen</button></div>
             @if($trainings->isNotEmpty())
                 <ul class="space-y-1 border-t border-gray-100 pt-2 text-xs text-gray-600">
                     @foreach($trainings as $t)
-                        <li class="flex justify-between gap-2">{{ $t->done_on->format('d.m.Y') }} · {{ $t->kindLabel() }}{{ $t->notes ? ' · '.$t->notes : '' }}<button type="button" wire:click="deleteTraining({{ $t->id }})" wire:confirm="Eintrag löschen?" class="underline">löschen</button></li>
+                        <li class="flex justify-between gap-2">{{ $t->done_on->format('d.m.Y') }} · {{ $t->kindLabel() }}{{ $t->csa ? ' (CSA)' : '' }}{{ $t->minutes ? ' · '.$t->minutes.' min' : '' }}{{ $t->notes ? ' · '.$t->notes : '' }}<button type="button" wire:click="deleteTraining({{ $t->id }})" wire:confirm="Eintrag löschen?" class="underline">löschen</button></li>
                     @endforeach
                 </ul>
             @endif
@@ -59,6 +65,8 @@
         <div class="flex flex-wrap items-center gap-2">
             <select wire:model="trainingKind" class="{{ $select }}">@foreach(\Modules\Atemschutz\src\Models\Training::KINDS as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach</select>
             <input type="date" wire:model="trainingDate" class="{{ $select }}">
+            <input type="number" min="1" max="600" wire:model="trainingMinutes" placeholder="Tragezeit (min)" class="{{ $select }} w-36" aria-label="Tragezeit in Minuten">
+            <label class="flex items-center gap-1.5 text-sm text-gray-700"><input type="checkbox" wire:model="trainingCsa" class="rounded"> mit CSA</label>
             <input type="text" wire:model="trainingNotes" maxlength="300" placeholder="Notiz, z. B. Übungsstrecke Kreisfeuerwehrzentrale" class="{{ $select }} w-full sm:w-72">
             <button type="button" wire:click="recordTraining" class="rounded-lg bg-fw-navy px-3 py-1.5 text-sm font-semibold text-white">Für {{ count($selected) }} eintragen</button>
             <button type="button" wire:click="selectAll" class="text-xs text-gray-500 underline">alle wählen</button>
@@ -69,7 +77,7 @@
     <div class="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
         <table class="min-w-full text-sm">
             <thead class="bg-gray-50 text-left text-xs text-gray-500">
-                <tr><th class="p-2"></th><th class="p-2">Name</th><th class="p-2">Status</th>@foreach(\Modules\Atemschutz\src\Services\ReadinessService::ITEMS as $label)<th class="p-2">{{ $label }}</th>@endforeach<th class="p-2">Chip</th></tr>
+                <tr><th class="p-2"></th><th class="p-2">Name</th><th class="p-2">Status</th>@foreach(\Modules\Atemschutz\src\Services\ReadinessService::ITEMS as $label)<th class="p-2">{{ $label }}</th>@endforeach<th class="p-2">CSA</th><th class="p-2">Chip</th></tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 @forelse($states as $s)
@@ -84,10 +92,11 @@
                                 @if($item['source'])<span class="block text-[10px] text-gray-400">aus {{ $item['source'] }}</span>@endif
                             </td>
                         @endforeach
+                        <td class="p-2 text-xs {{ $s['csa'] ? ($s['csa']['ready'] ? 'text-green-700' : 'font-semibold text-red-700') : 'text-gray-400' }}">{{ $s['csa'] ? ($s['csa']['ready'] ? 'bereit' : 'nicht bereit') : '–' }}@if($s['csa'] && $s['csa']['items']['csa_uebung']['until'])<span class="block text-[10px] text-gray-400">Übung bis {{ $fmt($s['csa']['items']['csa_uebung']['until']) }}</span>@endif</td>
                         <td class="p-2 text-xs text-gray-500">{{ $s['wearer']->rfid_uid ? '✓' : '–' }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="9" class="p-4 text-gray-500">Noch niemand im Atemschutz-Pool.</td></tr>
+                    <tr><td colspan="10" class="p-4 text-gray-500">Noch niemand im Atemschutz-Pool.</td></tr>
                 @endforelse
             </tbody>
         </table>

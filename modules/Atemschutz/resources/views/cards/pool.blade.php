@@ -5,6 +5,7 @@
             <span class="font-semibold text-green-700">{{ $pool['ready'] }} einsatzbereit</span>
             @if($pool['soon'])<span class="text-amber-800">{{ $pool['soon'] }} läuft bald ab</span>@endif
             @if($pool['not_ready'])<span class="text-red-700">{{ $pool['not_ready'] }} nicht einsatzbereit</span>@endif
+            @if($pool['csa_ready'])<span class="text-gray-700">{{ $pool['csa_ready'] }} CSA-bereit</span>@endif
         </p>
     @endif
     @if($state)

@@ -15,11 +15,11 @@ class Wearer extends Model
 {
     protected $table = 'as_wearers';
 
-    protected $fillable = ['user_id', 'is_agt', 'agt_qualified_on', 'g263_examined_on', 'g263_valid_until', 'rfid_uid', 'notes', 'reminded', 'is_active'];
+    protected $fillable = ['user_id', 'is_agt', 'agt_qualified_on', 'g263_examined_on', 'g263_valid_until', 'rfid_uid', 'notes', 'reminded', 'is_active', 'is_csa', 'csa_qualified_on'];
 
     protected function casts(): array
     {
-        return ['is_agt' => 'boolean', 'is_active' => 'boolean', 'agt_qualified_on' => 'date', 'g263_examined_on' => 'date', 'g263_valid_until' => 'date', 'reminded' => 'array'];
+        return ['is_agt' => 'boolean', 'is_active' => 'boolean', 'agt_qualified_on' => 'date', 'g263_examined_on' => 'date', 'g263_valid_until' => 'date', 'reminded' => 'array', 'is_csa' => 'boolean', 'csa_qualified_on' => 'date'];
     }
 
     public function user(): BelongsTo

@@ -100,6 +100,7 @@ class AtemschutzServiceProvider extends ServiceProvider
                 'operations' => $operations, 'teams' => $members->pluck('team_id')->unique()->count(),
                 'people' => $members->pluck('user_id')->filter()->unique()->count(), 'trainings' => $trainings,
                 'pool' => $year === (int) now('Europe/Berlin')->year ? app(ReadinessService::class)->poolCounts() : null,
+                'wear' => app(ReadinessService::class)->wearTimeAll($year),
             ])->render();
         }, 50);
 

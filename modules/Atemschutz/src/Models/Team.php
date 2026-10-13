@@ -18,12 +18,12 @@ class Team extends Model
     protected $table = 'as_teams';
 
     protected $fillable = ['operation_id', 'name', 'task', 'status', 'cylinder_liters', 'consumption_lpm', 'reserve_bar',
-        'started_at', 'target_reached_at', 'target_pressure', 'withdrawn_at', 'ended_at'];
+        'started_at', 'target_reached_at', 'target_pressure', 'withdrawn_at', 'ended_at', 'csa'];
 
     protected function casts(): array
     {
         return ['cylinder_liters' => 'float', 'consumption_lpm' => 'integer', 'reserve_bar' => 'integer', 'target_pressure' => 'integer',
-            'started_at' => 'datetime', 'target_reached_at' => 'datetime', 'withdrawn_at' => 'datetime', 'ended_at' => 'datetime'];
+            'started_at' => 'datetime', 'target_reached_at' => 'datetime', 'withdrawn_at' => 'datetime', 'ended_at' => 'datetime', 'csa' => 'boolean'];
     }
 
     public function operation(): BelongsTo

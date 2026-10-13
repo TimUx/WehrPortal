@@ -5,3 +5,4 @@
         <dd>@if($key === 'agt'){{ $item['ok'] ? 'ja' : 'nein' }}@else{{ $item['until'] ? ($item['ok'] ? 'bis ' : 'abgelaufen ').$item['until']->format('d.m.Y') : 'fehlt' }}@endif</dd>
     @endforeach
 </dl>
+@include('atemschutz::partials.csa-status', ['csa' => $state['csa'], 'plain' => true])

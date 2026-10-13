@@ -128,7 +128,7 @@ class MonitorService
      *
      * @param  list<array{user_id?: ?int, name?: ?string, start_pressure: int|string, is_leader?: bool, override?: bool}>  $members
      */
-    public function registerTeam(User $by, Operation $operation, string $name, ?string $task, array $members): Team
+    public function registerTeam(User $by, Operation $operation, string $name, ?string $task, array $members, bool $csa = false): Team
     {
         $this->assertRunning($by, $operation);
         $name = trim($name);
@@ -150,7 +150,7 @@ class MonitorService
         }
 
         $states = $this->readiness->forWearers(Wearer::whereIn('user_id', $userIds)->get());
-        $rows = collect($members)->values()->map(function (array $m, int $i) use ($states) {
+        $rows = collect($members)->values()->map(function (array $m, int $i) use ($states, $csa) {
             $pressure = (int) ($m['start_pressure'] ?? 0);
             if ($pressure < 1 || $pressure > self::MAX_PRESSURE) {
                 throw ValidationException::withMessages(["members.$i" => 'Bitte den Flaschendruck (bar) angeben.']);
@@ -165,6 +165,8 @@ class MonitorService
                 $user === null => 'nicht im Atemschutz-Pool (z. B. andere Wehr)',
                 $state === null => 'nicht im Atemschutz-Pool',
                 ! $state['ready'] => implode(', ', $state['reasons']),
+                $csa && ! $state['csa'] => 'kein CSA-Träger',
+                $csa && ! $state['csa']['ready'] => 'CSA: '.implode(', ', $state['csa']['reasons']),
                 default => null,
             };
             if ($reason !== null && ! ($m['override'] ?? false)) {
@@ -179,9 +181,9 @@ class MonitorService
 
         $settings = self::settings();
 
-        return DB::transaction(function () use ($operation, $name, $task, $rows, $settings) {
+        return DB::transaction(function () use ($operation, $name, $task, $rows, $settings, $csa) {
             $team = $operation->teams()->create([
-                'name' => mb_substr($name, 0, 100), 'task' => filled($task) ? mb_substr(trim($task), 0, 300) : null, 'status' => 'ready',
+                'csa' => $csa, 'name' => mb_substr($name, 0, 100), 'task' => filled($task) ? mb_substr(trim($task), 0, 300) : null, 'status' => 'ready',
                 'cylinder_liters' => $settings['cylinder_liters'], 'consumption_lpm' => $settings['consumption_lpm'], 'reserve_bar' => $settings['reserve_bar'],
             ]);
             $team->members()->createMany($rows->all());

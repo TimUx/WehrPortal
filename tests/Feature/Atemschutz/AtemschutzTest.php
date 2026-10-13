@@ -84,7 +84,7 @@ test('einsatzbereit needs AGT, G26.3, Belastungsübung and Unterweisung of the l
     Training::where('user_id', $this->bernd->id)->where('kind', 'unterweisung')->delete();
     expect($this->r->forWearer(Wearer::where('user_id', $this->bernd->id)->first()))->reasons->toBe(['Unterweisung fehlt']);
 
-    expect($this->r->poolCounts())->toBe(['ready' => 1, 'soon' => 0, 'not_ready' => 2]);
+    expect($this->r->poolCounts())->toBe(['csa_ready' => 0, 'ready' => 1, 'soon' => 0, 'not_ready' => 2]);
 });
 
 test('a completed AGT-Lehrgang and Belastungsübungen from the Lehrgänge count too', function () {
@@ -312,4 +312,51 @@ test('the Personalverwaltung file and the Jahresbericht show Atemschutz', functi
     $html = $this->actingAs($chief)->get(route('einsatzbericht.annual', ['jahr' => 2027]))->assertOk()->getContent();
     expect($html)->toContain('<h2>Atemschutz</h2>')->toContain('Überwachungen Einsatz')->toContain('Trupps unter Atemschutz')
         ->toContain('Pool heute')->toContain('Unterweisung (eingetragene Nachweise)');
+});
+
+test('CSA-Träger: ready with Atemschutz, CSA training and a CSA-Übung of the last twelve months; reminded of it', function () {
+    Wearer::where('user_id', $this->hanna->id)->update(['is_csa' => true, 'csa_qualified_on' => now()->subYears(2)->toDateString()]);
+    $state = fn (User $u) => $this->r->forWearer(Wearer::where('user_id', $u->id)->sole());
+
+    expect($state($this->hanna)['csa'])->ready->toBeFalse()->reasons->toBe(['CSA-Übung fehlt'])
+        ->and($state($this->bernd)['csa'])->toBeNull();
+
+    // The Atemschutzwart enters a CSA-Übung with Tragezeit for Hanna
+    Livewire::actingAs($this->wart)->test(Wearers::class)
+        ->set('selected', [$this->hanna->id])->set('trainingKind', 'csa_uebung')->set('trainingMinutes', '25')->call('recordTraining')->assertHasNoErrors()
+        ->set('carrier', 'csa')->assertSee('Hanna Hydrant')->assertDontSee('Bernd Blaulicht');
+    expect($state($this->hanna)['csa'])->ready->toBeTrue()
+        ->and($this->r->poolCounts()['csa_ready'])->toBe(1);
+
+    // A CSA-Trupp only with CSA-ready CSA-Träger, or with confirmation
+    $operation = $this->m->startOperation($this->watch, '', 'uebung', null);
+    expect(fn () => $this->m->registerTeam($this->watch, $operation, 'CSA-Trupp', null, [
+        ['user_id' => $this->hanna->id, 'start_pressure' => 300], ['user_id' => $this->bernd->id, 'start_pressure' => 300]], true))
+        ->toThrow(ValidationException::class, 'kein CSA-Träger');
+    $team = $this->m->registerTeam($this->watch, $operation, 'CSA-Trupp', null, [
+        ['user_id' => $this->hanna->id, 'start_pressure' => 300], ['user_id' => $this->bernd->id, 'start_pressure' => 300, 'override' => true]], true);
+    expect($team->csa)->toBeTrue()->and($team->members()->where('user_id', $this->bernd->id)->value('override_reason'))->toBe('kein CSA-Träger');
+
+    // The CSA-Übung runs out: reminder
+    Notification::fake();
+    $this->travel(11)->months();
+    Training::where('user_id', $this->hanna->id)->whereIn('kind', ['belastungsuebung', 'unterweisung'])->update(['done_on' => now()->toDateString()]);
+    $this->artisan('atemschutz:remind')->assertSuccessful();
+    Notification::assertSentTo($this->hanna, DeadlineNotification::class, fn ($n, $c, $u) => str_contains(implode(' ', $n->toMail($u)->introLines), 'CSA-Übung läuft ab am'));
+});
+
+test('Tragezeit by Einsatz, Übung, Belastungsübung and CSA in the pass and the Personalakte', function () {
+    $this->travelTo(now()->setDate(2027, 5, 1)->setTime(12, 0));
+    $team = startedTeam();                                   // Einsatz
+    $this->travel(30)->minutes();
+    $members = $team->members()->pluck('id')->all();
+    $this->m->recordPressures($this->watch, $team, [$members[0] => 150, $members[1] => 140], 'end');
+    Training::create(['user_id' => $this->hanna->id, 'kind' => 'belastungsuebung', 'done_on' => '2027-04-10', 'minutes' => 20]);
+    Training::create(['user_id' => $this->hanna->id, 'kind' => 'einsatzuebung', 'done_on' => '2027-04-12', 'minutes' => 15, 'csa' => true]);
+
+    $wear = $this->r->wearTime($this->hanna, 2027);
+    expect($wear['by'])->toBe(['einsatz' => 30, 'uebung' => 0, 'belastungsuebung' => 20, 'csa' => 15])->and($wear['minutes'])->toBe(65);
+
+    $this->actingAs($this->hanna)->get(route('atemschutz.personnel-file'))->assertOk()
+        ->assertSee('65 min Tragezeit 2027')->assertSee('Einsatz 30 min · Belastungsübung 20 min · mit CSA 15 min');
 });

@@ -15,6 +15,8 @@
                     </dd>
                 @endforeach
             </dl>
+            @include('atemschutz::partials.csa-status', ['csa' => $state['csa']])
+            <div class="mt-2 border-t border-gray-100 pt-2">@include('atemschutz::partials.wear-time', ['wear' => $wear])</div>
             <a href="{{ route('credentials') }}" class="mt-2 inline-block text-sm text-fw-navy underline">Atemschutzpass zum Vorzeigen →</a>
         </section>
     @endif
@@ -43,7 +45,7 @@
         <section class="space-y-2">
             <p class="text-sm font-semibold text-gray-900">Nachweise</p>
             <ul class="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white text-sm shadow-sm">
-                @foreach($trainings as $t)<li class="p-3">{{ $t->done_on->format('d.m.Y') }} · {{ $t->kindLabel() }}{{ $t->notes ? ' · '.$t->notes : '' }}</li>@endforeach
+                @foreach($trainings as $t)<li class="p-3">{{ $t->done_on->format('d.m.Y') }} · {{ $t->kindLabel() }}{{ $t->csa ? ' (CSA)' : '' }}{{ $t->minutes ? ' · '.$t->minutes.' min' : '' }}{{ $t->notes ? ' · '.$t->notes : '' }}</li>@endforeach
             </ul>
         </section>
     @endif
