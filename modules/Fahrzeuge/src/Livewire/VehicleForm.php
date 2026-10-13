@@ -43,6 +43,8 @@ class VehicleForm extends Component
             'first_registration' => (string) $profile->first_registration?->toDateString(),
             'purchased_on' => (string) $profile->purchased_on?->toDateString(), 'warranty_until' => (string) $profile->warranty_until?->toDateString(),
             'purchase_price' => $profile->purchase_price_cents !== null ? Money::input($profile->purchase_price_cents) : '',
+            'replacement_year' => (string) ($profile->replacement_year ?? ''),
+            'replacement_cost' => $profile->replacement_cost_cents !== null ? Money::input($profile->replacement_cost_cents) : '',
             'operating_hours' => $profile->operating_hours !== null ? str_replace('.', ',', (string) $profile->operating_hours) : '',
         ];
         $this->features = $profile->features ?? [];

@@ -2,6 +2,7 @@
 
 namespace Modules\Ausruestung\src\Livewire;
 
+use App\Support\Money;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -32,11 +33,58 @@ class EquipmentDetail extends Component
 
     public ?string $flash = null;
 
+    /** Gerätewarte: Reinigung or Wartung with costs */
+    public string $workType = 'cleaning';
+
+    public string $workDate = '';
+
+    public string $workText = '';
+
+    public string $workCost = '';
+
+    /** Gerätewarte: the RFID/NFC tag */
+    public string $tag = '';
+
     public function mount(): void
     {
         $this->reserveFrom = now()->addDay()->setTimezone('Europe/Berlin')->format('Y-m-d\T08:00');
         $this->reserveUntil = now()->addDays(2)->setTimezone('Europe/Berlin')->format('Y-m-d\T18:00');
         $this->useDate = now()->setTimezone('Europe/Berlin')->format('Y-m-d\TH:i');
+        $this->workDate = $this->useDate;
+        $this->tag = (string) $this->equipment->rfid;
+    }
+
+    public function logWork(EquipmentService $service): void
+    {
+        $cost = trim($this->workCost) === '' ? null : Money::parse($this->workCost);
+        if (trim($this->workCost) !== '' && $cost === null) {
+            $this->addError('workCost', 'Bitte die Kosten als Betrag angeben, z. B. 35,00.');
+
+            return;
+        }
+        $this->validate(['workDate' => ['required', 'date'], 'workText' => ['nullable', 'string', 'max:1000']]);
+        try {
+            $service->logWork($this->equipment, auth()->user(), $this->workType, trim($this->workText) ?: null, $this->local($this->workDate), $cost !== null ? $cost / 100 : null);
+        } catch (ValidationException $e) {
+            $this->addError('workType', collect($e->errors())->flatten()->first());
+
+            return;
+        }
+        $this->reset('workText', 'workCost');
+        $this->flash = EquipmentEvent::TYPES[$this->workType].' eingetragen.';
+    }
+
+    public function saveTag(EquipmentService $service): void
+    {
+        try {
+            $service->setTag($this->equipment, auth()->user(), $this->tag);
+        } catch (ValidationException $e) {
+            $this->addError('tag', collect($e->errors())->flatten()->first());
+
+            return;
+        }
+        $this->tag = (string) $this->equipment->refresh()->rfid;
+        $this->flash = $this->tag !== '' ? 'Tag '.$this->tag.' zugeordnet – ein Scan öffnet jetzt dieses Gerät.' : 'Tag entfernt.';
     }
 
     public function reportDamage(EquipmentService $service): void
@@ -100,6 +148,9 @@ class EquipmentDetail extends Component
             'upcoming' => $this->equipment->loans()->with('user')->whereIn('status', [LoanStatus::Reserved->value, LoanStatus::Active->value])->orderBy('starts_at')->get(),
             'canReserve' => in_array($this->equipment->status, [EquipmentStatus::Available, EquipmentStatus::Loaned], true),
             'useTypes' => array_intersect_key(EquipmentEvent::TYPES, array_flip(EquipmentEvent::MANUAL_TYPES)),
+            'workTypes' => array_intersect_key(EquipmentEvent::TYPES, array_flip(EquipmentEvent::WORK_TYPES)),
+            'canManage' => $canManage = auth()->user()->canManageAusruestung(),
+            'costs' => $canManage ? app(EquipmentService::class)->lifecycleCosts($this->equipment) : null,
         ]);
     }
 }

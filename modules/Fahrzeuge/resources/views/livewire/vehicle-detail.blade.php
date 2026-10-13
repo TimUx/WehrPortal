@@ -39,6 +39,7 @@
                 'Beschafft' => $profile->purchased_on?->format('d.m.Y'), 'Lieferant' => $profile->supplier,
                 'Kaufpreis' => $canManage && $profile->purchase_price_cents !== null ? \App\Support\Money::format($profile->purchase_price_cents) : null,
                 'Förderung' => $profile->funding,
+                'Ersatzbeschaffung' => $profile->replacement_year ? $profile->replacement_year.($canManage && $profile->replacement_cost_cents ? ' (ca. '.\App\Support\Money::format($profile->replacement_cost_cents).')' : '') : null,
                 'Garantie bis' => $profile->warranty_until ? $profile->warranty_until->format('d.m.Y').($profile->warranty_until->isPast() ? ' (abgelaufen)' : '') : null] as $label => $value)
                 @if(filled($value))<dt class="text-gray-500">{{ $label }}</dt><dd>{{ $value }}</dd>@endif
             @endforeach

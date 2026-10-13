@@ -19,6 +19,9 @@ class EquipmentEvent extends Model
         'repair' => 'Reparatur',
         'recall' => 'Rückruf',
         'move' => 'Standort',
+        'cleaning' => 'Reinigung',
+        'service' => 'Wartung',
+        'inventory' => 'Inventur',
         'status' => 'Status',
         'note' => 'Notiz',
     ];
@@ -26,13 +29,16 @@ class EquipmentEvent extends Model
     /** Types anyone handling the item may log by hand */
     public const MANUAL_TYPES = ['operation', 'exercise', 'note'];
 
+    /** Types the Gerätewarte log by hand, with costs */
+    public const WORK_TYPES = ['cleaning', 'service'];
+
     protected $table = 'ar_events';
 
-    protected $fillable = ['equipment_id', 'user_id', 'type', 'occurred_at', 'body'];
+    protected $fillable = ['equipment_id', 'user_id', 'type', 'occurred_at', 'body', 'cost'];
 
     protected function casts(): array
     {
-        return ['occurred_at' => 'datetime'];
+        return ['occurred_at' => 'datetime', 'cost' => 'decimal:2'];
     }
 
     public function equipment(): BelongsTo

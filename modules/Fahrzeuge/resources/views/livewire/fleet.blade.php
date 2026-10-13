@@ -5,7 +5,10 @@
             <h1 class="text-xl font-bold text-gray-900">Fahrzeuge</h1>
             <p class="text-sm text-gray-500">Alle Fahrzeuge mit Status und Verfügbarkeit – dieselbe Liste wie in Fahrzeugbuchung und Einsatzbericht.</p>
         </div>
-        @if($canManage)<a href="{{ route('fahrzeuge.create') }}" class="rounded-lg bg-fw-red px-4 py-2 text-sm font-semibold text-white hover:bg-fw-red-dark">Neues Fahrzeug</a>@endif
+        <div class="flex items-center gap-3">
+            <a href="{{ route('inventory') }}" class="text-sm text-fw-navy underline">Bestand & Ersatzbeschaffung</a>
+            @if($canManage)<a href="{{ route('fahrzeuge.create') }}" class="rounded-lg bg-fw-red px-4 py-2 text-sm font-semibold text-white hover:bg-fw-red-dark">Neues Fahrzeug</a>@endif
+        </div>
     </div>
 
     @if($assignments->isNotEmpty())

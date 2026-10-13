@@ -10,6 +10,7 @@ use App\Services\CredentialRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\DriverRegistry;
 use App\Services\HoursRegistry;
+use App\Services\InventoryRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\OrganizationSettings;
 use App\Services\PersonnelFileRegistry;
@@ -32,6 +33,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ModuleRegistry::class);
         $this->app->singleton(OrganizationSettings::class);
         $this->app->singleton(ScanRegistry::class);
+        $this->app->singleton(InventoryRegistry::class);
         $this->app->singleton(DashboardRegistry::class);
         $this->app->singleton(AnnualReportRegistry::class);
         $this->app->singleton(ActivityRecorder::class);

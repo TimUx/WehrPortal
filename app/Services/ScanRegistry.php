@@ -36,6 +36,19 @@ class ScanRegistry
         $this->fallbacks[$module] = $resolver;
     }
 
+    /** Only the modules that own the code, without the fallbacks that offer to register unknown ones */
+    public function resolveKnown(string $code): ?string
+    {
+        foreach ($this->resolvers as $resolver) {
+            $url = $resolver($code);
+            if ($url !== null) {
+                return $url;
+            }
+        }
+
+        return null;
+    }
+
     /**
      * Try every registered resolver in registration order, then the fallbacks.
      * Returns the first non-null URL, or null if no module claims the code.

@@ -118,6 +118,14 @@ class FleetService
         if (filled($data['purchase_price'] ?? null) && ($price === null || $price < 0)) {
             $errors['purchase_price'] = 'Bitte den Kaufpreis als Betrag angeben, z. B. 385.000,00.';
         }
+        $replacementYear = filled($data['replacement_year'] ?? null) ? (int) $data['replacement_year'] : null;
+        if ($replacementYear !== null && ($replacementYear < 1990 || $replacementYear > (int) now()->year + 50)) {
+            $errors['replacement_year'] = 'Bitte ein gültiges Jahr angeben.';
+        }
+        $replacementCost = filled($data['replacement_cost'] ?? null) ? Money::parse((string) $data['replacement_cost']) : null;
+        if (filled($data['replacement_cost'] ?? null) && ($replacementCost === null || $replacementCost < 0)) {
+            $errors['replacement_cost'] = 'Bitte die geschätzten Kosten als Betrag angeben.';
+        }
         $locationId = filled($data['location_id'] ?? null) ? (int) $data['location_id'] : null;
         if ($locationId && ! Location::whereKey($locationId)->exists()) {
             $errors['location_id'] = 'Diesen Standort gibt es nicht.';
@@ -128,7 +136,7 @@ class FleetService
 
         $photoData = $photo ? base64_encode($this->images->toWebp($photo->getRealPath(), 1600, 'photo')) : null;
 
-        return DB::transaction(function () use ($vehicle, $data, $name, $color, $category, $numbers, $hours, $firstRegistration, $locationId, $photoData, $purchasedOn, $warrantyUntil, $price) {
+        return DB::transaction(function () use ($vehicle, $data, $name, $color, $category, $numbers, $hours, $firstRegistration, $locationId, $photoData, $purchasedOn, $warrantyUntil, $price, $replacementYear, $replacementCost) {
             $vehicle ??= new Vehicle(['is_active' => true]);
             $vehicle->fill([
                 'name' => $name, 'short_name' => $this->text($data['short_name'] ?? null, 255), 'color' => $color,
@@ -149,6 +157,7 @@ class FleetService
                 'mileage_on' => $mileageChanged ? self::today()->toDateString() : $profile->mileage_on?->toDateString(), 'location_id' => $locationId,
                 'purchased_on' => $purchasedOn?->toDateString(), 'purchase_price_cents' => $price, 'supplier' => $this->text($data['supplier'] ?? null, 150),
                 'funding' => $this->text($data['funding'] ?? null, 150), 'warranty_until' => $warrantyUntil?->toDateString(),
+                'replacement_year' => $replacementYear, 'replacement_cost_cents' => $replacementCost,
                 ...($photoData ? ['photo' => $photoData, 'photo_updated_at' => now()] : []),
             ])->save();
 

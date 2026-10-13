@@ -5,6 +5,7 @@ namespace Modules\Ausruestung\src\Services;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Modules\Ausruestung\src\Enums\DamageStatus;
 use Modules\Ausruestung\src\Enums\EquipmentStatus;
 use Modules\Ausruestung\src\Models\Damage;
@@ -18,14 +19,62 @@ class EquipmentService
 {
     public function __construct(private readonly AusruestungMailer $mailer) {}
 
-    public function log(Equipment $equipment, ?User $by, string $type, ?string $body = null, ?Carbon $at = null): EquipmentEvent
+    public function log(Equipment $equipment, ?User $by, string $type, ?string $body = null, ?Carbon $at = null, ?float $cost = null): EquipmentEvent
     {
         return $equipment->events()->create([
             'user_id' => $by?->id,
             'type' => $type,
             'occurred_at' => $at ?? now(),
             'body' => filled($body) ? $body : null,
+            'cost' => $cost,
         ]);
+    }
+
+    /** Reinigung or Wartung by a Gerätewart, with its costs, in the Bestandsverlauf */
+    public function logWork(Equipment $equipment, User $by, string $type, ?string $body, Carbon $at, ?float $cost): EquipmentEvent
+    {
+        if (! $by->canManageAusruestung() || ! in_array($type, EquipmentEvent::WORK_TYPES, true)) {
+            throw ValidationException::withMessages(['workType' => 'Reinigungen und Wartungen tragen die Gerätewarte ein.']);
+        }
+        if ($cost !== null && ($cost < 0 || $cost > 1_000_000)) {
+            throw ValidationException::withMessages(['workCost' => 'Bitte einen gültigen Betrag angeben.']);
+        }
+
+        return $this->log($equipment, $by, $type, $body, $at, $cost);
+    }
+
+    /** Give the item an RFID/NFC tag (or remove it); a tag belongs to one item only */
+    public function setTag(Equipment $equipment, User $by, ?string $tag): void
+    {
+        if (! $by->canManageAusruestung()) {
+            throw ValidationException::withMessages(['tag' => 'Tags ordnen die Gerätewarte zu.']);
+        }
+        $tag = Equipment::normalizeTag($tag);
+        if ($tag !== null && mb_strlen($tag) > 64) {
+            throw ValidationException::withMessages(['tag' => 'Der Tag ist zu lang.']);
+        }
+        if ($tag !== null && ($other = Equipment::where('rfid', $tag)->whereKeyNot($equipment->id)->first())) {
+            throw ValidationException::withMessages(['tag' => 'Dieser Tag gehört schon zu „'.$other->name.'“ ('.$other->code.').']);
+        }
+        if ($tag === $equipment->rfid) {
+            return;
+        }
+        $equipment->update(['rfid' => $tag]);
+        $this->log($equipment, $by, 'note', $tag ? 'RFID/NFC-Tag '.$tag.' zugeordnet' : 'RFID/NFC-Tag entfernt');
+    }
+
+    /**
+     * What the item cost over its life: purchase, repairs (Schäden) and Reinigungen/Wartungen.
+     *
+     * @return array{purchase: float, repairs: float, work: float, total: float}
+     */
+    public function lifecycleCosts(Equipment $equipment): array
+    {
+        $purchase = (float) $equipment->purchase_price;
+        $repairs = (float) $equipment->damages()->sum('repair_cost');
+        $work = (float) $equipment->events()->sum('cost');
+
+        return ['purchase' => $purchase, 'repairs' => $repairs, 'work' => $work, 'total' => $purchase + $repairs + $work];
     }
 
     public function setStatus(Equipment $equipment, ?User $by, EquipmentStatus $status, ?string $note = null): void

@@ -21,7 +21,7 @@ class Equipment extends Model
         'code', 'name', 'category_id', 'manufacturer', 'model', 'serial_number', 'batch_number', 'barcode',
         'manufactured_at', 'commissioned_at', 'purchased_at', 'purchase_price',
         'lifetime_years', 'inspection_interval_months', 'next_inspection_at',
-        'location_id', 'compartment_id', 'status', 'notes',
+        'location_id', 'compartment_id', 'status', 'notes', 'rfid', 'last_seen_at',
     ];
 
     protected function casts(): array
@@ -35,11 +35,39 @@ class Equipment extends Model
             'purchase_price' => 'decimal:2',
             'lifetime_years' => 'integer',
             'inspection_interval_months' => 'integer',
+            'last_seen_at' => 'datetime',
         ];
+    }
+
+    /** RFID/NFC tag UIDs are kept upper case without separators ("04:a2:3b" → "04A23B") */
+    public static function normalizeTag(?string $value): ?string
+    {
+        $tag = strtoupper((string) preg_replace('/[^0-9A-Za-z]/', '', (string) $value));
+
+        return $tag === '' ? null : $tag;
+    }
+
+    /** The item a scanned code stands for: Inventarnummer, Hersteller-Barcode or RFID/NFC tag */
+    public static function findByScan(string $code): ?self
+    {
+        $code = trim($code);
+        if ($code === '') {
+            return null;
+        }
+
+        return static::where('code', $code)->first()
+            ?? static::where('barcode', $code)->first()
+            ?? (($tag = static::normalizeTag($code)) ? static::where('rfid', $tag)->first() : null);
     }
 
     protected static function booted(): void
     {
+        static::saving(function (Equipment $equipment) {
+            if ($equipment->isDirty('rfid')) {
+                $equipment->rfid = static::normalizeTag($equipment->rfid);
+            }
+        });
+
         static::creating(function (Equipment $equipment) {
             $equipment->code = filled($equipment->code) ? trim($equipment->code) : static::nextCode();
         });

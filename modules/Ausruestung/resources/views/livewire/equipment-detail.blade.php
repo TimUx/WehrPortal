@@ -26,6 +26,11 @@
             <div><dt class="text-gray-500">Seriennummer</dt><dd class="text-gray-900">{{ $equipment->serial_number ?? '–' }}</dd></div>
             <div><dt class="text-gray-500">Nächste Prüfung</dt><dd class="{{ $equipment->inspectionOverdue() ? 'text-red-700 font-semibold' : 'text-gray-900' }}">{{ $equipment->next_inspection_at?->format('d.m.Y') ?? '–' }}</dd></div>
             <div><dt class="text-gray-500">Lebensdauer bis</dt><dd class="{{ $equipment->lifetimeExpired() ? 'text-red-700 font-semibold' : 'text-gray-900' }}">{{ $equipment->lifetimeEndsAt()?->format('d.m.Y') ?? '–' }}</dd></div>
+            @if($equipment->last_seen_at)<div><dt class="text-gray-500">Zuletzt bei Inventur</dt><dd class="text-gray-900">{{ $equipment->last_seen_at->setTimezone('Europe/Berlin')->format('d.m.Y') }}</dd></div>@endif
+            @if($costs)
+                <div class="sm:col-span-2"><dt class="text-gray-500">Kosten über die Lebensdauer</dt>
+                    <dd class="text-gray-900">{{ number_format($costs['total'], 2, ',', '.') }} € <span class="text-xs text-gray-500">(Kauf {{ number_format($costs['purchase'], 2, ',', '.') }} € · Reparaturen {{ number_format($costs['repairs'], 2, ',', '.') }} € · Reinigung/Wartung {{ number_format($costs['work'], 2, ',', '.') }} €)</span></dd></div>
+            @endif
         </dl>
 
         @if(auth()->user()->canManageAusruestung())
@@ -73,6 +78,33 @@
         </form>
         @endif
 
+        @if($canManage)
+        <form wire:submit="logWork" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-2">
+            <h2 class="text-sm font-semibold text-gray-900">Reinigung oder Wartung</h2>
+            <div class="grid grid-cols-2 gap-2">
+                <select wire:model="workType" class="rounded-lg border border-gray-300 px-3 py-2 text-sm">@foreach($workTypes as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach</select>
+                <input type="datetime-local" wire:model="workDate" class="rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                <input type="text" wire:model="workText" maxlength="1000" placeholder="z. B. nach Brandeinsatz gewaschen" class="col-span-2 rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                <input type="text" inputmode="decimal" wire:model="workCost" placeholder="Kosten in € (optional)" class="rounded-lg border border-gray-300 px-3 py-2 text-sm">
+            </div>
+            @error('workType')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
+            @error('workCost')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
+            <button type="submit" class="inline-flex items-center rounded-lg bg-fw-navy px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90">Eintragen</button>
+        </form>
+
+        <form wire:submit="saveTag" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-2"
+              x-data="{ nfc: 'NDEFReader' in window, on: false, async learn() { try { const r = new NDEFReader(); await r.scan(); this.on = true; r.onreading = (e) => { this.on = false; $wire.set('tag', e.serialNumber); $wire.saveTag(); }; } catch (e) { this.on = false; } } }">
+            <h2 class="text-sm font-semibold text-gray-900">RFID-/NFC-Tag</h2>
+            <input type="text" wire:model="tag" maxlength="80" placeholder="Tag scannen oder Kennung eintippen" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+            @error('tag')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
+            <div class="flex flex-wrap gap-2">
+                <button type="submit" class="inline-flex items-center rounded-lg bg-fw-navy px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90">Speichern</button>
+                <template x-if="nfc"><button type="button" x-on:click="learn()" class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm" x-text="on ? 'Tag ans Handy halten …' : 'Per NFC anlernen'"></button></template>
+            </div>
+            <p class="text-xs text-gray-500">Für Geräte ohne Platz für ein Etikett: der Tag öffnet das Gerät wie der QR-Code (Bestand, Inventur, Scan).</p>
+        </form>
+        @endif
+
         <form wire:submit="logUse" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-2 md:col-span-2">
             <h2 class="text-sm font-semibold text-gray-900">Einsatz oder Übung eintragen</h2>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -91,7 +123,7 @@
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100">
         @forelse($events as $event)
             <div class="p-3 text-sm" wire:key="ev-{{ $event->id }}">
-                <p class="text-gray-900"><span class="font-semibold">{{ $event->typeLabel() }}</span>@if($event->body) – {{ $event->body }}@endif</p>
+                <p class="text-gray-900"><span class="font-semibold">{{ $event->typeLabel() }}</span>@if($event->body) – {{ $event->body }}@endif @if($canManage && $event->cost !== null)<span class="text-xs text-gray-500">· {{ number_format((float) $event->cost, 2, ',', '.') }} €</span>@endif</p>
                 <p class="text-xs text-gray-500">{{ $event->occurred_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }}@if($event->user) · {{ $event->user->name }}@endif</p>
             </div>
         @empty

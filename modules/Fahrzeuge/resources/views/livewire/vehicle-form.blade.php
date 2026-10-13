@@ -56,8 +56,11 @@
             <label class="block text-sm text-gray-700">Lieferant / Aufbauhersteller<input type="text" wire:model="form.supplier" maxlength="150" class="{{ $input }}"></label>
             <label class="block text-sm text-gray-700">Förderung<input type="text" wire:model="form.funding" maxlength="150" placeholder="z. B. Landesförderung 40 %" class="{{ $input }}"></label>
             <label class="block text-sm text-gray-700">Garantie bis<input type="date" wire:model="form.warranty_until" class="{{ $input }}"></label>
+            <label class="block text-sm text-gray-700">Ersatzbeschaffung geplant (Jahr)<input type="number" min="1990" wire:model="form.replacement_year" placeholder="z. B. 2034" class="{{ $input }}"></label>
+            <label class="block text-sm text-gray-700">Geschätzte Kosten der Ersatzbeschaffung in €<input type="text" inputmode="decimal" wire:model="form.replacement_cost" class="{{ $input }}"></label>
         </div>
-        @foreach(['purchased_on', 'purchase_price', 'warranty_until'] as $field)@error($field)<p class="{{ $error }}">{{ $message }}</p>@enderror @endforeach
+        <p class="text-xs text-gray-500">Die Ersatzbeschaffung erscheint in der Investitionsplanung unter Bestand → Ersatzbeschaffung.</p>
+        @foreach(['purchased_on', 'purchase_price', 'warranty_until', 'replacement_year', 'replacement_cost'] as $field)@error($field)<p class="{{ $error }}">{{ $message }}</p>@enderror @endforeach
     </section>
 
     <section class="space-y-2 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">

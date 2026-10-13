@@ -4,6 +4,7 @@ namespace Modules\Schluessel;
 
 use App\Models\User;
 use App\Services\DashboardRegistry;
+use App\Services\InventoryRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\PersonnelFileRegistry;
 use App\Services\ScanRegistry;
@@ -79,6 +80,22 @@ class SchluesselServiceProvider extends ServiceProvider
 
             return auth()->user() && KeyService::canManage(auth()->user()) ? route('schluessel.show', $key) : route('schluessel.index');
         });
+
+        // Bestand: keys by code or name, for the Schlüsselwart
+        app(InventoryRegistry::class)->register('schluessel', 'Schlüssel', function (string $term, User $user) {
+            if (! KeyService::canManage($user)) {
+                return null;
+            }
+            $like = '%'.$term.'%';
+
+            return Key::with('current.user')->where(fn ($q) => $q->where('code', 'ilike', $like)->orWhere('name', 'ilike', $like)->orWhere('locking', 'ilike', $like))
+                ->orderBy('code')->limit(50)->get()
+                ->map(fn (Key $key) => ['title' => $key->name, 'code' => $key->code, 'place' => $key->current?->user?->name ?? $key->storage,
+                    'state' => $key->statusLabel(), 'tone' => match (true) {
+                        $key->status === 'lost' => 'red', $key->status === 'retired' => 'gray', (bool) $key->current => 'blue', default => 'green'
+                    },
+                    'url' => route('schluessel.show', $key)]);
+        }, order: 50);
 
         // Start page: keys past their return date (own), and for the Schlüsselwart lost ones and keys at former members
         app(DashboardRegistry::class)->register('schluessel', 'status', function (User $user) {

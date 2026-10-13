@@ -107,6 +107,10 @@
                         @if($inAusruestung)
                         <a href="{{ route('ausruestung.equipment') }}" class="hover:text-fw-grey-light {{ request()->routeIs('ausruestung.equipment', 'ausruestung.show') ? 'font-semibold' : '' }}">Geräte</a>
                         <a href="{{ route('ausruestung.index') }}" class="hover:text-fw-grey-light {{ request()->routeIs('ausruestung.index') ? 'font-semibold' : '' }}">Meine Ausleihen</a>
+                        @if(auth()->user()->canManageAusruestung())
+                        <a href="{{ route('ausruestung.stocktake') }}" class="hover:text-fw-grey-light {{ request()->routeIs('ausruestung.stocktake') ? 'font-semibold' : '' }}">Inventur</a>
+                        @endif
+                        <a href="{{ route('inventory') }}" class="hover:text-fw-grey-light {{ request()->routeIs('inventory') ? 'font-semibold' : '' }}">Bestand</a>
                         @endif
                         <a href="{{ route('profile') }}" class="inline-flex items-center gap-2 hover:text-fw-grey-light {{ request()->routeIs('profile') ? 'font-semibold' : '' }}"><x-avatar :user="auth()->user()" size="h-7 w-7" text="text-[10px]" />Profil @if($unreadFeedback)<span class="ml-1 inline-block w-2 h-2 rounded-full bg-fw-red align-middle" title="Neue Antwort auf dein Feedback"></span>@endif</a>
                         @if($showAdmin)

@@ -58,6 +58,8 @@ Route::middleware(['auth', 'active'])->group(function () {
     })->name('hours.csv');
     // After the first login: the steps that make the app useful
     Route::get('/willkommen', fn () => view('pages.welcome'))->name('welcome');
+    // The Bestand across modules: one search and scan field (barcode, QR, RFID, NFC) and the Ersatzbeschaffung
+    Route::get('/bestand', fn () => view('pages.inventory'))->name('inventory');
     Route::get('/ansprechpartner', fn () => view('pages.contacts', ['contacts' => Contact::with('group')->orderBy('sort_order')->orderBy('id')->get()]))->name('contacts');
 
     // Notifications (the bell): the list, and opening one marks it read and leads to where something is to do

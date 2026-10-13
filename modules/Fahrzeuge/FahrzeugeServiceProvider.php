@@ -5,6 +5,7 @@ namespace Modules\Fahrzeuge;
 use App\Models\User;
 use App\Services\AnnualReportRegistry;
 use App\Services\DashboardRegistry;
+use App\Services\InventoryRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\ScanRegistry;
 use App\Services\VehicleBlockRegistry;
@@ -20,6 +21,7 @@ use Modules\Fahrzeuge\src\Livewire\Fleet;
 use Modules\Fahrzeuge\src\Livewire\VehicleDetail;
 use Modules\Fahrzeuge\src\Livewire\VehicleForm;
 use Modules\Fahrzeuge\src\Models\Deadline;
+use Modules\Fahrzeuge\src\Models\Profile;
 use Modules\Fahrzeuge\src\Models\Record;
 use Modules\Fahrzeuge\src\Services\FleetService;
 
@@ -90,6 +92,35 @@ class FahrzeugeServiceProvider extends ServiceProvider
 
             return view('fahrzeuge::annual.section', ['rows' => $rows])->render();
         }, 62);
+
+        // Bestand: vehicles by name, Funkrufname, Kennzeichen or FIN; their planned Ersatzbeschaffung
+        app(InventoryRegistry::class)->register('fahrzeuge', 'Fahrzeuge', function (string $term, User $user) {
+            if (! FleetService::canView($user)) {
+                return null;
+            }
+            $like = '%'.$term.'%';
+            $vehicles = Vehicle::query()->where(fn ($q) => $q->where('name', 'ilike', $like)->orWhere('short_name', 'ilike', $like)
+                ->orWhereIn('id', Profile::where('call_sign', 'ilike', $like)->orWhere('license_plate', 'ilike', $like)
+                    ->orWhere('vin', 'ilike', $like)->orWhere('vehicle_type', 'ilike', $like)->select('vehicle_id')))
+                ->orderBy('sort_order')->orderBy('name')->get();
+            $states = app(FleetService::class)->states($vehicles);
+            $profiles = Profile::whereIn('vehicle_id', $vehicles->pluck('id'))->get()->keyBy('vehicle_id');
+            $tones = ['green' => 'green', 'amber' => 'amber', 'red' => 'red', 'blue' => 'blue', 'gray' => 'gray'];
+
+            return $vehicles->map(fn (Vehicle $v) => ['title' => $v->name, 'code' => collect([$profiles[$v->id]?->call_sign, $profiles[$v->id]?->license_plate])->filter()->implode(' · ') ?: null,
+                'place' => $profiles[$v->id]?->categoryLabel(), 'state' => $states[$v->id]['label'], 'tone' => $tones[$states[$v->id]['tone']] ?? 'gray',
+                'url' => route('fahrzeuge.show', $v)]);
+        }, function (User $user, int $from, int $to) {
+            if (! FleetService::canManage($user)) {
+                return null;
+            }
+
+            return Profile::with('vehicle')->whereNotNull('replacement_year')->where('replacement_year', '<=', $to)
+                ->whereHas('vehicle', fn ($q) => $q->where('is_active', true))->get()
+                ->map(fn ($p) => ['year' => $p->replacement_year, 'title' => $p->vehicle->name, 'detail' => collect(['Ersatzbeschaffung',
+                    $p->purchased_on ? 'beschafft '.$p->purchased_on->format('Y') : ($p->year_built ? 'Baujahr '.$p->year_built : null)])->filter()->implode(' · '),
+                    'cost_cents' => $p->replacement_cost_cents, 'url' => route('fahrzeuge.show', $p->vehicle_id)]);
+        }, 10);
 
         // Start page: the fleet at a glance, overdue deadlines for the Fahrzeugwarte
         app(DashboardRegistry::class)->register('fahrzeuge', 'fleet', function (User $user) {

@@ -26,7 +26,7 @@ class Profile extends Model
     protected $fillable = ['vehicle_id', 'call_sign', 'license_plate', 'category', 'vehicle_type', 'chassis', 'body_builder', 'year_built',
         'first_registration', 'vin', 'gross_weight_kg', 'crew', 'license_class', 'water_liters', 'foam_liters', 'pump', 'features', 'notes',
         'photo', 'photo_updated_at', 'mileage_km', 'operating_hours', 'mileage_on', 'status', 'status_note', 'status_changed_at', 'location_id',
-        'purchased_on', 'purchase_price_cents', 'supplier', 'funding', 'warranty_until', 'status_source'];
+        'purchased_on', 'purchase_price_cents', 'supplier', 'funding', 'warranty_until', 'status_source', 'replacement_year', 'replacement_cost_cents'];
 
     protected $hidden = ['photo'];
 
@@ -37,7 +37,8 @@ class Profile extends Model
         return ['features' => 'array', 'first_registration' => 'date', 'mileage_on' => 'date', 'photo_updated_at' => 'datetime',
             'status_changed_at' => 'datetime', 'year_built' => 'integer', 'gross_weight_kg' => 'integer', 'water_liters' => 'integer',
             'foam_liters' => 'integer', 'mileage_km' => 'integer', 'operating_hours' => 'float',
-            'purchased_on' => 'date', 'warranty_until' => 'date', 'purchase_price_cents' => 'integer'];
+            'purchased_on' => 'date', 'warranty_until' => 'date', 'purchase_price_cents' => 'integer',
+            'replacement_year' => 'integer', 'replacement_cost_cents' => 'integer'];
     }
 
     public function vehicle(): BelongsTo

@@ -3,6 +3,7 @@
 namespace Modules\Kleiderkammer;
 
 use App\Models\User;
+use App\Services\InventoryRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\ScanRegistry;
 use Illuminate\Support\Facades\Route;
@@ -86,5 +87,19 @@ class KleiderkammerServiceProvider extends ServiceProvider
         app(ScanRegistry::class)->registerFallback('kleiderkammer', fn (string $code): ?string => auth()->user()?->canManageKleiderkammer()
             ? ItemResource::getUrl('create', ['code' => $code], panel: 'kleiderkammer')
             : null);
+
+        // Bestand: Kleidung by code or Art, for those who run the Kleiderkammer
+        app(InventoryRegistry::class)->register('kleiderkammer', 'Kleiderkammer', function (string $term, User $user) {
+            if (! $user->canManageKleiderkammer()) {
+                return null;
+            }
+            $like = '%'.$term.'%';
+
+            return Item::with(['itemType', 'size'])->where(fn ($q) => $q->where('code', 'ilike', $like)->orWhereHas('itemType', fn ($t) => $t->where('name', 'ilike', $like)))
+                ->orderBy('code')->limit(50)->get()
+                ->map(fn (Item $item) => ['title' => trim(($item->itemType?->name ?? 'Teil').' '.($item->size?->name ?? '')), 'code' => $item->code, 'place' => null,
+                    'state' => $item->status->label(), 'tone' => $item->isRetired() ? 'gray' : ($item->isIssued() ? 'blue' : 'green'),
+                    'url' => ItemResource::getUrl('edit', ['record' => $item->getKey()], panel: 'kleiderkammer')]);
+        }, order: 40);
     }
 }

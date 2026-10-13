@@ -7,8 +7,8 @@ use Modules\Ausruestung\src\Support\PublicScan;
 
 // Geräteinfo without login, when a Gerätewart switched it on: what matters at the device, nothing more
 Route::get('/geraeteinfo/{code}', function (string $code) {
-    $equipment = Equipment::with(['category', 'compartment.location', 'location'])->where('code', $code)->first()
-        ?? Equipment::with(['category', 'compartment.location', 'location'])->where('barcode', $code)->firstOrFail();
+    $equipment = Equipment::findByScan($code) ?? abort(404);
+    $equipment->load(['category', 'compartment.location', 'location']);
     if (auth()->check() || ! PublicScan::enabled()) {
         return redirect()->route('ausruestung.show', $equipment);
     }
@@ -22,6 +22,11 @@ Route::prefix('ausruestung')->name('ausruestung.')
     ->group(function () {
         Route::get('/', fn () => view('ausruestung::pages.index'))->name('index');
         Route::get('/geraete', fn () => view('ausruestung::pages.equipment'))->name('equipment');
+        Route::get('/inventur', function () {
+            abort_unless(auth()->user()->canManageAusruestung(), 403);
+
+            return view('ausruestung::pages.stocktake');
+        })->name('stocktake');
         Route::get('/geraete/{equipment}', fn (Equipment $equipment) => view('ausruestung::pages.show', compact('equipment')))
             ->whereNumber('equipment')
             ->name('show');

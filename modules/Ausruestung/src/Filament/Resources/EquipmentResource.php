@@ -60,6 +60,9 @@ class EquipmentResource extends Resource
                     Forms\Components\TextInput::make('batch_number')->label('Charge / Los')->maxLength(255),
                     Forms\Components\TextInput::make('barcode')->label('Barcode des Herstellers')->maxLength(255)
                         ->helperText('Optional; lässt sich wie der eigene Code scannen.'),
+                    Forms\Components\TextInput::make('rfid')->label('RFID-/NFC-Tag')->maxLength(64)
+                        ->unique(ignoreRecord: true)->validationMessages(['unique' => 'Dieser Tag gehört schon zu einem anderen Gerät.'])
+                        ->helperText('Kennung des Tags (z. B. 04:A2:3B:9C …); auch für Geräte ohne Platz für ein Etikett. Am Handy per NFC auf der Geräteseite anlernen.'),
                 ])
                 ->columns(['default' => 1, 'md' => 3])
                 ->columnSpanFull(),
@@ -111,7 +114,7 @@ class EquipmentResource extends Resource
             ->modifyQueryUsing(fn (Builder $query) => $query->with(['category', 'location', 'compartment.location']))
             ->columns([
                 Tables\Columns\TextColumn::make('code')->label('Code')->fontFamily('mono')->searchable()->sortable(),
-                Tables\Columns\TextColumn::make('name')->label('Bezeichnung')->searchable(['name', 'serial_number', 'barcode', 'manufacturer', 'model'])->sortable()
+                Tables\Columns\TextColumn::make('name')->label('Bezeichnung')->searchable(['name', 'serial_number', 'barcode', 'rfid', 'manufacturer', 'model'])->sortable()
                     ->description(fn (Equipment $record) => collect([$record->manufacturer, $record->model, $record->serial_number ? 'SN '.$record->serial_number : null])->filter()->implode(' · ')),
                 Tables\Columns\TextColumn::make('category.name')->label('Kategorie')->placeholder('–')->toggleable(),
                 Tables\Columns\TextColumn::make('place')->label('Standort')->state(fn (Equipment $record) => $record->placeLabel()),
