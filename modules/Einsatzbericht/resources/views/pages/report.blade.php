@@ -10,6 +10,9 @@
     @if(app(\App\Services\ModuleRegistry::class)->isActive('fahrtenbuch'))
         @include('fahrtenbuch::partials.report-section', ['report' => $report])
     @endif
+    @if(app(\App\Services\ModuleRegistry::class)->isActive('expositionen') && auth()->user()->canUseModule('expositionen'))
+        @include('expositionen::partials.report-section', ['report' => $report])
+    @endif
     @if(app(\App\Services\ModuleRegistry::class)->isActive('atemschutz') && auth()->user()->canUseModule('atemschutz'))
         @include('atemschutz::partials.report-section', ['report' => $report, 'print' => false])
     @endif

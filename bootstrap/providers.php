@@ -9,6 +9,7 @@ use App\Providers\Filament\MaengelmanagementAdminPanelProvider;
 use Modules\Atemschutz\AtemschutzServiceProvider;
 use Modules\Ausruestung\AusruestungServiceProvider;
 use Modules\Einsatzbericht\EinsatzberichtServiceProvider;
+use Modules\Expositionen\ExpositionenServiceProvider;
 use Modules\Fahrtenbuch\FahrtenbuchServiceProvider;
 use Modules\Fahrzeugbuchung\FahrzeugbuchungServiceProvider;
 use Modules\Fahrzeuge\FahrzeugeServiceProvider;
@@ -18,13 +19,13 @@ use Modules\Kleiderkammer\KleiderkammerServiceProvider;
 use Modules\Lehrgaenge\LehrgaengeServiceProvider;
 use Modules\Maengelmanagement\MaengelmanagementServiceProvider;
 use Modules\Mitteilungen\MitteilungenServiceProvider;
+use Modules\Objektplaene\ObjektplaeneServiceProvider;
+use Modules\Personalverwaltung\PersonalverwaltungServiceProvider;
 use Modules\Schichtplan\SchichtplanServiceProvider;
+use Modules\Schluessel\SchluesselServiceProvider;
 use Modules\Uebungsdienste\UebungsdiensteServiceProvider;
 use Modules\Verbandbuch\VerbandbuchServiceProvider;
 use Modules\Wartung\WartungServiceProvider;
-use Modules\Objektplaene\ObjektplaeneServiceProvider;
-use Modules\Personalverwaltung\PersonalverwaltungServiceProvider;
-use Modules\Schluessel\SchluesselServiceProvider;
 use Modules\Wasserkarte\WasserkarteServiceProvider;
 
 return [
@@ -54,4 +55,5 @@ return [
     ObjektplaeneServiceProvider::class,
     PersonalverwaltungServiceProvider::class,
     SchluesselServiceProvider::class,
+    ExpositionenServiceProvider::class,
 ];

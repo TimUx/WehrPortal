@@ -22,18 +22,20 @@ class MemberRemoval
     /** Left to the database (ON DELETE SET NULL): who did what in the past stays true */
     public const KEEP = [
         'activity_logs.user_id', 'activity_logs.impersonator_id', 'mail_logs.user_id', 'mail_logs.resent_by',
-        'vb_access_logs.user_id', 'vb_signatures.user_id', 'vb_amendments.user_id',
+        'vb_access_logs.user_id', 'vb_signatures.user_id', 'vb_amendments.user_id', 'ex_events.user_id',
     ];
 
     /** Emptied instead of moved: entries about this person, with the name kept as text */
-    public const UNLINK = ['vb_entries.injured_user_id', 'vb_entries.first_aider_user_id', 'vb_entries.recorded_by', 'vb_entries.reported_by', 'vb_entries.voided_by'];
+    public const UNLINK = ['vb_entries.injured_user_id', 'vb_entries.first_aider_user_id', 'vb_entries.recorded_by', 'vb_entries.reported_by', 'vb_entries.voided_by',
+        // Expositionen are health data of this person: never moved, the name stays as text
+        'ex_exposures.user_id', 'ex_exposures.recorded_by'];
 
     /** Table prefix → area, for the summary before deleting */
     public const AREAS = [
         'booking' => 'Fahrzeugbuchung', 'kk_' => 'Kleiderkammer', 'mm_' => 'Mängelmanagement', 'ar_' => 'Ausrüstung',
         'eb_' => 'Einsatzbericht', 'vb_' => 'Verbandbuch', 'ft_' => 'Fahrtenbuch', 'fin_' => 'Finanzen', 'wm_' => 'Wartung',
         'as_' => 'Atemschutz', 'fv_' => 'Fahrzeuge', 'wk_' => 'Wasserkarte', 'kal_' => 'Kalender', 'sp_' => 'Schichtplan',
-        'lq_' => 'Lehrgänge', 'ud_' => 'Übungsdienste', 'announcement' => 'Mitteilungen', 'feedback' => 'Feedback',
+        'lq_' => 'Lehrgänge', 'ex_' => 'Expositionen', 'ud_' => 'Übungsdienste', 'announcement' => 'Mitteilungen', 'feedback' => 'Feedback',
     ];
 
     /**

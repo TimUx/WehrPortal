@@ -1,6 +1,6 @@
 # openwehr
 
-> Kostenlose Open-Source-Web-App (AGPL-3.0) für Freiwillige Feuerwehren in Deutschland: ein gemeinsamer Kern mit Anmeldung ohne Passwort, Kameraden, Startseite, Benachrichtigungen und Admin-Bereich, dazu 20 Module, die jede Wehr einzeln einschaltet. Für das Handy gemacht, Oberfläche auf Deutsch, Betrieb auf dem eigenen Server (Docker-Image mit PostgreSQL).
+> Kostenlose Open-Source-Web-App (AGPL-3.0) für Freiwillige Feuerwehren in Deutschland: ein gemeinsamer Kern mit Anmeldung ohne Passwort, Kameraden, Startseite, Benachrichtigungen und Admin-Bereich, dazu 21 Module, die jede Wehr einzeln einschaltet. Für das Handy gemacht, Oberfläche auf Deutsch, Betrieb auf dem eigenen Server (Docker-Image mit PostgreSQL).
 
 - Projektseite: https://www.openwehr.de/
 - Quellcode und ausführliche Dokumentation (README): https://github.com/roberteinsle/openwehr
@@ -27,6 +27,7 @@
 - Wartungsmanagement: Prüfungen nach Vorlage, unterschriebene Prüfprotokolle als PDF
 - Kleiderkammer: Ausgabe und Rücknahme der Bekleidung, Größen, Bestand, QR-Etiketten
 - Mängelmanagement: Mängel per QR-Code melden und verfolgen
+- Expositionen (Gefahrstoffe): Gefahrstoff-Expositionen nach Einsatz und Übung erfassen, für die Besatzung aus dem Einsatzbericht vorschlagen, verschlüsselt und 40 Jahre aufbewahrt, Meldeliste und CSV für die Zentrale Expositionsdatenbank (ZED) der DGUV, Expositionsnachweis für die Einsatzkraft
 - Verbandbuch & Vorfälle: Dokumentation nach DGUV, verschlüsselt, mit Unterschrift und Löschfrist
 - Budget & Finanzen: Budgets, Ausgaben mit Beleg und Genehmigung, Jahresabschluss
 - Mitteilungen: Nachrichten der Wehrführung an die Kameraden, auf Wunsch per E-Mail oder als kurzfristige Push-Ansage

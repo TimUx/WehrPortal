@@ -7,6 +7,7 @@ use App\Models\MailLog;
 use App\Models\UserNotification;
 use Illuminate\Support\Facades\Schedule;
 use Modules\Einsatzbericht\src\Models\DiveraRequest;
+use Modules\Expositionen\src\Models\Exposure;
 use Modules\Verbandbuch\src\Models\Entry as VerbandbuchEntry;
 
 // Scheduled commands write to /dev/null by default. In the container their output and
@@ -15,4 +16,4 @@ $output = is_writable('/proc/1/fd/2') ? '/proc/1/fd/2' : storage_path('logs/sche
 
 // Prune expired login tokens, e-mail change requests and mail log, activity log and notification entries older than 180 days, DIVERA requests after 90 days,
 // Verbandbuch entries after their retention time daily
-Schedule::command('model:prune', ['--model' => [LoginToken::class, EmailChangeRequest::class, MailLog::class, ActivityLog::class, DiveraRequest::class, UserNotification::class, VerbandbuchEntry::class]])->daily()->appendOutputTo($output);
+Schedule::command('model:prune', ['--model' => [LoginToken::class, EmailChangeRequest::class, MailLog::class, ActivityLog::class, DiveraRequest::class, UserNotification::class, VerbandbuchEntry::class, Exposure::class]])->daily()->appendOutputTo($output);

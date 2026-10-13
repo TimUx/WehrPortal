@@ -16,6 +16,9 @@ use Modules\Atemschutz\src\Models\Reading as AtemschutzReading;
 use Modules\Atemschutz\src\Models\Warning as AtemschutzWarning;
 use Modules\Ausruestung\src\Models\EquipmentEvent;
 use Modules\Einsatzbericht\src\Models\DiveraRequest;
+use Modules\Expositionen\src\Models\Dismissal as ExposureDismissal;
+use Modules\Expositionen\src\Models\Exposure;
+use Modules\Expositionen\src\Models\ExposureEvent;
 use Modules\Fahrtenbuch\src\Models\Revision as FahrtenbuchRevision;
 use Modules\Fahrzeugbuchung\src\Models\BookingCommentRevision;
 use Modules\Fahrzeuge\src\Models\StatusEvent as FahrzeugStatusEvent;
@@ -43,7 +46,7 @@ class ActivityRecorder
         ActivityLog::class, MailLog::class, LoginToken::class, PushSubscription::class, EmailChangeRequest::class, UserModulePreference::class,
         FeedToken::class, BookingCommentRevision::class, DefectEvent::class, EquipmentEvent::class, DiveraRequest::class,
         VerbandbuchEntry::class, VerbandbuchSignature::class, VerbandbuchAmendment::class, VerbandbuchAccessLog::class,
-        AtemschutzReading::class, AtemschutzWarning::class, FahrzeugStatusEvent::class, FahrtenbuchRevision::class, WasserkarteStatusEvent::class,
+        AtemschutzReading::class, AtemschutzWarning::class, Exposure::class, ExposureEvent::class, ExposureDismissal::class, FahrzeugStatusEvent::class, FahrtenbuchRevision::class, WasserkarteStatusEvent::class,
     ];
 
     /** Changes of only these fields are bookkeeping, not worth an entry */
