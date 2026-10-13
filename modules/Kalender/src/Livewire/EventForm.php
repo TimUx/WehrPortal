@@ -2,8 +2,10 @@
 
 namespace Modules\Kalender\src\Livewire;
 
+use App\Models\DressCode;
 use App\Models\Group;
 use App\Models\MemberFunction;
+use App\Models\Place;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
@@ -43,6 +45,12 @@ class EventForm extends Component
     public bool $allDay = false;
 
     public string $location = '';
+
+    /** A saved place (shared list); its name becomes the Ort */
+    public string $placeId = '';
+
+    /** @var array<int, string> Kleidung asked for (shared list) */
+    public array $dressCodeIds = [];
 
     public string $description = '';
 
@@ -92,6 +100,8 @@ class EventForm extends Component
             $this->startDate = $start->format('Y-m-d');
             $this->endDate = ($event->all_day ? $end->copy()->subSecond() : $end)->format('Y-m-d');
             $this->location = (string) $event->location;
+            $this->placeId = (string) ($event->place_id ?? '');
+            $this->dressCodeIds = array_map('strval', $event->dress_code_ids ?? []);
             $this->description = (string) $event->description;
             $this->groupIds = $event->groups->pluck('id')->map(fn ($id) => (string) $id)->all();
             $this->inviteeIds = $event->invitees->pluck('id')->map(fn ($id) => (string) $id)->all();
@@ -120,6 +130,14 @@ class EventForm extends Component
             $minutes = $old && $oldEnd && $oldEnd->gt($old) ? $old->diffInMinutes($oldEnd) : self::DEFAULT_MINUTES;
             $this->endsAt = $new->copy()->addMinutes($minutes)->format(self::LOCAL);
             $this->startDate = $new->format('Y-m-d');
+        }
+    }
+
+    /** Choosing a saved place sets the Ort to its name */
+    public function updatedPlaceId(string $value): void
+    {
+        if ($place = Place::find((int) $value)) {
+            $this->location = $place->name;
         }
     }
 
@@ -158,6 +176,8 @@ class EventForm extends Component
             'location' => (string) ($d['location'] ?? ''), 'description' => (string) ($d['description'] ?? ''), 'rsvp' => (bool) ($d['rsvp'] ?? false),
             'minParticipants' => (string) ($d['min_participants'] ?? ''), 'isPublic' => (bool) ($d['is_public'] ?? false),
             'groupIds' => array_map('strval', $d['group_ids'] ?? []), 'functionIds' => array_map('strval', $d['function_ids'] ?? []),
+            'placeId' => isset($d['place_id']) && Place::whereKey($d['place_id'])->exists() ? (string) $d['place_id'] : '',
+            'dressCodeIds' => array_map('strval', $d['dress_code_ids'] ?? []),
         ]);
         $start = Carbon::createFromFormat('Y-m-d H:i', $day.' '.($d['start_time'] ?? '19:00'), 'Europe/Berlin');
         $this->startsAt = $start->format(self::LOCAL);
@@ -184,6 +204,7 @@ class EventForm extends Component
             'rsvp_days' => $this->rsvp && $this->rsvpDeadline && $day ? (int) Carbon::parse($this->rsvpDeadline)->diffInDays(Carbon::parse($day)) : null,
             'min_participants' => filled($this->minParticipants) ? (int) $this->minParticipants : null, 'is_public' => $this->isPublic,
             'group_ids' => array_map('intval', $this->groupIds), 'function_ids' => array_map('intval', $this->functionIds),
+            'place_id' => filled($this->placeId) ? (int) $this->placeId : null, 'dress_code_ids' => array_map('intval', $this->dressCodeIds),
         ]]);
         $this->flash = 'Vorlage „'.trim($this->templateName).'“ gespeichert.';
         $this->templateName = '';
@@ -215,6 +236,8 @@ class EventForm extends Component
             'groupIds.*' => ['exists:groups,id'],
             'inviteeIds.*' => ['exists:users,id'],
             'functionIds.*' => ['exists:member_functions,id'],
+            'placeId' => ['nullable', 'exists:places,id'],
+            'dressCodeIds.*' => ['exists:dress_codes,id'],
             'minParticipants' => ['nullable', 'integer', 'min:1', 'max:999'],
             'rsvpDeadline' => ['nullable', 'date_format:Y-m-d'],
             'repeat' => ['nullable', Rule::in(array_keys(EventService::REPEATS))],
@@ -237,6 +260,8 @@ class EventForm extends Component
             'ends_at' => $end,
             'all_day' => $this->allDay,
             'location' => trim($this->location) ?: null,
+            'place_id' => filled($this->placeId) ? (int) $this->placeId : null,
+            'dress_code_ids' => array_map('intval', $this->dressCodeIds) ?: null,
             'description' => trim($this->description) ?: null,
             'rsvp' => $this->rsvp,
             'min_participants' => filled($this->minParticipants) ? (int) $this->minParticipants : null,
@@ -275,6 +300,8 @@ class EventForm extends Component
             'inSeries' => (bool) $this->event?->series_id,
             'functions' => MemberFunction::with('parent')->orderBy('sort_order')->orderBy('name')->get()->mapWithKeys(fn (MemberFunction $f) => [$f->id => $f->fullLabel()])->sort(),
             'templates' => Template::orderBy('name')->pluck('name', 'id'),
+            'places' => Place::options(),
+            'dressCodes' => DressCode::options(),
         ]);
     }
 }

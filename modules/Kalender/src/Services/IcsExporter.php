@@ -2,6 +2,7 @@
 
 namespace Modules\Kalender\src\Services;
 
+use App\Models\DressCode;
 use App\Services\OrganizationSettings;
 use Illuminate\Support\Collection;
 use Modules\Kalender\src\Models\Event;
@@ -39,11 +40,12 @@ class IcsExporter
 
             $lines[] = 'SUMMARY:'.$this->escape(($event->isCancelled() ? 'ABGESAGT: ' : '').$event->title);
             $lines[] = 'CATEGORIES:'.$this->escape($event->typeLabel());
-            if ($event->location) {
-                $lines[] = 'LOCATION:'.$this->escape($event->location);
+            if ($event->place || $event->location) {
+                $lines[] = 'LOCATION:'.$this->escape($event->place?->label() ?? $event->location);
             }
-            if ($event->description) {
-                $lines[] = 'DESCRIPTION:'.$this->escape($event->description);
+            $dress = DressCode::names($event->dress_code_ids);
+            if ($event->description || $dress) {
+                $lines[] = 'DESCRIPTION:'.$this->escape(trim(($dress ? 'Kleidung: '.implode(', ', $dress)."\n" : '').(string) $event->description));
             }
             if ($event->isCancelled()) {
                 $lines[] = 'STATUS:CANCELLED';

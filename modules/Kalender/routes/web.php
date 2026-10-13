@@ -47,6 +47,10 @@ Route::prefix('kalender')->name('kalender.')
         Route::get('/abfragen/neu', fn () => view('kalender::pages.poll-create'))->middleware('can:manage,'.Event::class)->name('polls.create');
         Route::get('/abfragen/{poll}', fn (Poll $poll) => view('kalender::pages.poll', compact('poll')))->whereNumber('poll')->name('polls.show');
 
+        // Orte & Kleidung: the lists all modules share, kept here by the Terminverwalter
+        Route::get('/orte-kleidung', fn () => view('kalender::pages.places'))
+            ->middleware('can:manage,'.Event::class)->name('places');
+
         Route::get('/externe-kalender', fn () => view('kalender::pages.sources'))
             ->middleware('can:manage,'.Event::class)->name('sources');
     });

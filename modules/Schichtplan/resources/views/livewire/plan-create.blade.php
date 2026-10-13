@@ -13,7 +13,7 @@
         </div>
         <div>
             <label for="sp-location" class="block text-sm font-medium text-gray-700 mb-1">Ort</label>
-            <input id="sp-location" type="text" wire:model="location" maxlength="150" placeholder="z. B. Festplatz" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-fw-red focus:ring-fw-red">
+            <input id="sp-location" type="text" wire:model="location" list="openwehr-places" maxlength="150" placeholder="z. B. Festplatz" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-fw-red focus:ring-fw-red">
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <label class="block text-sm font-medium text-gray-700">Datum
@@ -57,4 +57,5 @@
         @include('schichtplan::partials.signup-settings')
         <button type="submit" class="inline-flex items-center rounded-lg bg-fw-red px-4 py-2 text-sm font-semibold text-white hover:bg-fw-red-dark">Plan anlegen</button>
     </form>
+    @include('partials.place-datalist')
 </div>

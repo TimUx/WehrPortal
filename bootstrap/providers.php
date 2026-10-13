@@ -23,6 +23,7 @@ use Modules\Uebungsdienste\UebungsdiensteServiceProvider;
 use Modules\Verbandbuch\VerbandbuchServiceProvider;
 use Modules\Wartung\WartungServiceProvider;
 use Modules\Objektplaene\ObjektplaeneServiceProvider;
+use Modules\Personalverwaltung\PersonalverwaltungServiceProvider;
 use Modules\Wasserkarte\WasserkarteServiceProvider;
 
 return [
@@ -50,4 +51,5 @@ return [
     FahrtenbuchServiceProvider::class,
     WasserkarteServiceProvider::class,
     ObjektplaeneServiceProvider::class,
+    PersonalverwaltungServiceProvider::class,
 ];

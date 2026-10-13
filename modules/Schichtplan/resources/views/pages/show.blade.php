@@ -12,7 +12,8 @@
             <div class="mt-1 flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <h1 class="text-xl font-bold text-gray-900">{{ $plan->title }}</h1>
-                    <p class="text-sm text-gray-500">{{ $plan->timeLabel() }}@if($plan->location) · {{ $plan->location }}@endif</p>
+                    <p class="text-sm text-gray-500">{{ $plan->timeLabel() }}@if($plan->location) · {{ $plan->location }}@endif
+                        @if($knownPlace = \App\Models\Place::forLocation($plan->location))@if($knownPlace->address) · {{ $knownPlace->address }}@endif · <a href="{{ $knownPlace->navigationUrl() }}" target="_blank" rel="noopener" class="text-fw-navy underline">Navigation</a>@endif</p>
                     @include('schichtplan::partials.event-link', ['plan' => $plan])
                 </div>
                 <div class="flex flex-wrap gap-2">

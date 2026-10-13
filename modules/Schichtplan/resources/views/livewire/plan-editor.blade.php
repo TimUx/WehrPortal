@@ -42,7 +42,7 @@
         <form wire:submit="saveSettings" class="mt-4 space-y-3">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label class="block text-sm text-gray-700">Wofür<input type="text" wire:model="title" class="mt-1 w-full {{ $input }}"></label>
-                <label class="block text-sm text-gray-700">Ort<input type="text" wire:model="location" class="mt-1 w-full {{ $input }}"></label>
+                <label class="block text-sm text-gray-700">Ort<input type="text" wire:model="location" list="openwehr-places" class="mt-1 w-full {{ $input }}"></label>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <label class="block text-sm text-gray-700">Datum<input type="date" wire:model="date" class="mt-1 w-full {{ $input }}"></label>
@@ -249,4 +249,5 @@
     <div class="text-right">
         <button type="button" wire:click="delete" wire:confirm="Plan „{{ $plan->title }}“ endgültig löschen?" class="text-sm text-red-600 underline">Plan löschen</button>
     </div>
+    @include('partials.place-datalist')
 </div>

@@ -12,7 +12,7 @@
                 <select wire:model="type" class="mt-1 {{ $input }}">@foreach($types as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach</select>
             </label>
         </div>
-        <label class="block text-sm font-medium text-gray-700">Ort<input type="text" wire:model="location" maxlength="150" class="mt-1 {{ $input }}"></label>
+        <label class="block text-sm font-medium text-gray-700">Ort<input type="text" wire:model="location" list="openwehr-places" maxlength="150" class="mt-1 {{ $input }}"></label>
         <label class="block text-sm font-medium text-gray-700">Beschreibung<textarea wire:model="description" rows="2" maxlength="5000" class="mt-1 {{ $input }}"></textarea></label>
 
         <div class="space-y-2">
@@ -52,4 +52,5 @@
         <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="notify" class="rounded"> Kameraden per E-Mail einladen</label>
         <button type="submit" class="inline-flex items-center rounded-lg bg-fw-red px-4 py-2 text-sm font-semibold text-white hover:bg-fw-red-dark">Abfrage starten</button>
     </form>
+    @include('partials.place-datalist')
 </div>

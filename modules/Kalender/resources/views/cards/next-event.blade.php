@@ -5,7 +5,8 @@
         {{ $event->title }}
     </p>
     <p class="mt-1 text-sm text-gray-600">{{ $event->timeLabel() }}</p>
-    @if($event->location)<p class="text-sm text-gray-500">{{ $event->location }}</p>@endif
+    <x-place-info :place="$event->place" :location="$event->location" class="text-sm text-gray-500" />
+    <x-dress-codes :ids="$event->dress_code_ids" class="text-sm text-gray-500" />
     @if($event->rsvp)
         <p class="mt-2 text-sm {{ $response?->status ? 'text-gray-700' : 'font-semibold text-fw-red' }}">
             {{ $response?->status ? 'Deine Rückmeldung: '.$response->label() : ($event->acceptsResponses() ? 'Bitte Rückmeldung geben' : 'Rückmeldung geschlossen') }}

@@ -5,10 +5,12 @@ namespace Modules\Uebungsdienste;
 use App\Models\User;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
+use Modules\Uebungsdienste\src\Console\Commands\SyncCalendar;
 use Modules\Uebungsdienste\src\Livewire\Planner;
 use Modules\Uebungsdienste\src\Livewire\ServiceForm;
 use Modules\Uebungsdienste\src\Services\ServicePlan;
@@ -33,6 +35,15 @@ class UebungsdiensteServiceProvider extends ServiceProvider
             Route::middleware('web')->group($base.'/routes/web.php');
         }
         $this->loadMigrationsFrom($base.'/database/migrations');
+
+        $this->commands([SyncCalendar::class]);
+
+        // Dienste not in the Kalender yet (e.g. the Kalender was switched on later)
+        $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
+            $output = is_writable('/proc/1/fd/2') ? '/proc/1/fd/2' : storage_path('logs/schedule.log');
+
+            $schedule->command(SyncCalendar::class)->hourly()->withoutOverlapping()->appendOutputTo($output);
+        });
 
         Livewire::component('uebungsdienste.planner', Planner::class);
         Livewire::component('uebungsdienste.service-form', ServiceForm::class);

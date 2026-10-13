@@ -3,7 +3,7 @@
     <div>
         <a href="{{ route('uebungsdienste.index') }}" class="text-sm text-gray-500 hover:text-gray-900">← Übungsdienstplaner</a>
         <h1 class="mt-1 text-xl font-bold text-gray-900">{{ $service ? 'Dienst am '.$service->dateLabel().' ändern' : 'Übungsdienst anlegen' }}</h1>
-        <p class="text-sm text-gray-500">{{ $service ? 'Datum, Beginn und Ort. Thema und Verantwortliche ändert der Vorstand direkt im Plan.' : 'Einzeln oder als Serie, z. B. alle zwei Wochen bis Jahresende. Thema und Verantwortliche trägt der Vorstand danach im Plan ein.' }}</p>
+        <p class="text-sm text-gray-500">{{ $service ? 'Datum, Zeit, Ort, Kleidung und Teilnehmer. Thema und Verantwortliche ändert der Vorstand direkt im Plan.' : 'Einzeln oder als Serie, z. B. alle zwei Wochen bis Jahresende. Thema und Verantwortliche trägt der Vorstand danach im Plan ein.' }}</p>
     </div>
 
     @error('plan')<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{ $message }}</p>@enderror
@@ -35,10 +35,32 @@
             <label class="block text-sm font-medium text-gray-700">Beginn
                 <input type="time" wire:model="time" class="{{ $input }}">
             </label>
-            <label class="block text-sm font-medium text-gray-700">Ort
-                <input type="text" wire:model="location" maxlength="255" class="{{ $input }}">
+            <label class="block text-sm font-medium text-gray-700">Ende
+                <input type="time" wire:model="endTime" class="{{ $input }}">
             </label>
         </div>
+
+        @include('partials.place-dress-fields', ['input' => $input, 'places' => $places, 'dressCodes' => $dressCodes, 'placeId' => $placeId, 'manageUrl' => route('uebungsdienste.places')])
+
+        <div class="space-y-2">
+            <p class="text-sm font-medium text-gray-700">Für wen? <span class="font-normal text-gray-500">(leer = alle Kameraden)</span></p>
+            @if($groups->isNotEmpty())
+                <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-700">
+                    @foreach($groups as $id => $name)<label class="flex items-center gap-2"><input type="checkbox" value="{{ $id }}" wire:model="groupIds" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> {{ $name }}</label>@endforeach
+                </div>
+            @endif
+            @if($functions->isNotEmpty())
+                <details class="text-sm text-gray-700"><summary class="cursor-pointer text-gray-600">Funktionen</summary>
+                    <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                        @foreach($functions as $id => $name)<label class="flex items-center gap-2"><input type="checkbox" value="{{ $id }}" wire:model="functionIds" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> {{ $name }}</label>@endforeach
+                    </div>
+                </details>
+            @endif
+        </div>
+
+        @if($inCalendar)
+            <p class="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-900">Der Dienst erscheint als „Übungsdienst“ im Kalender der gewählten Kameraden – mit Zeit, Ort und Kleidung, <strong>ohne Thema und Verantwortliche</strong>.</p>
+        @endif
 
         <div class="flex flex-wrap items-center gap-3 pt-2">
             <button type="submit" class="inline-flex items-center rounded-lg bg-fw-red px-4 py-2.5 text-sm font-semibold text-white hover:bg-fw-red-dark">{{ $service ? 'Speichern' : 'Anlegen' }}</button>

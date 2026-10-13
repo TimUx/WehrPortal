@@ -8,7 +8,11 @@
                 @if($event->isCancelled())<span class="ml-1 inline-block rounded bg-red-600 px-1.5 py-0.5 text-xs font-bold text-white">Abgesagt</span>@endif
                 <h1 class="mt-1 text-xl font-bold text-gray-900 {{ $event->isCancelled() ? 'line-through' : '' }}">{{ $event->title }}</h1>
                 <p class="text-sm text-gray-600">{{ $event->timeLabel() }}</p>
-                @if($event->location)<p class="text-sm text-gray-600">{{ $event->location }}</p>@endif
+                <x-place-info :place="$event->place" :location="$event->location" />
+                <x-dress-codes :ids="$event->dress_code_ids" />
+                @if($event->managed_by && isset(\Modules\Kalender\src\Models\Event::MANAGED_BY[$event->managed_by]))
+                    <p class="mt-1 text-xs text-gray-500">Kommt aus dem {{ \Modules\Kalender\src\Models\Event::MANAGED_BY[$event->managed_by] }} – Zeit, Ort, Kleidung und Zielgruppe werden dort gepflegt und hier übernommen.</p>
+                @endif
                 <p class="mt-1 text-xs text-gray-500">
                     Für: {{ $event->groups->isEmpty() && $event->invitees->isEmpty() ? 'alle' : $event->groups->pluck('name')->concat($event->invitees->pluck('name'))->implode(', ') }}
                     @if($event->is_public) · öffentlich @endif

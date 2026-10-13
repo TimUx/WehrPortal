@@ -2,6 +2,7 @@
 
 namespace Modules\Kalender\src\Notifications;
 
+use App\Models\DressCode;
 use App\Notifications\Concerns\InApp;
 use App\Services\OrganizationSettings;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -23,8 +24,13 @@ class EventCreatedNotification extends Notification
             ->line('**'.$event->typeLabel().': '.$event->title.'**')
             ->line($event->timeLabel().($this->count > 1 ? ' – und '.($this->count - 1).' weitere Termine dieser Reihe' : ''));
 
-        if ($event->location) {
+        if ($event->place) {
+            $mail->line('Ort: '.$event->place->label().' – Navigation: '.$event->place->navigationUrl());
+        } elseif ($event->location) {
             $mail->line('Ort: '.$event->location);
+        }
+        if ($dress = DressCode::names($event->dress_code_ids)) {
+            $mail->line('Kleidung: '.implode(', ', $dress));
         }
         if ($event->description) {
             $mail->line($event->description);

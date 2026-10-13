@@ -4,6 +4,7 @@ namespace Modules\Kalender\src\Models;
 
 use App\Models\Group;
 use App\Models\MemberFunction;
+use App\Models\Place;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -40,11 +41,16 @@ class Event extends Model
     protected $fillable = [
         'title', 'type', 'starts_at', 'ends_at', 'all_day', 'location', 'description', 'rsvp', 'rsvp_deadline',
         'min_participants', 'is_public', 'reminder_sent_at', 'series_id', 'source_id', 'external_uid', 'cancelled_at', 'created_by',
+        'place_id', 'dress_code_ids', 'managed_by',
     ];
+
+    /** Modules that keep events in sync, and where to change them */
+    public const MANAGED_BY = ['uebungsdienste' => 'Übungsdienstplaner', 'schichtplan' => 'Schichtplan'];
 
     protected function casts(): array
     {
         return [
+            'dress_code_ids' => 'array',
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
             'rsvp_deadline' => 'datetime',
@@ -63,6 +69,11 @@ class Event extends Model
     }
 
     /** Funktionen of the target group (each includes its sub-functions) */
+    public function place(): BelongsTo
+    {
+        return $this->belongsTo(Place::class);
+    }
+
     public function functions(): BelongsToMany
     {
         return $this->belongsToMany(MemberFunction::class, 'kal_event_function', 'event_id', 'function_id');

@@ -92,7 +92,7 @@ class EventService
             $event->functions()->sync($functionIds);
 
             if ($following && $event->series_id) {
-                $shared = collect($data)->only(['title', 'type', 'location', 'description', 'rsvp', 'min_participants', 'is_public'])->all();
+                $shared = collect($data)->only(['title', 'type', 'location', 'place_id', 'dress_code_ids', 'description', 'rsvp', 'min_participants', 'is_public'])->all();
                 Event::where('series_id', $event->series_id)->where('starts_at', '>', $event->starts_at)->get()
                     ->each(function (Event $later) use ($shared, $groupIds, $userIds, $functionIds) {
                         $later->update($shared);

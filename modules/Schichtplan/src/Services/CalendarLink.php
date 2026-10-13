@@ -44,7 +44,7 @@ class CalendarLink
             return;
         }
 
-        $event = $events->create([...$data, 'type' => 'veranstaltung'], $groups, User::find($plan->created_by), userIds: $users, functionIds: $functions)->first();
+        $event = $events->create([...$data, 'type' => 'veranstaltung', 'managed_by' => 'schichtplan'], $groups, User::find($plan->created_by), userIds: $users, functionIds: $functions)->first();
         $plan->update(['event_id' => $event->id, 'event_owned' => true]);
     }
 

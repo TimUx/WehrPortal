@@ -10,6 +10,7 @@
         <div class="flex flex-wrap gap-2">
             <a href="{{ route('uebungsdienste.print', ['jahr' => $year]) }}" target="_blank" rel="noopener" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Drucken / PDF</a>
             @if($admin)
+                <a href="{{ route('uebungsdienste.places') }}" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Orte &amp; Kleidung</a>
                 <a href="{{ route('uebungsdienste.create') }}" class="inline-flex items-center rounded-lg bg-fw-red px-3 py-2 text-sm font-semibold text-white hover:bg-fw-red-dark">+ Dienst anlegen</a>
             @endif
         </div>
@@ -52,10 +53,12 @@
                 <div wire:key="s-{{ $service->id }}" class="px-4 py-3 {{ $cols }} {{ $service->id === $next?->id ? 'bg-orange-50/60' : '' }} {{ $past ? 'opacity-60' : '' }}">
                     {{-- Date, time, place: one line on phones, own columns on wide screens --}}
                     <div class="flex items-start justify-between gap-2 md:block">
-                        <p class="font-semibold text-gray-900">{{ $service->dateLabel() }}<span class="font-normal text-gray-600 md:hidden">{{ $service->starts_at ? ' · '.$service->starts_at.' Uhr' : '' }}{{ $service->location ? ' · '.$service->location : '' }}</span></p>
+                        <p class="font-semibold text-gray-900">{{ $service->dateLabel() }}<span class="font-normal text-gray-600 md:hidden">{{ $service->timeLabel() ? ' · '.$service->timeLabel() : '' }}{{ $service->location ? ' · '.$service->location : '' }}</span></p>
                         @if($admin)<a href="{{ route('uebungsdienste.edit', $service) }}" class="shrink-0 text-sm text-fw-navy underline md:mt-1 md:inline-block md:text-xs">Ändern</a>@endif
+                        @php($extras = array_filter([\App\Models\DressCode::names($service->dress_code_ids) ? 'Kleidung: '.implode(', ', \App\Models\DressCode::names($service->dress_code_ids)) : null, $service->audienceLabel() ? 'Für: '.$service->audienceLabel() : null]))
+                        @if($extras)<p class="text-xs text-gray-500">{{ implode(' · ', $extras) }}</p>@endif
                     </div>
-                    <p class="hidden md:block text-gray-700">{{ $service->starts_at ? $service->starts_at.' Uhr' : '–' }}</p>
+                    <p class="hidden md:block text-gray-700">{{ $service->timeLabel() ?? '–' }}</p>
                     <div class="mt-2 md:mt-0">
                         <label class="sr-only" for="topic-{{ $service->id }}">Thema</label>
                         <textarea id="topic-{{ $service->id }}" rows="2" wire:change="saveTopic({{ $service->id }}, $event.target.value)" maxlength="1000" placeholder="Thema eintragen …"

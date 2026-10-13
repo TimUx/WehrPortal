@@ -2,20 +2,52 @@
 
 namespace Modules\Uebungsdienste\src\Models;
 
+use App\Models\Group;
+use App\Models\MemberFunction;
+use App\Models\Place;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-/** One Übungsdienst: date and start (Berlin time), place, topic and who is responsible */
+/**
+ * One Übungsdienst: date, start and end (Berlin time), place, Kleidung, target group, topic and who
+ * is responsible. Without the topic it is also a Termin in the Kalender of the target group.
+ */
 class Service extends Model
 {
     protected $table = 'ud_services';
 
-    protected $fillable = ['date', 'starts_at', 'location', 'topic'];
+    /** Length when no end is given */
+    public const DEFAULT_MINUTES = 120;
+
+    protected $fillable = ['date', 'starts_at', 'ends_at', 'location', 'place_id', 'dress_code_ids', 'group_ids', 'function_ids', 'topic', 'event_id', 'calendar_synced_at'];
 
     protected function casts(): array
     {
-        return ['date' => 'date'];
+        return ['date' => 'date', 'calendar_synced_at' => 'datetime', 'dress_code_ids' => 'array', 'group_ids' => 'array', 'function_ids' => 'array'];
+    }
+
+    public function place(): BelongsTo
+    {
+        return $this->belongsTo(Place::class);
+    }
+
+    /** "19:00–21:00 Uhr" */
+    public function timeLabel(): ?string
+    {
+        return $this->starts_at ? $this->starts_at.($this->ends_at ? '–'.$this->ends_at : '').' Uhr' : null;
+    }
+
+    /** "Jugendfeuerwehr, Maschinist" or null for everyone */
+    public function audienceLabel(): ?string
+    {
+        $names = [
+            ...Group::whereIn('id', $this->group_ids ?? [])->orderBy('name')->pluck('name')->all(),
+            ...MemberFunction::whereIn('id', $this->function_ids ?? [])->orderBy('name')->pluck('name')->all(),
+        ];
+
+        return $names === [] ? null : implode(', ', $names);
     }
 
     public function responsible(): BelongsToMany

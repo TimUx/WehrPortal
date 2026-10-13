@@ -34,6 +34,8 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M3 17V8a1 1 0 0 1 1-1h10v10M14 10h4l3 3v4h-2M3 17h2m4 0h6"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path stroke-linecap="round" d="M6 10h5"/>
     @elseif($key === 'fahrtenbuch')
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 4h11a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM4 17a2 2 0 0 1 2-2h12M8 8h6M8 11h4"/>
+    @elseif($key === 'personalverwaltung')
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3M9 3h6v3H9zM12 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM8 16c.5-2 2-3 4-3s3.5 1 4 3"/>
     @elseif($key === 'objektplaene')
         <path stroke-linecap="round" stroke-linejoin="round" d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3V6zM9 3v15M15 6v15"/>
     @elseif($key === 'wasserkarte')
