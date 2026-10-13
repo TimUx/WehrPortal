@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\Wasserkarte\src\Models\Defect;
 use Modules\Wasserkarte\src\Models\Source;
+use Modules\Wasserkarte\src\Services\WaterService;
 
 Route::prefix('wasserkarte')->name('wasserkarte.')
     ->middleware(['auth', 'active', 'module:wasserkarte'])
@@ -24,5 +25,11 @@ Route::prefix('wasserkarte')->name('wasserkarte.')
             Route::get('/quelle/{source}/bearbeiten', fn (Source $source) => $page('wasserkarte.source-form', $source->label().' bearbeiten', ['source' => $source]))
                 ->whereNumber('source')->name('edit');
             Route::get('/pruefungen', fn () => $page('wasserkarte.inspections', 'Prüfungen & Import'))->name('inspections');
+            Route::get('/pruefungen.csv', fn (WaterService $water) => response($water->inspectionCsv(), 200, [
+                'Content-Type' => 'text/csv; charset=utf-8',
+                'Content-Disposition' => 'attachment; filename="Wasserentnahmestellen-'.now('Europe/Berlin')->format('Y-m-d').'.csv"',
+            ]))->name('inspections.csv');
+            // A label with QR code for the source, to fix at the Saugstelle or the Hydrantenschild
+            Route::get('/quelle/{source}/etikett', fn (Source $source) => view('wasserkarte::pages.label', ['source' => $source]))->whereNumber('source')->name('label');
         });
     });

@@ -7,6 +7,7 @@
                 <span class="text-green-700">{{ $counts['available'] ?? 0 }} verfügbar</span>
                 @if($counts['defective'] ?? 0) · <span class="font-semibold text-red-700">{{ $counts['defective'] }} defekt</span>@endif
                 @if($counts['locked'] ?? 0) · <span class="text-gray-600">{{ $counts['locked'] }} gesperrt</span>@endif
+                @if($due) · <span class="text-amber-800">{{ $due }} mit fälliger Prüfung (gelber Rand)</span>@endif
             </p>
         </div>
         @if($einsatz)<a href="{{ route('wasserkarte.index') }}" class="text-sm text-gray-500 underline">Alle Quellen</a>@endif
@@ -14,7 +15,7 @@
 
     <div class="flex flex-wrap items-center gap-2">
         <select wire:model.live="kind" class="{{ $select }}" aria-label="Art"><option value="">Alle Arten</option>@foreach(\Modules\Wasserkarte\src\Models\Source::KINDS as $v => $l)<option value="{{ $v }}">{{ $l }}</option>@endforeach</select>
-        <select wire:model.live="status" class="{{ $select }}" aria-label="Status"><option value="">Jeder Status</option>@foreach(\Modules\Wasserkarte\src\Models\Source::STATUSES as $v => $l)<option value="{{ $v }}">{{ $l }}</option>@endforeach</select>
+        <select wire:model.live="status" class="{{ $select }}" aria-label="Status"><option value="">Jeder Status</option>@foreach(\Modules\Wasserkarte\src\Models\Source::STATUSES as $v => $l)<option value="{{ $v }}">{{ $l }}</option>@endforeach<option value="due">Prüfung fällig (30 Tage)</option></select>
     </div>
 
     <div wire:ignore x-data="waterMap({ markers: @js($markers), center: null, einsatz: @js($einsatz ? ['lat' => (float) $einsatz->latitude, 'lng' => (float) $einsatz->longitude] : null), highlight: @js($highlight) })" class="relative overflow-hidden rounded-2xl border border-gray-200">

@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\AnnualReportRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
+use App\Services\ScanRegistry;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -64,6 +65,11 @@ class WasserkarteServiceProvider extends ServiceProvider
             provider: self::class,
             route: 'wasserkarte.index',
         );
+
+        // The QR label at a source (WK-<id>): straight to the source
+        app(ScanRegistry::class)->register('wasserkarte', function (string $code): ?string {
+            return preg_match('/^WK-(\d+)$/i', $code, $m) && Source::whereKey((int) $m[1])->exists() ? route('wasserkarte.source', (int) $m[1]) : null;
+        });
 
         // Start page: defective sources and overdue inspections for the Hydrantenwarte
         app(DashboardRegistry::class)->register('wasserkarte', 'status', function (User $user) {

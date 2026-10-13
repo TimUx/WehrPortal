@@ -19,13 +19,14 @@
         <dl class="grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-[11rem_1fr]">
             <dt class="text-gray-500">Leistung</dt><dd>{{ $source->performance() ?: '–' }}</dd>
             @if($source->operator)<dt class="text-gray-500">Betreiber</dt><dd>{{ $source->operator }}</dd>@endif
-            <dt class="text-gray-500">Letzte Prüfung</dt><dd>{{ $source->last_inspected_on?->format('d.m.Y') ?? 'noch keine' }}</dd>
+            <dt class="text-gray-500">Letzte Prüfung</dt><dd>{{ $source->last_inspected_on?->format('d.m.Y') ?? 'noch keine' }}@if($inspections->first()?->user) <span class="text-xs text-gray-500">von {{ $inspections->first()->user->name }}</span>@endif</dd>
             @if($source->next_inspection_on)<dt class="text-gray-500">Nächste Prüfung</dt><dd class="{{ $source->inspectionOverdue() ? 'font-semibold text-amber-800' : '' }}">{{ $source->next_inspection_on->format('d.m.Y') }}</dd>@endif
             <dt class="text-gray-500">Position</dt><dd>{{ number_format($source->latitude, 6, ',', '') }}, {{ number_format($source->longitude, 6, ',', '') }} · <a href="{{ $source->navigationUrl() }}" target="_blank" rel="noopener" class="underline">Navigation</a></dd>
             @if($source->osm_id)<dt class="text-gray-500">Herkunft</dt><dd>OpenStreetMap · <a href="https://www.openstreetmap.org/node/{{ $source->osm_id }}" target="_blank" rel="noopener" class="underline">Node {{ $source->osm_id }}</a> <span class="text-xs text-gray-500">(© OpenStreetMap-Mitwirkende, ODbL)</span></dd>@endif
             @if($source->notes)<dt class="text-gray-500">Notizen</dt><dd class="whitespace-pre-line">{{ $source->notes }}</dd>@endif
         </dl>
-        @if($canManage)<a href="{{ route('wasserkarte.edit', $source) }}" class="text-xs text-fw-navy underline">Bearbeiten</a>@endif
+        @if($canManage)<p class="flex gap-4 text-xs"><a href="{{ route('wasserkarte.edit', $source) }}" class="text-fw-navy underline">Bearbeiten</a>
+            <a href="{{ route('wasserkarte.label', $source) }}" target="_blank" class="text-fw-navy underline">QR-Etikett drucken</a></p>@endif
     </section>
 
     <section class="{{ $card }}">

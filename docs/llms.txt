@@ -13,7 +13,7 @@
 - Einsatzbericht: Einsätze erfassen und freigeben, Besatzung und Stärke, DIVERA-24/7-Anbindung, Lagemeldungen, Jahresstatistik aus freigegebenen Berichten, Jahresbericht über alle Module
 - Atemschutzüberwachung: Trupps mit Uhr, Drücken, Rückzugsdruck und Warnungen nach FwDV 7, Protokoll als PDF; Geräteträger-Verwaltung mit G26.3-Fristen, Ampel und Erinnerungen, Atemschutzeinsätze aus dem Einsatzbericht
 - Objektpläne & Brandschutzunterlagen: Feuerwehrpläne mit Versionen, bei Alarm die Pläne der Einsatzstelle per GPS, offline verfügbar
-- Wasserkarte & Hydranten: Löschwasserquellen auf der Karte mit Status, Leistung und Prüffristen
+- Wasserkarte & Hydranten: Löschwasserquellen auf der Karte mit Status, Leistung und Prüffristen, Saugstellen mit Saughöhe, QR-Etikett vor Ort, Prüfnachweis als CSV
 - Fahrzeugbuchung: Fahrzeuge im gemeinsamen Kalender reservieren, Konfliktentscheidung, Wachen-Monitor
 - Fahrzeugverwaltung & Flotte: Fahrzeugprofile, Status, Werkstattzeiten, Fristen (HU, SP, UVV)
 - Fahrtenbuch: Fahrten mit Kilometerstand, verknüpft mit Buchung und Einsatz, Tanken und Export

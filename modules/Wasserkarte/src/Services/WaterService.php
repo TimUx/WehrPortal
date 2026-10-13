@@ -207,8 +207,8 @@ class WaterService
     public static function markers(Collection $sources): array
     {
         return $sources->map(fn (Source $s) => [
-            'id' => $s->id, 'lat' => $s->latitude, 'lng' => $s->longitude, 'color' => Source::COLORS[$s->status] ?? '#6b7280',
-            'title' => $s->label(), 'info' => trim($s->statusLabel().($s->performance() ? ' · '.$s->performance() : '').($s->location ? ' · '.$s->location : '')),
+            'id' => $s->id, 'lat' => $s->latitude, 'lng' => $s->longitude, 'color' => Source::COLORS[$s->status] ?? '#6b7280', 'due' => $s->inspectionDue(),
+            'title' => $s->label(), 'info' => trim($s->statusLabel().($s->inspectionDue() ? ' · Prüfung '.($s->inspectionOverdue() ? 'überfällig' : 'fällig').' ('.$s->next_inspection_on->format('d.m.Y').')' : '').($s->performance() ? ' · '.$s->performance() : '').($s->location ? ' · '.$s->location : '')),
             'url' => route('wasserkarte.source', $s),
         ])->values()->all();
     }
@@ -234,7 +234,7 @@ class WaterService
             'number' => ['nummer', 'nr', 'number', 'id', 'hydrantennummer'], 'kind' => ['art', 'typ', 'kind', 'type'],
             'latitude' => ['breitengrad', 'lat', 'latitude', 'breite'], 'longitude' => ['längengrad', 'laengengrad', 'lng', 'lon', 'longitude', 'länge'],
             'location' => ['lage', 'ort', 'adresse', 'location', 'standort'], 'flow_lpm' => ['durchfluss', 'l/min', 'flow', 'leistung'],
-            'pressure_bar' => ['druck', 'bar', 'pressure'], 'pipe_dn' => ['dn', 'nennweite'], 'capacity_m3' => ['m3', 'm³', 'inhalt', 'volumen'],
+            'pressure_bar' => ['druck', 'bar', 'pressure'], 'pipe_dn' => ['dn', 'nennweite'], 'capacity_m3' => ['m3', 'm³', 'inhalt', 'volumen'], 'suction_height_m' => ['saughöhe', 'saughoehe'],
             'operator' => ['betreiber', 'versorger', 'operator'],
         ];
         $header = array_map(fn ($h) => mb_strtolower(trim($h)), str_getcsv($lines[0], $delimiter));
@@ -260,7 +260,7 @@ class WaterService
                 $clean = $this->validateSource([
                     'number' => $value('number'), 'kind' => $kind, 'latitude' => $value('latitude'), 'longitude' => $value('longitude'),
                     'location' => $value('location'), 'flow_lpm' => $value('flow_lpm'), 'pressure_bar' => $value('pressure_bar'),
-                    'pipe_dn' => $value('pipe_dn'), 'capacity_m3' => $value('capacity_m3'), 'operator' => $value('operator'),
+                    'pipe_dn' => $value('pipe_dn'), 'capacity_m3' => $value('capacity_m3'), 'suction_height_m' => $value('suction_height_m'), 'operator' => $value('operator'),
                     'inspection_interval_months' => in_array($kind, ['unterflur', 'ueberflur'], true) ? self::DEFAULT_INTERVAL : null,
                 ]);
             } catch (ValidationException $e) {
@@ -279,6 +279,25 @@ class WaterService
         }
 
         return $result;
+    }
+
+    /** CSV of all sources with their data and the last Prüfung, e.g. for the Gemeinde or the Wasserversorger */
+    public function inspectionCsv(): string
+    {
+        $out = fopen('php://temp', 'r+');
+        fwrite($out, "\xEF\xBB\xBF");
+        $num = fn ($v) => $v === null ? '' : str_replace('.', ',', (string) $v);
+        fputcsv($out, ['Nummer', 'Art', 'Lage', 'Breitengrad', 'Längengrad', 'Status', 'Durchfluss l/min', 'Ruhedruck bar', 'DN', 'Inhalt m³', 'Saughöhe m',
+            'Betreiber', 'Letzte Prüfung', 'Ergebnis', 'Gemessen l/min', 'Fließdruck bar', 'Geprüft von', 'Nächste Prüfung'], ';');
+        foreach (Source::active()->with(['inspections' => fn ($q) => $q->with('user')])->orderBy('number')->orderBy('id')->get() as $s) {
+            $last = $s->inspections->first();
+            fputcsv($out, [$s->number, $s->kindLabel(), $s->location, $s->latitude, $s->longitude, $s->statusLabel(), $s->flow_lpm, $num($s->pressure_bar), $s->pipe_dn,
+                $s->capacity_m3, $num($s->suction_height_m), $s->operator, $last?->inspected_on->format('d.m.Y'), $last ? Inspection::RESULTS[$last->result] ?? $last->result : null,
+                $last?->flow_lpm, $num($last?->flow_pressure_bar), $last?->user?->name, $s->next_inspection_on?->format('d.m.Y')], ';');
+        }
+        rewind($out);
+
+        return stream_get_contents($out);
     }
 
     /** Daily: one mail to the Hydrantenwarte with the sources whose inspection became due */
@@ -326,6 +345,7 @@ class WaterService
             'number' => $this->text($data['number'] ?? null, 30), 'kind' => $kind, 'latitude' => round($lat, 7), 'longitude' => round($lng, 7),
             'location' => $this->text($data['location'] ?? null, 200), 'flow_lpm' => $this->int($data['flow_lpm'] ?? null),
             'pressure_bar' => $this->decimal($data['pressure_bar'] ?? null), 'capacity_m3' => $this->int($data['capacity_m3'] ?? null),
+            'suction_height_m' => $this->decimal($data['suction_height_m'] ?? null),
             'pipe_dn' => $this->int($data['pipe_dn'] ?? null), 'operator' => $this->text($data['operator'] ?? null, 150),
             'inspection_interval_months' => $interval, 'notes' => $this->text($data['notes'] ?? null, 2000),
             'is_active' => (bool) ($data['is_active'] ?? true),

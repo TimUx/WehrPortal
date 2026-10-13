@@ -1,5 +1,8 @@
 <div class="space-y-4">
-    <h1 class="text-xl font-bold text-gray-900">Prüfungen & Import</h1>
+    <div class="flex flex-wrap items-center justify-between gap-2">
+        <h1 class="text-xl font-bold text-gray-900">Prüfungen & Import</h1>
+        <a href="{{ route('wasserkarte.inspections.csv') }}" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700">Prüfnachweis als CSV</a>
+    </div>
 
     <section class="space-y-2">
         <p class="text-sm font-semibold text-gray-900">Offene Mängel ({{ $defects->count() }})</p>

@@ -36,6 +36,7 @@
             <label class="block text-sm text-gray-700">Ruhedruck (bar)<input type="text" inputmode="decimal" wire:model="form.pressure_bar" class="{{ $input }}"></label>
             <label class="block text-sm text-gray-700">Nennweite DN<input type="number" wire:model="form.pipe_dn" class="{{ $input }}"></label>
             <label class="block text-sm text-gray-700">Inhalt (m³)<input type="number" wire:model="form.capacity_m3" class="{{ $input }}"></label>
+            <label class="block text-sm text-gray-700">Saughöhe (m)<input type="text" inputmode="decimal" wire:model="form.suction_height_m" class="{{ $input }}"></label>
         </div>
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label class="block text-sm text-gray-700">Betreiber / Wasserversorger<input type="text" wire:model="form.operator" maxlength="150" class="{{ $input }}"></label>

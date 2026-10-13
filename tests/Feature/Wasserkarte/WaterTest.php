@@ -135,3 +135,40 @@ test('inspections due: one mail to the Hydrantenwarte; start page card', functio
     $this->actingAs($this->wart)->get(route('wasserkarte.inspections'))->assertOk()->assertSee('Schild fehlt');
     $this->actingAs($this->hanna)->get(route('wasserkarte.index'))->assertOk()->assertSee('H-001');
 });
+
+test('Saugstellen keep their Saughöhe, also from the import', function () {
+    $saug = $this->w->saveSource($this->wart, null, ['number' => 'S-1', 'kind' => 'gewaesser', 'latitude' => WK_LAT, 'longitude' => WK_LNG + 0.01, 'suction_height_m' => '3,5', 'flow_lpm' => '800']);
+    expect($saug->suction_height_m)->toBe(3.5)->and($saug->performance())->toBe('800 l/min · Saughöhe 3,5 m');
+
+    $this->w->import($this->wart, "Nummer;Art;lat;lng;Saughöhe\nS-2;Saugstelle;52.51;9.71;2,0");
+    expect(Source::where('number', 'S-2')->sole()->suction_height_m)->toBe(2.0);
+});
+
+test('the map shows a due Prüfung and filters for it', function () {
+    $this->w->recordInspection($this->wart, $this->h1, ['inspected_on' => now('Europe/Berlin')->subMonths(12)->addDays(10)->toDateString(), 'result' => 'passed']);
+    expect($this->h1->fresh()->inspectionDue())->toBeTrue()->and($this->h1->fresh()->inspectionOverdue())->toBeFalse();
+
+    $marker = collect(WaterService::markers(Source::active()->get()))->keyBy('id');
+    expect($marker[$this->h1->id]['due'])->toBeTrue()->and($marker[$this->h1->id]['info'])->toContain('Prüfung fällig')
+        ->and($marker[$this->h2->id]['due'])->toBeFalse();
+
+    Livewire::actingAs($this->hanna)->test(MapView::class)->assertSee('1 mit fälliger Prüfung')
+        ->set('status', 'due')->assertSee('vor Hauptstraße 12')->assertDontSee('Schulweg 3');
+});
+
+test('a QR label leads to the source; the Prüfnachweis comes as CSV', function () {
+    $this->w->recordInspection($this->wart, $this->h1, ['inspected_on' => now('Europe/Berlin')->toDateString(), 'result' => 'passed', 'flow_lpm' => '1450']);
+
+    $this->actingAs($this->wart)->get(route('wasserkarte.label', $this->h1))->assertOk()->assertSee('WK-'.$this->h1->id)->assertSee('H-001');
+    $this->get(route('wasserkarte.source', $this->h1))->assertSee('QR-Etikett drucken')->assertSee('von Heike Hydrantenwart');
+    $this->get(route('scan.code', 'WK-'.$this->h1->id))->assertRedirect(route('wasserkarte.source', $this->h1->id));
+    $this->get(route('scan.code', 'WK-999999'))->assertNotFound();
+
+    $csv = $this->get(route('wasserkarte.inspections.csv'))->assertOk()->assertHeader('Content-Type', 'text/csv; charset=utf-8')->getContent();
+    expect($csv)->toContain('Nummer;Art;Lage')->toContain('H-001;Unterflurhydrant;"vor Hauptstraße 12"')->toContain('In Ordnung')->toContain('Heike Hydrantenwart');
+
+    // Kameraden without the role: neither label nor CSV
+    $this->actingAs($this->hanna)->get(route('wasserkarte.inspections.csv'))->assertForbidden();
+    $this->get(route('wasserkarte.label', $this->h1))->assertForbidden();
+    $this->get(route('wasserkarte.source', $this->h1))->assertDontSee('QR-Etikett drucken');
+});

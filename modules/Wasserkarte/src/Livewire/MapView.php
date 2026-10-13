@@ -117,7 +117,9 @@ class MapView extends Component
     private function sources()
     {
         return Source::active()->when($this->kind !== '', fn ($q) => $q->where('kind', $this->kind))
-            ->when($this->status !== '', fn ($q) => $q->where('status', $this->status))->orderBy('number')->get();
+            ->when(array_key_exists($this->status, Source::STATUSES), fn ($q) => $q->where('status', $this->status))
+            ->when($this->status === 'due', fn ($q) => $q->whereDate('next_inspection_on', '<=', now('Europe/Berlin')->addDays(30)->toDateString()))
+            ->orderBy('number')->get();
     }
 
     private function einsatz(): ?Report
@@ -153,6 +155,7 @@ class MapView extends Component
             'nearest' => $at ? $water->nearest($at['lat'], $at['lng']) : collect(),
             'highlight' => $this->highlight(),
             'counts' => Source::active()->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status'),
+            'due' => Source::active()->whereDate('next_inspection_on', '<=', now('Europe/Berlin')->addDays(30)->toDateString())->count(),
             'canManage' => WaterService::canManage(auth()->user()),
         ]);
     }

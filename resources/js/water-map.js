@@ -1,5 +1,5 @@
 // Wasserkarte: all Löschwasserquellen as coloured dots (green available, red defective, grey
-// locked), the Einsatzstelle with its nearest sources highlighted, "Mein Standort" by GPS, and a
+// locked; an amber ring when the Prüfung is due), the Einsatzstelle with its nearest sources highlighted, "Mein Standort" by GPS, and a
 // picker to set a source's position. Leaflet with OpenStreetMap tiles – no API key in the browser.
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -9,9 +9,9 @@ const tiles = () => L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png'
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
 });
 
-const dot = (color, big = false) => L.divIcon({
+const dot = (color, big = false, due = false) => L.divIcon({
     className: '',
-    html: `<span style="display:block;width:${big ? 26 : 18}px;height:${big ? 26 : 18}px;border-radius:9999px;background:${color};border:${big ? 4 : 3}px solid ${big ? '#1B2645' : '#fff'};box-shadow:0 1px 4px rgba(0,0,0,.5)"></span>`,
+    html: `<span style="display:block;width:${big ? 26 : 18}px;height:${big ? 26 : 18}px;border-radius:9999px;background:${color};border:${big ? 4 : 3}px solid ${big ? '#1B2645' : (due ? '#f59e0b' : '#fff')};box-shadow:0 1px 4px rgba(0,0,0,.5)"></span>`,
     iconSize: big ? [26, 26] : [18, 18],
     iconAnchor: big ? [13, 13] : [9, 9],
 });
@@ -64,7 +64,7 @@ document.addEventListener('alpine:init', () => {
             this.layer.clearLayers();
             list.forEach((m) => {
                 const big = ids.includes(m.id);
-                L.marker([m.lat, m.lng], { icon: dot(m.color, big), zIndexOffset: big ? 500 : 0 }).bindPopup(popup(m)).addTo(this.layer);
+                L.marker([m.lat, m.lng], { icon: dot(m.color, big, m.due), zIndexOffset: big ? 500 : 0 }).bindPopup(popup(m)).addTo(this.layer);
             });
         },
         // Hydrantenwart: take over what OpenStreetMap has in the visible section (preview first)
