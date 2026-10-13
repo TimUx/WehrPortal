@@ -46,6 +46,26 @@ class Honors extends Component
         $this->type = ['name' => $type->name, 'after_years' => (string) ($type->after_years ?? '')];
     }
 
+    public function addPresets(PersonnelService $personnel): void
+    {
+        $count = 0;
+        $this->run(function () use ($personnel, &$count) {
+            $count = $personnel->addHonorPresets(auth()->user());
+        }, 'Übliche Ehrungsarten angelegt.');
+        $this->flash = $count ? $count.' übliche Ehrungsarten angelegt – Namen und Dienstjahre bitte an Land und Verband anpassen.' : 'Die üblichen Ehrungsarten gibt es schon.';
+    }
+
+    public function copyType(int $id, PersonnelService $personnel): void
+    {
+        $copy = null;
+        $this->run(function () use ($personnel, $id, &$copy) {
+            $copy = $personnel->copyHonorType(auth()->user(), HonorType::findOrFail($id));
+        }, 'Kopiert.');
+        if ($copy) {
+            $this->editType($copy->id);
+        }
+    }
+
     public function deleteType(int $id, PersonnelService $personnel): void
     {
         $this->run(fn () => $personnel->deleteHonorType(auth()->user(), HonorType::findOrFail($id)), 'Ehrung gelöscht. Bereits verliehene behalten ihren Namen.');

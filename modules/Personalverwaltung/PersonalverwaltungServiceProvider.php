@@ -25,6 +25,7 @@ use Modules\Personalverwaltung\src\Livewire\MemberFile;
 use Modules\Personalverwaltung\src\Livewire\MemberList;
 use Modules\Personalverwaltung\src\Livewire\OwnData;
 use Modules\Personalverwaltung\src\Livewire\OwnFile;
+use Modules\Personalverwaltung\src\Livewire\Reports;
 use Modules\Personalverwaltung\src\Livewire\Settings;
 use Modules\Personalverwaltung\src\Models\MemberProfile;
 use Modules\Personalverwaltung\src\Services\PersonnelService;
@@ -85,7 +86,7 @@ class PersonalverwaltungServiceProvider extends ServiceProvider
 
         foreach (['member-list' => MemberList::class, 'member-file' => MemberFile::class, 'honors' => Honors::class,
             'attendance' => Attendance::class, 'access' => Access::class, 'own-file' => OwnFile::class,
-            'settings' => Settings::class, 'own-data' => OwnData::class, 'change-requests' => ChangeRequests::class, 'hours-overview' => HoursOverview::class] as $name => $class) {
+            'settings' => Settings::class, 'own-data' => OwnData::class, 'change-requests' => ChangeRequests::class, 'hours-overview' => HoursOverview::class, 'reports' => Reports::class] as $name => $class) {
             Livewire::component('personalverwaltung.'.$name, $class);
         }
 

@@ -60,10 +60,12 @@
                 <li class="flex flex-wrap items-center justify-between gap-2 py-1.5" wire:key="t-{{ $t->id }}">
                     <span>{{ $t->name }}@if($t->after_years)<span class="text-gray-500"> · nach {{ $t->after_years }} Dienstjahren</span>@endif</span>
                     <span class="flex gap-3 text-xs"><button type="button" wire:click="editType({{ $t->id }})" class="text-fw-navy underline">Ändern</button>
+                        <button type="button" wire:click="copyType({{ $t->id }})" class="text-fw-navy underline">Kopieren</button>
                         <button type="button" wire:click="deleteType({{ $t->id }})" wire:confirm="„{{ $t->name }}“ löschen?" class="text-red-600 underline">Löschen</button></span>
                 </li>
             @endforeach
         </ul>
+        <button type="button" wire:click="addPresets" class="text-xs text-fw-navy underline">Übliche Ehrungsarten anlegen (Ehrenzeichen 10–60 Jahre, Leistungsabzeichen …)</button>
         <form wire:submit="saveType" class="flex flex-wrap items-end gap-2 border-t border-gray-100 pt-3">
             <label class="block min-w-0 flex-1 text-xs text-gray-600">{{ $editingType ? 'Ehrung ändern' : 'Neue Ehrung' }}<input type="text" wire:model="type.name" maxlength="150" placeholder="z. B. Feuerwehr-Ehrenzeichen 25 Jahre" class="{{ $input }} mt-1 w-full"></label>
             <label class="block w-36 text-xs text-gray-600">nach Dienstjahren<input type="number" min="1" max="80" wire:model="type.after_years" class="{{ $input }} mt-1 w-full"></label>

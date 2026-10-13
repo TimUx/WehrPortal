@@ -23,7 +23,7 @@
             <div><dt class="text-xs uppercase tracking-wide text-gray-500">Funktionen</dt><dd>{{ $member->functions->map->fullLabel()->implode(', ') ?: '–' }}</dd></div>
         </dl>
         @include('personalverwaltung::partials.service-time', ['member' => $member])
-        <p class="text-xs text-gray-500">Dienstgrad, Abteilungen, Funktionen und Status ändern Admins unter Admin → Kameraden; jede Änderung landet hier von selbst in der Diensthistorie.</p>
+        <p class="text-xs text-gray-500">Dienstgrad, Abteilungen, Funktionen und Status ändern Admins unter Admin → Kameraden, Beförderungen und Funktionen auch Personalverwalter über die Sammelverarbeitung in der Liste; jede Änderung landet hier von selbst in der Diensthistorie.</p>
     </section>
 
     @if($fields)

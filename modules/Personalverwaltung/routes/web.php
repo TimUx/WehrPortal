@@ -5,6 +5,7 @@ use App\Models\User;
 use App\Services\HoursRegistry;
 use App\Support\HoursCsv;
 use Illuminate\Support\Facades\Route;
+use Modules\Personalverwaltung\src\Livewire\Reports;
 use Modules\Personalverwaltung\src\Models\HistoryFile;
 use Modules\Personalverwaltung\src\Services\PersonnelService;
 
@@ -30,6 +31,20 @@ Route::middleware(['auth', 'active', 'module:personalverwaltung'])->group(functi
         Route::get('/', fn () => $page('personalverwaltung.member-list', 'Personalverwaltung'))->name('index');
         Route::get('/kamerad/{member}', fn (User $member) => $page('personalverwaltung.member-file', $member->name, ['member' => $member]))->whereNumber('member')->name('member');
         Route::get('/aenderungswuensche', fn () => $page('personalverwaltung.change-requests', 'Änderungswünsche'))->name('requests');
+        Route::get('/auswertungen', fn () => $page('personalverwaltung.reports', 'Auswertungen'))->name('reports');
+        Route::get('/auswertungen.csv', function (PersonnelService $personnel) {
+            $kind = array_key_exists((string) request('art'), PersonnelService::REPORTS) ? (string) request('art') : 'funktionen';
+            $rows = $personnel->report(auth()->user(), $kind, ...Reports::period((string) request('von'), (string) request('bis')));
+            $out = fopen('php://temp', 'r+');
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, [PersonnelService::REPORTS[$kind], 'Name', 'Angabe', 'Datum'], ';');
+            foreach ($rows as $row) {
+                fputcsv($out, [$row['group'], $row['name'], $row['detail'], $row['date']?->format('d.m.Y')], ';');
+            }
+            rewind($out);
+
+            return response(stream_get_contents($out), 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="'.PersonnelService::REPORTS[$kind].'.csv"']);
+        })->name('reports.csv');
         Route::get('/stunden', fn () => $page('personalverwaltung.hours-overview', 'Stundennachweis'))->name('hours');
         Route::get('/stunden.csv', function (HoursRegistry $hours) {
             $year = max(2000, min(2100, request()->integer('jahr') ?: (int) now('Europe/Berlin')->year));

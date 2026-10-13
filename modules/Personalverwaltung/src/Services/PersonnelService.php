@@ -8,6 +8,7 @@ use App\Models\MemberFunction;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\ModuleRegistry;
+use App\Support\FireRanks;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\UploadedFile;
@@ -366,7 +367,161 @@ class PersonnelService
         $file->delete();
     }
 
+    // ─── Auswertungen ────────────────────────────────────────────────────────
+
+    public const REPORTS = ['funktionen' => 'Funktionsträger', 'dienstgrade' => 'Dienstgrade', 'befoerderungen' => 'Beförderungen', 'ehrungen' => 'Ehrungen'];
+
+    /**
+     * An Auswertung for Kommune or Verband from the Diensthistorie, within the Kameraden this Personalverwalter
+     * sees: rows of [Gruppe, Name, Angabe, Datum]. Funktionsträger and Dienstgrade show today's state, Beförderungen
+     * and Ehrungen the period.
+     *
+     * @return list<array{group: string, name: string, detail: string, date: ?Carbon}>
+     */
+    public function report(User $by, string $kind, Carbon $from, Carbon $to): array
+    {
+        $this->assertManager($by);
+        $ids = self::visibleMembers($by)->pluck('id');
+        $active = self::visibleMembers($by)->where('status', 'active')->pluck('id');
+        $since = fn (string $k, ?int $ref, int $user) => HistoryEntry::where('user_id', $user)->where('kind', $k)->whereNull('until')
+            ->when($ref, fn ($q) => $q->where('ref_id', $ref))->latest('id')->value('since');
+
+        return match ($kind) {
+            'funktionen' => MemberFunction::with(['parent', 'users' => fn ($q) => $q->whereIn('users.id', $active)->orderBy('name')])->get()
+                ->filter(fn (MemberFunction $f) => $f->users->isNotEmpty())->sortBy(fn (MemberFunction $f) => $f->fullLabel())
+                ->flatMap(fn (MemberFunction $f) => $f->users->map(fn (User $u) => ['group' => $f->fullLabel(), 'name' => $u->name, 'detail' => $u->rank ?? '',
+                    'date' => ($d = $since('function', $f->id, $u->id)) ? Carbon::parse($d) : null]))->values()->all(),
+            'dienstgrade' => User::whereIn('id', $active)->whereNotNull('rank')->orderBy('name')->get()
+                ->sortBy(fn (User $u) => [-(FireRanks::stepOf($u->rank) ?? -1), $u->name])
+                ->map(fn (User $u) => ['group' => $u->rank, 'name' => $u->name, 'detail' => $u->groups()->pluck('name')->implode(', '), 'date' => $u->rank_since])->values()->all(),
+            'befoerderungen' => HistoryEntry::with('user')->where('kind', 'rank')->whereIn('user_id', $ids)
+                ->whereNotIn('id', HistoryEntry::where('kind', 'rank')->selectRaw('min(id)')->groupBy('user_id'))
+                ->whereBetween('since', [$from->toDateString(), $to->toDateString()])->orderBy('since')->get()
+                ->map(fn (HistoryEntry $e) => ['group' => $e->since->format('Y'), 'name' => $e->user?->name ?? '', 'detail' => $e->label, 'date' => $e->since])->all(),
+            'ehrungen' => Honor::with('user')->whereIn('user_id', $ids)->whereBetween('awarded_on', [$from->toDateString(), $to->toDateString()])->orderBy('awarded_on')->get()
+                ->map(fn (Honor $h) => ['group' => $h->title, 'name' => $h->user?->name ?? '', 'detail' => (string) $h->awarded_by, 'date' => $h->awarded_on])->all(),
+            default => throw ValidationException::withMessages(['report' => 'Unbekannte Auswertung.']),
+        };
+    }
+
+    // ─── Sammelverarbeitung ──────────────────────────────────────────────────
+
+    /** The Kameraden of $ids this Personalverwalter may edit */
+    private function editable(User $by, array $ids): EloquentCollection
+    {
+        $this->assertManager($by);
+        $members = self::visibleMembers($by)->whereIn('id', array_map('intval', $ids))->orderBy('name')->get();
+        if ($members->isEmpty()) {
+            throw ValidationException::withMessages(['bulk' => 'Bitte mindestens einen Kameraden auswählen.']);
+        }
+
+        return $members;
+    }
+
+    /**
+     * Beförderung for several at once: one step up, or to the chosen step, in the form of each Kamerad
+     * (Oberfeuerwehrmann / Oberfeuerwehrfrau). The Diensthistorie gets the date of the Beförderung.
+     *
+     * @return array{done: list<string>, skipped: list<string>}
+     */
+    public function promote(User $by, array $ids, ?int $step, ?string $on): array
+    {
+        $members = $this->editable($by, $ids);
+        $date = $this->date($on, 'bulk') ?? self::today();
+        $result = ['done' => [], 'skipped' => []];
+        foreach ($members as $member) {
+            $current = FireRanks::stepOf($member->rank);
+            $target = $step ?? ($current !== null ? $current + 1 : null);
+            $gender = FireRanks::for($member->gender) !== null ? $member->gender : (in_array($member->rank, FireRanks::options('female'), true) ? 'female' : 'male');
+            $rank = $target !== null ? FireRanks::label($target, $gender) : null;
+            if ($rank === null || ($current !== null && $target <= $current)) {
+                $result['skipped'][] = $member->name;
+
+                continue;
+            }
+            DB::transaction(function () use ($member, $rank, $date) {
+                $member->update(['rank' => $rank, 'rank_since' => $date]);
+                $this->syncHistory($member);
+                // The new stage starts on the day of the Beförderung, the old one ends there
+                $open = HistoryEntry::where('user_id', $member->id)->where('kind', 'rank')->whereNull('until')->latest('id')->first();
+                $open?->update(['since' => $date]);
+                HistoryEntry::where('user_id', $member->id)->where('kind', 'rank')->whereKeyNot($open?->id)->whereDate('until', self::today())->latest('id')->first()
+                    ?->update(['until' => $date]);
+            });
+            $result['done'][] = $member->name.' → '.$rank;
+        }
+
+        return $result;
+    }
+
+    /** An Ehrung for several at once; who already has this kind is skipped */
+    public function awardMany(User $by, array $ids, array $data): array
+    {
+        $members = $this->editable($by, $ids);
+        $result = ['done' => [], 'skipped' => []];
+        foreach ($members as $member) {
+            if (filled($data['honor_type_id'] ?? null) && Honor::where('user_id', $member->id)->where('honor_type_id', (int) $data['honor_type_id'])->exists()) {
+                $result['skipped'][] = $member->name;
+
+                continue;
+            }
+            $this->addHonor($by, $member, $data);
+            $result['done'][] = $member->name;
+        }
+
+        return $result;
+    }
+
+    /** Gives or takes a Funktion for several at once; the Diensthistorie follows */
+    public function setFunction(User $by, array $ids, int $functionId, bool $give): array
+    {
+        $members = $this->editable($by, $ids);
+        $function = MemberFunction::assignable()->find($functionId) ?? throw ValidationException::withMessages(['bulk' => 'Bitte eine Funktion wählen.']);
+        foreach ($members as $member) {
+            $give ? $member->functions()->syncWithoutDetaching([$function->id]) : $member->functions()->detach($function->id);
+            $this->syncHistory($member->load('functions'));
+        }
+
+        return ['done' => $members->pluck('name')->all(), 'skipped' => []];
+    }
+
     // ─── Ehrungen ────────────────────────────────────────────────────────────
+
+    /**
+     * Usual kinds to start with. The exact names differ from Land to Land and in the Verbände – adjust them
+     * afterwards; existing names are left alone.
+     */
+    public const HONOR_PRESETS = [
+        ['Feuerwehr-Ehrenzeichen 10 Jahre', 10], ['Feuerwehr-Ehrenzeichen 25 Jahre', 25], ['Feuerwehr-Ehrenzeichen 40 Jahre', 40],
+        ['Feuerwehr-Ehrenzeichen 50 Jahre', 50], ['Feuerwehr-Ehrenzeichen 60 Jahre', 60], ['Leistungsabzeichen', null],
+        ['Ehrennadel des Kreisfeuerwehrverbandes', null], ['Deutsches Feuerwehr-Ehrenkreuz', null],
+    ];
+
+    /** @return int how many were added */
+    public function addHonorPresets(User $by): int
+    {
+        $this->assertManager($by);
+        $added = 0;
+        foreach (self::HONOR_PRESETS as [$name, $years]) {
+            if (! HonorType::where('name', $name)->exists()) {
+                $this->saveHonorType($by, null, $name, $years);
+                $added++;
+            }
+        }
+
+        return $added;
+    }
+
+    /** A copy to adapt, e.g. "… 25 Jahre" → "… 30 Jahre" */
+    public function copyHonorType(User $by, HonorType $type): HonorType
+    {
+        $name = $type->name.' (Kopie)';
+        for ($i = 2; HonorType::where('name', $name)->exists(); $i++) {
+            $name = $type->name.' (Kopie '.$i.')';
+        }
+
+        return $this->saveHonorType($by, null, mb_substr($name, 0, 150), $type->after_years);
+    }
 
     public function saveHonorType(User $by, ?HonorType $type, string $name, ?int $afterYears): HonorType
     {
