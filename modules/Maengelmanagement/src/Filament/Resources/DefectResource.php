@@ -10,6 +10,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 use Modules\Maengelmanagement\src\Enums\DefectStatus;
 use Modules\Maengelmanagement\src\Enums\Urgency;
 use Modules\Maengelmanagement\src\Filament\Resources\DefectResource\Pages;
@@ -93,7 +94,7 @@ class DefectResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['device', 'reporter', 'assignee']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['device', 'vehicle', 'reporter', 'assignee']))
             ->columns([
                 Tables\Columns\TextColumn::make('created_at')->label('Gemeldet')->dateTime('d.m.Y H:i')->timezone('Europe/Berlin')->sortable(),
                 Tables\Columns\TextColumn::make('title')->label('Mangel')->searchable()->limit(50),
@@ -116,6 +117,8 @@ class DefectResource extends Resource
                 Tables\Filters\SelectFilter::make('urgency')->label('Dringlichkeit')->options(Urgency::options()),
                 Tables\Filters\SelectFilter::make('device_id')->label('Gerät')
                     ->options(fn () => Device::orderBy('name')->pluck('name', 'id')),
+                Tables\Filters\SelectFilter::make('vehicle_id')->label('Fahrzeug')
+                    ->options(fn () => Vehicle::orderBy('name')->pluck('name', 'id')),
                 Tables\Filters\SelectFilter::make('assigned_to')->label('Zuständig')
                     ->options(fn () => User::active()->orderBy('name')->pluck('name', 'id')),
                 Tables\Filters\TernaryFilter::make('active')->label('Anzeigen')

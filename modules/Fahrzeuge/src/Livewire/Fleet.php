@@ -32,6 +32,7 @@ class Fleet extends Component
             'profiles' => $profiles,
             'states' => $fleet->states($vehicles),
             'assignments' => $fleet->runningAssignments(),
+            'defects' => $fleet->openDefects($vehicles->pluck('id')->all()),
             'deadlines' => Deadline::active()->with('vehicle')->whereHas('vehicle', fn ($q) => $q->where('is_active', true))
                 ->where('due_on', '<=', $limit)->orderBy('due_on')->get(),
             'canManage' => FleetService::canManage(auth()->user()),

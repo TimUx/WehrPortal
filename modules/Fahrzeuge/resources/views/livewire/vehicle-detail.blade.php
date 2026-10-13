@@ -15,7 +15,8 @@
         <div class="text-right">
             @include('fahrzeuge::partials.state', ['state' => $state])
             @if($state['detail'])<p class="text-xs text-gray-600">{{ $state['detail'] }}</p>@endif
-            @if($canManage)<a href="{{ route('fahrzeuge.edit', $vehicle) }}" class="mt-1 block text-xs text-fw-navy underline">Stammdaten bearbeiten</a>@endif
+            @if($canManage)<a href="{{ route('fahrzeuge.edit', $vehicle) }}" class="mt-1 block text-xs text-fw-navy underline">Stammdaten bearbeiten</a>
+                <a href="{{ route('fahrzeuge.label', $vehicle) }}" target="_blank" class="block text-xs text-fw-navy underline">QR-Etikett drucken</a>@endif
         </div>
     </div>
 
@@ -34,7 +35,11 @@
                 'Führerschein' => $profile->license_class, 'Löschwasser' => $profile->water_liters ? number_format($profile->water_liters, 0, ',', '.').' l' : null,
                 'Schaummittel' => $profile->foam_liters ? number_format($profile->foam_liters, 0, ',', '.').' l' : null, 'Pumpe' => $profile->pump,
                 'Kilometerstand' => $profile->mileage_km !== null ? number_format($profile->mileage_km, 0, ',', '.').' km'.($profile->mileage_on ? ' ('.$profile->mileage_on->format('d.m.Y').')' : '') : null,
-                'Betriebsstunden' => $profile->operating_hours !== null ? str_replace('.', ',', (string) $profile->operating_hours).' h' : null] as $label => $value)
+                'Betriebsstunden' => $profile->operating_hours !== null ? str_replace('.', ',', (string) $profile->operating_hours).' h' : null,
+                'Beschafft' => $profile->purchased_on?->format('d.m.Y'), 'Lieferant' => $profile->supplier,
+                'Kaufpreis' => $canManage && $profile->purchase_price_cents !== null ? \App\Support\Money::format($profile->purchase_price_cents) : null,
+                'Förderung' => $profile->funding,
+                'Garantie bis' => $profile->warranty_until ? $profile->warranty_until->format('d.m.Y').($profile->warranty_until->isPast() ? ' (abgelaufen)' : '') : null] as $label => $value)
                 @if(filled($value))<dt class="text-gray-500">{{ $label }}</dt><dd>{{ $value }}</dd>@endif
             @endforeach
         </dl>
@@ -44,6 +49,48 @@
         @if($profile->notes)<p class="whitespace-pre-line pt-1 text-sm text-gray-700">{{ $profile->notes }}</p>@endif
         @if(! $profile->exists)<p class="text-sm text-gray-500">Noch keine Stammdaten.@if($canManage) <a href="{{ route('fahrzeuge.edit', $vehicle) }}" class="underline">Jetzt erfassen</a>@endif</p>@endif
     </section>
+
+    @if($defects !== null)
+        <section class="{{ $card }}">
+            <div class="flex items-center justify-between gap-2">
+                <p class="text-sm font-semibold text-gray-900">Offene Mängel</p>
+                <a href="{{ route('maengelmanagement.report', ['fahrzeug' => $vehicle->id]) }}" class="text-xs font-semibold text-fw-navy underline">Mangel melden</a>
+            </div>
+            @forelse($defects as $m)
+                <p class="text-sm"><a href="{{ route('maengelmanagement.show', $m) }}" class="underline">{{ $m->title }}</a>
+                    <span class="text-xs text-gray-500"> · {{ $m->urgency->label() }} · {{ $m->status->label() }} · {{ $m->created_at->setTimezone('Europe/Berlin')->format('d.m.Y') }}</span></p>
+            @empty
+                <p class="text-sm text-gray-500">Keine.</p>
+            @endforelse
+        </section>
+    @endif
+
+    @if($documents->isNotEmpty() || $canManage)
+        <section class="{{ $card }}">
+            <p class="text-sm font-semibold text-gray-900">Dokumente</p>
+            @forelse($documents as $doc)
+                <div class="flex flex-wrap items-center justify-between gap-2 text-sm" wire:key="doc-{{ $doc->id }}">
+                    <span><a href="{{ route('fahrzeuge.document', $doc) }}" target="_blank" class="underline">{{ $doc->title }}</a>
+                        <span class="text-xs text-gray-500"> · {{ $doc->kindLabel() }}{{ $doc->internal ? ' · nur Fahrzeugwarte' : '' }}</span>
+                        @if($doc->valid_until)<span class="text-xs {{ $doc->isExpired() ? 'font-semibold text-red-700' : 'text-gray-500' }}"> · gültig bis {{ $doc->valid_until->format('d.m.Y') }}</span>@endif</span>
+                    @if($canManage)<button type="button" wire:click="deleteDocument({{ $doc->id }})" wire:confirm="Dokument entfernen?" class="text-xs text-gray-500 underline">entfernen</button>@endif
+                </div>
+            @empty
+                <p class="text-sm text-gray-500">Noch keine Dokumente (z. B. Fahrzeugschein, Gutachten, Betriebsanleitung).</p>
+            @endforelse
+            @if($canManage)
+                <div class="grid grid-cols-1 gap-2 border-t border-gray-100 pt-2 sm:grid-cols-2">
+                    <label class="block text-xs text-gray-600">Art<select wire:model="doc.kind" class="{{ $input }}">@foreach(\Modules\Fahrzeuge\src\Models\Document::KINDS as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach</select></label>
+                    <label class="block text-xs text-gray-600">Bezeichnung (optional)<input type="text" wire:model="doc.title" maxlength="150" class="{{ $input }}"></label>
+                    <label class="block text-xs text-gray-600">Gültig bis (optional)<input type="date" wire:model="doc.valid_until" class="{{ $input }}"></label>
+                    <label class="block text-xs text-gray-600">Datei (Foto oder PDF)<input type="file" wire:model="docFile" accept="image/*,application/pdf" class="mt-1 text-sm"></label>
+                    <label class="flex items-center gap-2 text-xs text-gray-600"><input type="checkbox" wire:model="doc.internal" class="rounded border-gray-300"> nur für Fahrzeugwarte (z. B. Kaufvertrag)</label>
+                    <div><button type="button" wire:click="addDocument" wire:loading.attr="disabled" class="rounded-lg bg-fw-navy px-3 py-1.5 text-sm font-semibold text-white">Ablegen</button></div>
+                    @foreach(['docFile', 'document_kind', 'document_valid_until', 'document_file'] as $field)@error($field)<p class="{{ $error }} sm:col-span-2">{{ $message }}</p>@enderror @endforeach
+                </div>
+            @endif
+        </section>
+    @endif
 
     @if($canManage)
         <section class="{{ $card }}">
@@ -57,6 +104,7 @@
                     <button type="button" wire:click="saveStatus" class="rounded-lg bg-fw-navy px-3 py-2 text-sm font-semibold text-white">Speichern</button>
                 </div>
                 @error('status_note')<p class="{{ $error }}">{{ $message }}</p>@enderror
+                @if($profile->status_source === 'inspection')<p class="text-xs text-gray-500">Von einer Prüfung gesetzt – eine bestandene Nachprüfung macht das Fahrzeug wieder einsatzbereit.</p>@endif
                 <button type="button" wire:click="decommission" wire:confirm="{{ $vehicle->name }} außer Dienst stellen? Es ist dann nicht mehr buchbar." class="text-xs text-red-600 underline">Außer Dienst stellen</button>
             @else
                 <p class="text-sm text-gray-600">Außer Dienst – nicht buchbar, nicht im Einsatzbericht wählbar.</p>
@@ -89,7 +137,7 @@
 
     <section class="{{ $card }}">
         <div class="flex flex-wrap items-center justify-between gap-2">
-            <p class="text-sm font-semibold text-gray-900">Fristen & Wartungsintervalle</p>
+            <p class="text-sm font-semibold text-gray-900">Fristen & Wartungsintervalle <a href="{{ route('fahrzeuge.deadlines') }}" class="ml-1 text-xs font-normal text-fw-navy underline">alle Fahrzeuge</a></p>
             @if($canManage && $editingDeadline === null)
                 <div class="flex flex-wrap gap-2 text-xs">
                     <select x-data x-on:change="$wire.editDeadline(null, $event.target.value); $event.target.value = ''" class="rounded-lg border border-gray-300 px-2 py-1 text-xs" aria-label="Frist hinzufügen">
@@ -107,13 +155,14 @@
                 <label class="block text-xs text-gray-600">Wiederholung alle … Monate (leer = einmalig)<input type="number" min="1" max="240" wire:model="deadline.interval_months" class="{{ $input }}"></label>
                 <label class="block text-xs text-gray-600">Vorwarnung (Tage)<input type="number" min="0" max="365" wire:model="deadline.lead_days" class="{{ $input }}"></label>
                 <label class="block text-xs text-gray-600 sm:col-span-2">Notiz<input type="text" wire:model="deadline.notes" maxlength="500" class="{{ $input }}"></label>
+                <label class="block text-xs text-gray-600 sm:col-span-2">Prüfschritte (einer je Zeile; leer = ohne Checkliste)<textarea wire:model="deadline.steps" rows="4" class="{{ $input }}" placeholder="z. B. Bremsanlage&#10;Beleuchtung und Sondersignal"></textarea></label>
                 @foreach(['deadline_title', 'deadline_due_on', 'deadline_interval', 'deadline_lead'] as $field)@error($field)<p class="{{ $error }} sm:col-span-2">{{ $message }}</p>@enderror @endforeach
                 <div class="flex gap-3 sm:col-span-2"><button type="button" wire:click="saveDeadline" class="rounded-lg bg-fw-red px-3 py-1.5 text-sm font-semibold text-white">Speichern</button><button type="button" wire:click="cancel" class="text-sm text-gray-500 underline">Abbrechen</button></div>
             </div>
         @endif
         @forelse($deadlines as $d)
             <div class="flex flex-wrap items-center justify-between gap-2 text-sm" wire:key="dl-{{ $d->id }}">
-                <span>{{ $d->title }}<span class="block text-xs {{ $d->isOverdue() ? 'font-semibold text-red-700' : ($d->isDue() ? 'text-amber-800' : 'text-gray-500') }}">{{ $d->isOverdue() ? 'überfällig seit' : 'fällig' }} {{ $d->due_on->format('d.m.Y') }}{{ $d->interval_months ? ' · alle '.$d->interval_months.' Monate' : '' }}</span></span>
+                <span>{{ $d->title }}<span class="block text-xs {{ $d->isOverdue() ? 'font-semibold text-red-700' : ($d->isDue() ? 'text-amber-800' : 'text-gray-500') }}">{{ $d->isOverdue() ? 'überfällig seit' : 'fällig' }} {{ $d->due_on->format('d.m.Y') }}{{ $d->interval_months ? ' · alle '.$d->interval_months.' Monate' : '' }}{{ $d->steps ? ' · '.count($d->steps).' Prüfschritte' : '' }}</span></span>
                 @if($canManage)
                     <span class="flex gap-3 text-xs">
                         <button type="button" wire:click="startRecord({{ $d->id }})" class="font-semibold text-fw-navy underline">erledigt eintragen</button>
@@ -129,7 +178,8 @@
 
     <section class="{{ $card }}">
         <div class="flex items-center justify-between gap-2">
-            <p class="text-sm font-semibold text-gray-900">Prüfungen, Wartungen & Reparaturen</p>
+            <p class="text-sm font-semibold text-gray-900">Prüfungen, Wartungen & Reparaturen
+                @if($costs && $costs['total'])<span class="ml-1 text-xs font-normal text-gray-500">· Kosten {{ $costs['year'] }}: {{ \App\Support\Money::format($costs['total']) }}</span>@endif</p>
             @if($canManage && ! $recording)<button type="button" wire:click="startRecord" class="text-xs font-semibold text-fw-navy underline">Eintrag hinzufügen</button>@endif
         </div>
         @if($recording)
@@ -145,16 +195,54 @@
                 <label class="block text-xs text-gray-600">Kilometerstand<input type="number" wire:model="record.mileage_km" class="{{ $input }}"></label>
                 <label class="block text-xs text-gray-600">Kosten in €<input type="text" inputmode="decimal" wire:model="record.cost" placeholder="0,00" class="{{ $input }}"></label>
                 <label class="block text-xs text-gray-600">Werkstatt / Prüfer<input type="text" wire:model="record.provider" maxlength="150" class="{{ $input }}"></label>
+                <label class="block text-xs text-gray-600">Rechnungsnummer<input type="text" wire:model="record.invoice_number" maxlength="60" class="{{ $input }}"></label>
+                @if($costCenters !== null && $costCenters->isNotEmpty())
+                    <div class="text-xs text-gray-600">
+                        <label class="flex items-center gap-2 pt-5"><input type="checkbox" wire:model.live="toFinance" class="rounded border-gray-300"> Kosten bei den Finanzen als Ausgabe einreichen</label>
+                        @if($toFinance)<select wire:model="costCenterId" class="{{ $input }}" aria-label="Kostenstelle"><option value="">Kostenstelle …</option>@foreach($costCenters as $c)<option value="{{ $c->id }}">{{ $c->name }}</option>@endforeach</select>@endif
+                    </div>
+                @endif
+                @if($checklist)
+                    <div class="space-y-1 sm:col-span-2">
+                        <p class="text-xs font-semibold text-gray-700">Prüfschritte</p>
+                        @foreach($checklist as $i => $step)
+                            <div class="grid grid-cols-1 gap-1 rounded-lg bg-white p-2 sm:grid-cols-[1fr_auto_14rem] sm:items-center" wire:key="cl-{{ $i }}">
+                                <span class="text-sm">{{ $step['step'] }}</span>
+                                <span class="flex gap-2 text-xs">
+                                    @foreach(\Modules\Fahrzeuge\src\Models\Record::STEP_STATES as $value => $label)
+                                        <label class="flex items-center gap-1 {{ $value === 'defect' ? 'text-red-700' : '' }}"><input type="radio" wire:model.live="checklist.{{ $i }}.state" value="{{ $value }}"> {{ $label }}</label>
+                                    @endforeach
+                                </span>
+                                <input type="text" wire:model="checklist.{{ $i }}.note" maxlength="300" placeholder="Bemerkung" class="rounded-lg border border-gray-300 px-2 py-1 text-xs">
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+                @if($record['kind'] === 'inspection')
+                    <label class="block text-xs text-gray-600 sm:col-span-2">Ergebnis
+                        <select wire:model="record.result" class="{{ $input }}"><option value="">– ohne Bewertung –</option>@foreach(\Modules\Fahrzeuge\src\Models\Record::RESULTS as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach</select>
+                        <span class="mt-0.5 block text-gray-500">Das Ergebnis setzt die Einsatzbereitschaft. Nicht bestanden: die Frist bleibt bis zur Nachprüfung offen.@if(app(\App\Services\ModuleRegistry::class)->isActive('maengelmanagement')) Jeder Prüfschritt mit Mangel kommt ins Mängelmanagement.@endif</span>
+                    </label>
+                    <div class="space-y-1 sm:col-span-2">
+                        <label class="block text-xs text-gray-600">Unterschrift Prüfer (optional)<input type="text" wire:model="signerName" maxlength="150" class="{{ $input }}"></label>
+                        @include('partials.signature-pad', ['model' => 'signature', 'label' => 'Geprüft nach bestem Wissen'])
+                    </div>
+                @endif
                 <label class="block text-xs text-gray-600 sm:col-span-2">Notizen<textarea wire:model="record.notes" rows="2" class="{{ $input }}"></textarea></label>
                 <label class="block text-xs text-gray-600 sm:col-span-2">Prüfbericht / Rechnung (Fotos oder PDF)<input type="file" wire:model="uploads" multiple accept="image/*,application/pdf" class="mt-1 text-sm"></label>
-                @foreach(['record_kind', 'record_title', 'record_done_on', 'record_mileage', 'record_cost', 'record_files', 'uploads.*'] as $field)@error($field)<p class="{{ $error }} sm:col-span-2">{{ $message }}</p>@enderror @endforeach
+                @foreach(['record_kind', 'record_title', 'record_done_on', 'record_mileage', 'record_cost', 'record_files', 'record_checklist', 'record_result', 'record_signature', 'record_signer', 'record_finance', 'uploads.*'] as $field)@error($field)<p class="{{ $error }} sm:col-span-2">{{ $message }}</p>@enderror @endforeach
                 <div class="flex gap-3 sm:col-span-2"><button type="button" wire:click="saveRecord" wire:loading.attr="disabled" class="rounded-lg bg-fw-red px-3 py-1.5 text-sm font-semibold text-white">Speichern</button><button type="button" wire:click="cancel" class="text-sm text-gray-500 underline">Abbrechen</button></div>
             </div>
         @endif
         @forelse($records as $r)
             <div class="border-t border-gray-100 pt-2 text-sm first:border-0 first:pt-0" wire:key="r-{{ $r->id }}">
-                <p class="text-gray-900">{{ $r->title }}</p>
-                <p class="text-xs text-gray-500">{{ $r->done_on->format('d.m.Y') }} · {{ $r->kindLabel() }}{{ $r->mileage_km ? ' · '.number_format($r->mileage_km, 0, ',', '.').' km' : '' }}{{ $r->cost() ? ' · '.$r->cost() : '' }}{{ $r->provider ? ' · '.$r->provider : '' }}</p>
+                <p class="text-gray-900">{{ $r->title }}
+                    @if($r->result)<span class="ml-1 rounded-full px-2 py-0.5 text-xs {{ ['passed' => 'bg-green-100 text-green-800', 'limited' => 'bg-amber-100 text-amber-800', 'failed' => 'bg-red-100 text-red-800'][$r->result] ?? '' }}">{{ ['passed' => 'bestanden', 'limited' => 'mit Mängeln', 'failed' => 'nicht bestanden'][$r->result] ?? $r->result }}</span>@endif
+                </p>
+                <p class="text-xs text-gray-500">{{ $r->done_on->format('d.m.Y') }} · {{ $r->kindLabel() }}{{ $r->mileage_km ? ' · '.number_format($r->mileage_km, 0, ',', '.').' km' : '' }}{{ $r->cost() ? ' · '.$r->cost() : '' }}{{ $r->provider ? ' · '.$r->provider : '' }}{{ $r->invoice_number ? ' · Rechnung '.$r->invoice_number : '' }}{{ $r->signed_at ? ' · unterschrieben von '.$r->signer_name : '' }}</p>
+                @if($r->defects())<p class="text-xs text-red-700">Mängel: {{ collect($r->defects())->pluck('step')->implode(', ') }}</p>@endif
+                @if($r->checklist || $r->signed_at)<a href="{{ route('fahrzeuge.record', $r) }}" target="_blank" class="text-xs text-fw-navy underline">Prüfprotokoll</a>@endif
+                @if($r->finance_entry_id && $costCenters !== null)<a href="{{ route('finanzen.entry', $r->finance_entry_id) }}" class="ml-2 text-xs text-fw-navy underline">Ausgabe bei den Finanzen</a>@endif
                 @if($r->notes)<p class="whitespace-pre-line text-xs text-gray-600">{{ $r->notes }}</p>@endif
                 @if($r->attachments->isNotEmpty())<p class="text-xs">@foreach($r->attachments as $a)<a href="{{ route('fahrzeuge.attachment', $a) }}" target="_blank" class="mr-2 text-fw-navy underline">{{ $a->name }}</a>@endforeach</p>@endif
             </div>

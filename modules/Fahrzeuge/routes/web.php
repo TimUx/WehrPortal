@@ -3,12 +3,16 @@
 use Illuminate\Support\Facades\Route;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 use Modules\Fahrzeuge\src\Models\Attachment;
+use Modules\Fahrzeuge\src\Models\Document;
 use Modules\Fahrzeuge\src\Models\Profile;
+use Modules\Fahrzeuge\src\Models\Record;
+use Modules\Fahrzeuge\src\Services\FleetService;
 
 Route::prefix('fahrzeuge')->name('fahrzeuge.')
     ->middleware(['auth', 'active', 'module:fahrzeuge'])
     ->group(function () {
         Route::get('/', fn () => view('fahrzeuge::pages.page', ['livewireComponent' => 'fahrzeuge.fleet', 'title' => 'Fahrzeuge']))->name('index');
+        Route::get('/fristen', fn () => view('fahrzeuge::pages.page', ['livewireComponent' => 'fahrzeuge.deadlines', 'title' => 'Fristen']))->name('deadlines');
         Route::get('/neu', fn () => view('fahrzeuge::pages.page', ['livewireComponent' => 'fahrzeuge.vehicle-form', 'title' => 'Neues Fahrzeug']))
             ->middleware('can:fahrzeuge-manage')->name('create');
         Route::get('/{vehicle}', fn (Vehicle $vehicle) => view('fahrzeuge::pages.page', ['livewireComponent' => 'fahrzeuge.vehicle-detail', 'title' => $vehicle->name, 'params' => ['vehicle' => $vehicle]]))
@@ -23,6 +27,26 @@ Route::prefix('fahrzeuge')->name('fahrzeuge.')
 
             return response(base64_decode($photo), 200, ['Content-Type' => 'image/webp', 'Cache-Control' => 'private, max-age=31536000, immutable']);
         })->whereNumber('vehicle')->name('photo');
+
+        // QR label for the vehicle: a scan opens the Fahrzeugakte (with "Mangel melden")
+        Route::get('/{vehicle}/etikett', fn (Vehicle $vehicle) => view('fahrzeuge::pages.label', ['vehicle' => $vehicle,
+            'profile' => Profile::firstOrNew(['vehicle_id' => $vehicle->id])]))->whereNumber('vehicle')->middleware('can:fahrzeuge-manage')->name('label');
+
+        Route::get('/pruefprotokoll/{record}', function (Record $record) {
+            return view('fahrzeuge::pages.record', ['record' => $record->load('vehicle', 'creator', 'deadline'),
+                'profile' => Profile::firstOrNew(['vehicle_id' => $record->vehicle_id])]);
+        })->whereNumber('record')->name('record');
+
+        Route::get('/dokumente/{document}', function (Document $document) {
+            abort_unless(FleetService::canSeeDocument(auth()->user(), $document), 403);
+
+            return response(base64_decode($document->data), 200, [
+                'Content-Type' => $document->mime,
+                'Content-Disposition' => 'inline; filename="'.addslashes($document->name).'"',
+                'Cache-Control' => 'private, max-age=3600',
+                'X-Content-Type-Options' => 'nosniff',
+            ]);
+        })->whereNumber('document')->name('document');
 
         Route::get('/anhaenge/{attachment}', fn (Attachment $attachment) => response(base64_decode($attachment->data), 200, [
             'Content-Type' => $attachment->mime,

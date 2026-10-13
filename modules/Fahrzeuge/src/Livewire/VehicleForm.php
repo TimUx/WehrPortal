@@ -2,6 +2,7 @@
 
 namespace Modules\Fahrzeuge\src\Livewire;
 
+use App\Support\Money;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -37,9 +38,11 @@ class VehicleForm extends Component
             'name' => (string) $v?->name, 'short_name' => (string) $v?->short_name, 'color' => $v?->color ?? '#3b82f6', 'description' => (string) $v?->description,
             'sort_order' => (string) ($v?->sort_order ?? 0),
             ...collect(['call_sign', 'license_plate', 'category', 'vehicle_type', 'chassis', 'body_builder', 'year_built', 'vin', 'gross_weight_kg', 'crew',
-                'license_class', 'water_liters', 'foam_liters', 'pump', 'notes', 'mileage_km', 'location_id'])
+                'license_class', 'water_liters', 'foam_liters', 'pump', 'notes', 'mileage_km', 'location_id', 'supplier', 'funding'])
                 ->mapWithKeys(fn ($f) => [$f => (string) ($profile->{$f} ?? '')])->all(),
             'first_registration' => (string) $profile->first_registration?->toDateString(),
+            'purchased_on' => (string) $profile->purchased_on?->toDateString(), 'warranty_until' => (string) $profile->warranty_until?->toDateString(),
+            'purchase_price' => $profile->purchase_price_cents !== null ? Money::input($profile->purchase_price_cents) : '',
             'operating_hours' => $profile->operating_hours !== null ? str_replace('.', ',', (string) $profile->operating_hours) : '',
         ];
         $this->features = $profile->features ?? [];

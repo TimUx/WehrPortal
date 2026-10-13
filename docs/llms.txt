@@ -15,7 +15,7 @@
 - Objektpläne & Brandschutzunterlagen: Feuerwehrpläne mit Versionen, bei Alarm die Pläne der Einsatzstelle per GPS, offline verfügbar
 - Wasserkarte & Hydranten: Löschwasserquellen auf der Karte mit Status, Leistung und Prüffristen, Saugstellen mit Saughöhe, QR-Etikett vor Ort, Prüfnachweis als CSV
 - Fahrzeugbuchung: Fahrzeuge im gemeinsamen Kalender reservieren, Konfliktentscheidung, Wachen-Monitor
-- Fahrzeugverwaltung & Flotte: Fahrzeugprofile, Status, Werkstattzeiten, Fristen (HU, SP, UVV)
+- Fahrzeugverwaltung & Flotte: Fahrzeugakte (Stammdaten, Beschaffung, Dokumente wie Fahrzeugschein), Status, Werkstattzeiten, Fristen (HU, SP, UVV) mit Fristenliste und im Kalender, Prüfungen mit Checkliste, Ergebnis und Unterschrift setzen die Einsatzbereitschaft, Mängel aus der Prüfung oder per QR-Code am Fahrzeug ins Mängelmanagement, Kosten an die Finanzen
 - Fahrtenbuch: Fahrten mit Kilometerstand, verknüpft mit Buchung und Einsatz, Tanken und Export
 - Kalender & Termine: Termine für eine Zielgruppe mit Ort samt Navigation, Kleidung und Rückmeldung, Terminabfragen, Kalender-Abo, gemeinsame Übungen mit Nachbarwehren; Erziehungsberechtigte (z. B. Jugendfeuerwehr) bekommen die Termin-Mails und sagen ohne eigenes Konto für das Kind zu oder ab
 - Schichtplan: Schichten verteilen oder Mitglieder selbst eintragen lassen

@@ -49,6 +49,18 @@
     </section>
 
     <section class="space-y-2 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+        <p class="text-sm font-semibold text-gray-900">Beschaffung</p>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label class="block text-sm text-gray-700">Gekauft / in Dienst gestellt am<input type="date" wire:model="form.purchased_on" class="{{ $input }}"></label>
+            <label class="block text-sm text-gray-700">Kaufpreis in €<input type="text" inputmode="decimal" wire:model="form.purchase_price" placeholder="0,00" class="{{ $input }}"></label>
+            <label class="block text-sm text-gray-700">Lieferant / Aufbauhersteller<input type="text" wire:model="form.supplier" maxlength="150" class="{{ $input }}"></label>
+            <label class="block text-sm text-gray-700">Förderung<input type="text" wire:model="form.funding" maxlength="150" placeholder="z. B. Landesförderung 40 %" class="{{ $input }}"></label>
+            <label class="block text-sm text-gray-700">Garantie bis<input type="date" wire:model="form.warranty_until" class="{{ $input }}"></label>
+        </div>
+        @foreach(['purchased_on', 'purchase_price', 'warranty_until'] as $field)@error($field)<p class="{{ $error }}">{{ $message }}</p>@enderror @endforeach
+    </section>
+
+    <section class="space-y-2 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
         <p class="text-sm font-semibold text-gray-900">Ausstattung</p>
         <div class="flex flex-wrap gap-2">
             @foreach($features as $i => $feature)

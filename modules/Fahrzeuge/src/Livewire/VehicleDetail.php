@@ -12,11 +12,14 @@ use Modules\Ausruestung\src\Models\Equipment;
 use Modules\Fahrzeugbuchung\src\Models\Booking;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 use Modules\Fahrzeuge\src\Models\Deadline;
+use Modules\Fahrzeuge\src\Models\Document;
 use Modules\Fahrzeuge\src\Models\Downtime;
 use Modules\Fahrzeuge\src\Models\Profile;
 use Modules\Fahrzeuge\src\Models\Record;
 use Modules\Fahrzeuge\src\Models\StatusEvent;
 use Modules\Fahrzeuge\src\Services\FleetService;
+use Modules\Finanzen\src\Models\CostCenter;
+use Modules\Maengelmanagement\src\Models\Defect;
 
 /**
  * The Fahrzeugprofil: data, Ausstattung, status and Werkstatt, deadlines with their documentation,
@@ -47,6 +50,23 @@ class VehicleDetail extends Component
 
     /** @var array<int, TemporaryUploadedFile> */
     public array $uploads = [];
+
+    /** @var list<array{step: string, state: string, note: string}> the Prüfschritte of the Prüfung being entered */
+    public array $checklist = [];
+
+    public string $signature = '';
+
+    public string $signerName = '';
+
+    /** Hand the costs to the Finanzen as an Ausgabe */
+    public bool $toFinance = false;
+
+    public string $costCenterId = '';
+
+    /** @var array{kind: string, title: string, valid_until: string, internal: bool} */
+    public array $doc = ['kind' => 'registration', 'title' => '', 'valid_until' => '', 'internal' => false];
+
+    public ?TemporaryUploadedFile $docFile = null;
 
     public ?string $flash = null;
 
@@ -99,14 +119,19 @@ class VehicleDetail extends Component
         $d = $id ? Deadline::where('vehicle_id', $this->vehicle->id)->findOrFail($id) : null;
         $this->editingDeadline = $d?->id ?? 0;
         $this->deadline = $d
-            ? ['title' => $d->title, 'interval_months' => (string) ($d->interval_months ?? ''), 'due_on' => $d->due_on->toDateString(), 'lead_days' => (string) $d->lead_days, 'notes' => (string) $d->notes]
-            : ['title' => trim((string) $preset), 'interval_months' => (string) (Deadline::PRESETS[trim((string) $preset)] ?? ''), 'due_on' => '', 'lead_days' => '30', 'notes' => ''];
+            ? ['title' => $d->title, 'interval_months' => (string) ($d->interval_months ?? ''), 'due_on' => $d->due_on->toDateString(), 'lead_days' => (string) $d->lead_days,
+                'notes' => (string) $d->notes, 'steps' => implode("\n", $d->steps ?? [])]
+            : ['title' => trim((string) $preset), 'interval_months' => (string) (Deadline::PRESETS[trim((string) $preset)] ?? ''), 'due_on' => '', 'lead_days' => '30', 'notes' => '',
+                'steps' => implode("\n", Deadline::STEPS[trim((string) $preset)] ?? [])];
     }
 
     public function updatedDeadlineTitle(string $value): void
     {
         if (isset(Deadline::PRESETS[$value]) && ($this->deadline['interval_months'] ?? '') === '') {
             $this->deadline['interval_months'] = (string) Deadline::PRESETS[$value];
+        }
+        if (isset(Deadline::STEPS[$value]) && trim($this->deadline['steps'] ?? '') === '') {
+            $this->deadline['steps'] = implode("\n", Deadline::STEPS[$value]);
         }
     }
 
@@ -130,7 +155,40 @@ class VehicleDetail extends Component
         $this->recording = true;
         $this->uploads = [];
         $this->record = ['deadline_id' => (string) ($deadline?->id ?? ''), 'kind' => $deadline ? 'inspection' : 'service', 'title' => (string) $deadline?->title,
-            'done_on' => FleetService::today()->toDateString(), 'mileage_km' => '', 'cost' => '', 'provider' => '', 'notes' => ''];
+            'done_on' => FleetService::today()->toDateString(), 'mileage_km' => '', 'cost' => '', 'provider' => '', 'notes' => '', 'invoice_number' => '', 'result' => ''];
+        $this->signature = '';
+        $this->signerName = auth()->user()->name;
+        $this->toFinance = false;
+        $this->loadChecklist($deadline);
+    }
+
+    public function updatedRecordDeadlineId(string $value): void
+    {
+        $deadline = $value !== '' ? Deadline::where('vehicle_id', $this->vehicle->id)->find((int) $value) : null;
+        if ($deadline) {
+            $this->record['kind'] = 'inspection';
+            $this->record['title'] = $this->record['title'] ?: $deadline->title;
+        }
+        $this->loadChecklist($deadline);
+    }
+
+    /** A Mangel in the checklist suggests "bedingt einsatzbereit" */
+    public function updatedChecklist(): void
+    {
+        $hasDefect = collect($this->checklist)->contains('state', 'defect');
+        if ($hasDefect && in_array($this->record['result'], ['', 'passed'], true)) {
+            $this->record['result'] = 'limited';
+        } elseif (! $hasDefect && $this->record['result'] === 'limited') {
+            $this->record['result'] = 'passed';
+        }
+    }
+
+    private function loadChecklist(?Deadline $deadline): void
+    {
+        $this->checklist = collect($deadline?->steps ?? [])->map(fn ($step) => ['step' => $step, 'state' => 'ok', 'note' => ''])->all();
+        if ($this->checklist) {
+            $this->record['result'] = 'passed';
+        }
     }
 
     public function saveRecord(FleetService $fleet): void
@@ -142,11 +200,53 @@ class VehicleDetail extends Component
 
             return;
         }
-        $data = [...$this->record, 'cost_cents' => $cost, 'deadline_id' => $this->record['deadline_id'] ?: null];
-        if ($this->run(fn () => $fleet->recordWork(auth()->user(), $this->vehicle, $data, $this->uploads), 'Eingetragen.')) {
+        if ($this->toFinance && $this->costCenterId === '') {
+            $this->addError('record_finance', 'Bitte die Kostenstelle wählen.');
+
+            return;
+        }
+        $data = [...$this->record, 'cost_cents' => $cost, 'deadline_id' => $this->record['deadline_id'] ?: null, 'result' => $this->record['result'] ?: null,
+            'checklist' => $this->checklist, 'signature' => $this->signature ?: null, 'signer_name' => $this->signerName];
+        $record = null;
+        $done = 'Eingetragen.';
+        if ($this->run(function () use ($fleet, $data, &$record) {
+            $record = $fleet->recordWork(auth()->user(), $this->vehicle, $data, $this->uploads);
+        }, $done)) {
+            if ($record->result === 'failed' && $record->deadline_id) {
+                $this->flash .= ' Die Frist bleibt bis zur Nachprüfung offen.';
+            }
+            if ($record->defects() && app(ModuleRegistry::class)->isActive('maengelmanagement')) {
+                $this->flash .= ' '.count($record->defects()).' '.(count($record->defects()) === 1 ? 'Mangel steht' : 'Mängel stehen').' jetzt im Mängelmanagement.';
+            }
+            if ($this->toFinance && $record->cost_cents) {
+                try {
+                    $fleet->submitToFinance(auth()->user(), $record, (int) $this->costCenterId, $this->uploads);
+                    $this->flash .= ' Die Kosten sind als Ausgabe bei den Finanzen eingereicht.';
+                } catch (ValidationException $e) {
+                    $this->flash .= ' Finanzen: '.collect($e->errors())->flatten()->first();
+                }
+            }
+            $this->status = Profile::where('vehicle_id', $this->vehicle->id)->value('status') ?? 'ready';
             $this->recording = false;
             $this->uploads = [];
+            $this->checklist = [];
+            $this->signature = '';
         }
+    }
+
+    public function addDocument(FleetService $fleet): void
+    {
+        $this->validate(['docFile' => ['required', 'file', 'max:10240', 'mimes:jpg,jpeg,png,webp,gif,pdf']],
+            ['docFile.required' => 'Bitte eine Datei wählen.', 'docFile.max' => 'Die Datei darf höchstens 10 MB groß sein.', 'docFile.mimes' => 'Bitte ein Foto oder eine PDF-Datei hochladen.']);
+        if ($this->run(fn () => $fleet->addDocument(auth()->user(), $this->vehicle, $this->doc, $this->docFile), 'Dokument abgelegt.')) {
+            $this->doc = ['kind' => 'registration', 'title' => '', 'valid_until' => '', 'internal' => false];
+            $this->docFile = null;
+        }
+    }
+
+    public function deleteDocument(int $id, FleetService $fleet): void
+    {
+        $this->run(fn () => $fleet->deleteDocument(auth()->user(), Document::where('vehicle_id', $this->vehicle->id)->findOrFail($id)), 'Dokument entfernt.');
     }
 
     public function cancel(): void
@@ -200,7 +300,16 @@ class VehicleDetail extends Component
                 ? Booking::visible()->with('user')->where('vehicle_id', $this->vehicle->id)->where('ends_at', '>', now())->orderBy('starts_at')->limit(10)->get()
                 : null,
             'equipment' => $equipment,
-            'canManage' => FleetService::canManage(auth()->user()),
+            'canManage' => $canManage = FleetService::canManage(auth()->user()),
+            'documents' => Document::where('vehicle_id', $this->vehicle->id)->when(! $canManage, fn ($q) => $q->where('internal', false))
+                ->orderBy('kind')->orderByDesc('created_at')->get(['id', 'vehicle_id', 'kind', 'title', 'valid_until', 'internal', 'name', 'mime', 'size', 'created_at']),
+            'defects' => $modules->isActive('maengelmanagement') && auth()->user()->canUseModule('maengelmanagement')
+                ? Defect::active()->where('vehicle_id', $this->vehicle->id)->latest()->get()
+                : null,
+            'costs' => $canManage ? $fleet->costs($this->vehicle, (int) now('Europe/Berlin')->year) : null,
+            'costCenters' => $canManage && $modules->isActive('finanzen') && auth()->user()->canUseModule('finanzen')
+                ? CostCenter::active()->ordered()->get(['id', 'name', 'code'])
+                : null,
             'canSeeReports' => auth()->user()->can('einsatzbericht-lead'),
         ]);
     }

@@ -20,7 +20,7 @@ class DefectService
     public function __construct(private readonly DefectPhotoService $photos) {}
 
     /**
-     * @param  array{device_id?: ?int, location?: ?string, title: string, description?: ?string, urgency: string}  $data
+     * @param  array{device_id?: ?int, vehicle_id?: ?int, location?: ?string, title: string, description?: ?string, urgency: string}  $data
      * @param  string[]  $photoPaths  local paths of the uploaded images
      */
     public function report(User $reporter, array $data, array $photoPaths = []): Defect
@@ -28,6 +28,7 @@ class DefectService
         $defect = DB::transaction(function () use ($reporter, $data, $photoPaths) {
             $defect = Defect::create([
                 'device_id' => $data['device_id'] ?? null,
+                'vehicle_id' => empty($data['device_id']) ? ($data['vehicle_id'] ?? null) : null,
                 'location' => $data['location'] ?? null,
                 'title' => $data['title'],
                 'description' => $data['description'] ?? null,

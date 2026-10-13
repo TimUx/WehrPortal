@@ -3,8 +3,10 @@
 namespace Modules\Fahrzeuge;
 
 use App\Models\User;
+use App\Services\AnnualReportRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
+use App\Services\ScanRegistry;
 use App\Services\VehicleBlockRegistry;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Gate;
@@ -13,10 +15,12 @@ use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 use Modules\Fahrzeuge\src\Console\Commands\SendFleetReminders;
+use Modules\Fahrzeuge\src\Livewire\Deadlines;
 use Modules\Fahrzeuge\src\Livewire\Fleet;
 use Modules\Fahrzeuge\src\Livewire\VehicleDetail;
 use Modules\Fahrzeuge\src\Livewire\VehicleForm;
 use Modules\Fahrzeuge\src\Models\Deadline;
+use Modules\Fahrzeuge\src\Models\Record;
 use Modules\Fahrzeuge\src\Services\FleetService;
 
 /**
@@ -52,7 +56,7 @@ class FahrzeugeServiceProvider extends ServiceProvider
 
         Gate::define('fahrzeuge-manage', fn (User $user) => FleetService::canManage($user));
 
-        foreach (['fleet' => Fleet::class, 'vehicle-detail' => VehicleDetail::class, 'vehicle-form' => VehicleForm::class] as $name => $class) {
+        foreach (['deadlines' => Deadlines::class, 'fleet' => Fleet::class, 'vehicle-detail' => VehicleDetail::class, 'vehicle-form' => VehicleForm::class] as $name => $class) {
             Livewire::component('fahrzeuge.'.$name, $class);
         }
 
@@ -67,6 +71,25 @@ class FahrzeugeServiceProvider extends ServiceProvider
 
         // Werkstatt and other downtimes can't be booked in the Fahrzeugbuchung
         app(VehicleBlockRegistry::class)->register('fahrzeuge', [FleetService::class, 'blocks']);
+
+        // The QR label on a vehicle (FZ-<id>) opens its Fahrzeugakte
+        app(ScanRegistry::class)->register('fahrzeuge', function (string $code): ?string {
+            return preg_match('/^FZ-(\d+)$/i', $code, $m) && Vehicle::whereKey((int) $m[1])->exists() ? route('fahrzeuge.show', (int) $m[1]) : null;
+        });
+
+        // Jahresbericht: Prüfungen, Wartungen, Reparaturen and their costs per vehicle
+        app(AnnualReportRegistry::class)->register('fahrzeuge', 'Fahrzeuge: Prüfungen, Wartungen & Reparaturen', function (int $year) {
+            $records = Record::with('vehicle')->whereYear('done_on', $year)->get();
+            if ($records->isEmpty()) {
+                return null;
+            }
+            $rows = $records->groupBy('vehicle_id')->map(fn ($r) => ['name' => $r->first()->vehicle?->name ?? '–',
+                'inspection' => $r->where('kind', 'inspection')->count(), 'failed' => $r->whereIn('result', ['limited', 'failed'])->count(),
+                'service' => $r->whereIn('kind', ['service', 'other'])->count(), 'repair' => $r->where('kind', 'repair')->count(),
+                'cost' => (int) $r->sum('cost_cents')])->sortBy('name')->values();
+
+            return view('fahrzeuge::annual.section', ['rows' => $rows])->render();
+        }, 62);
 
         // Start page: the fleet at a glance, overdue deadlines for the Fahrzeugwarte
         app(DashboardRegistry::class)->register('fahrzeuge', 'fleet', function (User $user) {

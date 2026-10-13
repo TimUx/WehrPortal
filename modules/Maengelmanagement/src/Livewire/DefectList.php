@@ -27,7 +27,7 @@ class DefectList extends Component
 
     public function render()
     {
-        $defects = Defect::with(['device', 'reporter', 'assignee'])
+        $defects = Defect::with(['device', 'vehicle', 'reporter', 'assignee'])
             ->withCount('photos')
             ->when($this->filter === 'active', fn ($q) => $q->active())
             ->when(DefectStatus::tryFrom($this->filter), fn ($q, $status) => $q->where('status', $status->value))
@@ -35,7 +35,8 @@ class DefectList extends Component
                 $term = '%'.trim($this->search).'%';
                 $q->where(fn ($q) => $q->where('title', 'ilike', $term)
                     ->orWhere('location', 'ilike', $term)
-                    ->orWhereHas('device', fn ($d) => $d->where('name', 'ilike', $term)->orWhere('code', 'ilike', $term)));
+                    ->orWhereHas('device', fn ($d) => $d->where('name', 'ilike', $term)->orWhere('code', 'ilike', $term))
+                    ->orWhereHas('vehicle', fn ($v) => $v->where('name', 'ilike', $term)));
             })
             // Critical first, then newest
             ->orderByRaw("case urgency when 'critical' then 0 when 'high' then 1 when 'medium' then 2 else 3 end")

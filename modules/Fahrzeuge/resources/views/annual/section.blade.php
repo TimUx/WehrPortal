@@ -1,0 +1,4 @@
+{{-- Jahresbericht: documented Prüfungen, Wartungen and Reparaturen with costs per vehicle --}}
+<div class="ar-grid"><div class="ar-tile"><span>Prüfungen</span><strong>{{ $rows->sum('inspection') }}</strong></div><div class="ar-tile"><span>Reparaturen</span><strong>{{ $rows->sum('repair') }}</strong></div><div class="ar-tile"><span>Kosten</span><strong>{{ \App\Support\Money::format($rows->sum('cost')) }}</strong></div></div>
+<table><thead><tr><th>Fahrzeug</th><th class="n">Prüfungen</th><th class="n">davon mit Mängeln</th><th class="n">Wartungen</th><th class="n">Reparaturen</th><th class="n">Kosten</th></tr></thead>
+    <tbody>@foreach($rows as $r)<tr><td>{{ $r['name'] }}</td><td class="n">{{ $r['inspection'] }}</td><td class="n">{{ $r['failed'] }}</td><td class="n">{{ $r['service'] }}</td><td class="n">{{ $r['repair'] }}</td><td class="n">{{ \App\Support\Money::format($r['cost']) }}</td></tr>@endforeach</tbody></table>

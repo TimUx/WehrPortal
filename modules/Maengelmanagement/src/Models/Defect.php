@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 use Modules\Maengelmanagement\src\Enums\DefectStatus;
 use Modules\Maengelmanagement\src\Enums\Urgency;
 
@@ -14,7 +15,7 @@ class Defect extends Model
     protected $table = 'mm_defects';
 
     protected $fillable = [
-        'device_id', 'location', 'title', 'description', 'urgency', 'status',
+        'device_id', 'vehicle_id', 'location', 'title', 'description', 'urgency', 'status',
         'reporter_id', 'assigned_to', 'resolved_at',
     ];
 
@@ -30,6 +31,11 @@ class Defect extends Model
     public function device(): BelongsTo
     {
         return $this->belongsTo(Device::class);
+    }
+
+    public function vehicle(): BelongsTo
+    {
+        return $this->belongsTo(Vehicle::class);
     }
 
     public function reporter(): BelongsTo
@@ -57,9 +63,9 @@ class Defect extends Model
         return $query->whereIn('status', [DefectStatus::Open->value, DefectStatus::InProgress->value]);
     }
 
-    /** What the defect is about: the device, or the free-text place */
+    /** What the defect is about: the device, the vehicle, or the free-text place */
     public function subject(): string
     {
-        return $this->device?->label() ?? ($this->location ?: 'Ohne Zuordnung');
+        return $this->device?->label() ?? $this->vehicle?->name ?? ($this->location ?: 'Ohne Zuordnung');
     }
 }

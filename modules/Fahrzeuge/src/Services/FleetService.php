@@ -5,6 +5,8 @@ namespace Modules\Fahrzeuge\src\Services;
 use App\Models\User;
 use App\Services\ImageResizer;
 use App\Services\ModuleRegistry;
+use App\Support\Money;
+use App\Support\SignatureImage;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\UploadedFile;
@@ -17,12 +19,18 @@ use Modules\Einsatzbericht\src\Models\ReportVehicle;
 use Modules\Fahrzeugbuchung\src\Models\Booking;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 use Modules\Fahrzeuge\src\Models\Deadline;
+use Modules\Fahrzeuge\src\Models\Document;
 use Modules\Fahrzeuge\src\Models\Downtime;
 use Modules\Fahrzeuge\src\Models\Profile;
 use Modules\Fahrzeuge\src\Models\Record;
 use Modules\Fahrzeuge\src\Models\StatusEvent;
 use Modules\Fahrzeuge\src\Notifications\DeadlineDigestNotification;
 use Modules\Fahrzeuge\src\Notifications\VehicleUnavailableNotification;
+use Modules\Finanzen\src\Services\FinanceService;
+use Modules\Kalender\src\Models\Event;
+use Modules\Kalender\src\Services\EventService;
+use Modules\Maengelmanagement\src\Models\Defect;
+use Modules\Maengelmanagement\src\Services\DefectService;
 use Throwable;
 
 /**
@@ -104,6 +112,12 @@ class FleetService
         }
         $hours = filled($data['operating_hours'] ?? null) ? (float) str_replace(',', '.', (string) $data['operating_hours']) : null;
         $firstRegistration = $this->date($data['first_registration'] ?? null, 'first_registration', $errors);
+        $purchasedOn = $this->date($data['purchased_on'] ?? null, 'purchased_on', $errors);
+        $warrantyUntil = $this->date($data['warranty_until'] ?? null, 'warranty_until', $errors);
+        $price = filled($data['purchase_price'] ?? null) ? Money::parse((string) $data['purchase_price']) : null;
+        if (filled($data['purchase_price'] ?? null) && ($price === null || $price < 0)) {
+            $errors['purchase_price'] = 'Bitte den Kaufpreis als Betrag angeben, z. B. 385.000,00.';
+        }
         $locationId = filled($data['location_id'] ?? null) ? (int) $data['location_id'] : null;
         if ($locationId && ! Location::whereKey($locationId)->exists()) {
             $errors['location_id'] = 'Diesen Standort gibt es nicht.';
@@ -114,7 +128,7 @@ class FleetService
 
         $photoData = $photo ? base64_encode($this->images->toWebp($photo->getRealPath(), 1600, 'photo')) : null;
 
-        return DB::transaction(function () use ($vehicle, $data, $name, $color, $category, $numbers, $hours, $firstRegistration, $locationId, $photoData) {
+        return DB::transaction(function () use ($vehicle, $data, $name, $color, $category, $numbers, $hours, $firstRegistration, $locationId, $photoData, $purchasedOn, $warrantyUntil, $price) {
             $vehicle ??= new Vehicle(['is_active' => true]);
             $vehicle->fill([
                 'name' => $name, 'short_name' => $this->text($data['short_name'] ?? null, 255), 'color' => $color,
@@ -133,6 +147,8 @@ class FleetService
                 'features' => collect($data['features'] ?? [])->map(fn ($f) => $this->text($f, 100))->filter()->unique()->values()->all(),
                 'notes' => $this->text($data['notes'] ?? null, 5000), 'mileage_km' => $numbers['mileage_km'], 'operating_hours' => $hours,
                 'mileage_on' => $mileageChanged ? self::today()->toDateString() : $profile->mileage_on?->toDateString(), 'location_id' => $locationId,
+                'purchased_on' => $purchasedOn?->toDateString(), 'purchase_price_cents' => $price, 'supplier' => $this->text($data['supplier'] ?? null, 150),
+                'funding' => $this->text($data['funding'] ?? null, 150), 'warranty_until' => $warrantyUntil?->toDateString(),
                 ...($photoData ? ['photo' => $photoData, 'photo_updated_at' => now()] : []),
             ])->save();
 
@@ -159,8 +175,15 @@ class FleetService
             throw ValidationException::withMessages(['status_note' => 'Bitte kurz angeben, was los ist.']);
         }
 
+        $this->changeStatus($by, $vehicle, $status, $note, null);
+    }
+
+    /** $source 'inspection' marks a status set by a Prüfung, so a passed Nachprüfung may lift it again */
+    private function changeStatus(User $by, Vehicle $vehicle, string $status, ?string $note, ?string $source): void
+    {
         $profile = $this->profile($vehicle);
-        $profile->fill(['status' => $status, 'status_note' => $status === 'ready' ? null : $note, 'status_changed_at' => now()])->save();
+        $profile->fill(['status' => $status, 'status_note' => $status === 'ready' ? null : $note, 'status_changed_at' => now(),
+            'status_source' => $status === 'ready' ? null : $source])->save();
         StatusEvent::create(['vehicle_id' => $vehicle->id, 'status' => $status, 'note' => $note, 'user_id' => $by->id]);
     }
 
@@ -245,7 +268,7 @@ class FleetService
 
     // ─── deadlines and documentation ─────────────────────────────────────────
 
-    /** @param  array{title: string, interval_months?: ?int, due_on: string, lead_days?: ?int, notes?: ?string}  $data */
+    /** @param  array{title: string, interval_months?: ?int, due_on: string, lead_days?: ?int, notes?: ?string, steps?: string|list<string>}  $data */
     public function saveDeadline(User $by, Vehicle $vehicle, ?Deadline $deadline, array $data): Deadline
     {
         $this->assertManager($by);
@@ -270,11 +293,15 @@ class FleetService
             throw ValidationException::withMessages($errors);
         }
 
+        $steps = collect(is_array($data['steps'] ?? null) ? $data['steps'] : preg_split('/\R/', (string) ($data['steps'] ?? '')))
+            ->map(fn ($s) => $this->text($s, 150))->filter()->unique()->take(40)->values()->all();
+
         $deadline ??= new Deadline(['vehicle_id' => $vehicle->id]);
         $dateChanged = ! $deadline->exists || $deadline->due_on?->toDateString() !== $due->toDateString();
         $deadline->fill(['title' => $title, 'interval_months' => $interval, 'due_on' => $due->toDateString(), 'lead_days' => $lead,
-            'notes' => $this->text($data['notes'] ?? null, 500), 'is_active' => true,
+            'notes' => $this->text($data['notes'] ?? null, 500), 'is_active' => true, 'steps' => $steps ?: null,
             ...($dateChanged ? ['due_mailed_at' => null, 'overdue_mailed_at' => null] : [])])->save();
+        $this->syncCalendar($deadline);
 
         return $deadline;
     }
@@ -283,13 +310,47 @@ class FleetService
     {
         $this->assertManager($by);
         $deadline->records()->exists() ? $deadline->update(['is_active' => false]) : $deadline->delete();
+        $this->syncCalendar($deadline);
+    }
+
+    /**
+     * The deadline as an all-day entry in the Kalender, for the Fahrzeugwarte only (managed_by =
+     * fahrzeuge). Rebuilt on every change; a Kalender error never stops the Fahrzeugverwaltung.
+     */
+    public function syncCalendar(Deadline $deadline): void
+    {
+        if (! app(ModuleRegistry::class)->isActive('kalender')) {
+            return;
+        }
+        try {
+            if ($deadline->event_id) {
+                Event::where('managed_by', self::MODULE)->whereKey($deadline->event_id)->delete();
+            }
+            $eventId = null;
+            if ($deadline->exists && $deadline->is_active && $deadline->due_on->gte(self::today())) {
+                $start = Carbon::createFromFormat('!Y-m-d', $deadline->due_on->toDateString(), 'Europe/Berlin');
+                $vehicle = $deadline->vehicle()->first();
+                $eventId = app(EventService::class)->create(['title' => ($vehicle?->name ?? 'Fahrzeug').': '.$deadline->title, 'type' => 'wartung', 'all_day' => true,
+                    'starts_at' => $start, 'ends_at' => $start->copy()->addDay(), 'managed_by' => self::MODULE,
+                    'description' => 'Frist aus der Fahrzeugverwaltung – erledigt wird sie im Fahrzeugprofil.'], [], null, null, false, $this->managers()->pluck('id')->all())
+                    ->first()?->id;
+            }
+            if ($deadline->exists && $deadline->event_id !== $eventId) {
+                $deadline->forceFill(['event_id' => $eventId])->saveQuietly();
+            }
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 
     /**
      * Document a Prüfung, Wartung or Reparatur. Done for a deadline, that deadline moves on by its
-     * interval (or is closed without one); a higher Kilometerstand goes into the profile.
+     * interval (or is closed without one) – unless the Prüfung failed: then it stays open for the
+     * Nachprüfung. A higher Kilometerstand goes into the profile. A Prüfung with a result sets the
+     * Einsatzbereitschaft, and each Prüfschritt with a Mangel becomes a defect in the
+     * Mängelmanagement (when it is on).
      *
-     * @param  array{deadline_id?: ?int, kind: string, title?: ?string, done_on: string, mileage_km?: ?int, cost_cents?: ?int, provider?: ?string, notes?: ?string}  $data
+     * @param  array{deadline_id?: ?int, kind: string, title?: ?string, done_on: string, mileage_km?: ?int, cost_cents?: ?int, provider?: ?string, notes?: ?string, invoice_number?: ?string, result?: ?string, checklist?: list<array{step: string, state: string, note?: ?string}>, signature?: ?string, signer_name?: ?string}  $data
      * @param  list<UploadedFile>  $files
      */
     public function recordWork(User $by, Vehicle $vehicle, array $data, array $files = []): Record
@@ -318,22 +379,51 @@ class FleetService
         if (count($files) > self::MAX_ATTACHMENTS) {
             $errors['record_files'] = 'Höchstens '.self::MAX_ATTACHMENTS.' Dateien je Eintrag.';
         }
+        $checklist = collect($data['checklist'] ?? [])->map(fn ($s) => ['step' => (string) $this->text($s['step'] ?? null, 150),
+            'state' => (string) ($s['state'] ?? ''), 'note' => $this->text($s['note'] ?? null, 300)])->filter(fn ($s) => $s['step'] !== '')->values();
+        if ($checklist->contains(fn ($s) => ! array_key_exists($s['state'], Record::STEP_STATES))) {
+            $errors['record_checklist'] = 'Bitte jeden Prüfschritt bewerten: in Ordnung, Mangel oder entfällt.';
+        }
+        $defects = $checklist->where('state', 'defect');
+        $result = filled($data['result'] ?? null) ? (string) $data['result'] : ($checklist->isNotEmpty() ? ($defects->isEmpty() ? 'passed' : 'limited') : null);
+        if ($result !== null && ! array_key_exists($result, Record::RESULTS)) {
+            $errors['record_result'] = 'Bitte das Ergebnis wählen.';
+        } elseif ($result === 'passed' && $defects->isNotEmpty()) {
+            $errors['record_result'] = 'Bei Mängeln bitte „bedingt“ oder „nicht einsatzbereit“ wählen.';
+        }
+        if ($result !== null && $kind !== 'inspection') {
+            $result = null;
+        }
+        $signature = null;
+        if (filled($data['signature'] ?? null)) {
+            try {
+                $signature = SignatureImage::fromDataUrl((string) $data['signature'], 'record_signature');
+            } catch (ValidationException $e) {
+                $errors += array_map(fn ($m) => $m[0], $e->errors());
+            }
+            if ($this->text($data['signer_name'] ?? null, 150) === null) {
+                $errors['record_signer'] = 'Bitte angeben, wer unterschreibt.';
+            }
+        }
         if ($errors) {
             throw ValidationException::withMessages($errors);
         }
         $attachments = array_map(fn (UploadedFile $file) => $this->attachment($file), $files);
 
-        return DB::transaction(function () use ($by, $vehicle, $deadline, $kind, $title, $done, $mileage, $data, $attachments) {
+        $record = DB::transaction(function () use ($by, $vehicle, $deadline, $kind, $title, $done, $mileage, $data, $attachments, $checklist, $result, $signature) {
             $record = Record::create([
                 'vehicle_id' => $vehicle->id, 'deadline_id' => $deadline?->id, 'kind' => $kind, 'title' => $title, 'done_on' => $done->toDateString(),
                 'mileage_km' => $mileage, 'cost_cents' => $data['cost_cents'] ?? null, 'provider' => $this->text($data['provider'] ?? null, 150),
                 'notes' => $this->text($data['notes'] ?? null, 5000), 'created_by' => $by->id,
+                'invoice_number' => $this->text($data['invoice_number'] ?? null, 60), 'result' => $result,
+                'checklist' => $checklist->isNotEmpty() ? $checklist->all() : null, 'signature' => $signature,
+                'signer_name' => $signature ? $this->text($data['signer_name'] ?? null, 150) : null, 'signed_at' => $signature ? now() : null,
             ]);
             foreach ($attachments as $file) {
                 $record->attachments()->create($file);
             }
 
-            if ($deadline) {
+            if ($deadline && $result !== 'failed') {
                 $deadline->update($deadline->interval_months
                     ? ['due_on' => $done->copy()->addMonths($deadline->interval_months)->toDateString(), 'due_mailed_at' => null, 'overdue_mailed_at' => null]
                     : ['is_active' => false]);
@@ -344,8 +434,159 @@ class FleetService
                 $profile->fill(['mileage_km' => $mileage, 'mileage_on' => $done->toDateString()])->save();
             }
 
+            $this->applyResult($by, $vehicle, $record);
+
             return $record;
         });
+
+        if ($deadline) {
+            $this->syncCalendar($deadline->refresh());
+        }
+        $this->reportDefects($by, $vehicle, $record);
+
+        return $record;
+    }
+
+    /**
+     * The Prüfung sets the Einsatzbereitschaft: failed → nicht einsatzbereit, with Mängeln →
+     * bedingt (never better than it already is), passed → lifts a status a Prüfung had set.
+     */
+    private function applyResult(User $by, Vehicle $vehicle, Record $record): void
+    {
+        if ($record->result === null || ! $vehicle->is_active) {
+            return;
+        }
+        $profile = $this->profile($vehicle);
+        $note = 'Prüfung „'.$record->title.'“ vom '.$record->done_on->format('d.m.Y').': '.match ($record->result) {
+            'failed' => 'nicht bestanden', 'limited' => count($record->defects()).' '.(count($record->defects()) === 1 ? 'Mangel' : 'Mängel'), default => 'bestanden',
+        };
+        match ($record->result) {
+            'failed' => $this->changeStatus($by, $vehicle, 'unavailable', $note, 'inspection'),
+            'limited' => $profile->status === 'unavailable' && $profile->status_source !== 'inspection' ? null
+                : $this->changeStatus($by, $vehicle, 'limited', $note, 'inspection'),
+            default => $profile->status !== 'ready' && $profile->status_source === 'inspection'
+                ? $this->changeStatus($by, $vehicle, 'ready', $note, null) : null,
+        };
+    }
+
+    /** Each Prüfschritt with a Mangel becomes a defect in the Mängelmanagement, tied to the vehicle */
+    private function reportDefects(User $by, Vehicle $vehicle, Record $record): void
+    {
+        if (! $record->defects() || ! app(ModuleRegistry::class)->isActive('maengelmanagement')) {
+            return;
+        }
+        foreach ($record->defects() as $step) {
+            try {
+                app(DefectService::class)->report($by, [
+                    'vehicle_id' => $vehicle->id, 'title' => mb_substr($step['step'], 0, 150),
+                    'description' => trim('Bei der Prüfung „'.$record->title.'“ am '.$record->done_on->format('d.m.Y').' festgestellt.'.($step['note'] ? "\n".$step['note'] : '')),
+                    'urgency' => $record->result === 'failed' ? 'high' : 'medium',
+                ]);
+            } catch (Throwable $e) {
+                report($e);
+            }
+        }
+    }
+
+    /** Open defects (Mängelmanagement) of the vehicles: count by vehicle id */
+    public function openDefects(array $vehicleIds): Collection
+    {
+        if (! app(ModuleRegistry::class)->isActive('maengelmanagement') || ! $vehicleIds) {
+            return collect();
+        }
+
+        return Defect::active()->whereIn('vehicle_id', $vehicleIds)->selectRaw('vehicle_id, count(*) as n')->groupBy('vehicle_id')->pluck('n', 'vehicle_id');
+    }
+
+    /**
+     * Hand the costs of a documented Wartung or Reparatur to the Finanzen as an Ausgabe (submitted,
+     * the Kassenwart decides), with the same Belege. Returns the Finanzen entry id.
+     *
+     * @param  list<UploadedFile>  $files
+     */
+    public function submitToFinance(User $by, Record $record, ?int $costCenterId, array $files = []): int
+    {
+        $this->assertManager($by);
+        if (! app(ModuleRegistry::class)->isActive('finanzen') || ! $by->canUseModule('finanzen')) {
+            throw ValidationException::withMessages(['record_finance' => 'Die Finanzen sind nicht eingeschaltet.']);
+        }
+        if (! $record->cost_cents) {
+            throw ValidationException::withMessages(['record_finance' => 'Ohne Kosten gibt es nichts abzurechnen.']);
+        }
+        try {
+            $entry = app(FinanceService::class)->create($by, [
+                'cost_center_id' => $costCenterId, 'title' => $record->vehicle->name.': '.$record->title, 'vendor' => $record->provider,
+                'amount_cents' => $record->cost_cents, 'booked_on' => $record->done_on->toDateString(),
+                'description' => trim(($record->invoice_number ? 'Rechnung '.$record->invoice_number.'. ' : '').'Aus der Fahrzeugverwaltung ('.$record->kindLabel().').'),
+            ], $files);
+        } catch (ValidationException $e) {
+            throw ValidationException::withMessages(['record_finance' => collect($e->errors())->flatten()->first()]);
+        }
+        $record->update(['finance_entry_id' => $entry->id]);
+
+        return $entry->id;
+    }
+
+    // ─── Fahrzeugakte: documents ─────────────────────────────────────────────
+
+    /** @param  array{kind: string, title?: ?string, valid_until?: ?string, internal?: bool}  $data */
+    public function addDocument(User $by, Vehicle $vehicle, array $data, UploadedFile $file): Document
+    {
+        $this->assertManager($by);
+        $errors = [];
+        $kind = (string) ($data['kind'] ?? '');
+        if (! array_key_exists($kind, Document::KINDS)) {
+            $errors['document_kind'] = 'Bitte die Art wählen.';
+        }
+        $validUntil = $this->date($data['valid_until'] ?? null, 'document_valid_until', $errors);
+        if ($errors) {
+            throw ValidationException::withMessages($errors);
+        }
+        try {
+            $stored = $this->attachment($file);
+        } catch (ValidationException $e) {
+            throw ValidationException::withMessages(['document_file' => collect($e->errors())->flatten()->first()]);
+        }
+
+        return Document::create([...$stored, 'vehicle_id' => $vehicle->id, 'kind' => $kind,
+            'title' => $this->text($data['title'] ?? null, 150) ?? Document::KINDS[$kind], 'valid_until' => $validUntil?->toDateString(),
+            'internal' => (bool) ($data['internal'] ?? false), 'uploaded_by' => $by->id]);
+    }
+
+    public function deleteDocument(User $by, Document $document): void
+    {
+        $this->assertManager($by);
+        $document->delete();
+    }
+
+    public static function canSeeDocument(User $user, Document $document): bool
+    {
+        return $document->internal ? self::canManage($user) : self::canView($user);
+    }
+
+    /**
+     * All active deadlines of the active vehicles for the Fristenliste.
+     *
+     * @param  string  $filter  overdue | upcoming (next 90 days) | all
+     */
+    public function deadlines(string $filter = 'upcoming', ?int $vehicleId = null): EloquentCollection
+    {
+        $today = self::today();
+
+        return Deadline::active()->with('vehicle')->whereHas('vehicle', fn ($q) => $q->where('is_active', true))
+            ->when($vehicleId, fn ($q) => $q->where('vehicle_id', $vehicleId))
+            ->when($filter === 'overdue', fn ($q) => $q->where('due_on', '<', $today->toDateString()))
+            ->when($filter === 'upcoming', fn ($q) => $q->where('due_on', '<=', $today->copy()->addDays(90)->toDateString()))
+            ->orderBy('due_on')->get();
+    }
+
+    /** @return array{year: int, total: int, by_kind: array<string, int>} costs of the documented work in a year */
+    public function costs(Vehicle $vehicle, int $year): array
+    {
+        $rows = Record::where('vehicle_id', $vehicle->id)->whereYear('done_on', $year)->whereNotNull('cost_cents')
+            ->selectRaw('kind, sum(cost_cents) as c')->groupBy('kind')->pluck('c', 'kind')->map(fn ($c) => (int) $c);
+
+        return ['year' => $year, 'total' => (int) $rows->sum(), 'by_kind' => $rows->all()];
     }
 
     // ─── what is going on ────────────────────────────────────────────────────
@@ -424,6 +665,11 @@ class FleetService
     {
         if (! app(ModuleRegistry::class)->isActive(self::MODULE)) {
             return 0;
+        }
+
+        // Deadlines from before the Kalender was switched on get their entry
+        if (app(ModuleRegistry::class)->isActive('kalender')) {
+            Deadline::active()->whereNull('event_id')->where('due_on', '>=', self::today()->toDateString())->get()->each(fn (Deadline $d) => $this->syncCalendar($d));
         }
 
         $today = self::today()->toDateString();

@@ -42,6 +42,7 @@
                     @include('fahrzeuge::partials.state', ['state' => $state])
                     @if($state['detail'])<span class="block truncate text-xs text-gray-600">{{ $state['detail'] }}</span>@endif
                     @if($state['overdue'])<span class="block text-xs font-semibold text-red-700">{{ $state['overdue'] }} Frist{{ $state['overdue'] === 1 ? '' : 'en' }} überfällig</span>@endif
+                    @if($n = (int) ($defects[$vehicle->id] ?? 0))<span class="block text-xs text-amber-800">{{ $n }} offene{{ $n === 1 ? 'r Mangel' : ' Mängel' }}</span>@endif
                 </span>
             </a>
         @empty
@@ -51,7 +52,7 @@
 
     @if($deadlines->isNotEmpty())
         <section class="space-y-2">
-            <p class="text-sm font-semibold text-gray-900">Fristen (überfällig und nächste 30 Tage)</p>
+            <p class="text-sm font-semibold text-gray-900">Fristen (überfällig und nächste 30 Tage) <a href="{{ route('fahrzeuge.deadlines') }}" class="ml-1 text-xs font-normal text-fw-navy underline">Fristenliste</a></p>
             <div class="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white shadow-sm">
                 @foreach($deadlines as $d)
                     <a href="{{ route('fahrzeuge.show', $d->vehicle_id) }}" class="flex items-center justify-between gap-3 p-3 text-sm hover:bg-gray-50" wire:key="d-{{ $d->id }}">
