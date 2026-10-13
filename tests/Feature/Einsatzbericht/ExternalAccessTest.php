@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\NoIndex;
 use App\Models\ActivityLog;
 use App\Models\Module;
 use App\Models\User;
@@ -53,7 +54,7 @@ test('the Einsatzleiter makes a QR code; the address opens without login', funct
         ->and(ExternalAccess::qr($this->report))->toStartWith('data:image/svg+xml;base64,');
 
     auth()->logout();
-    $this->get($url)->assertOk()->assertSee('Meldungen an die Einsatzleitung')->assertHeader('X-Robots-Tag', 'noindex, nofollow')
+    $this->get($url)->assertOk()->assertSee('Meldungen an die Einsatzleitung')->assertHeader('X-Robots-Tag', NoIndex::HEADER)
         // no report data for externals
         ->assertDontSee('Großbrand Scheune')->assertDontSee('Lindenhof')->assertDontSee('Max Muster');
 

@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
     <title>Termine – {{ $org }}</title>
     <style>
         body { font-family: ui-sans-serif, system-ui, sans-serif; color: #111827; margin: 0; padding: 1rem; background: transparent; }

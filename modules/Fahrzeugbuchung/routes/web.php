@@ -19,8 +19,7 @@ Route::prefix('fahrzeugbuchung')->name('fahrzeugbuchung.')->group(function () {
 
         return response()
             ->view('fahrzeugbuchung::pages.monitor')
-            ->header('X-Robots-Tag', 'noindex, nofollow')
-            ->header('Referrer-Policy', 'no-referrer');
+            ->header('Referrer-Policy', 'no-referrer');   // X-Robots-Tag comes from the NoIndex middleware
     })->name('monitor');
 
     // -----------------------------------------------------------------------

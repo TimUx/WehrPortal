@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\NoIndex;
 use App\Models\User;
 use Livewire\Livewire;
 use Modules\Fahrzeugbuchung\src\Filament\Widgets\MonitorLinkWidget;
@@ -29,7 +30,7 @@ beforeEach(function () {
 test('the station link with the right key opens the monitor without login', function () {
     $this->get('/fahrzeugbuchung/monitor/geheimer-wachen-schluessel')
         ->assertOk()
-        ->assertHeader('X-Robots-Tag', 'noindex, nofollow')
+        ->assertHeader('X-Robots-Tag', NoIndex::HEADER)
         ->assertSee('Fahrzeugbelegung')
         ->assertSee('wire:poll.60s', false);
 

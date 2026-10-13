@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
+      # Hotfix on top of a release, e.g. v0.8.9.1
+      - 'v[0-9]+.[0-9]+.[0-9]+.[0-9]+'
 
 env:
   REGISTRY: ghcr.io
@@ -24,7 +26,7 @@ jobs:
       - name: Validate version tag matches config/app.php
         run: |
           TAG="${GITHUB_REF_NAME}"
-          APP_VERSION=$(grep -oP "(?<='version' => ')V\.[0-9]+\.[0-9]+\.[0-9]+" config/app.php)
+          APP_VERSION=$(grep -oP "(?<='version' => ')V\.[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?" config/app.php)
           EXPECTED_TAG=$(echo "$APP_VERSION" | sed 's/^V\./v/')
           if [ "$TAG" != "$EXPECTED_TAG" ]; then
             echo "ERROR: Tag $TAG does not match version $APP_VERSION in config/app.php"
@@ -49,7 +51,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{raw}}
+            # The tag as it is (v0.8.9 or v0.8.9.1); semver would not take four parts
+            type=ref,event=tag
             type=raw,value=latest
 
       - name: Build and Push Image

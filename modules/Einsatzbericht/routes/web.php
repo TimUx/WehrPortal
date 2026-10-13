@@ -10,7 +10,7 @@ use Modules\Einsatzbericht\src\Services\SituationService;
 
 // QR access for external Wehren at large Einsätze: no login, the key in the address decides
 Route::get('/extern/{key}', fn (string $key) => response()->view('einsatzbericht::pages.external', compact('key'))
-    ->header('X-Robots-Tag', 'noindex, nofollow')->header('Referrer-Policy', 'no-referrer'))
+    ->header('Referrer-Policy', 'no-referrer'))   // X-Robots-Tag comes from the NoIndex middleware
     ->where('key', '[A-Za-z0-9]{40}')->middleware('throttle:60,1')->name('einsatzbericht.external');
 
 Route::middleware(['auth', 'active', 'module:einsatzbericht'])->group(function () {
