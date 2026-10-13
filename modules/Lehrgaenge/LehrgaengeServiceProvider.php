@@ -69,11 +69,12 @@ class LehrgaengeServiceProvider extends ServiceProvider
             route: 'lehrgaenge.index',
         );
 
-        // Start page: the next own Lehrgang; for the Ausbildungsleiter Interesse and recent Absagen
+        // Start page: the next own Lehrgang; Interesse and recent Absagen for whoever gets the notifications about them
+        // (the Ausbildungsleiter, the admins only when there is none) – so card and bell always agree
         app(DashboardRegistry::class)->register('lehrgaenge', 'attention', function (User $user) {
             $next = Record::with('course')->where('user_id', $user->id)->where('status', 'confirmed')
                 ->whereDate('starts_on', '>=', RegistrationService::today())->orderBy('starts_on')->first();
-            $todo = $user->canManageLehrgaenge() ? [
+            $todo = $user->canManageLehrgaenge() && app(RegistrationService::class)->managers()->contains('id', $user->id) ? [
                 'requested' => Record::where('status', 'requested')->count(),
                 'cancelled' => Record::where('status', 'cancelled')->where('cancelled_at', '>=', now()->subDays(7))->count(),
             ] : [];

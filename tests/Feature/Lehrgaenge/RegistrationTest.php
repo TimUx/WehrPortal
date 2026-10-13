@@ -495,3 +495,16 @@ test('only the Ausbildungsleiter hear about Interesse and Absagen; admins only w
     $this->r->request($this->member, Course::where('name', 'Truppführung Teil 1')->sole(), null);
     Notification::assertSentTo($admin, RequestReceivedNotification::class);
 });
+
+test('the start page shows Interesse and Absagen to the same people who are notified', function () {
+    $admin = User::factory()->create(['is_admin' => true]);
+    $this->r->cancel($this->r->request($this->member, $this->agt, null), 'keine Zeit');
+
+    Livewire::actingAs($this->leader)->test(Home::class)->assertSee('1 Absage in den letzten 7 Tagen');
+    // An admin without the role is not notified, so the card doesn't nag either
+    Livewire::actingAs($admin)->test(Home::class)->assertDontSee('Absage in den letzten 7 Tagen');
+
+    // Without an Ausbildungsleiter the admins are notified – and see it
+    ModuleUser::where('module', 'lehrgaenge')->where('role', 'ausbildungsleiter')->delete();
+    Livewire::actingAs($admin)->test(Home::class)->assertSee('1 Absage in den letzten 7 Tagen');
+});
