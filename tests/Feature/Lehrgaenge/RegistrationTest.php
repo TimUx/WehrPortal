@@ -2,6 +2,7 @@
 
 use App\Livewire\Dashboard\Home;
 use App\Models\Module;
+use App\Models\ModuleUser;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -474,4 +475,23 @@ test('the Personalakte and the Personalverwaltung show the absolvierte Lehrgäng
     $pv = User::factory()->create();
     $pv->moduleAccess()->create(['module' => 'personalverwaltung', 'role' => 'personalverwalter']);
     $this->actingAs($pv)->get(route('personalverwaltung.member', $this->member))->assertOk()->assertSee('Truppmann Teil 1');
+});
+
+test('only the Ausbildungsleiter hear about Interesse and Absagen; admins only when there is none', function () {
+    $admin = User::factory()->create(['is_admin' => true]);
+    $chief = User::factory()->create();
+    $chief->moduleAccess()->create(['module' => 'lehrgaenge', 'role' => 'ausbildungsleiter']);
+
+    $record = $this->r->request($this->member, $this->agt, null);
+    Notification::assertSentTo([$this->leader, $chief], RequestReceivedNotification::class);
+    Notification::assertNotSentTo($admin, RequestReceivedNotification::class);
+
+    $this->r->cancel($record, 'keine Zeit');
+    Notification::assertSentTo($chief, RegistrationCancelledNotification::class);
+    Notification::assertNotSentTo($admin, RegistrationCancelledNotification::class);
+
+    // Without any Ausbildungsleiter the admins step in, so nothing gets lost
+    ModuleUser::where('module', 'lehrgaenge')->where('role', 'ausbildungsleiter')->delete();
+    $this->r->request($this->member, Course::where('name', 'Truppführung Teil 1')->sole(), null);
+    Notification::assertSentTo($admin, RequestReceivedNotification::class);
 });
