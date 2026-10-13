@@ -151,12 +151,13 @@ class DefectService
             return 0;
         }
         $ids = collect(DB::select(
-            "UPDATE mm_defects SET reminded_at = now() WHERE status IN ('open', 'in_progress')
-               AND (reminded_at IS NULL OR reminded_at < now() - interval '7 days')
-               AND ((assigned_to IS NULL AND created_at < now() - interval '2 days')
-                 OR (question_open_at IS NOT NULL AND question_open_at < now() - interval '7 days')
-                 OR updated_at < now() - interval '30 days')
-             RETURNING id"
+            "UPDATE mm_defects SET reminded_at = ? WHERE status IN ('open', 'in_progress')
+               AND (reminded_at IS NULL OR reminded_at < ?)
+               AND ((assigned_to IS NULL AND created_at < ?)
+                 OR (question_open_at IS NOT NULL AND question_open_at < ?)
+                 OR updated_at < ?)
+             RETURNING id",
+            [now(), now()->subDays(7), now()->subDays(2), now()->subDays(7), now()->subDays(30)]
         ))->pluck('id');
         if ($ids->isEmpty()) {
             return 0;

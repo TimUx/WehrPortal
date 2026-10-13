@@ -184,7 +184,7 @@ class ObjectPlanService
             return collect();
         }
 
-        return Report::where('status', 'active')->whereNull('ended_at')->whereNotNull('latitude')->whereNotNull('longitude')
+        return Report::where('status', 'active')->whereNull('parent_id')->whereNull('ended_at')->whereNotNull('latitude')->whereNotNull('longitude')
             ->orderByDesc('alarmed_at')->limit(5)->get()
             ->map(fn (Report $report) => ['report' => $report, 'objects' => $this->forReport($report)])
             ->filter(fn ($row) => $row['objects']->isNotEmpty())->values();

@@ -12,7 +12,10 @@
                     <span class="rounded-full px-2 py-0.5 text-xs font-semibold {{ ['draft' => 'bg-gray-100 text-gray-700', 'active' => 'bg-red-100 text-red-800', 'closed' => 'bg-amber-100 text-amber-800', 'released' => 'bg-green-100 text-green-800'][$report->status] }}">{{ $report->statusLabel() }}</span>
                     @if($report->closed_at) · abgeschlossen {{ $report->closed_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }} von {{ $report->closer?->name }}@endif
                     @if($report->released_at) · freigegeben {{ $report->released_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }} von {{ $report->releaser?->name }}@endif
+                    @if($report->released_signature) · <span class="font-semibold text-green-700">signiert</span>@endif
+                    @if($seal === false) · <span class="font-semibold text-amber-700">nach der Freigabe geändert</span>@endif
                 </p>
+                @if($parentReport)<p class="text-sm text-gray-600">Nebenbericht{{ $report->side_label ? ' „'.$report->side_label.'“' : '' }} zu <a href="{{ route('einsatzbericht.show', $parentReport) }}" class="underline">{{ $parentReport->number }}{{ $parentReport->keyword ? ' · '.$parentReport->keyword : '' }}</a></p>@endif
             </div>
             <div class="flex flex-wrap gap-2">
                 @if($report->navigationUrl())
@@ -103,11 +106,38 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 @foreach(\Modules\Einsatzbericht\src\Models\Report::CATEGORIES as $value => $label)
                     <label class="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2.5 text-sm has-[:checked]:border-fw-red has-[:checked]:bg-red-50">
-                        <input type="radio" wire:model="form.category" value="{{ $value }}" class="text-fw-red focus:ring-fw-red"> {{ $label }}
+                        <input type="radio" wire:model.live="form.category" value="{{ $value }}" class="text-fw-red focus:ring-fw-red"> {{ $label }}
                     </label>
                 @endforeach
             </div>
         </section>
+
+        {{-- Guided Zusatzangaben: what this Einsatzart needs --}}
+        @if($detailFields)
+            <section id="field-details" class="{{ $card }}">
+                <h2 class="text-sm font-semibold text-gray-900">Angaben zur Einsatzart{{ $req('details') }}</h2>
+                <p class="text-xs text-gray-500">Passend zur Einsatzart; fließen in die Jahresstatistik ein.@if(in_array('details', $required, true)) Mit * markierte braucht der Abschluss.@endif</p>
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    @foreach($detailFields as $key => $field)
+                        @php($mark = ($field[3] ?? false) && in_array('details', $required, true) ? ' *' : '')
+                        @if($field[1] === 'select')
+                            <label class="block text-sm text-gray-700">{{ $field[0] }}{{ $mark }}
+                                <select wire:model="form.details.{{ $key }}" class="{{ $input }}"><option value="">–</option>@foreach($field[2] as $option)<option value="{{ $option }}">{{ $option }}</option>@endforeach</select>
+                            </label>
+                        @elseif($field[1] === 'bool')
+                            <label class="flex items-center gap-2 pt-6 text-sm text-gray-700"><input type="checkbox" wire:model="form.details.{{ $key }}" class="rounded border-gray-300 text-fw-red"> {{ $field[0] }}</label>
+                        @elseif($field[1] === 'number')
+                            <label class="block text-sm text-gray-700">{{ $field[0] }}<input type="number" min="0" max="9999" inputmode="numeric" wire:model="form.details.{{ $key }}" class="{{ $input }}"></label>
+                        @else
+                            <label class="block text-sm text-gray-700">{{ $field[0] }}
+                                <input type="text" maxlength="200" wire:model="form.details.{{ $key }}" @if($field[1] === 'water' && $waterOptions) list="eb-water-sources" placeholder="Nächste Entnahmestellen aus der Wasserkarte" @endif class="{{ $input }}">
+                            </label>
+                            @if($field[1] === 'water' && $waterOptions)<datalist id="eb-water-sources">@foreach($waterOptions as $option)<option value="{{ $option }}"></option>@endforeach</datalist>@endif
+                        @endif
+                    @endforeach
+                </div>
+            </section>
+        @endif
 
         {{-- Lage und Maßnahmen --}}
         <section class="{{ $card }}">
@@ -340,6 +370,38 @@
                 @endforeach
             </ul>
         </details>
+    @endif
+
+    {{-- Haupt- und Nebenberichte --}}
+    @if(! $report->isSide() && ($sides->isNotEmpty() || $canEdit))
+        <section class="{{ $card }}">
+            <h2 class="text-sm font-semibold text-gray-900">Nebenberichte</h2>
+            <p class="text-xs text-gray-500">Für große Einsätze: je Zug, Abteilung oder Abschnitt ein eigener Bericht mit eigener Besatzung. Er übernimmt die Kopfdaten; gezählt wird der Einsatz einmal, Stunden und Atemschutz aller Berichte zählen mit.</p>
+            @foreach($sides as $side)
+                @php($s = \Modules\Einsatzbericht\src\Services\ReportService::reportStrength($side))
+                <p class="text-sm"><a href="{{ route('einsatzbericht.show', $side) }}" class="underline">{{ $side->number }}</a>{{ $side->side_label ? ' · '.$side->side_label : '' }}
+                    <span class="text-xs text-gray-500">· {{ $side->statusLabel() }} · Stärke {{ $s['label'] }}</span></p>
+            @endforeach
+            @if($sides->isNotEmpty())
+                @php($all = \Modules\Einsatzbericht\src\Services\ReportService::strength($sides->concat([$report])->flatMap(fn ($r) => $r->vehicles->reject->is_standby->flatMap->crew)))
+                <p class="text-sm font-semibold text-gray-900">Gesamtstärke mit Nebenberichten: {{ $all['label'] }}</p>
+            @endif
+            @if($canEdit)
+                <div class="flex flex-wrap gap-2">
+                    <input type="text" wire:model="sideLabel" maxlength="150" placeholder="z. B. Löschzug Nord, Abschnitt B" class="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-base sm:text-sm">
+                    <button type="button" wire:click="createSide" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700">Nebenbericht anlegen</button>
+                </div>
+            @endif
+        </section>
+    @endif
+
+    {{-- Signing: the Einsatzleiter when closing, the Wehrführung when releasing --}}
+    @if(in_array($report->status, \Modules\Einsatzbericht\src\Models\Report::OPEN, true) || ($canRelease && $report->status === 'closed'))
+        <section class="{{ $card }}">
+            <h2 class="text-sm font-semibold text-gray-900">Unterschrift (optional)</h2>
+            <p class="text-xs text-gray-500">{{ $report->status === 'closed' ? 'Mit der Freigabe unterschreibt die Wehrführung; eine Prüfsumme hält den freigegebenen Stand fest – spätere Korrekturen sind daran erkennbar.' : 'Mit dem Abschließen unterschreibt der Einsatzleiter den Bericht.' }}</p>
+            @include('partials.signature-pad', ['model' => 'signature', 'label' => $report->status === 'closed' ? 'Geprüft und freigegeben – '.auth()->user()->name : 'Bericht richtig und vollständig – '.auth()->user()->name])
+        </section>
     @endif
 
     {{-- Actions, always reachable on the phone. After saving: a short note, and a jump to the first empty mandatory field --}}

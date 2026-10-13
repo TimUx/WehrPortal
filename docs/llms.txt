@@ -10,7 +10,7 @@
 
 ## Module
 
-- Einsatzbericht: Einsätze erfassen und freigeben, Besatzung und Stärke, DIVERA-24/7-Anbindung, Lagemeldungen, Jahresstatistik aus freigegebenen Berichten, Jahresbericht über alle Module
+- Einsatzbericht: Einsätze erfassen und freigeben, geführte Zusatzangaben je Einsatzart (Brandobjekt und -ursache, Art der Hilfeleistung, Fehlalarm-Ursache …) mit Statistik, Unterschrift von Einsatzleiter und Wehrführung mit Prüfsumme, Haupt- und Nebenberichte, Statusliste offener Berichte je Einsatzart mit Erinnerungen, Besatzung und Stärke, Leitstellen-/DIVERA-Webhook, Lagemeldungen, Jahresstatistik aus freigegebenen Berichten, Jahresbericht über alle Module
 - Atemschutzüberwachung: Trupps mit Uhr, Drücken, Rückzugsdruck und Warnungen nach FwDV 7, Protokoll als PDF; Geräteträger-Verwaltung mit G26.3-Fristen, Ampel und Erinnerungen, Atemschutzpass auf dem Handy, CSA-Träger und Tragezeiten nach Einsatz, Übung, Belastungsübung und CSA, Atemschutzeinsätze aus dem Einsatzbericht
 - Objektpläne & Brandschutzunterlagen: Feuerwehrpläne mit Versionen, bei Alarm die Pläne der Einsatzstelle per GPS, offline verfügbar
 - Wasserkarte & Hydranten: Löschwasserquellen auf der Karte mit Status, Leistung und Prüffristen, Saugstellen mit Saughöhe, QR-Etikett vor Ort, Prüfnachweis als CSV

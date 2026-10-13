@@ -9,6 +9,7 @@ use App\Services\HoursRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\PersonnelFileRegistry;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
+use Modules\Einsatzbericht\src\Console\Commands\SendReportReminders;
 use Modules\Einsatzbericht\src\Livewire\ExternalReport;
 use Modules\Einsatzbericht\src\Livewire\MaterialCatalog;
 use Modules\Einsatzbericht\src\Livewire\MemberMissions;
@@ -58,6 +60,13 @@ class EinsatzberichtServiceProvider extends ServiceProvider
         // DIVERA: at most 30 requests a minute per address
         RateLimiter::for('divera', fn (Request $request) => Limit::perMinute(30)->by('divera|'.$request->route('key')));
         $this->loadMigrationsFrom($base.'/database/migrations');
+
+        $this->commands([SendReportReminders::class]);
+        $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
+            $output = is_writable('/proc/1/fd/2') ? '/proc/1/fd/2' : storage_path('logs/schedule.log');
+
+            $schedule->command(SendReportReminders::class)->dailyAt('08:00')->timezone('Europe/Berlin')->withoutOverlapping()->appendOutputTo($output);
+        });
 
         Gate::define('einsatzbericht-lead', fn (User $user) => ReportService::canLead($user));
         Gate::define('einsatzbericht-release', fn (User $user) => ReportService::canRelease($user));

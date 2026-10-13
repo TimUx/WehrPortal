@@ -40,6 +40,14 @@
                 <p class="text-sm text-gray-500">Keine Einsätze.</p>
             @endforelse
         </section>
+        @foreach($stats['details'] as $detail)
+            <section class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                <h2 class="mb-2 text-sm font-semibold text-gray-900">{{ $detail['label'] }}</h2>
+                @foreach($detail['rows'] as $value => $count)
+                    <div class="flex items-center justify-between border-b border-gray-50 py-1.5 text-sm"><span>{{ $value }}</span><span class="font-semibold">{{ $count }}</span></div>
+                @endforeach
+            </section>
+        @endforeach
         <section class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
             <h2 class="mb-2 text-sm font-semibold text-gray-900">Nach Fahrzeug</h2>
             @forelse($stats['byVehicle'] as $name => $count)

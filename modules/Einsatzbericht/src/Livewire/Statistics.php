@@ -28,7 +28,7 @@ class Statistics extends Component
             'stats' => $reports->statistics($this->year),
             'consumption' => $reports->consumption($this->year),
             // Map of all Einsätze with a point (escaped for the popup)
-            'points' => Report::whereIn('status', ReportService::countedStatuses())->whereNotNull('latitude')->whereNotNull('longitude')
+            'points' => Report::whereNull('parent_id')->whereIn('status', ReportService::countedStatuses())->whereNotNull('latitude')->whereNotNull('longitude')
                 ->whereBetween('alarmed_at', [$from, $from->copy()->addYear()])->get()
                 ->map(fn (Report $r) => ['lat' => $r->latitude, 'lng' => $r->longitude, 'title' => e($r->keyword ?: $r->number), 'date' => $r->alarmed_at->setTimezone('Europe/Berlin')->format('d.m.Y')])
                 ->values(),

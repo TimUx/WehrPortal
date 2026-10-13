@@ -34,7 +34,7 @@
         <a href="{{ route('einsatzbericht.show', $report) }}">Zurück</a>
     </div>
 
-    <h1>Einsatzbericht {{ $report->number }}</h1>
+    <h1>Einsatzbericht {{ $report->number }}{{ $report->parent_id ? ' (Nebenbericht'.($report->side_label ? ': '.$report->side_label : '').' zu '.$report->parent?->number.')' : '' }}</h1>
     <p class="meta">{{ $org->name() }} · {{ $report->statusLabel() }}@if($report->released_at), freigegeben {{ $t($report->released_at) }} von {{ $report->releaser?->name }}@endif</p>
 
     <section>
@@ -43,6 +43,10 @@
             <tr><th>Einsatzstichwort</th><td>{{ $report->keyword ?: '–' }}</td></tr>
             <tr><th>Einsatznummer Leitstelle</th><td>{{ $report->dispatch_number ?: '–' }}</td></tr>
             <tr><th>Einsatzart</th><td>{{ $report->categoryLabel() }}</td></tr>
+            @foreach(\Modules\Einsatzbericht\src\Support\ReportDetails::display($report->category, $report->details) as $row)
+                <tr><th>{{ $row['label'] }}</th><td>{{ $row['value'] }}</td></tr>
+            @endforeach
+            @if($report->sides->isNotEmpty())<tr><th>Nebenberichte</th><td>{{ $report->sides->map(fn ($s) => $s->number.($s->side_label ? ' ('.$s->side_label.')' : ''))->implode(', ') }}</td></tr>@endif
             @if($report->alarm_message)<tr><th>Meldung (DIVERA)</th><td class="text">{{ $report->alarm_message }}</td></tr>@endif
             @foreach(\Modules\Einsatzbericht\src\Models\Report::TIMES as $field => $label)
                 <tr><th>{{ $label }}</th><td>{{ $t($report->{$field}) }}</td></tr>
@@ -149,7 +153,14 @@
             <tr><th>Brandwache</th><td>{{ $report->fire_watch ? 'ja'.($report->fire_watch_notes ? ': '.$report->fire_watch_notes : '') : 'nein' }}</td></tr>
             <tr><th>Einsatzleiter</th><td>{{ $report->commander?->name ?? '–' }}</td></tr>
         </table>
-        <div class="sign"><div>Einsatzleiter</div><div>Wehrführung</div></div>
+        <div class="sign">
+            <div>@if($report->closed_signature)<img src="data:image/png;base64,{{ $report->closed_signature }}" alt="Unterschrift" style="max-height: 2cm; display: block">@endif Einsatzleiter{{ $report->closed_signature ? ': '.$report->closer?->name.', '.$t($report->closed_at) : '' }}</div>
+            <div>@if($report->released_signature)<img src="data:image/png;base64,{{ $report->released_signature }}" alt="Unterschrift" style="max-height: 2cm; display: block">@endif Wehrführung{{ $report->released_signature ? ': '.$report->releaser?->name.', '.$t($report->released_at) : '' }}</div>
+        </div>
+        @if($report->released_hash)
+            @php($intact = \Modules\Einsatzbericht\src\Services\ReportService::sealIntact($report))
+            <p class="meta" style="margin-top: .5rem">Prüfsumme der Freigabe (SHA-256): {{ $report->released_hash }} – {{ $intact ? 'Inhalt seitdem unverändert' : 'Inhalt nach der Freigabe geändert (siehe Änderungen am Bericht)' }}</p>
+        @endif
     </section>
 </body>
 </html>

@@ -5,6 +5,7 @@ namespace Modules\Einsatzbericht\src\Services;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\Geocoder;
+use App\Support\SignatureImage;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -15,7 +16,9 @@ use Modules\Einsatzbericht\src\Models\Material;
 use Modules\Einsatzbericht\src\Models\Report;
 use Modules\Einsatzbericht\src\Models\ReportMaterial;
 use Modules\Einsatzbericht\src\Models\ReportVehicle;
+use Modules\Einsatzbericht\src\Notifications\ReportReminderNotification;
 use Modules\Einsatzbericht\src\Notifications\ReportStatusNotification;
+use Modules\Einsatzbericht\src\Support\ReportDetails;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 use Throwable;
 
@@ -110,12 +113,19 @@ class ReportService
     {
         $this->assert(self::canEdit($by, $report), 'Dieser Bericht ist abgeschlossen; Änderungen nur noch durch die Wehrführung.');
 
-        $data = collect($data)->only(array_diff((new Report)->getFillable(), ['number', 'status', 'created_by', 'closed_at', 'closed_by', 'released_at', 'released_by', 'source', 'divera_id']))
+        $data = collect($data)->only(array_diff((new Report)->getFillable(), ['number', 'status', 'created_by', 'closed_at', 'closed_by', 'released_at', 'released_by', 'source', 'divera_id',
+            'closed_signature', 'released_signature', 'released_hash', 'parent_id', 'reminded_at', 'external_key', 'external_key_hash']))
+            ->map(fn ($v, $k) => $k === 'details' ? ($v ?? []) : $v)
             ->map(fn ($v) => $v instanceof Carbon ? $v->copy()->utc() : (is_string($v) ? (trim($v) !== '' ? trim($v) : null) : $v))
             ->all();
 
         if (isset($data['category']) && ! array_key_exists($data['category'], Report::CATEGORIES)) {
             throw ValidationException::withMessages(['category' => 'Unbekannte Einsatzart.']);
+        }
+
+        // Zusatzangaben: only those that belong to the (new) Einsatzart
+        if (array_key_exists('details', $data) || array_key_exists('category', $data)) {
+            $data['details'] = ReportDetails::clean($data['category'] ?? $report->category, (array) ($data['details'] ?? $report->details ?? [])) ?: null;
         }
 
         $addressChanged = array_key_exists('address', $data) && $data['address'] !== $report->address;
@@ -272,7 +282,7 @@ class ReportService
     }
 
     /** The Einsatzleiter confirms; the report is then locked for him. Mandatory fields must be there. */
-    public function close(User $by, Report $report): void
+    public function close(User $by, Report $report, ?string $signature = null): void
     {
         $this->assert(self::canLead($by) && in_array($report->status, Report::OPEN, true), 'Nur ein Entwurf oder aktueller Einsatz lässt sich abschließen.');
 
@@ -281,7 +291,8 @@ class ReportService
             throw ValidationException::withMessages(['report' => 'Noch nicht ausgefüllt: '.implode(', ', $missing).'.']);
         }
 
-        $report->update(['status' => 'closed', 'closed_at' => now(), 'closed_by' => $by->id]);
+        $report->update(['status' => 'closed', 'closed_at' => now(), 'closed_by' => $by->id,
+            'closed_signature' => filled($signature) ? SignatureImage::fromDataUrl($signature) : null]);
 
         // The Wehrführung (and admins) hear that a report waits for them
         $releasers = User::active()->get()->filter(fn (User $u) => self::canRelease($u) && ! $u->is($by));
@@ -289,10 +300,111 @@ class ReportService
     }
 
     /** The Wehrführung checks and releases */
-    public function release(User $by, Report $report): void
+    /** The Wehrführung checks, releases and (optionally) signs; the checksum seals the content of that moment */
+    public function release(User $by, Report $report, ?string $signature = null): void
     {
         $this->assert(self::canRelease($by) && $report->status === 'closed', 'Freigeben kann die Wehrführung einen abgeschlossenen Bericht.');
-        $report->update(['status' => 'released', 'released_at' => now(), 'released_by' => $by->id]);
+        $png = filled($signature) ? SignatureImage::fromDataUrl($signature) : null;
+        $report->update(['status' => 'released', 'released_at' => now(), 'released_by' => $by->id, 'released_signature' => $png,
+            'released_hash' => self::contentHash($report)]);
+    }
+
+    /**
+     * sha256 over what the report says (fields, vehicles with times, crew, material), not over
+     * bookkeeping. Changed after the release, the report no longer matches its checksum.
+     */
+    public static function contentHash(Report $report): string
+    {
+        $report->loadMissing(['vehicles.crew', 'materials']);
+        $fields = collect($report->only(['number', 'dispatch_number', 'keyword', 'alarmed_at', 'departed_at', 'arrived_at', 'ended_at', 'ready_at',
+            'address', 'object', 'latitude', 'longitude', 'affected_parties', 'category', 'details', 'situation', 'measures', 'equipment_used', 'rescued', 'injured', 'dead',
+            'property_damage', 'environmental_damage', 'police', 'ems', 'neighbor_brigades', 'other_parties', 'handover', 'fire_watch', 'fire_watch_notes', 'commander_id']))
+            ->map(fn ($v) => $v instanceof \DateTimeInterface ? $v->format('c') : $v);
+        $vehicles = $report->vehicles->map(fn ($v) => [$v->name, $v->is_standby, $v->departed_at?->format('c'), $v->arrived_at?->format('c'), $v->left_at?->format('c'), $v->returned_at?->format('c'),
+            $v->crew->sortBy('user_id')->map(fn ($c) => [$c->user_id, $c->function, (bool) $c->breathing_apparatus])->values()->all()])->values();
+        $materials = $report->materials->map(fn ($m) => [$m->name, $m->unit, (float) $m->quantity])->sortBy(0)->values();
+
+        return hash('sha256', json_encode([$fields, $vehicles, $materials]));
+    }
+
+    /** null: not released with a checksum; true: unchanged since; false: corrected after the release */
+    public static function sealIntact(Report $report): ?bool
+    {
+        return $report->released_hash ? hash_equals($report->released_hash, self::contentHash($report->fresh(['vehicles.crew', 'materials']))) : null;
+    }
+
+    /**
+     * A Nebenbericht for a large Einsatz (another Abteilung, Abschnitt or Zug): it takes the
+     * Kopfdaten of the Hauptbericht, gets the number "2026/007-1" and its own crew and vehicles.
+     */
+    public function createSide(User $by, Report $parent, ?string $label = null): Report
+    {
+        $this->assert(self::canLead($by) && ! $parent->isSide(), 'Ein Nebenbericht gehört zu einem Hauptbericht.');
+
+        return DB::transaction(function () use ($by, $parent, $label) {
+            Report::whereKey($parent->id)->lockForUpdate()->first();
+            $n = Report::where('parent_id', $parent->id)->count() + 1;
+            while (Report::where('number', $parent->number.'-'.$n)->exists()) {
+                $n++;
+            }
+
+            return Report::create([
+                ...$parent->only(['dispatch_number', 'keyword', 'alarmed_at', 'departed_at', 'arrived_at', 'address', 'object', 'latitude', 'longitude', 'category']),
+                'number' => $parent->number.'-'.$n, 'parent_id' => $parent->id, 'side_label' => filled($label) ? mb_substr(trim($label), 0, 150) : null,
+                'status' => $parent->status === 'active' ? 'active' : 'draft', 'commander_id' => $by->id, 'created_by' => $by->id,
+            ]);
+        });
+    }
+
+    /**
+     * Daily: an Einsatz still open 3 days after the alarm reminds its Einsatzleiter (or whoever
+     * created it), a closed report waiting 7 days for the release reminds the Wehrführung. Each
+     * report at most once a week.
+     */
+    public function remind(): int
+    {
+        $ids = collect(DB::select(
+            "UPDATE eb_reports SET reminded_at = ?
+             WHERE (reminded_at IS NULL OR reminded_at < ?)
+               AND ((status IN ('draft', 'active') AND alarmed_at < ?)
+                 OR (status = 'closed' AND closed_at < ?))
+             RETURNING id",
+            [now(), now()->subDays(7), now()->subDays(3), now()->subDays(7)]
+        ))->pluck('id');
+        if ($ids->isEmpty()) {
+            return 0;
+        }
+        $reports = Report::whereIn('id', $ids)->orderBy('alarmed_at')->get();
+
+        foreach ($reports->whereIn('status', Report::OPEN)->groupBy(fn (Report $r) => $r->commander_id ?? $r->created_by) as $userId => $own) {
+            $user = $userId ? User::find($userId) : null;
+            $to = $user && $user->is_active && self::canLead($user) ? collect([$user]) : User::active()->get()->filter(fn (User $u) => self::canRelease($u));
+            $this->tell($to, new ReportReminderNotification($own->values(), false));
+        }
+        $waiting = $reports->where('status', 'closed')->values();
+        if ($waiting->isNotEmpty()) {
+            $this->tell(User::active()->get()->filter(fn (User $u) => self::canRelease($u)), new ReportReminderNotification($waiting, true));
+        }
+
+        return $reports->count();
+    }
+
+    /**
+     * The Statusliste of a year: how many reports in which state, and how many are still open
+     * (Entwurf, aktuell or waiting for the release) per Einsatzart.
+     *
+     * @return array{states: array<string, int>, openByCategory: Collection}
+     */
+    public function overview(int $year): array
+    {
+        $from = Carbon::create($year, 1, 1, 0, 0, 0, 'Europe/Berlin')->utc();
+        $reports = Report::where(fn ($q) => $q->whereBetween('alarmed_at', [$from, $from->copy()->addYear()])->orWhereNull('alarmed_at'))->get(['status', 'category']);
+
+        return [
+            'states' => collect(Report::STATUSES)->map(fn ($l, $s) => $reports->where('status', $s)->count())->all(),
+            'openByCategory' => $reports->whereIn('status', [...Report::OPEN, 'closed'])->groupBy(fn ($r) => $r->category ?? '')
+                ->map(fn ($g, $c) => ['label' => Report::CATEGORIES[$c] ?? 'Ohne Einsatzart', 'count' => $g->count()])->sortByDesc('count')->values(),
+        ];
     }
 
     /** The Wehrführung hands a closed report back to the Einsatzleiter; it was a real Einsatz, so it is aktuell again */
@@ -300,7 +412,8 @@ class ReportService
     {
         $this->assert(self::canRelease($by) && in_array($report->status, Report::DONE, true));
         $closer = $report->closed_by ? User::find($report->closed_by) : null;
-        $report->update(['status' => 'active', 'closed_at' => null, 'closed_by' => null, 'released_at' => null, 'released_by' => null]);
+        $report->update(['status' => 'active', 'closed_at' => null, 'closed_by' => null, 'released_at' => null, 'released_by' => null,
+            'closed_signature' => null, 'released_signature' => null, 'released_hash' => null]);
 
         if ($closer && $closer->is_active && ! $closer->is($by)) {
             $this->tell(collect([$closer]), new ReportStatusNotification($report, $by, returned: true));
@@ -308,7 +421,7 @@ class ReportService
     }
 
     /** A mail problem is logged, never thrown */
-    private function tell(Collection $users, ReportStatusNotification $notification): void
+    private function tell(Collection $users, ReportStatusNotification|ReportReminderNotification $notification): void
     {
         $users->each(function (User $user) use ($notification) {
             try {
@@ -328,16 +441,22 @@ class ReportService
     /** @return list<string> labels of mandatory fields still empty */
     public function missing(Report $report): array
     {
-        return array_map(fn ($field) => Report::REQUIRABLE[$field], $this->missingFields($report));
+        return array_map(fn ($field) => $field === 'details'
+            ? 'Angaben zur Einsatzart ('.implode(', ', ReportDetails::missing($report->category, $report->details)).')'
+            : Report::REQUIRABLE[$field], $this->missingFields($report));
     }
 
     /** @return list<string> keys of the mandatory fields still empty, in the order of the form */
     public function missingFields(Report $report): array
     {
         // The order of the form, so the first one is the topmost on the page
-        return collect(['dispatch_number', 'keyword', 'alarmed_at', 'departed_at', 'arrived_at', 'ended_at', 'ready_at', 'address', 'category', 'situation', 'measures', 'crew', 'commander_id'])
+        return collect(['dispatch_number', 'keyword', 'alarmed_at', 'departed_at', 'arrived_at', 'ended_at', 'ready_at', 'address', 'category', 'details', 'situation', 'measures', 'crew', 'commander_id'])
             ->intersect(self::required())
-            ->filter(fn ($field) => $field === 'crew' ? ! $report->crew()->exists() : blank($report->getAttribute($field)))
+            ->filter(fn ($field) => match ($field) {
+                'crew' => ! $report->crew()->exists(),
+                'details' => ReportDetails::missing($report->category, $report->details) !== [],
+                default => blank($report->getAttribute($field)),
+            })
             ->values()->all();
     }
 
@@ -398,23 +517,28 @@ class ReportService
         $reports = Report::with(['vehicles.crew'])->whereIn('status', self::countedStatuses())
             ->whereNotNull('alarmed_at')->get()
             ->filter(fn (Report $r) => $r->alarmed_at->setTimezone('Europe/Berlin')->year === $year)->values();
+        // Nebenberichte bring crew, hours and vehicles, but are not Einsätze of their own
+        $all = $reports;
+        $reports = $all->reject->isSide()->values();
 
         $byMonth = collect(range(1, 12))->mapWithKeys(fn ($m) => [$m => $reports->filter(fn ($r) => $r->alarmed_at->setTimezone('Europe/Berlin')->month === $m)->count()]);
-        $personMinutes = $reports->sum(fn (Report $r) => ($r->durationMinutes() ?? 0) * $r->vehicles->flatMap->crew->count());
+        $personMinutes = $all->sum(fn (Report $r) => ($r->durationMinutes() ?? 0) * $r->vehicles->flatMap->crew->count());
 
         return [
             'total' => $reports->count(),
             'byCategory' => collect(Report::CATEGORIES)->map(fn ($label, $key) => ['label' => $label, 'count' => $reports->where('category', $key)->count()])
                 ->filter(fn ($row) => $row['count'] > 0)->sortByDesc('count')->values(),
             'byMonth' => $byMonth,
-            'byVehicle' => $reports->flatMap->vehicles->reject->is_standby->groupBy('name')->map->count()->sortDesc(),
+            'byVehicle' => $all->flatMap->vehicles->reject->is_standby->groupBy('name')->map->count()->sortDesc(),
             'minutes' => $reports->sum(fn (Report $r) => $r->durationMinutes() ?? 0),
             'personMinutes' => $personMinutes,
             'averageStrength' => $reports->isEmpty() ? 0 : round($reports->avg(fn (Report $r) => self::reportStrength($r)['total']), 1),
             'rescued' => $reports->sum('rescued'),
             'injured' => $reports->sum('injured'),
             'dead' => $reports->sum('dead'),
-            'breathing' => $reports->flatMap->crew->where('breathing_apparatus', true)->count(),
+            'breathing' => $all->flatMap->crew->where('breathing_apparatus', true)->count(),
+            'details' => ReportDetails::statistics($reports),
+            'sides' => $all->count() - $reports->count(),
             'drafts' => Report::whereIn('status', Report::OPEN)->count(),
             // Closed but not yet released: waiting for the Wehrführung, not counted yet
             'waiting' => self::countedStatuses() === ['released'] ? Report::where('status', 'closed')->count() : 0,

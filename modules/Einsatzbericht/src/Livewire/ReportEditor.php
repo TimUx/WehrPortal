@@ -5,6 +5,7 @@ namespace Modules\Einsatzbericht\src\Livewire;
 use App\Models\ActivityLog;
 use App\Models\User;
 use App\Services\AddressSuggestions;
+use App\Services\ModuleRegistry;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -16,7 +17,9 @@ use Modules\Einsatzbericht\src\Models\Report;
 use Modules\Einsatzbericht\src\Models\ReportVehicle;
 use Modules\Einsatzbericht\src\Services\ExternalAccess;
 use Modules\Einsatzbericht\src\Services\ReportService;
+use Modules\Einsatzbericht\src\Support\ReportDetails;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
+use Modules\Wasserkarte\src\Services\WaterService;
 
 /** One Einsatzbericht: all blocks of the paper form, vehicles with crew and Stärke, closing and release */
 class ReportEditor extends Component
@@ -38,6 +41,11 @@ class ReportEditor extends Component
     public array $newMaterial = ['material' => '', 'quantity' => '', 'free' => false, 'name' => '', 'unit' => 'stueck', 'category' => 'sonstiges'];
 
     public ?string $flash = null;
+
+    /** Signature of the Einsatzleiter (closing) or the Wehrführung (release), as data URL */
+    public string $signature = '';
+
+    public string $sideLabel = '';
 
     /** @var list<array{id: string, main: string, secondary: string}> Google suggestions for the address being typed */
     public array $addressSuggestions = [];
@@ -110,6 +118,7 @@ class ReportEditor extends Component
             'rescued' => (string) $r->rescued, 'injured' => (string) $r->injured, 'dead' => (string) $r->dead,
             'police' => $r->police, 'ems' => $r->ems, 'fire_watch' => $r->fire_watch,
             'commander_id' => (string) ($r->commander_id ?? ''),
+            'details' => $r->details ?? [],
         ];
         $vehicles = $r->vehicles()->get();
         $this->vehicleTimes = $vehicles->mapWithKeys(fn (ReportVehicle $v) => [$v->id => collect(array_keys(ReportVehicle::TIMES))
@@ -149,6 +158,7 @@ class ReportEditor extends Component
             'rescued' => (int) ($this->form['rescued'] ?: 0), 'injured' => (int) ($this->form['injured'] ?: 0), 'dead' => (int) ($this->form['dead'] ?: 0),
             'police' => (bool) $this->form['police'], 'ems' => (bool) $this->form['ems'], 'fire_watch' => (bool) $this->form['fire_watch'],
             'commander_id' => $this->form['commander_id'] !== '' ? (int) $this->form['commander_id'] : null,
+            'details' => (array) ($this->form['details'] ?? []),
             // A chosen suggestion brings its point along; otherwise a new address is geocoded
             ...($this->pickedAddress && $this->pickedAddress['address'] === $this->form['address'] && $this->pickedAddress['lat'] !== null
                 ? ['latitude' => $this->pickedAddress['lat'], 'longitude' => $this->pickedAddress['lng']] : []),
@@ -300,7 +310,8 @@ class ReportEditor extends Component
             return;
         }
 
-        if ($this->attempt(fn () => $reports->close(auth()->user(), $this->report))) {
+        if ($this->attempt(fn () => $reports->close(auth()->user(), $this->report, $this->signature ?: null))) {
+            $this->signature = '';
             $this->flash = 'Bericht abgeschlossen. Die Wehrführung gibt ihn frei.';
             $this->dispatch('report-saved', message: $this->flash, field: null, warn: false);
         } elseif ($field = $reports->missingFields($this->report)[0] ?? null) {
@@ -310,8 +321,9 @@ class ReportEditor extends Component
 
     public function release(ReportService $reports): void
     {
-        if ($this->attempt(fn () => $reports->release(auth()->user(), $this->report))) {
-            $this->flash = 'Bericht freigegeben.';
+        if ($this->attempt(fn () => $reports->release(auth()->user(), $this->report, $this->signature ?: null))) {
+            $this->flash = $this->report->released_signature ? 'Bericht freigegeben und signiert.' : 'Bericht freigegeben.';
+            $this->signature = '';
         }
     }
 
@@ -320,6 +332,19 @@ class ReportEditor extends Component
         if ($this->attempt(fn () => $reports->reopen(auth()->user(), $this->report))) {
             $this->flash = 'Bericht ist wieder offen (aktuell).';
         }
+    }
+
+    /** A Nebenbericht to this (Haupt-)Bericht, e.g. for another Zug or Abschnitt */
+    public function createSide(ReportService $reports)
+    {
+        $side = null;
+        if ($this->attempt(function () use ($reports, &$side) {
+            $side = $reports->createSide(auth()->user(), $this->report, $this->sideLabel);
+        })) {
+            return redirect()->route('einsatzbericht.show', $side);
+        }
+
+        return null;
     }
 
     public function delete(ReportService $reports)
@@ -343,6 +368,11 @@ class ReportEditor extends Component
             'required' => ReportService::required(),
             'missing' => in_array($report->status, Report::OPEN, true) ? app(ReportService::class)->missing($report) : [],
             'canSuggest' => app(AddressSuggestions::class)->available(),
+            'detailFields' => ReportDetails::fields($this->form['category'] ?? null),
+            'waterOptions' => $this->waterOptions(),
+            'sides' => $report->isSide() ? collect() : $report->sides()->with('vehicles.crew')->get(),
+            'parentReport' => $report->parent,
+            'seal' => $report->status === 'released' ? ReportService::sealIntact($report) : null,
             'strength' => ReportService::reportStrength($report),
             'vehicleOptions' => Vehicle::active()->whereNotIn('id', $report->vehicles->pluck('vehicle_id')->filter())->pluck('name', 'id'),
             'hasStandby' => $report->vehicles->contains('is_standby', true),
@@ -359,6 +389,17 @@ class ReportEditor extends Component
                     ->orWhere(fn ($c) => $c->where('subject_type', CrewMember::class)->whereIn('subject_id', $report->vehicles->flatMap->crew->pluck('id'))))
                 ->latest('id')->limit(30)->get(),
         ]);
+    }
+
+    /** Wasserentnahmestellen near the Einsatzstelle (Wasserkarte), for the Zusatzangaben of a Brand */
+    private function waterOptions(): array
+    {
+        if (! app(ModuleRegistry::class)->isActive('wasserkarte') || ! $this->report->latitude || ! $this->report->longitude) {
+            return [];
+        }
+
+        return app(WaterService::class)->nearest($this->report->latitude, $this->report->longitude, 8)
+            ->map(fn ($row) => $row['source']->label().' ('.$row['meters'].' m)')->values()->all();
     }
 
     private function vehicle(int $id): ReportVehicle

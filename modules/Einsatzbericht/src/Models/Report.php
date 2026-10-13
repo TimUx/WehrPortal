@@ -38,6 +38,7 @@ class Report extends Model
         'ready_at' => 'Wieder einsatzbereit',
         'address' => 'Adresse',
         'category' => 'Einsatzart',
+        'details' => 'Angaben zur Einsatzart (geführte Abfrage)',
         'situation' => 'Lage beim Eintreffen',
         'measures' => 'Getroffene Maßnahmen',
         'commander_id' => 'Einsatzleiter',
@@ -50,7 +51,7 @@ class Report extends Model
 
     protected $table = 'eb_reports';
 
-    protected $hidden = ['external_key', 'external_key_hash'];
+    protected $hidden = ['external_key', 'external_key_hash', 'closed_signature', 'released_signature'];
 
     protected $attributes = ['status' => 'draft', 'source' => 'manual', 'rescued' => 0, 'injured' => 0, 'dead' => 0, 'police' => false, 'ems' => false, 'fire_watch' => false];
 
@@ -62,13 +63,14 @@ class Report extends Model
         'police', 'ems', 'neighbor_brigades', 'other_parties', 'handover', 'fire_watch', 'fire_watch_notes',
         'commander_id', 'created_by', 'closed_at', 'closed_by', 'released_at', 'released_by',
         'source', 'divera_id', 'alarm_message', 'external_key', 'external_key_hash',
+        'details', 'closed_signature', 'released_signature', 'released_hash', 'parent_id', 'side_label', 'reminded_at',
     ];
 
     protected function casts(): array
     {
         return [
             'alarmed_at' => 'datetime', 'departed_at' => 'datetime', 'arrived_at' => 'datetime', 'ended_at' => 'datetime', 'ready_at' => 'datetime',
-            'closed_at' => 'datetime', 'released_at' => 'datetime',
+            'closed_at' => 'datetime', 'released_at' => 'datetime', 'reminded_at' => 'datetime', 'details' => 'array',
             'latitude' => 'float', 'longitude' => 'float',
             'rescued' => 'integer', 'injured' => 'integer', 'dead' => 'integer',
             'police' => 'boolean', 'ems' => 'boolean', 'fire_watch' => 'boolean',
@@ -115,6 +117,22 @@ class Report extends Model
     public function closer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'closed_by');
+    }
+
+    /** A Nebenbericht belongs to its Hauptbericht; only Hauptberichte count as Einsätze in the statistics */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_id');
+    }
+
+    public function sides(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_id')->orderBy('number');
+    }
+
+    public function isSide(): bool
+    {
+        return $this->parent_id !== null;
     }
 
     public function releaser(): BelongsTo
