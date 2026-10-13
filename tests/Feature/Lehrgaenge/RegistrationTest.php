@@ -16,6 +16,7 @@ use Modules\Lehrgaenge\src\Livewire\Members;
 use Modules\Lehrgaenge\src\Livewire\MyCourses;
 use Modules\Lehrgaenge\src\Livewire\Registrations;
 use Modules\Lehrgaenge\src\Models\Course;
+use Modules\Lehrgaenge\src\Models\Deletion;
 use Modules\Lehrgaenge\src\Models\Record;
 use Modules\Lehrgaenge\src\Notifications\CourseConfirmedNotification;
 use Modules\Lehrgaenge\src\Notifications\CourseReminderNotification;
@@ -425,12 +426,9 @@ test('the Ausbildungsleiter enters Lehrgänge absolviert outside the app, also o
     expect($open->fresh())->status->toBe('completed')->entered_manually->toBeFalse()
         ->and(Record::where('user_id', $this->member->id)->count())->toBe(2);
 
-    // Only entered ones can be deleted; the import keeps the course while it has records
-    $profile->call('deleteCompleted', $open->id)->assertHasErrors('entry_course');
+    // The import keeps the course while it has records
     app(CatalogImporter::class)->import();
     expect($record->course->fresh())->not->toBeNull();
-    $profile->call('deleteCompleted', $record->id)->assertHasNoErrors();
-    expect(Record::find($record->id))->toBeNull();
 
     // The Wehrführung sees, but does not enter
     $chief = User::factory()->create();
@@ -507,4 +505,40 @@ test('the start page shows Interesse and Absagen to the same people who are noti
     // Without an Ausbildungsleiter the admins are notified – and see it
     ModuleUser::where('module', 'lehrgaenge')->where('role', 'ausbildungsleiter')->delete();
     Livewire::actingAs($admin)->test(Home::class)->assertSee('1 Absage in den letzten 7 Tagen');
+});
+
+test('admins and Ausbildungsleiter correct and delete absolvierte Lehrgänge, with or without a documented reason', function () {
+    $viaApp = $this->r->request($this->member, $this->agt, null);
+    confirmDays($viaApp);
+    $this->r->complete($viaApp->refresh());
+    $entered = $this->r->recordCompleted($this->member, 'Truppmann Teil 1', '2019-04-06');
+    $admin = User::factory()->create(['is_admin' => true]);
+
+    // Correct a Lehrgang that came through the app: other Lehrgang, date and note
+    $profile = Livewire::actingAs($admin)->test(MemberProfile::class, ['member' => $this->member])
+        ->call('startEdit', $viaApp->id)->assertSet('edit.course', 'Atemschutzgeräteträger')
+        ->set('edit', ['course' => 'Truppmann Teil 1', 'completed_on' => '2027-05-10', 'note' => ''])->call('saveEdit')->assertHasErrors('entry_course')
+        ->set('edit', ['course' => 'Atemschutzgeräteträger (Wochenlehrgang)', 'completed_on' => '2027-05-30', 'note' => 'Nachweis liegt vor'])->call('saveEdit')
+        ->assertHasNoErrors()->assertSee('„Atemschutzgeräteträger (Wochenlehrgang)“ geändert.');
+    expect($viaApp->fresh())->completed_on->toDateString()->toBe('2027-05-30')->notes->toBe('Nachweis liegt vor')
+        ->and($viaApp->fresh()->course->name)->toBe('Atemschutzgeräteträger (Wochenlehrgang)');
+    $profile->call('startEdit', $entered->id)->set('edit.completed_on', '2027-06-02')->call('saveEdit')->assertHasErrors('entry_date');
+
+    // Delete with a reason: documented with what, when, why, by whom
+    $profile->call('startDelete', $viaApp->id)->set('deleteReason', 'versehentlich beim falschen Kameraden eingetragen')->call('confirmDelete')
+        ->assertSee('die Begründung ist dokumentiert')->assertSee('Gelöschte Lehrgänge')->assertSee('versehentlich beim falschen Kameraden eingetragen');
+    expect(Record::find($viaApp->id))->toBeNull()
+        ->and(Deletion::sole())->course_name->toBe('Atemschutzgeräteträger (Wochenlehrgang)')->deleted_by->toBe($admin->id);
+
+    // Delete without a reason: simply gone, nothing documented
+    Livewire::actingAs($this->leader)->test(MemberProfile::class, ['member' => $this->member])
+        ->call('startDelete', $entered->id)->call('confirmDelete')->assertSee('„Truppmann Teil 1“ gelöscht.');
+    expect(Record::find($entered->id))->toBeNull()->and(Deletion::count())->toBe(1);
+
+    // The Wehrführung may not
+    $chief = User::factory()->create();
+    $chief->moduleAccess()->create(['module' => 'lehrgaenge', 'role' => 'wehrführung']);
+    $other = $this->r->recordCompleted($this->member, 'Maschinist', '2020-01-01');
+    Livewire::actingAs($chief)->test(MemberProfile::class, ['member' => $this->member])->assertDontSee('Bearbeiten')
+        ->call('startDelete', $other->id)->assertForbidden();
 });

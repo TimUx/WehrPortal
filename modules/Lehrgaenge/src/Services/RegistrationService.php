@@ -10,6 +10,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Modules\Lehrgaenge\src\Models\Course;
+use Modules\Lehrgaenge\src\Models\Deletion;
 use Modules\Lehrgaenge\src\Models\Record;
 use Modules\Lehrgaenge\src\Notifications\CourseConfirmedNotification;
 use Modules\Lehrgaenge\src\Notifications\CourseReminderNotification;
@@ -126,16 +127,7 @@ class RegistrationService
      */
     public function recordCompleted(User $member, string $courseName, ?string $completedOn, ?string $note = null): Record
     {
-        $name = trim(preg_replace('/\s+/u', ' ', $courseName));
-        if ($name === '' || mb_strlen($name) > 150) {
-            throw ValidationException::withMessages(['entry_course' => 'Bitte den Lehrgang angeben (höchstens 150 Zeichen).']);
-        }
-        $date = filled($completedOn) ? rescue(fn () => Carbon::createFromFormat('!Y-m-d', $completedOn), null, false) : null;
-        if (! $date || $date->gt(self::today()) || $date->year < 1950) {
-            throw ValidationException::withMessages(['entry_date' => 'Bitte das Datum angeben, an dem der Lehrgang absolviert wurde (nicht in der Zukunft).']);
-        }
-
-        $course = Course::whereRaw('lower(name) = ?', [mb_strtolower($name)])->first() ?? Course::create(['name' => $name]);
+        [$course, $date] = $this->completedEntry($courseName, $completedOn);
         if (Record::where('user_id', $member->id)->where('course_id', $course->id)->where('status', 'completed')->exists()) {
             throw ValidationException::withMessages(['entry_course' => '„'.$course->name.'“ ist bei '.$member->name.' schon als absolviert eingetragen.']);
         }
@@ -154,13 +146,52 @@ class RegistrationService
         ]);
     }
 
-    /** Only what was entered afterwards can be deleted again, e.g. a typo */
-    public function deleteEntered(Record $record): void
+    /** Admin or Ausbildungsleiter correct an absolvierter Lehrgang: the Lehrgang (also a new name), the date, the note */
+    public function updateCompleted(Record $record, string $courseName, ?string $completedOn, ?string $note = null): Record
     {
-        if (! $record->entered_manually || $record->status !== 'completed') {
-            throw ValidationException::withMessages(['entry_course' => 'Nur nachgetragene Lehrgänge lassen sich löschen.']);
+        $this->assertStatus($record, ['completed']);
+        [$course, $date] = $this->completedEntry($courseName, $completedOn);
+        if ($course->id !== $record->course_id
+            && Record::where('user_id', $record->user_id)->where('course_id', $course->id)->where('status', 'completed')->exists()) {
+            throw ValidationException::withMessages(['entry_course' => '„'.$course->name.'“ ist bei '.$record->user->name.' schon als absolviert eingetragen.']);
         }
-        $record->delete();
+
+        $record->update(['course_id' => $course->id, 'completed_on' => $date, 'notes' => filled($note) ? mb_substr(trim($note), 0, 500) : null]);
+
+        return $record->load('course');
+    }
+
+    /**
+     * Deletes an absolvierter Lehrgang. With a reason it stays documented (what, when, why, by whom –
+     * shown with the Kamerad's Lehrgänge); without one it is simply gone (the activity log still has it).
+     */
+    public function deleteCompleted(Record $record, User $by, ?string $reason = null): void
+    {
+        $this->assertStatus($record, ['completed']);
+        DB::transaction(function () use ($record, $by, $reason) {
+            if (filled($reason)) {
+                Deletion::create([
+                    'user_id' => $record->user_id, 'course_name' => $record->course?->name ?? 'Lehrgang', 'completed_on' => $record->completed_on,
+                    'reason' => mb_substr(trim($reason), 0, 1000), 'deleted_by' => $by->id,
+                ]);
+            }
+            $record->delete();
+        });
+    }
+
+    /** @return array{0: Course, 1: Carbon} the Lehrgang (created by name when unknown) and the date of an absolvierter Lehrgang */
+    private function completedEntry(string $courseName, ?string $completedOn): array
+    {
+        $name = trim(preg_replace('/\s+/u', ' ', $courseName));
+        if ($name === '' || mb_strlen($name) > 150) {
+            throw ValidationException::withMessages(['entry_course' => 'Bitte den Lehrgang angeben (höchstens 150 Zeichen).']);
+        }
+        $date = filled($completedOn) ? rescue(fn () => Carbon::createFromFormat('!Y-m-d', $completedOn), null, false) : null;
+        if (! $date || $date->gt(self::today()) || $date->year < 1950) {
+            throw ValidationException::withMessages(['entry_date' => 'Bitte das Datum angeben, an dem der Lehrgang absolviert wurde (nicht in der Zukunft).']);
+        }
+
+        return [Course::whereRaw('lower(name) = ?', [mb_strtolower($name)])->first() ?? Course::create(['name' => $name]), $date];
     }
 
     /** Mails the Kamerad 14 days before the first day, once; claimed atomically against a second scheduler */

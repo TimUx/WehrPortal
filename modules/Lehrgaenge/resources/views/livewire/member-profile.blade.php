@@ -9,7 +9,7 @@
         <h2 class="text-sm font-semibold text-gray-700 mb-2">Absolvierte Lehrgänge</h2>
         @if($flash)<p class="mb-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{{ $flash }}</p>@endif
         @if($completed->isNotEmpty())
-            @include('lehrgaenge::partials.completed', ['records' => $completed, 'canDelete' => $canManage])
+            @include('lehrgaenge::partials.completed', ['records' => $completed, 'canManage' => $canManage])
         @else
             <p class="rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-500">Noch keine.</p>
         @endif
@@ -28,6 +28,18 @@
             </form>
         @endif
     </section>
+
+    @if($deletions->isNotEmpty())
+        <section>
+            <h2 class="text-sm font-semibold text-gray-700 mb-2">Gelöschte Lehrgänge</h2>
+            <ul class="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white text-sm shadow-sm">
+                @foreach($deletions as $d)
+                    <li class="p-3"><span class="font-medium text-gray-900">{{ $d->course_name }}</span>@if($d->completed_on)<span class="text-gray-500"> · absolviert {{ $d->completed_on->format('d.m.Y') }}</span>@endif
+                        <span class="block text-xs text-gray-600">Gelöscht am {{ $d->created_at->setTimezone('Europe/Berlin')->format('d.m.Y') }}{{ $d->deleter ? ' von '.$d->deleter->name : '' }}: {{ $d->reason }}</span></li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
 
     @if($open->isNotEmpty())
         <section>
