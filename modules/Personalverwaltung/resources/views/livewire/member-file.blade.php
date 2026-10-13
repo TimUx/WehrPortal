@@ -88,6 +88,10 @@
         </form>
     </section>
 
+    @if(app(\App\Services\ModuleRegistry::class)->isActive('lehrgaenge'))
+        @include('lehrgaenge::partials.member-summary', ['member' => $member])
+    @endif
+
     @if(app(\App\Services\ModuleRegistry::class)->isActive('schluessel'))
         @include('schluessel::partials.held-by', ['member' => $member])
     @endif

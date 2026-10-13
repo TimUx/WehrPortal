@@ -76,7 +76,7 @@ test('a mail problem does not lose the request', function () {
 
 test('mobile number, birth date and address are not in the profile; stored values stay', function () {
     $this->member->update(['phone' => '04101 12345', 'birth_date' => '1990-05-17', 'show_birthday' => false,
-        'street' => 'Dorfstraße 12', 'postal_code' => '23843', 'city' => 'Bad Oldesloe']);
+        'street' => 'Dorfstraße 12', 'postal_code' => '12345', 'city' => 'Musterstadt']);
 
     Livewire::actingAs($this->member)
         ->test(ContactForm::class)

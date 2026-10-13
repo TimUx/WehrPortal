@@ -81,6 +81,7 @@
                         <a href="{{ route('lehrgaenge.courses') }}" class="hover:text-fw-grey-light {{ request()->routeIs('lehrgaenge.courses') ? 'font-semibold' : '' }}">Lehrgangsliste</a>
                         @endif
                         @if(auth()->user()->canViewLehrgaenge())
+                        <a href="{{ route('lehrgaenge.plan') }}" class="hover:text-fw-grey-light {{ request()->routeIs('lehrgaenge.plan') ? 'font-semibold' : '' }}">Lehrgangsplan</a>
                         <a href="{{ route('lehrgaenge.members') }}" class="hover:text-fw-grey-light {{ request()->routeIs('lehrgaenge.members', 'lehrgaenge.member') ? 'font-semibold' : '' }}">Kameraden</a>
                         @endif
                         @endif

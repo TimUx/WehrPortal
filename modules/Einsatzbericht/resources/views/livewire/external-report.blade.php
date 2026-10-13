@@ -17,7 +17,7 @@
             {{-- First scan: who are you --}}
             <form wire:submit="register" class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm space-y-3">
                 <p class="text-sm text-gray-600">Einmalig anmelden – dann siehst du hier die Statusknöpfe und kannst Lagemeldungen mit Foto schicken.</p>
-                <label class="block text-sm font-medium text-gray-700">Name der Wehr<input type="text" wire:model="name" maxlength="150" required placeholder="z. B. FF Bargteheide" class="{{ $input }}"></label>
+                <label class="block text-sm font-medium text-gray-700">Name der Wehr<input type="text" wire:model="name" maxlength="150" required placeholder="z. B. FF Nachbarstadt" class="{{ $input }}"></label>
                 @error('name')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
                 <div class="grid grid-cols-2 gap-3">
                     <label class="block text-sm font-medium text-gray-700">Fahrzeug<input type="text" wire:model="vehicle" maxlength="100" placeholder="z. B. LF 20" class="{{ $input }}"></label>

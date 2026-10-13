@@ -68,7 +68,7 @@ test('an external Wehr registers once, sends status and Lagemeldungen with photo
 
     phone($key)
         ->assertSee('Einmalig anmelden')
-        ->set('name', 'FF Bargteheide')->set('vehicle', 'LF 20')->set('strength', '1/8/9')
+        ->set('name', 'FF Nachbarstadt')->set('vehicle', 'LF 20')->set('strength', '1/8/9')
         ->call('register')
         ->assertSee('Angemeldet als')
         ->call('sendStatus', 'anfahrt')
@@ -84,26 +84,26 @@ test('an external Wehr registers once, sends status and Lagemeldungen with photo
         ->assertSeeInOrder(['Deine Meldungen', 'Status', 'An Einsatzstelle', 'Status', 'Auf Anfahrt']);
 
     $unit = ExternalUnit::sole();
-    expect($unit->label())->toBe('FF Bargteheide · LF 20 · 1/8/9')
+    expect($unit->label())->toBe('FF Nachbarstadt · LF 20 · 1/8/9')
         ->and($unit->statuses()->pluck('status')->all())->toBe(['einsatzstelle', 'anfahrt'])
         ->and(SituationMessage::sole())->external_unit_id->toBe($unit->id)->user_id->toBeNull()
         ->and(SituationMessage::sole()->photos)->toHaveCount(1);
 
     // A second phone is a second Wehr and does not see the first one's messages
     phone($key, 'phoneb')->assertSee('Einmalig anmelden')->assertDontSee('Abschnitt Nord')
-        ->set('name', 'FF Elmenhorst')->call('register')->assertDontSee('Abschnitt Nord');
+        ->set('name', 'FF Waldhausen')->call('register')->assertDontSee('Abschnitt Nord');
     // ... and the first phone keeps its registration
-    phone($key)->assertSee('Angemeldet als')->assertSee('FF Bargteheide');
+    phone($key)->assertSee('Angemeldet als')->assertSee('FF Nachbarstadt');
 
     // Internal: in the Einsatztagebuch and the report
     $this->actingAs($this->leader)->get('/einsatzbericht/'.$this->report->id)->assertOk()
-        ->assertSee('Extern: FF Bargteheide · LF 20 · 1/8/9')->assertSee('An Einsatzstelle')->assertSee('FF Elmenhorst');
+        ->assertSee('Extern: FF Nachbarstadt · LF 20 · 1/8/9')->assertSee('An Einsatzstelle')->assertSee('FF Waldhausen');
     $this->actingAs($this->leader)->get('/einsatzbericht/'.$this->report->id.'/druck')->assertSee('Externe Wehren (QR-Zugang)');
 });
 
 test('the code stops working when blocked, renewed, or the Einsatz ends', function () {
     $key = $this->access->enable($this->leader, $this->report);
-    phone($key)->set('name', 'FF Bargteheide')->call('register');
+    phone($key)->set('name', 'FF Nachbarstadt')->call('register');
 
     $this->access->revoke($this->leader, $this->report->refresh());
     $this->get('/extern/'.$key)->assertOk()->assertSee('gesperrt oder der Einsatz ist beendet');
@@ -124,8 +124,8 @@ test('the code stops working when blocked, renewed, or the Einsatz ends', functi
 test('messages per phone are limited in number and rate, and the input is checked', function () {
     $key = $this->access->enable($this->leader, $this->report);
     phone($key)->set('name', '')->call('register')->assertHasErrors('name');
-    phone($key)->set('name', 'FF Bargteheide')->set('strength', 'viele')->call('register')->assertHasErrors('strength');
-    phone($key)->set('name', 'FF Bargteheide')->call('register');
+    phone($key)->set('name', 'FF Nachbarstadt')->set('strength', 'viele')->call('register')->assertHasErrors('strength');
+    phone($key)->set('name', 'FF Nachbarstadt')->call('register');
     $unit = ExternalUnit::sole();
 
     foreach (range(1, ExternalAccess::PER_MINUTE) as $i) {

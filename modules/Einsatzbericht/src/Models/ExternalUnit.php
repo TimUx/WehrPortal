@@ -38,7 +38,7 @@ class ExternalUnit extends Model
         return $this->hasMany(SituationMessage::class, 'external_unit_id');
     }
 
-    /** "FF Bargteheide · LF 20 · 1/8/9" */
+    /** "FF Nachbarstadt · LF 20 · 1/8/9" */
     public function label(): string
     {
         return collect([$this->name, $this->vehicle, $this->strength])->filter()->implode(' · ');

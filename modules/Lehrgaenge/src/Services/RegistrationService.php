@@ -119,6 +119,50 @@ class RegistrationService
         $record->update(['status' => 'completed', 'completed_on' => $completedOn ?? $record->sessions()->max('date')]);
     }
 
+    /**
+     * Ausbildungsleiter: a Lehrgang absolviert outside the app (before it, in another Kreis, at the
+     * Landesfeuerwehrschule). A Lehrgang not in the list is created by name; a running registration
+     * for it is completed instead of adding a second record.
+     */
+    public function recordCompleted(User $member, string $courseName, ?string $completedOn, ?string $note = null): Record
+    {
+        $name = trim(preg_replace('/\s+/u', ' ', $courseName));
+        if ($name === '' || mb_strlen($name) > 150) {
+            throw ValidationException::withMessages(['entry_course' => 'Bitte den Lehrgang angeben (höchstens 150 Zeichen).']);
+        }
+        $date = filled($completedOn) ? rescue(fn () => Carbon::createFromFormat('!Y-m-d', $completedOn), null, false) : null;
+        if (! $date || $date->gt(self::today()) || $date->year < 1950) {
+            throw ValidationException::withMessages(['entry_date' => 'Bitte das Datum angeben, an dem der Lehrgang absolviert wurde (nicht in der Zukunft).']);
+        }
+
+        $course = Course::whereRaw('lower(name) = ?', [mb_strtolower($name)])->first() ?? Course::create(['name' => $name]);
+        if (Record::where('user_id', $member->id)->where('course_id', $course->id)->where('status', 'completed')->exists()) {
+            throw ValidationException::withMessages(['entry_course' => '„'.$course->name.'“ ist bei '.$member->name.' schon als absolviert eingetragen.']);
+        }
+
+        $note = filled($note) ? mb_substr(trim($note), 0, 500) : null;
+        $open = Record::where('user_id', $member->id)->where('course_id', $course->id)->whereIn('status', Record::OPEN)->first();
+        if ($open) {
+            $open->update(['status' => 'completed', 'completed_on' => $date]);
+
+            return $open;
+        }
+
+        return Record::create([
+            'user_id' => $member->id, 'course_id' => $course->id, 'status' => 'completed',
+            'completed_on' => $date, 'notes' => $note, 'entered_manually' => true,
+        ]);
+    }
+
+    /** Only what was entered afterwards can be deleted again, e.g. a typo */
+    public function deleteEntered(Record $record): void
+    {
+        if (! $record->entered_manually || $record->status !== 'completed') {
+            throw ValidationException::withMessages(['entry_course' => 'Nur nachgetragene Lehrgänge lassen sich löschen.']);
+        }
+        $record->delete();
+    }
+
     /** Mails the Kamerad 14 days before the first day, once; claimed atomically against a second scheduler */
     public function remindUpcoming(): int
     {

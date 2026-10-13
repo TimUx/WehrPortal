@@ -26,11 +26,11 @@ class Record extends Model
 
     protected $table = 'lq_records';
 
-    protected $fillable = ['user_id', 'course_id', 'status', 'notes', 'starts_on', 'confirmed_at', 'start_reminded_at', 'completed_on', 'cancelled_at', 'cancel_reason'];
+    protected $fillable = ['user_id', 'course_id', 'status', 'notes', 'starts_on', 'confirmed_at', 'start_reminded_at', 'completed_on', 'cancelled_at', 'cancel_reason', 'entered_manually'];
 
     protected function casts(): array
     {
-        return ['starts_on' => 'date', 'completed_on' => 'date', 'confirmed_at' => 'datetime', 'start_reminded_at' => 'datetime', 'cancelled_at' => 'datetime'];
+        return ['starts_on' => 'date', 'completed_on' => 'date', 'confirmed_at' => 'datetime', 'start_reminded_at' => 'datetime', 'cancelled_at' => 'datetime', 'entered_manually' => 'boolean'];
     }
 
     public function user(): BelongsTo

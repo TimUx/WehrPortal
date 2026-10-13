@@ -81,7 +81,7 @@ beforeEach(function () {
 
 function confirmDays(Record $record, array $dates = ['2027-07-03', '2027-07-10']): void
 {
-    app(RegistrationService::class)->confirm($record, array_map(fn ($d) => ['date' => $d, 'starts_at' => '08:00', 'ends_at' => '16:30', 'location' => 'FTZ Bad Oldesloe'], $dates));
+    app(RegistrationService::class)->confirm($record, array_map(fn ($d) => ['date' => $d, 'starts_at' => '08:00', 'ends_at' => '16:30', 'location' => 'FTZ Musterkreis'], $dates));
 }
 
 // ─── catalog from fox112 ─────────────────────────────────────────────────────
@@ -221,9 +221,9 @@ test('1-4: Bedarf, Dashboard of the Ausbildungsleiter, days entered, Kamerad get
         ->assertSee('lieber am Wochenende')
         ->call('editSessions', $record->id)
         ->set('sessions.0.date', '2027-07-03')
-        ->set('sessions.0.location', 'FTZ Bad Oldesloe')
+        ->set('sessions.0.location', 'FTZ Musterkreis')
         ->call('addSession')
-        ->assertSet('sessions.1.location', 'FTZ Bad Oldesloe')
+        ->assertSet('sessions.1.location', 'FTZ Musterkreis')
         ->set('sessions.1.date', '2027-07-10')
         ->call('saveSessions')
         ->assertHasNoErrors()
@@ -235,10 +235,10 @@ test('1-4: Bedarf, Dashboard of the Ausbildungsleiter, days entered, Kamerad get
     Notification::assertSentTo($this->member, CourseConfirmedNotification::class, function ($n) {
         $lines = implode(' ', $n->toMail($this->member)->introLines);
 
-        return str_contains($lines, 'Sa., 03.07.2027 · 08:00–16:00 Uhr · FTZ Bad Oldesloe') && str_contains($lines, 'Sa., 10.07.2027');
+        return str_contains($lines, 'Sa., 03.07.2027 · 08:00–16:00 Uhr · FTZ Musterkreis') && str_contains($lines, 'Sa., 10.07.2027');
     });
 
-    Livewire::actingAs($this->member)->test(MyCourses::class)->assertSee('Bestätigt')->assertSee('Sa., 03.07.2027 · 08:00–16:00 Uhr · FTZ Bad Oldesloe');
+    Livewire::actingAs($this->member)->test(MyCourses::class)->assertSee('Bestätigt')->assertSee('Sa., 03.07.2027 · 08:00–16:00 Uhr · FTZ Musterkreis');
     Livewire::actingAs($this->member)->test(Home::class)->assertSee('Dein nächster Lehrgang');
 });
 
@@ -400,4 +400,78 @@ test('admins can decline, too', function () {
         ->call('startReject', $record->id)->set('rejectComment', 'Kein Platz mehr')->call('reject')->assertHasNoErrors();
 
     expect($record->refresh()->status)->toBe('rejected');
+});
+
+// ─── nachtragen, Lehrgangsplan, Personalakte ─────────────────────────────────
+
+test('the Ausbildungsleiter enters Lehrgänge absolviert outside the app, also ones not in the list', function () {
+    $profile = Livewire::actingAs($this->leader)->test(MemberProfile::class, ['member' => $this->member]);
+
+    $profile->set('entry', ['course' => 'Truppmann Teil 1', 'completed_on' => '2019-04-06', 'note' => 'Lehrgang im Nachbarkreis'])->call('addCompleted')
+        ->assertHasNoErrors()->assertSee('„Truppmann Teil 1“ als absolviert eingetragen.')->assertSee('06.04.2019')->assertSee('nachgetragen');
+    $record = Record::where('user_id', $this->member->id)->sole();
+    expect($record)->status->toBe('completed')->entered_manually->toBeTrue()->notes->toBe('Lehrgang im Nachbarkreis')
+        ->and($record->course->isOffered())->toBeFalse();   // known now, but not offered to the Kameraden
+
+    // Twice, in the future or without name: no
+    $profile->set('entry', ['course' => 'truppmann teil 1', 'completed_on' => '2020-01-01', 'note' => ''])->call('addCompleted')->assertHasErrors('entry_course');
+    $profile->set('entry', ['course' => 'Maschinist', 'completed_on' => '2027-06-02', 'note' => ''])->call('addCompleted')->assertHasErrors('entry_date');
+    $profile->set('entry', ['course' => ' ', 'completed_on' => '2020-01-01', 'note' => ''])->call('addCompleted')->assertHasErrors('entry_course');
+
+    // A running registration for the Lehrgang is completed instead of a second record
+    $open = $this->r->request($this->member, $this->agt, null);
+    $profile->set('entry', ['course' => 'Atemschutzgeräteträger', 'completed_on' => '2027-05-20', 'note' => ''])->call('addCompleted')->assertHasNoErrors();
+    expect($open->fresh())->status->toBe('completed')->entered_manually->toBeFalse()
+        ->and(Record::where('user_id', $this->member->id)->count())->toBe(2);
+
+    // Only entered ones can be deleted; the import keeps the course while it has records
+    $profile->call('deleteCompleted', $open->id)->assertHasErrors('entry_course');
+    app(CatalogImporter::class)->import();
+    expect($record->course->fresh())->not->toBeNull();
+    $profile->call('deleteCompleted', $record->id)->assertHasNoErrors();
+    expect(Record::find($record->id))->toBeNull();
+
+    // The Wehrführung sees, but does not enter
+    $chief = User::factory()->create();
+    $chief->moduleAccess()->create(['module' => 'lehrgaenge', 'role' => 'wehrführung']);
+    Livewire::actingAs($chief)->test(MemberProfile::class, ['member' => $this->member])->assertDontSee('nachtragen')
+        ->set('entry', ['course' => 'Maschinist', 'completed_on' => '2020-01-01', 'note' => ''])->call('addCompleted')->assertForbidden();
+});
+
+test('the Lehrgangsplan lists the confirmed days with time, place and the Kameraden on them', function () {
+    $other = User::factory()->create(['name' => 'Fritz Feuer']);
+    foreach ([$this->member, $other] as $u) {
+        confirmDays($this->r->request($u, $this->agt, null));
+    }
+    $tf = $this->r->request($other, Course::where('name', 'Truppführung Teil 1')->sole(), null);
+    $this->r->confirm($tf, [['date' => '2027-08-14', 'starts_at' => '09:00', 'ends_at' => '17:00', 'location' => 'FTZ Musterkreis']]);
+    $this->r->request($this->member, Course::where('name', 'Truppführung Teil 1')->sole(), null);   // only Interesse: not on the plan
+
+    $html = $this->actingAs($this->leader)->get(route('lehrgaenge.plan'))->assertOk()
+        ->assertSeeInOrder(['Juli 2027', 'Atemschutzgeräteträger', 'Sa., 03.07.2027 · 08:00–16:30 Uhr · FTZ Musterkreis', 'Fritz Feuer', 'Hanna Hydrant', 'Sa., 10.07.2027', 'August 2027', 'Truppführung Teil 1'])
+        ->getContent();
+    expect(substr_count($html, 'Sa., 03.07.2027'))->toBe(1);   // both Kameraden on one row
+
+    // Past days only with the year
+    $this->travelTo(Carbon::parse('2027-07-20 10:00', 'Europe/Berlin'));
+    $this->get(route('lehrgaenge.plan'))->assertDontSee('03.07.2027')->assertSee('14.08.2027');
+    $this->get(route('lehrgaenge.plan', ['jahr' => 2027]))->assertSee('03.07.2027');
+
+    $this->actingAs($this->member)->get(route('lehrgaenge.plan'))->assertForbidden();
+});
+
+test('the Personalakte and the Personalverwaltung show the absolvierte Lehrgänge', function () {
+    $this->r->recordCompleted($this->member, 'Truppmann Teil 1', '2019-04-06');
+    confirmDays($this->r->request($this->member, $this->agt, null));
+
+    $this->actingAs($this->member)->get(route('lehrgaenge.personnel-file'))->assertOk()
+        ->assertSee('Lehrgänge und Qualifikationen')->assertSee('Truppmann Teil 1')->assertSee('06.04.2019')
+        ->assertSee('Angemeldet')->assertSee('Sa., 03.07.2027');
+    $this->get(route('profile'))->assertSee(route('lehrgaenge.personnel-file'));
+
+    Module::where('key', 'personalverwaltung')->update(['is_active' => true]);
+    Cache::forget('modules_active_keys');
+    $pv = User::factory()->create();
+    $pv->moduleAccess()->create(['module' => 'personalverwaltung', 'role' => 'personalverwalter']);
+    $this->actingAs($pv)->get(route('personalverwaltung.member', $this->member))->assertOk()->assertSee('Truppmann Teil 1');
 });

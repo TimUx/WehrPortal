@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\AnnualReportRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
+use App\Services\PersonnelFileRegistry;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -79,6 +80,9 @@ class LehrgaengeServiceProvider extends ServiceProvider
 
             return ! $next && array_sum($todo) === 0 ? null : view('lehrgaenge::cards.attention', compact('next', 'todo'))->render();
         });
+
+        // Personalakte → Lehrgänge: the Kamerad's absolvierte and confirmed Lehrgänge
+        app(PersonnelFileRegistry::class)->register('lehrgaenge', 'Lehrgänge', 'lehrgaenge.personnel-file');
 
         // Jahresbericht: Lehrgänge completed in the year
         app(AnnualReportRegistry::class)->register('lehrgaenge', 'Aus- und Fortbildung', function (int $year) {

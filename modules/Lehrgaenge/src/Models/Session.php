@@ -22,7 +22,7 @@ class Session extends Model
         return $this->belongsTo(Record::class, 'record_id');
     }
 
-    /** "Sa, 05.12.2026 · 08:00–15:45 Uhr · Nütschau" */
+    /** "Sa, 05.12.2026 · 08:00–15:45 Uhr · Feuerwehrtechnisches Zentrum" */
     public function label(): string
     {
         $time = $this->starts_at ? $this->starts_at.($this->ends_at ? '–'.$this->ends_at : '').' Uhr' : null;

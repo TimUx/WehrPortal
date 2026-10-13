@@ -37,7 +37,7 @@ class SituationMessage extends Model
         return $this->belongsTo(ExternalUnit::class, 'external_unit_id');
     }
 
-    /** "Hanna Hydrant" or "Extern: FF Bargteheide · LF 20" */
+    /** "Hanna Hydrant" or "Extern: FF Nachbarstadt · LF 20" */
     public function authorLabel(): string
     {
         return $this->externalUnit ? 'Extern: '.$this->externalUnit->label() : ($this->user?->name ?? 'unbekannt');

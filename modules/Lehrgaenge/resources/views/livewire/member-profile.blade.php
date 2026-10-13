@@ -7,10 +7,25 @@
 
     <section>
         <h2 class="text-sm font-semibold text-gray-700 mb-2">Absolvierte Lehrgänge</h2>
+        @if($flash)<p class="mb-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{{ $flash }}</p>@endif
         @if($completed->isNotEmpty())
-            @include('lehrgaenge::partials.completed', ['records' => $completed])
+            @include('lehrgaenge::partials.completed', ['records' => $completed, 'canDelete' => $canManage])
         @else
             <p class="rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-500">Noch keine.</p>
+        @endif
+        @if($canManage)
+            <form wire:submit="addCompleted" class="mt-3 space-y-2 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                <p class="text-sm font-semibold text-gray-900">Absolvierten Lehrgang nachtragen</p>
+                <p class="text-xs text-gray-500">Für Lehrgänge aus der Zeit vor der App, aus einem anderen Kreis oder von der Landesfeuerwehrschule. Ein Lehrgang, der nicht in der Liste steht, wird mit seinem Namen angelegt.</p>
+                <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <input type="text" wire:model="entry.course" list="lq-course-names" maxlength="150" placeholder="Lehrgang" class="sm:col-span-2 w-full rounded-lg border-gray-300 text-sm">
+                    <input type="date" wire:model="entry.completed_on" max="{{ now('Europe/Berlin')->toDateString() }}" class="w-full rounded-lg border-gray-300 text-sm">
+                </div>
+                <datalist id="lq-course-names">@foreach($courseNames as $name)<option value="{{ $name }}">@endforeach</datalist>
+                <input type="text" wire:model="entry.note" maxlength="500" placeholder="Bemerkung, z. B. Ort oder Nachweis (optional)" class="w-full rounded-lg border-gray-300 text-sm">
+                @foreach(['entry_course', 'entry_date'] as $f)@error($f)<p class="text-sm text-red-600">{{ $message }}</p>@enderror @endforeach
+                <button type="submit" class="rounded-lg bg-fw-navy px-3 py-1.5 text-sm font-semibold text-white">Als absolviert eintragen</button>
+            </form>
         @endif
     </section>
 
