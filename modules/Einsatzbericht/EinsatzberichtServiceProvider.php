@@ -3,6 +3,7 @@
 namespace Modules\Einsatzbericht;
 
 use App\Models\User;
+use App\Services\AnnualReportRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\PersonnelFileRegistry;
@@ -86,5 +87,10 @@ class EinsatzberichtServiceProvider extends ServiceProvider
 
             return $drafts + $active + $toRelease === 0 ? null : view('einsatzbericht::cards.open', compact('drafts', 'active', 'toRelease'))->render();
         });
+
+        // Jahresbericht: the Einsätze come first
+        app(AnnualReportRegistry::class)->register('einsatzbericht', 'Einsätze', fn (int $year) => view('einsatzbericht::annual.section', [
+            'stats' => app(ReportService::class)->statistics($year),
+        ])->render(), 10);
     }
 }

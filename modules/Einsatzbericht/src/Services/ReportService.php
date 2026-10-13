@@ -256,7 +256,7 @@ class ReportService
     {
         $from = Carbon::create($year, 1, 1, 0, 0, 0, 'Europe/Berlin')->utc();
 
-        return ReportMaterial::whereHas('report', fn ($q) => $q->whereIn('status', ['closed', 'released'])->whereBetween('alarmed_at', [$from, $from->copy()->addYear()]))
+        return ReportMaterial::whereHas('report', fn ($q) => $q->whereIn('status', self::countedStatuses())->whereBetween('alarmed_at', [$from, $from->copy()->addYear()]))
             ->get()
             ->groupBy('category')
             ->map(fn (Collection $items, $category) => [
@@ -381,10 +381,21 @@ class ReportService
         ];
     }
 
-    /** Jahresstatistik over closed and released reports */
+    /**
+     * The states that count in Jahresstatistik and Jahresbericht: by default only released reports
+     * (after the Wehrführung checked them), or closed ones too if the Wehrführung chose so.
+     *
+     * @return list<string>
+     */
+    public static function countedStatuses(): array
+    {
+        return Setting::get('einsatzbericht.released_only', '1') === '1' ? ['released'] : Report::DONE;
+    }
+
+    /** Jahresstatistik over the counted reports */
     public function statistics(int $year): array
     {
-        $reports = Report::with(['vehicles.crew'])->whereIn('status', ['closed', 'released'])
+        $reports = Report::with(['vehicles.crew'])->whereIn('status', self::countedStatuses())
             ->whereNotNull('alarmed_at')->get()
             ->filter(fn (Report $r) => $r->alarmed_at->setTimezone('Europe/Berlin')->year === $year)->values();
 
@@ -405,6 +416,8 @@ class ReportService
             'dead' => $reports->sum('dead'),
             'breathing' => $reports->flatMap->crew->where('breathing_apparatus', true)->count(),
             'drafts' => Report::whereIn('status', Report::OPEN)->count(),
+            // Closed but not yet released: waiting for the Wehrführung, not counted yet
+            'waiting' => self::countedStatuses() === ['released'] ? Report::where('status', 'closed')->count() : 0,
         ];
     }
 

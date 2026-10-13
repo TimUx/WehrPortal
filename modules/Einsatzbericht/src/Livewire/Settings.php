@@ -2,6 +2,7 @@
 
 namespace Modules\Einsatzbericht\src\Livewire;
 
+use App\Models\Setting;
 use Illuminate\Support\Arr;
 use Livewire\Component;
 use Modules\Einsatzbericht\src\Models\DiveraRequest;
@@ -14,6 +15,9 @@ class Settings extends Component
 {
     /** @var list<string> */
     public array $required = [];
+
+    /** Jahresstatistik and Jahresbericht count only released reports */
+    public bool $releasedOnly = true;
 
     public bool $diveraEnabled = false;
 
@@ -37,9 +41,16 @@ class Settings extends Component
     public function mount(): void
     {
         $this->required = ReportService::required();
+        $this->releasedOnly = ReportService::countedStatuses() === ['released'];
         $this->diveraEnabled = DiveraWebhook::enabled();
         $this->mapping = DiveraWebhook::mapping();
         $this->filters = implode("\n", DiveraWebhook::filters());
+    }
+
+    public function saveCounting(): void
+    {
+        Setting::set('einsatzbericht.released_only', $this->releasedOnly ? '1' : '0');
+        $this->flash = $this->releasedOnly ? 'Statistik und Jahresbericht zählen nur freigegebene Berichte.' : 'Statistik und Jahresbericht zählen auch abgeschlossene, noch nicht freigegebene Berichte.';
     }
 
     public function save(): void

@@ -2,6 +2,7 @@
 
 namespace Modules\Ausruestung;
 
+use App\Services\AnnualReportRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\ScanRegistry;
 use Illuminate\Console\Scheduling\Schedule;
@@ -14,6 +15,7 @@ use Modules\Ausruestung\src\Livewire\EquipmentDetail;
 use Modules\Ausruestung\src\Livewire\EquipmentList;
 use Modules\Ausruestung\src\Livewire\MyLoans;
 use Modules\Ausruestung\src\Models\Equipment;
+use Modules\Ausruestung\src\Models\Inspection;
 use Modules\Ausruestung\src\Services\AusruestungMailer;
 use Modules\Ausruestung\src\Services\EquipmentService;
 use Modules\Ausruestung\src\Services\InventoryExport;
@@ -82,5 +84,14 @@ class AusruestungServiceProvider extends ServiceProvider
                 default => route('ausruestung.show', $equipment),
             };
         });
+
+        // Jahresbericht: inspections of the equipment
+        app(AnnualReportRegistry::class)->register('ausruestung', 'Geräteprüfungen', function (int $year) {
+            $done = Inspection::whereYear('inspected_at', $year);
+            $total = (clone $done)->count();
+
+            return $total === 0 ? null : '<div class="ar-grid"><div class="ar-tile"><span>Prüfungen</span><strong>'.$total.'</strong></div>'
+                .'<div class="ar-tile"><span>davon nicht bestanden</span><strong>'.(clone $done)->where('passed', false)->count().'</strong></div></div>';
+        }, 70);
     }
 }

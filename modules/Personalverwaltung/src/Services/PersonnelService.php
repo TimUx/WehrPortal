@@ -479,6 +479,37 @@ class PersonnelService
         return stream_get_contents($out);
     }
 
+    // ─── Jahresbericht ───────────────────────────────────────────────────────
+
+    /**
+     * The members part of the Jahresbericht, from the career: strength per Abteilung at the end of
+     * the year (today for the running year), Eintritte, Austritte, Beförderungen, Ehrungen.
+     */
+    public function annual(int $year): array
+    {
+        $end = Carbon::create($year, 12, 31)->min(self::today());
+        $from = Carbon::create($year, 1, 1);
+        $covers = fn ($q) => $q->where(fn ($w) => $w->whereNull('since')->orWhere('since', '<=', $end->toDateString()))
+            ->where(fn ($w) => $w->whereNull('until')->orWhere('until', '>', $end->toDateString()));
+        $active = HistoryEntry::where('kind', 'status')->where('label', 'Aktiv')->where($covers)->pluck('user_id');
+        $firstRank = HistoryEntry::where('kind', 'rank')->selectRaw('user_id, min(id) as id')->groupBy('user_id')->pluck('id');
+
+        return [
+            'end' => $end,
+            'active' => $active->count(),
+            'byGroup' => HistoryEntry::where('kind', 'group')->where($covers)->whereIn('user_id', $active)
+                ->selectRaw('label, count(*) as total')->groupBy('label')->orderBy('label')->pluck('total', 'label'),
+            'joined' => User::whereBetween('joined_at', [$from->toDateString(), $end->toDateString()])->orderBy('joined_at')->get(),
+            'left' => HistoryEntry::with('user')->where('kind', 'status')->where('label', 'Ausgetreten')->whereBetween('since', [$from->toDateString(), $end->toDateString()])->orderBy('since')->get(),
+            'promotions' => HistoryEntry::with('user')->where('kind', 'rank')->whereNotIn('id', $firstRank)
+                ->whereBetween('since', [$from->toDateString(), $end->toDateString()])->orderBy('since')->get(),
+            'honors' => Honor::with('user')->whereYear('awarded_on', $year)->orderBy('awarded_on')->get(),
+            'attendance' => self::attendanceAvailable()
+                ? User::where('status', 'active')->get()->map(fn (User $u) => $this->attendance($u, $year)['percent'])->filter(fn ($p) => $p !== null)->avg()
+                : null,
+        ];
+    }
+
     // ─── helpers ─────────────────────────────────────────────────────────────
 
     /** @return array{0: string, 1: string, 2: ?Carbon, 3: ?Carbon} */

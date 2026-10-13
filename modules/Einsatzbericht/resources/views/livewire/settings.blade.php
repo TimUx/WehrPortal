@@ -15,6 +15,16 @@
         </form>
     </section>
 
+    {{-- What counts in Jahresstatistik and Jahresbericht --}}
+    <section class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm space-y-2">
+        <h2 class="text-base font-semibold text-gray-900">Statistik und Jahresbericht</h2>
+        <form wire:submit="saveCounting" class="space-y-2">
+            <label class="flex items-center gap-3 text-sm text-gray-800"><input type="checkbox" wire:model="releasedOnly" class="h-5 w-5 rounded border-gray-300 text-fw-red focus:ring-fw-red"> Nur freigegebene Berichte zählen</label>
+            <p class="text-sm text-gray-500">Empfohlen: Erst nach der Prüfung durch die Wehrführung fließt ein Einsatz in Jahresstatistik, Verbrauch und Jahresbericht ein – so bleiben die Zahlen sauber. Ausgeschaltet zählen auch abgeschlossene, noch nicht freigegebene Berichte.</p>
+            <button type="submit" class="rounded-lg bg-fw-red px-4 py-2 text-sm font-semibold text-white">Speichern</button>
+        </form>
+    </section>
+
     {{-- DIVERA 24/7 --}}
     <section class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm space-y-4">
         <div>

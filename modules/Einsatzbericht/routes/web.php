@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Services\AnnualReportRegistry;
 use Illuminate\Support\Facades\Route;
 use Modules\Einsatzbericht\src\Models\Report;
 use Modules\Einsatzbericht\src\Models\SituationPhoto;
@@ -60,6 +61,12 @@ Route::middleware(['auth', 'active', 'module:einsatzbericht'])->group(function (
 
         Route::middleware('can:einsatzbericht-release')->group(function () {
             Route::get('/statistik', fn () => view('einsatzbericht::pages.manage', ['livewireComponent' => 'einsatzbericht.statistics', 'title' => 'Jahresstatistik']))->name('statistics');
+            // Jahresbericht: what every switched-on module has to say about the year, printable
+            Route::get('/jahresbericht', function () {
+                $year = max(2000, min(2100, request()->integer('jahr') ?: (int) now('Europe/Berlin')->year));
+
+                return view('einsatzbericht::pages.annual', ['year' => $year, 'sections' => app(AnnualReportRegistry::class)->for($year)]);
+            })->name('annual');
             Route::get('/einstellungen', fn () => view('einsatzbericht::pages.manage', ['livewireComponent' => 'einsatzbericht.settings', 'title' => 'Einstellungen Einsatzbericht']))->name('settings');
             Route::get('/kameraden', fn () => view('einsatzbericht::pages.manage', ['livewireComponent' => 'einsatzbericht.members', 'title' => 'Einsätze der Kameraden']))->name('members');
             Route::get('/kameraden/{user}', fn (User $user) => view('einsatzbericht::pages.member', compact('user')))->whereNumber('user')->name('member');

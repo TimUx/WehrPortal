@@ -3,6 +3,7 @@
 namespace Modules\Personalverwaltung;
 
 use App\Models\User;
+use App\Services\AnnualReportRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\PersonnelFileRegistry;
@@ -109,5 +110,10 @@ class PersonalverwaltungServiceProvider extends ServiceProvider
 
             return $due + $cards === 0 ? null : view('personalverwaltung::cards.due', compact('due', 'cards'))->render();
         });
+
+        // Jahresbericht: strength, Eintritte, Austritte, Beförderungen, Ehrungen
+        app(AnnualReportRegistry::class)->register('personalverwaltung', 'Mitglieder', fn (int $year) => view('personalverwaltung::annual.section', [
+            'a' => app(PersonnelService::class)->annual($year),
+        ])->render(), 20);
     }
 }

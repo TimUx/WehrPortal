@@ -3,6 +3,7 @@
 namespace Modules\Uebungsdienste;
 
 use App\Models\User;
+use App\Services\AnnualReportRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
 use Illuminate\Console\Scheduling\Schedule;
@@ -13,6 +14,7 @@ use Livewire\Livewire;
 use Modules\Uebungsdienste\src\Console\Commands\SyncCalendar;
 use Modules\Uebungsdienste\src\Livewire\Planner;
 use Modules\Uebungsdienste\src\Livewire\ServiceForm;
+use Modules\Uebungsdienste\src\Models\Service;
 use Modules\Uebungsdienste\src\Services\ServicePlan;
 
 /**
@@ -67,5 +69,13 @@ class UebungsdiensteServiceProvider extends ServiceProvider
 
             return $next ? view('uebungsdienste::cards.next', ['service' => $next])->render() : null;
         });
+
+        // Jahresbericht: how many Übungsdienste were planned (the topics stay in the plan)
+        app(AnnualReportRegistry::class)->register('uebungsdienste', 'Übungsdienste', function (int $year) {
+            $count = Service::whereYear('date', $year)->count();
+
+            return $count === 0 ? null : '<div class="ar-grid"><div class="ar-tile"><span>Übungsdienste geplant</span><strong>'.$count.'</strong></div>'
+                .'<div class="ar-tile"><span>davon stattgefunden</span><strong>'.Service::whereYear('date', $year)->whereDate('date', '<', ServicePlan::today())->count().'</strong></div></div>';
+        }, 35);
     }
 }

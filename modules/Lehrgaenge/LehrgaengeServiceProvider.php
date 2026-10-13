@@ -3,6 +3,7 @@
 namespace Modules\Lehrgaenge;
 
 use App\Models\User;
+use App\Services\AnnualReportRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
 use Illuminate\Console\Scheduling\Schedule;
@@ -78,5 +79,15 @@ class LehrgaengeServiceProvider extends ServiceProvider
 
             return ! $next && array_sum($todo) === 0 ? null : view('lehrgaenge::cards.attention', compact('next', 'todo'))->render();
         });
+
+        // Jahresbericht: Lehrgänge completed in the year
+        app(AnnualReportRegistry::class)->register('lehrgaenge', 'Aus- und Fortbildung', function (int $year) {
+            $records = Record::with('course')->where('status', 'completed')->whereYear('completed_on', $year)->get();
+
+            return $records->isEmpty() ? null : view('lehrgaenge::annual.section', [
+                'courses' => $records->groupBy(fn (Record $r) => $r->course?->name ?? 'Lehrgang')->map->count()->sortDesc(),
+                'people' => $records->pluck('user_id')->unique()->count(),
+            ])->render();
+        }, 40);
     }
 }

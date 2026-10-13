@@ -144,6 +144,7 @@ test('the consumption of a year is evaluated by category and material', function
     $this->r->update($this->leader, $this->report, ['commander_id' => $this->leader->id]);
     $this->r->assign($this->leader, $this->r->addVehicle($this->leader, $this->report, null), $this->member);
     $this->r->close($this->leader, $this->report->refresh());
+    $this->r->release($this->chief, $this->report->refresh());   // only released reports count
 
     $other = $this->r->create($this->leader);
     $this->r->addMaterial($this->leader, $other, $foam->id, 5);   // still a draft, does not count
@@ -190,6 +191,7 @@ test('the Jahresstatistik shows a map of all Einsätze with coordinates', functi
     $this->r->update($this->leader, $this->report, ['commander_id' => $this->leader->id, 'latitude' => 51.17, 'longitude' => 10.45]);
     $this->r->assign($this->leader, $this->r->addVehicle($this->leader, $this->report, null), $this->member);
     $this->r->close($this->leader, $this->report->refresh());
+    $this->r->release($this->chief, $this->report->refresh());
 
     Livewire::actingAs($this->chief)->test(Statistics::class)
         ->assertSee('Karte der Einsätze (1 mit Koordinaten)')

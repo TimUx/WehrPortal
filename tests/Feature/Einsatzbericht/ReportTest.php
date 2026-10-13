@@ -241,14 +241,25 @@ test('the Personalakte shows the own Einsätze with counters; drafts do not coun
     $this->actingAs($this->chief)->get('/einsatzbericht/kameraden/'.$this->member->id)->assertOk()->assertSee('FEU 2');
 });
 
-test('the Jahresstatistik counts closed and released reports by type, month and vehicle', function () {
-    $this->r->close($this->leader, fullReport());
+test('the Jahresstatistik counts released reports by type, month and vehicle; closed ones wait for the Freigabe', function () {
+    $report = fullReport();
+    $this->r->close($this->leader, $report);
     $this->r->create($this->leader);   // a draft does not count
+
+    Livewire::actingAs($this->chief)->test(Statistics::class)
+        ->assertViewHas('stats', fn ($s) => $s['total'] === 0 && $s['waiting'] === 1)->assertSee('wartet noch auf die Freigabe');
+    $this->r->release($this->chief, $report->refresh());
 
     Livewire::actingAs($this->chief)->test(Statistics::class)
         ->assertViewHas('stats', fn ($s) => $s['total'] === 1 && $s['minutes'] === 120 && $s['byMonth'][5] === 1
             && $s['byVehicle']->all() === ['HLF 20' => 1] && $s['byCategory']->first()['label'] === 'Brand – Mittelbrand' && $s['drafts'] === 1)
         ->assertSee('Jahresstatistik 2027');
+
+    // The Wehrführung can count closed ones too
+    $second = fullReport();
+    $this->r->close($this->leader, $second);
+    Livewire::actingAs($this->chief)->test(Settings::class)->set('releasedOnly', false)->call('saveCounting')->assertSee('auch abgeschlossene');
+    expect($this->r->statistics(2027)['total'])->toBe(2);
 });
 
 test('the report prints as A4 with all blocks and the Stärke', function () {

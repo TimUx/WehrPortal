@@ -3,6 +3,7 @@
 namespace Modules\Fahrtenbuch;
 
 use App\Models\User;
+use App\Services\AnnualReportRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
 use Illuminate\Console\Scheduling\Schedule;
@@ -72,5 +73,14 @@ class FahrtenbuchServiceProvider extends ServiceProvider
 
             return $trip ? view('fahrtenbuch::cards.open', compact('trip'))->render() : null;
         });
+
+        // Jahresbericht: trips and kilometres per vehicle
+        app(AnnualReportRegistry::class)->register('fahrtenbuch', 'Fahrten', function (int $year) {
+            $trips = Trip::valid()->with('vehicle')->whereNotNull('end_km')->whereYear('started_at', $year)->get();
+
+            return $trips->isEmpty() ? null : view('fahrtenbuch::annual.section', [
+                'rows' => $trips->groupBy('vehicle_id')->map(fn ($t) => ['name' => $t->first()->vehicle?->name, 'trips' => $t->count(), 'km' => $t->sum(fn (Trip $trip) => $trip->distance() ?? 0)])->sortBy('name')->values(),
+            ])->render();
+        }, 60);
     }
 }

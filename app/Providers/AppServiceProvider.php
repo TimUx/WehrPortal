@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Services\ActivityRecorder;
+use App\Services\AnnualReportRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\OrganizationSettings;
@@ -23,6 +24,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(OrganizationSettings::class);
         $this->app->singleton(ScanRegistry::class);
         $this->app->singleton(DashboardRegistry::class);
+        $this->app->singleton(AnnualReportRegistry::class);
         $this->app->singleton(ActivityRecorder::class);
         $this->app->singleton(PersonnelFileRegistry::class);
         $this->app->singleton(VehicleBlockRegistry::class);

@@ -3,6 +3,7 @@
 namespace Modules\Wasserkarte;
 
 use App\Models\User;
+use App\Services\AnnualReportRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
 use Illuminate\Console\Scheduling\Schedule;
@@ -15,6 +16,7 @@ use Modules\Wasserkarte\src\Livewire\Inspections;
 use Modules\Wasserkarte\src\Livewire\MapView;
 use Modules\Wasserkarte\src\Livewire\SourceDetail;
 use Modules\Wasserkarte\src\Livewire\SourceForm;
+use Modules\Wasserkarte\src\Models\Inspection;
 use Modules\Wasserkarte\src\Models\Source;
 use Modules\Wasserkarte\src\Services\WaterService;
 
@@ -73,5 +75,13 @@ class WasserkarteServiceProvider extends ServiceProvider
 
             return $defective + $overdue === 0 ? null : view('wasserkarte::cards.status', compact('defective', 'overdue'))->render();
         });
+
+        // Jahresbericht: Löschwasserquellen checked in the year
+        app(AnnualReportRegistry::class)->register('wasserkarte', 'Löschwasserversorgung', function (int $year) {
+            $checked = Inspection::whereYear('inspected_on', $year)->count();
+
+            return $checked === 0 ? null : '<div class="ar-grid"><div class="ar-tile"><span>Geprüfte Wasserquellen</span><strong>'.$checked.'</strong></div>'
+                .'<div class="ar-tile"><span>Wasserquellen gesamt</span><strong>'.Source::active()->count().'</strong></div></div>';
+        }, 75);
     }
 }

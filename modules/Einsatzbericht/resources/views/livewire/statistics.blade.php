@@ -9,7 +9,9 @@
             <button type="button" onclick="window.print()" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold">Drucken / PDF</button>
         </div>
     </div>
-    <p class="text-sm text-gray-500">Gezählt werden abgeschlossene und freigegebene Berichte nach dem Datum der Alarmierung.@if($stats['drafts'] > 0) {{ $stats['drafts'] }} {{ $stats['drafts'] === 1 ? 'Bericht ist' : 'Berichte sind' }} noch Entwurf oder aktuell.@endif</p>
+    <p class="text-sm text-gray-500">Gezählt werden {{ \Modules\Einsatzbericht\src\Services\ReportService::countedStatuses() === ['released'] ? 'freigegebene Berichte' : 'abgeschlossene und freigegebene Berichte' }} nach dem Datum der Alarmierung.@if($stats['drafts'] > 0) {{ $stats['drafts'] }} {{ $stats['drafts'] === 1 ? 'Bericht ist' : 'Berichte sind' }} noch Entwurf oder aktuell.@endif</p>
+    @if($stats['waiting'] > 0)<p class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{{ $stats['waiting'] }} abgeschlossene{{ $stats['waiting'] === 1 ? 'r Bericht wartet' : ' Berichte warten' }} noch auf die Freigabe und {{ $stats['waiting'] === 1 ? 'zählt' : 'zählen' }} erst danach. <a href="{{ route('einsatzbericht.index', ['status' => 'closed']) }}" class="underline">Zur Freigabe</a></p>@endif
+    <p class="text-sm"><a href="{{ route('einsatzbericht.annual', ['jahr' => $year]) }}" class="font-semibold text-fw-navy underline">Jahresbericht {{ $year }} (alle Module) →</a></p>
 
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
         @foreach([

@@ -3,9 +3,11 @@
 namespace Modules\Kalender;
 
 use App\Models\User;
+use App\Services\AnnualReportRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -22,6 +24,7 @@ use Modules\Kalender\src\Livewire\Sources;
 use Modules\Kalender\src\Models\Event;
 use Modules\Kalender\src\Models\Poll;
 use Modules\Kalender\src\Models\PollVote;
+use Modules\Kalender\src\Models\Response;
 use Modules\Kalender\src\Policies\EventPolicy;
 use Modules\Kalender\src\Services\EventService;
 use Modules\Kalender\src\Services\FeedService;
@@ -99,5 +102,22 @@ class KalenderServiceProvider extends ServiceProvider
 
             return $polls->isEmpty() ? null : view('kalender::cards.polls', compact('polls'))->render();
         });
+
+        // Jahresbericht: the Termine of the year, with the attendance where it was taken
+        app(AnnualReportRegistry::class)->register('kalender', 'Dienste und Termine', function (int $year) {
+            $from = Carbon::create($year, 1, 1, 0, 0, 0, 'Europe/Berlin')->utc();
+            $events = Event::whereNull('source_id')->whereNull('cancelled_at')->whereBetween('starts_at', [$from, $from->copy()->addYear()]);
+            $byType = (clone $events)->selectRaw('type, count(*) as total')->groupBy('type')->orderByDesc('total')->pluck('total', 'type');
+            if ($byType->isEmpty()) {
+                return null;
+            }
+            $ids = (clone $events)->pluck('id');
+
+            return view('kalender::annual.section', [
+                'byType' => $byType,
+                'tracked' => Response::whereIn('event_id', $ids)->whereNotNull('attended')->distinct()->count('event_id'),
+                'attendances' => Response::whereIn('event_id', $ids)->where('attended', true)->count(),
+            ])->render();
+        }, 30);
     }
 }
