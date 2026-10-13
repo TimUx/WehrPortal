@@ -16,9 +16,10 @@
                     @if(filled($announcement->body))
                         <p class="mt-1 text-sm font-medium whitespace-pre-line">{{ $announcement->body }}</p>
                     @endif
+                    @include('mitteilungen::partials.extras', ['announcement' => $announcement, 'acknowledged' => $acknowledged, 'light' => true])
                     <p class="mt-2 text-xs text-white/85">{{ $announcement->author?->name ?? 'Wehrführung' }} · {{ ($announcement->visible_from ?? $announcement->created_at)->setTimezone('Europe/Berlin')->format('d.m.Y') }}</p>
                 </div>
-                @unless($announcement->important)
+                @unless($announcement->important || ($announcement->needs_ack && ! in_array($announcement->id, $acknowledged, true)))
                     <form method="POST" action="{{ route('mitteilungen.dismiss', $announcement) }}" class="shrink-0">
                         @csrf
                         <button type="submit" class="text-xs text-white/85 underline hover:text-white" title="Auf der Startseite ausblenden">Ausblenden</button>

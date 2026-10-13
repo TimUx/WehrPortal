@@ -67,6 +67,10 @@ class MagicLinkService
             ]);
         }
 
+        // The very first login (e.g. from an Einladung) leads to the Willkommen page
+        if ($user->last_login_at === null && $request->hasSession()) {
+            $request->session()->put('first_login', true);
+        }
         $user->update(['last_login_at' => now()]);
         app(ActivityRecorder::class)->record('login', User::class, $user->id, $user->name, userId: $user->id);
 

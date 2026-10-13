@@ -36,6 +36,7 @@
                 <label class="block text-sm text-gray-700">Kilometerstand beim Losfahren<input type="number" inputmode="numeric" wire:model="startKm" class="{{ $input }} "></label>
             </div>
             @if($lastKm !== null)<p class="text-xs text-gray-500">Zuletzt bekannt: {{ number_format($lastKm, 0, ',', '.') }} km</p>@endif
+            @if($licenseWarning)<p class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">⚠ {{ $licenseWarning }}</p>@endif
             @error('started_at')<p class="{{ $error }}">{{ $message }}</p>@enderror
             @error('start_km')<p class="{{ $error }}">{{ $message }}</p>@enderror
             <label class="block text-sm text-gray-700">Start<input type="text" wire:model="origin" maxlength="200" class="{{ $input }}"></label>

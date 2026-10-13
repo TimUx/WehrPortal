@@ -3,7 +3,7 @@
     <div>
         <h1 class="text-xl font-bold text-gray-900">Personalverwaltung</h1>
         <p class="text-sm text-gray-500">Laufbahn, Ehrungen, Dienstausweis und Dienstbeteiligung je Kamerad.@if($scoped) Du siehst die Kameraden deiner Abteilungen.@endif</p>
-        @if(\Modules\Personalverwaltung\src\Services\PersonnelService::activeFields())
+        @if($canEdit && \Modules\Personalverwaltung\src\Services\PersonnelService::activeFields())
             <a href="{{ route('personalverwaltung.addresses') }}" class="mt-1 inline-block text-sm text-fw-navy underline">Adressliste (CSV)</a>
         @endif
     </div>
@@ -14,7 +14,7 @@
     </div>
 
     @if($flash)<p class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{{ $flash }}</p>@endif
-    @if($selected)
+    @if($canEdit && $selected)
         <section class="space-y-2 rounded-2xl border border-fw-navy bg-white p-4 shadow-sm">
             <p class="text-sm font-semibold text-gray-900">{{ count($selected) }} ausgewählt – Sammelverarbeitung</p>
             <div class="flex flex-wrap items-end gap-2">
@@ -49,7 +49,7 @@
             <tbody class="divide-y divide-gray-100">
                 @forelse($members as $member)
                     <tr wire:key="m-{{ $member->id }}" class="hover:bg-gray-50">
-                        <td class="px-2 py-2"><input type="checkbox" wire:model.live="selected" value="{{ $member->id }}" class="rounded" aria-label="{{ $member->name }} auswählen"></td>
+                        <td class="px-2 py-2">@if($canEdit)<input type="checkbox" wire:model.live="selected" value="{{ $member->id }}" class="rounded" aria-label="{{ $member->name }} auswählen">@endif</td>
                         <td class="px-4 py-2"><a href="{{ route('personalverwaltung.member', $member) }}" class="font-medium text-gray-900 hover:underline">{{ $member->name }}</a></td>
                         <td class="px-4 py-2 text-gray-600">{{ $member->groups->pluck('name')->implode(', ') ?: '–' }}</td>
                         <td class="px-4 py-2 text-gray-600">{{ $member->rank ?: '–' }}</td>

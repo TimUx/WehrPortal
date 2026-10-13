@@ -21,7 +21,7 @@ class Reports extends Component
 
     public function boot(): void
     {
-        abort_unless(PersonnelService::canManage(auth()->user()), 403);
+        abort_unless(PersonnelService::canView(auth()->user()), 403);
     }
 
     public function mount(): void

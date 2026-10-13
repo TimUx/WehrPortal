@@ -45,7 +45,7 @@ class Event extends Model
     ];
 
     /** Modules that keep events in sync, and where to change them */
-    public const MANAGED_BY = ['uebungsdienste' => 'Übungsdienstplaner', 'schichtplan' => 'Schichtplan'];
+    public const MANAGED_BY = ['uebungsdienste' => 'Übungsdienstplaner', 'schichtplan' => 'Schichtplan', 'fuehrerscheine' => 'Führerscheine'];
 
     protected function casts(): array
     {

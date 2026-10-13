@@ -34,6 +34,8 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M3 17V8a1 1 0 0 1 1-1h10v10M14 10h4l3 3v4h-2M3 17h2m4 0h6"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path stroke-linecap="round" d="M6 10h5"/>
     @elseif($key === 'fahrtenbuch')
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 4h11a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM4 17a2 2 0 0 1 2-2h12M8 8h6M8 11h4"/>
+    @elseif($key === 'fuehrerscheine')
+        <rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="11" r="2"/><path stroke-linecap="round" d="M5.5 16c.5-1.5 1.6-2.2 3-2.2s2.5.7 3 2.2M14 10h4M14 13h4"/>
     @elseif($key === 'expositionen')
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 3h6M10 3v6L4.5 18.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3M7.5 15h9"/>
     @elseif($key === 'schluessel')

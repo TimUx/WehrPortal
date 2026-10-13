@@ -14,6 +14,8 @@ use Modules\Lehrgaenge\src\Models\Deletion;
 use Modules\Lehrgaenge\src\Models\Record;
 use Modules\Lehrgaenge\src\Notifications\CourseConfirmedNotification;
 use Modules\Lehrgaenge\src\Notifications\CourseReminderNotification;
+use Modules\Lehrgaenge\src\Notifications\RefreshDigestNotification;
+use Modules\Lehrgaenge\src\Notifications\RefreshDueNotification;
 use Modules\Lehrgaenge\src\Notifications\RegistrationCancelledNotification;
 use Modules\Lehrgaenge\src\Notifications\RegistrationRejectedNotification;
 use Modules\Lehrgaenge\src\Notifications\RequestReceivedNotification;
@@ -128,7 +130,14 @@ class RegistrationService
     public function recordCompleted(User $member, string $courseName, ?string $completedOn, ?string $note = null): Record
     {
         [$course, $date] = $this->completedEntry($courseName, $completedOn);
-        if (Record::where('user_id', $member->id)->where('course_id', $course->id)->where('status', 'completed')->exists()) {
+        $done = Record::where('user_id', $member->id)->where('course_id', $course->id)->where('status', 'completed')->first();
+        if ($done) {
+            // A Lehrgang with a refresher interval: a later date is the Auffrischung
+            if ($course->repeat_months && $done->completed_on && $date->gt($done->completed_on)) {
+                $done->update(['completed_on' => $date, 'refresh_reminded_on' => null]);
+
+                return $done;
+            }
             throw ValidationException::withMessages(['entry_course' => '„'.$course->name.'“ ist bei '.$member->name.' schon als absolviert eingetragen.']);
         }
 
@@ -192,6 +201,38 @@ class RegistrationService
         }
 
         return [Course::whereRaw('lower(name) = ?', [mb_strtolower($name)])->first() ?? Course::create(['name' => $name]), $date];
+    }
+
+    /** Reminders this many days before a refresher is due */
+    public const REFRESH_WARN_DAYS = 60;
+
+    public function setRepeat(Course $course, ?int $months): void
+    {
+        if ($months !== null && ($months < 1 || $months > 120)) {
+            throw ValidationException::withMessages(['repeat' => 'Das Wiederholungsintervall liegt zwischen 1 und 120 Monaten (leer = keins).']);
+        }
+        $course->update(['repeat_months' => $months]);
+    }
+
+    /**
+     * Daily: absolvierte Lehrgänge whose refresher is due in REFRESH_WARN_DAYS (or overdue) – the Kamerad once per due
+     * date, the Ausbildungsleiter one overview.
+     */
+    public function remindRefresh(): int
+    {
+        $limit = self::today()->addDays(self::REFRESH_WARN_DAYS);
+        $due = Record::with(['course', 'user'])->where('status', 'completed')->whereNotNull('completed_on')
+            ->whereHas('course', fn ($q) => $q->whereNotNull('repeat_months'))->get()
+            ->filter(fn (Record $r) => $r->user?->is_active && $r->validUntil()->lte($limit) && ! $r->refresh_reminded_on?->equalTo($r->validUntil()));
+        foreach ($due as $record) {
+            $record->update(['refresh_reminded_on' => $record->validUntil()]);
+            $this->notify(collect([$record->user]), new RefreshDueNotification($record));
+        }
+        if ($due->isNotEmpty()) {
+            $this->notify($this->managers(), new RefreshDigestNotification($due->values()));
+        }
+
+        return $due->count();
     }
 
     /** Mails the Kamerad 14 days before the first day, once; claimed atomically against a second scheduler */

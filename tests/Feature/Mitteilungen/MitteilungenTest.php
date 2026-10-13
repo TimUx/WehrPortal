@@ -2,8 +2,10 @@
 
 use App\Livewire\Dashboard\Home;
 use App\Models\Group;
+use App\Models\MemberFunction;
 use App\Models\Module;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -12,6 +14,7 @@ use Livewire\Livewire;
 use Modules\Mitteilungen\src\Livewire\Manage;
 use Modules\Mitteilungen\src\Models\Announcement;
 use Modules\Mitteilungen\src\Notifications\AnnouncementNotification;
+use Modules\Mitteilungen\src\Services\AnnouncementService;
 
 beforeEach(function () {
     Module::where('key', 'mitteilungen')->update(['is_active' => true]);
@@ -139,4 +142,49 @@ test('notices on the start page stand out in orange, important ones in dark red'
         ->assertSeeHtml('bg-fw-orange')
         ->assertSeeHtml('bg-fw-red-dark')
         ->assertSee('Wichtige Mitteilung');
+});
+
+test('Mitteilungen for a Funktion, with attachments, Lesebestätigung and reminder', function () {
+    Notification::fake();
+    $fn = MemberFunction::create(['name' => 'Maschinist']);
+    $sub = MemberFunction::create(['name' => 'Maschinist HLF', 'parent_id' => $fn->id]);
+    $this->member->functions()->attach($sub);
+    $other = User::factory()->create(['name' => 'Fritz Feuer']);
+    $other->moduleAccess()->create(['module' => 'mitteilungen']);
+
+    Livewire::actingAs($this->redakteur)->test(Manage::class)
+        ->set('title', 'Neue Betriebsanweisung Pumpe')->set('functionIds', [(string) $fn->id])->set('needsAck', true)
+        ->set('uploads', [UploadedFile::fake()->createWithContent('Betriebsanweisung.pdf', "%PDF-1.4\n%%EOF")])->call('save')->assertHasNoErrors();
+    $a = Announcement::sole();
+    expect($a->needs_ack)->toBeTrue()->and($a->files()->sole()->filename)->toBe('Betriebsanweisung.pdf')
+        ->and(app(AnnouncementService::class)->recipients($a)->pluck('name')->all())->toBe(['Hanna Hydrant']);
+
+    // Only for the Maschinisten (incl. sub-functions)
+    $this->actingAs($other)->get(route('mitteilungen.index'))->assertDontSee('Neue Betriebsanweisung Pumpe');
+    $this->actingAs($other)->get(route('mitteilungen.file', $a->files()->sole()))->assertForbidden();
+    Livewire::actingAs($this->member)->test(Home::class)->assertSee('Neue Betriebsanweisung Pumpe')->assertSee('Gelesen und verstanden')->assertDontSee('Ausblenden');
+
+    // Opening the page counts as read, not as confirmed
+    $this->actingAs($this->member)->get(route('mitteilungen.index'))->assertSee('Betriebsanweisung.pdf');
+    $this->get(route('mitteilungen.file', $a->files()->sole()))->assertOk()->assertHeader('Content-Type', 'application/pdf');
+    $stats = app(AnnouncementService::class)->stats($a);
+    expect($stats)->toMatchArray(['recipients' => 1, 'read' => 1, 'acknowledged' => 0])->and($stats['missing']->pluck('name')->all())->toBe(['Hanna Hydrant']);
+
+    Livewire::actingAs($this->redakteur)->test(Manage::class)->call('showStats', $a->id)->assertSee('1 von 1 gelesen, 0 bestätigt')->assertSee('Noch nicht bestätigt: Hanna Hydrant')
+        ->call('remind', $a->id)->assertSee('1 Kameraden erinnert');
+    Notification::assertSentTo($this->member, AnnouncementNotification::class, fn ($n, $c, $u) => str_starts_with($n->toMail($u)->subject, 'Bitte bestätigen:'));
+
+    $this->actingAs($this->member)->post(route('mitteilungen.acknowledge', $a))->assertRedirect();
+    expect(app(AnnouncementService::class)->stats($a)['acknowledged'])->toBe(1);
+    Livewire::actingAs($this->member)->test(Home::class)->assertSee('Gelesen bestätigt')->assertSee('Ausblenden');
+});
+
+test('the archive shows Mitteilungen whose time is over; a filter shows only important ones', function () {
+    Announcement::create(['title' => 'Altes Grillfest', 'visible_until' => now()->subDay(), 'created_by' => $this->redakteur->id]);
+    Announcement::create(['title' => 'Neue Alarmordnung', 'important' => true, 'created_by' => $this->redakteur->id]);
+    Announcement::create(['title' => 'Kuchen im Gerätehaus', 'created_by' => $this->redakteur->id]);
+
+    $this->actingAs($this->member)->get(route('mitteilungen.index'))->assertSee('Neue Alarmordnung')->assertSee('Kuchen')->assertDontSee('Altes Grillfest');
+    $this->get(route('mitteilungen.index', ['wichtig' => 1]))->assertSee('Neue Alarmordnung')->assertDontSee('Kuchen');
+    $this->get(route('mitteilungen.index', ['ansicht' => 'archiv']))->assertSee('Altes Grillfest')->assertDontSee('Kuchen');
 });

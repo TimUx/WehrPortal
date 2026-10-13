@@ -33,6 +33,23 @@
                 @endforeach
             </div>
         </div>
+        @if($functions->isNotEmpty())
+            <div>
+                <p class="text-sm text-gray-700 mb-1">… und/oder Funktionen (z. B. alle Maschinisten; schließt Unterfunktionen ein)</p>
+                <div class="flex flex-wrap gap-3">
+                    @foreach($functions as $id => $name)
+                        <label class="inline-flex items-center gap-1.5 text-sm text-gray-700"><input type="checkbox" value="{{ $id }}" wire:model="functionIds" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> {{ $name }}</label>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+        <div>
+            <p class="text-sm text-gray-700 mb-1">Anhänge (PDF, Office, Bilder, je bis 10 MB)</p>
+            @foreach($editingFiles as $f)<p class="text-xs text-gray-600">📎 {{ $f->filename }} <button type="button" wire:click="deleteFile({{ $f->id }})" wire:confirm="Anhang löschen?" class="text-red-600 underline">entfernen</button></p>@endforeach
+            <input type="file" wire:model="uploads" multiple class="text-sm">
+            @error('uploads')<p class="text-sm text-red-600">{{ $message }}</p>@enderror @error('uploads.*')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
+        </div>
+        <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="needsAck" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> Lesebestätigung: jeder Empfänger bestätigt „gelesen“ – du siehst, wer noch fehlt, und kannst erinnern</label>
         <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="important" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> Wichtig (rot, oben, nicht ausblendbar)</label>
         <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="mail" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> Zusätzlich per E-Mail an alle Empfänger schicken (auch in die Glocke und als Push)</label>
         <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="push" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> Ohne E-Mail nur in die Glocke und als Push aufs Handy – für kurzfristige Ansagen</label>
@@ -48,7 +65,17 @@
             <div class="p-4 flex items-start justify-between gap-3" wire:key="a-{{ $a->id }}">
                 <div class="min-w-0">
                     <p class="font-semibold text-gray-900">@if($a->important)<span class="text-red-600">Wichtig:</span> @endif{{ $a->title }}</p>
-                    <p class="text-xs text-gray-500">{{ $state }}@if($a->visible_until) · bis {{ $a->visible_until->setTimezone('Europe/Berlin')->format('d.m.Y') }}@endif · {{ $a->groups->isEmpty() ? 'alle' : $a->groups->pluck('name')->implode(', ') }} · {{ $a->author?->name }}</p>
+                    <p class="text-xs text-gray-500">{{ $state }}@if($a->visible_until) · bis {{ $a->visible_until->setTimezone('Europe/Berlin')->format('d.m.Y') }}@endif · {{ $a->groups->isEmpty() && $a->functions->isEmpty() ? 'alle' : $a->groups->pluck('name')->merge($a->functions->pluck('name'))->implode(', ') }} · {{ $a->author?->name }}@if($a->files->isNotEmpty()) · 📎 {{ $a->files->count() }}@endif</p>
+                    <button type="button" wire:click="showStats({{ $a->id }})" class="text-xs text-fw-navy underline">{{ $a->needs_ack ? 'Lesebestätigungen' : 'Gelesen von' }}</button>
+                    @if($statsFor === $a->id && $stats)
+                        <div class="mt-1 rounded-lg bg-gray-50 p-2 text-xs text-gray-700">
+                            <p>{{ $stats['read'] }} von {{ $stats['recipients'] }} gelesen{{ $a->needs_ack ? ', '.$stats['acknowledged'].' bestätigt' : '' }}</p>
+                            @if($stats['missing']->isNotEmpty())
+                                <p class="mt-1">{{ $a->needs_ack ? 'Noch nicht bestätigt' : 'Noch nicht gelesen' }}: {{ $stats['missing']->pluck('name')->implode(', ') }}</p>
+                                <button type="button" wire:click="remind({{ $a->id }})" wire:confirm="{{ $stats['missing']->count() }} Kameraden erinnern (Glocke, Push, Mail)?" class="mt-1 text-fw-navy underline">Erinnern</button>
+                            @endif
+                        </div>
+                    @endif
                 </div>
                 <div class="flex shrink-0 gap-3 text-sm">
                     <button type="button" wire:click="edit({{ $a->id }})" class="text-fw-navy underline">Bearbeiten</button>

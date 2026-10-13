@@ -7,6 +7,7 @@ use App\Services\ActivityRecorder;
 use App\Services\AnnualReportRegistry;
 use App\Services\CredentialRegistry;
 use App\Services\DashboardRegistry;
+use App\Services\DriverRegistry;
 use App\Services\HoursRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\OrganizationSettings;
@@ -38,6 +39,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(PushService::class);
         $this->app->singleton(CredentialRegistry::class);
         $this->app->singleton(HoursRegistry::class);
+        $this->app->singleton(DriverRegistry::class);
     }
 
     public function boot(): void

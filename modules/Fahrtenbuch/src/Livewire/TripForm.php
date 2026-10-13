@@ -3,6 +3,7 @@
 namespace Modules\Fahrtenbuch\src\Livewire;
 
 use App\Models\User;
+use App\Services\DriverRegistry;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Modules\Fahrtenbuch\src\Models\Trip;
@@ -185,6 +186,8 @@ class TripForm extends Component
             'reports' => $logbook->reportOptions()->when($this->trip?->report, fn ($c) => $c->push($this->trip->report)->unique('id')),
             'lastKm' => $this->vehicleId !== '' && ($v = Vehicle::find((int) $this->vehicleId)) ? $logbook->lastKm($v, $this->trip?->id) : null,
             'canManage' => LogbookService::canManage(auth()->user()),
+            // A hint when the driver lacks a valid Fahrerlaubnis for the vehicle (Führerscheine, if switched on)
+            'licenseWarning' => $this->vehicleId !== '' && ($driver = User::find((int) $this->driverId)) ? app(DriverRegistry::class)->warning($driver, (int) $this->vehicleId) : null,
         ]);
     }
 }

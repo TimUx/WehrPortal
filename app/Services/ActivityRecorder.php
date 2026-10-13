@@ -22,6 +22,7 @@ use Modules\Expositionen\src\Models\ExposureEvent;
 use Modules\Fahrtenbuch\src\Models\Revision as FahrtenbuchRevision;
 use Modules\Fahrzeugbuchung\src\Models\BookingCommentRevision;
 use Modules\Fahrzeuge\src\Models\StatusEvent as FahrzeugStatusEvent;
+use Modules\Fuehrerscheine\src\Models\Photo as LicensePhoto;
 use Modules\Kalender\src\Models\FeedToken;
 use Modules\Maengelmanagement\src\Models\DefectEvent;
 use Modules\Verbandbuch\src\Models\AccessLog as VerbandbuchAccessLog;
@@ -46,7 +47,7 @@ class ActivityRecorder
         ActivityLog::class, MailLog::class, LoginToken::class, PushSubscription::class, EmailChangeRequest::class, UserModulePreference::class,
         FeedToken::class, BookingCommentRevision::class, DefectEvent::class, EquipmentEvent::class, DiveraRequest::class,
         VerbandbuchEntry::class, VerbandbuchSignature::class, VerbandbuchAmendment::class, VerbandbuchAccessLog::class,
-        AtemschutzReading::class, AtemschutzWarning::class, Exposure::class, ExposureEvent::class, ExposureDismissal::class, FahrzeugStatusEvent::class, FahrtenbuchRevision::class, WasserkarteStatusEvent::class,
+        AtemschutzReading::class, AtemschutzWarning::class, Exposure::class, ExposureEvent::class, ExposureDismissal::class, LicensePhoto::class, FahrzeugStatusEvent::class, FahrtenbuchRevision::class, WasserkarteStatusEvent::class,
     ];
 
     /** Changes of only these fields are bookkeeping, not worth an entry */

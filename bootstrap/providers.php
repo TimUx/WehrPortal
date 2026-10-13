@@ -14,6 +14,7 @@ use Modules\Fahrtenbuch\FahrtenbuchServiceProvider;
 use Modules\Fahrzeugbuchung\FahrzeugbuchungServiceProvider;
 use Modules\Fahrzeuge\FahrzeugeServiceProvider;
 use Modules\Finanzen\FinanzenServiceProvider;
+use Modules\Fuehrerscheine\FuehrerscheineServiceProvider;
 use Modules\Kalender\KalenderServiceProvider;
 use Modules\Kleiderkammer\KleiderkammerServiceProvider;
 use Modules\Lehrgaenge\LehrgaengeServiceProvider;
@@ -56,4 +57,5 @@ return [
     PersonalverwaltungServiceProvider::class,
     SchluesselServiceProvider::class,
     ExpositionenServiceProvider::class,
+    FuehrerscheineServiceProvider::class,
 ];

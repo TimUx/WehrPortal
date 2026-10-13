@@ -23,6 +23,7 @@ use Modules\Personalverwaltung\src\Livewire\Honors;
 use Modules\Personalverwaltung\src\Livewire\HoursOverview;
 use Modules\Personalverwaltung\src\Livewire\MemberFile;
 use Modules\Personalverwaltung\src\Livewire\MemberList;
+use Modules\Personalverwaltung\src\Livewire\NewMembers;
 use Modules\Personalverwaltung\src\Livewire\OwnData;
 use Modules\Personalverwaltung\src\Livewire\OwnFile;
 use Modules\Personalverwaltung\src\Livewire\Reports;
@@ -83,10 +84,11 @@ class PersonalverwaltungServiceProvider extends ServiceProvider
         });
 
         Gate::define('personalverwaltung-manage', fn (User $user) => PersonnelService::canManage($user));
+        Gate::define('personalverwaltung-view', fn (User $user) => PersonnelService::canView($user));
 
         foreach (['member-list' => MemberList::class, 'member-file' => MemberFile::class, 'honors' => Honors::class,
             'attendance' => Attendance::class, 'access' => Access::class, 'own-file' => OwnFile::class,
-            'settings' => Settings::class, 'own-data' => OwnData::class, 'change-requests' => ChangeRequests::class, 'hours-overview' => HoursOverview::class, 'reports' => Reports::class] as $name => $class) {
+            'settings' => Settings::class, 'own-data' => OwnData::class, 'change-requests' => ChangeRequests::class, 'hours-overview' => HoursOverview::class, 'reports' => Reports::class, 'new-members' => NewMembers::class] as $name => $class) {
             Livewire::component('personalverwaltung.'.$name, $class);
         }
 
@@ -94,7 +96,7 @@ class PersonalverwaltungServiceProvider extends ServiceProvider
             'personalverwaltung',
             'Personalverwaltung',
             'Persönliche Daten, Laufbahn mit Dienstgraden, Abteilungen und Funktionen, Ehrungen, Dienstausweis und Dienstbeteiligung je Kamerad',
-            roles: ['personalverwalter'],
+            roles: ['personalverwalter', 'personaleinsicht'],
             provider: self::class,
             route: 'personalverwaltung.own',
             // Its own admin area for the Personalverwalter, who need not be admins

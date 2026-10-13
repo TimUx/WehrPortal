@@ -25,12 +25,12 @@ Route::middleware(['auth', 'active', 'module:personalverwaltung'])->group(functi
     })->whereNumber('file')->name('personalverwaltung.history-file');
     Route::get('/personalakte/persoenliche-daten', fn () => view('personalverwaltung::pages.own-data'))->name('personalverwaltung.own-data');
 
-    Route::prefix('personalverwaltung')->name('personalverwaltung.')->middleware('can:personalverwaltung-manage')->group(function () {
+    Route::prefix('personalverwaltung')->name('personalverwaltung.')->middleware('can:personalverwaltung-view')->group(function () {
         $page = fn (string $component, string $title, array $params = []) => view('personalverwaltung::pages.page', ['livewireComponent' => $component, 'title' => $title, 'params' => $params]);
 
         Route::get('/', fn () => $page('personalverwaltung.member-list', 'Personalverwaltung'))->name('index');
         Route::get('/kamerad/{member}', fn (User $member) => $page('personalverwaltung.member-file', $member->name, ['member' => $member]))->whereNumber('member')->name('member');
-        Route::get('/aenderungswuensche', fn () => $page('personalverwaltung.change-requests', 'Änderungswünsche'))->name('requests');
+        Route::get('/aenderungswuensche', fn () => $page('personalverwaltung.change-requests', 'Änderungswünsche'))->name('requests')->middleware('can:personalverwaltung-manage');
         Route::get('/auswertungen', fn () => $page('personalverwaltung.reports', 'Auswertungen'))->name('reports');
         Route::get('/auswertungen.csv', function (PersonnelService $personnel) {
             $kind = array_key_exists((string) request('art'), PersonnelService::REPORTS) ? (string) request('art') : 'funktionen';
@@ -54,7 +54,8 @@ Route::middleware(['auth', 'active', 'module:personalverwaltung'])->group(functi
                 'Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="Stundennachweis-'.$year.'.csv"',
             ]);
         })->name('hours.csv');
-        Route::get('/ehrungen', fn () => $page('personalverwaltung.honors', 'Ehrungen'))->name('honors');
+        Route::get('/neu', fn () => $page('personalverwaltung.new-members', 'Neue Mitglieder'))->middleware('can:personalverwaltung-manage')->name('new');
+        Route::get('/ehrungen', fn () => $page('personalverwaltung.honors', 'Ehrungen'))->name('honors')->middleware('can:personalverwaltung-manage');
         Route::get('/dienstbeteiligung', function () use ($page) {
             abort_unless(PersonnelService::attendanceAvailable(), 404);
 
@@ -71,7 +72,7 @@ Route::middleware(['auth', 'active', 'module:personalverwaltung'])->group(functi
             ]);
         })->name('attendance.csv');
         // The admin area of the Personalverwalter (no admin rights needed)
-        Route::get('/einstellungen', fn () => $page('personalverwaltung.settings', 'Einstellungen'))->name('settings');
+        Route::get('/einstellungen', fn () => $page('personalverwaltung.settings', 'Einstellungen'))->name('settings')->middleware('can:personalverwaltung-manage');
         Route::get('/adressliste.csv', function (PersonnelService $personnel) {
             abort_unless(PersonnelService::activeFields() !== [], 404);
 
@@ -79,7 +80,7 @@ Route::middleware(['auth', 'active', 'module:personalverwaltung'])->group(functi
                 'Content-Type' => 'text/csv; charset=utf-8',
                 'Content-Disposition' => 'attachment; filename="Adressliste.csv"',
             ]);
-        })->name('addresses');
-        Route::get('/zugriff', fn () => $page('personalverwaltung.access', 'Zugriff'))->name('access');   // admins only, checked in the component
+        })->name('addresses')->middleware('can:personalverwaltung-manage');
+        Route::get('/zugriff', fn () => $page('personalverwaltung.access', 'Zugriff'))->name('access')->middleware('can:personalverwaltung-manage');   // admins only, checked in the component
     });
 });

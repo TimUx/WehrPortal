@@ -82,9 +82,169 @@ class PersonnelService
         return User::query()->when($scope !== [], fn ($q) => $q->whereHas('groups', fn ($g) => $g->whereIn('groups.id', $scope)));
     }
 
+    /** Edits the file of $member (Personalverwalter within their Abteilungen) */
     public static function mayView(User $manager, User $member): bool
     {
         return self::canManage($manager) && self::visibleMembers($manager)->whereKey($member->id)->exists();
+    }
+
+    /** Personaleinsicht: may look at the files (e.g. the Wehrführung), without changing anything or seeing personal data */
+    public static function canView(User $user): bool
+    {
+        return self::canManage($user) || ($user->is_active && $user->canUseModule(self::MODULE) && $user->hasModuleRole(self::MODULE, 'personaleinsicht'));
+    }
+
+    public static function mayRead(User $viewer, User $member): bool
+    {
+        return self::canView($viewer) && self::visibleMembers($viewer)->whereKey($member->id)->exists();
+    }
+
+    // ─── new members ─────────────────────────────────────────────────────────
+
+    /** The Personalverwalter takes in a new Kamerad (no admin needed); within their Abteilungen when they are limited */
+    public function createMember(User $by, array $data): User
+    {
+        $this->assertManager($by);
+        $clean = $this->memberData($by, $data, null);
+        $member = DB::transaction(function () use ($clean) {
+            $member = User::create([...collect($clean)->except('group_ids')->all(), 'status' => 'active']);
+            $member->groups()->sync($clean['group_ids']);
+            if (! $member->canUseModule(self::MODULE)) {
+                $member->moduleAccess()->create(['module' => self::MODULE]);
+            }
+
+            return $member;
+        });
+        $this->syncHistory($member->fresh());
+
+        return $member;
+    }
+
+    /**
+     * Mitglieder from a CSV (e.g. the old Excel list): new ones by e-mail are created, known ones get the given
+     * values (Abteilungen are added). First a preview.
+     *
+     * @return list<array{line: int, name: string, email: string, action: string, label: string, data: array}>
+     */
+    public function importPreview(User $by, string $csv): array
+    {
+        $this->assertManager($by);
+        $csv = preg_replace('/^\xEF\xBB\xBF/', '', $csv);
+        if (! mb_check_encoding($csv, 'UTF-8')) {
+            $csv = mb_convert_encoding($csv, 'UTF-8', 'Windows-1252');
+        }
+        $lines = array_values(array_filter(preg_split('/\r\n|\r|\n/', (string) $csv), fn ($l) => trim($l) !== ''));
+        if (count($lines) < 2) {
+            throw ValidationException::withMessages(['import' => 'Die Datei braucht eine Kopfzeile und mindestens eine Zeile.']);
+        }
+        $delimiter = substr_count($lines[0], ';') >= substr_count($lines[0], ',') ? ';' : ',';
+        $aliases = ['name' => ['name'], 'first' => ['vorname'], 'last' => ['nachname', 'familienname'], 'email' => ['e-mail', 'email', 'mail', 'e-mail-adresse'],
+            'groups' => ['abteilung', 'abteilungen'], 'rank' => ['dienstgrad'], 'joined_at' => ['eintritt', 'eintrittsdatum', 'mitglied seit'],
+            'birth_date' => ['geburtsdatum', 'geboren'], 'gender' => ['geschlecht'], 'phone' => ['mobil', 'mobilnummer', 'handy', 'telefon'],
+            'street' => ['straße', 'strasse', 'anschrift'], 'postal_code' => ['plz', 'postleitzahl'], 'city' => ['ort', 'wohnort']];
+        $header = array_map(fn ($h) => mb_strtolower(trim($h)), str_getcsv($lines[0], $delimiter));
+        $col = [];
+        foreach ($aliases as $field => $names) {
+            foreach ($header as $i => $h) {
+                if (in_array($h, $names, true)) {
+                    $col[$field] = $i;
+                    break;
+                }
+            }
+        }
+        if (! isset($col['email']) || ! (isset($col['name']) || isset($col['last']))) {
+            throw ValidationException::withMessages(['import' => 'Die Kopfzeile braucht „E-Mail“ und „Name“ (oder „Vorname“ und „Nachname“).']);
+        }
+
+        $rows = [];
+        foreach (array_slice($lines, 1) as $n => $line) {
+            $cells = str_getcsv($line, $delimiter);
+            $get = fn (string $f) => isset($col[$f]) ? trim((string) ($cells[$col[$f]] ?? '')) : '';
+            $name = $get('name') !== '' ? $get('name') : trim($get('first').' '.$get('last'));
+            $email = mb_strtolower($get('email'));
+            $existing = $email !== '' ? User::whereRaw('lower(email) = ?', [$email])->first() : null;
+            $date = fn (string $v) => collect(['!d.m.Y', '!Y-m-d'])->map(fn ($f) => rescue(fn () => Carbon::createFromFormat($f, $v), null, false))->filter()->first()?->toDateString();
+            $gender = match (mb_strtolower(mb_substr($get('gender'), 0, 1))) {
+                'm' => 'male', 'w', 'f' => 'female', 'd' => 'diverse', default => null
+            };
+            $data = array_filter(['name' => $name, 'email' => $email, 'rank' => $get('rank'), 'joined_at' => $get('joined_at') !== '' ? $date($get('joined_at')) : null,
+                'birth_date' => $get('birth_date') !== '' ? $date($get('birth_date')) : null, 'gender' => $gender, 'phone' => $get('phone'),
+                'street' => $get('street'), 'postal_code' => $get('postal_code'), 'city' => $get('city'),
+                'group_names' => array_values(array_filter(array_map('trim', preg_split('/[,|]/', $get('groups')) ?: [])))], fn ($v) => $v !== '' && $v !== null && $v !== []);
+            try {
+                $this->memberData($by, $data, $existing);
+                $action = $existing ? (self::mayView($by, $existing) ? 'update' : 'error') : 'new';
+                $label = ['new' => 'wird angelegt', 'update' => 'wird ergänzt', 'error' => 'gehört nicht zu deinen Abteilungen'][$action];
+            } catch (ValidationException $e) {
+                [$action, $label] = ['error', collect($e->errors())->flatten()->first()];
+            }
+            $rows[] = ['line' => $n + 2, 'name' => $name, 'email' => $email, 'action' => $action, 'label' => $label, 'data' => $data];
+        }
+
+        return $rows;
+    }
+
+    /** @return array{created: int, updated: int} */
+    public function importApply(User $by, string $csv): array
+    {
+        $result = ['created' => 0, 'updated' => 0];
+        foreach ($this->importPreview($by, $csv) as $row) {
+            if ($row['action'] === 'new') {
+                $this->createMember($by, $row['data']);
+                $result['created']++;
+            } elseif ($row['action'] === 'update') {
+                $member = User::whereRaw('lower(email) = ?', [$row['email']])->sole();
+                $clean = $this->memberData($by, $row['data'], $member);
+                DB::transaction(function () use ($member, $clean) {
+                    $member->update(collect($clean)->except(['group_ids', 'email'])->filter(fn ($v) => $v !== null)->all());
+                    $member->groups()->syncWithoutDetaching($clean['group_ids']);
+                });
+                $this->syncHistory($member->fresh());
+                $result['updated']++;
+            }
+        }
+
+        return $result;
+    }
+
+    /** Checked member data: name, e-mail (unique), Abteilungen by id or name (within the scope), the rest optional */
+    private function memberData(User $by, array $data, ?User $existing): array
+    {
+        $name = trim((string) ($data['name'] ?? ''));
+        $email = mb_strtolower(trim((string) ($data['email'] ?? '')));
+        if ($name === '' || mb_strlen($name) > 150) {
+            throw ValidationException::withMessages(['member_name' => 'Bitte den Namen angeben.']);
+        }
+        if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw ValidationException::withMessages(['member_email' => 'Bitte eine gültige E-Mail-Adresse angeben.']);
+        }
+        if (! $existing && User::whereRaw('lower(email) = ?', [$email])->exists()) {
+            throw ValidationException::withMessages(['member_email' => 'Diese E-Mail-Adresse gehört schon einem Kameraden.']);
+        }
+        $groupIds = collect($data['group_ids'] ?? [])->map(fn ($id) => (int) $id);
+        foreach ($data['group_names'] ?? [] as $groupName) {
+            $group = Group::whereRaw('lower(name) = ?', [mb_strtolower($groupName)])->first()
+                ?? throw ValidationException::withMessages(['member_groups' => 'Die Abteilung „'.$groupName.'“ gibt es nicht.']);
+            $groupIds->push($group->id);
+        }
+        $scope = self::scopeOf($by);
+        if ($scope !== [] && ($groupIds->isEmpty() || $groupIds->diff($scope)->isNotEmpty())) {
+            throw ValidationException::withMessages(['member_groups' => 'Bitte eine deiner Abteilungen wählen.']);
+        }
+        $date = fn ($v) => filled($v) ? rescue(fn () => Carbon::parse($v)->toDateString(), null, false) : null;
+        $fields = self::activeFields();
+
+        return [
+            'name' => $name, 'email' => $email, 'group_ids' => $groupIds->unique()->values()->all(),
+            'rank' => filled($data['rank'] ?? null) ? mb_substr(trim($data['rank']), 0, 100) : null,
+            'joined_at' => $date($data['joined_at'] ?? null), 'gender' => in_array($data['gender'] ?? null, ['male', 'female', 'diverse'], true) ? $data['gender'] : null,
+            // Personal data only while the Personalverwaltung keeps it
+            'birth_date' => in_array('birth_date', $fields, true) ? $date($data['birth_date'] ?? null) : null,
+            'phone' => in_array('phone', $fields, true) && filled($data['phone'] ?? null) ? mb_substr(trim($data['phone']), 0, 50) : null,
+            'street' => in_array('address', $fields, true) && filled($data['street'] ?? null) ? mb_substr(trim($data['street']), 0, 150) : null,
+            'postal_code' => in_array('address', $fields, true) && filled($data['postal_code'] ?? null) ? mb_substr(trim($data['postal_code']), 0, 10) : null,
+            'city' => in_array('address', $fields, true) && filled($data['city'] ?? null) ? mb_substr(trim($data['city']), 0, 100) : null,
+        ];
     }
 
     /** Admins only: limit a Personalverwalter to Abteilungen (empty = all) */
@@ -380,7 +540,9 @@ class PersonnelService
      */
     public function report(User $by, string $kind, Carbon $from, Carbon $to): array
     {
-        $this->assertManager($by);
+        if (! self::canView($by)) {
+            throw ValidationException::withMessages(['report' => 'Das dürfen Personalverwalter und Personaleinsicht.']);
+        }
         $ids = self::visibleMembers($by)->pluck('id');
         $active = self::visibleMembers($by)->where('status', 'active')->pluck('id');
         $since = fn (string $k, ?int $ref, int $user) => HistoryEntry::where('user_id', $user)->where('kind', $k)->whereNull('until')

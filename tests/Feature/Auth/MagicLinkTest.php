@@ -52,7 +52,7 @@ test('GET confirm route does not consume token', function () {
 });
 
 test('POST confirm route logs in user and marks token used', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->create(['last_login_at' => now()->subDay()]);   // not the first login (that one goes to Willkommen)
     $rawToken = Str::random(64);
 
     LoginToken::factory()->create([

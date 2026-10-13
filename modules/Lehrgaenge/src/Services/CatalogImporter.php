@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 use Modules\Lehrgaenge\src\Models\Course;
+use Modules\Lehrgaenge\src\Notifications\CatalogChangedNotification;
 use RuntimeException;
 use Throwable;
 
@@ -18,8 +19,8 @@ use Throwable;
  * Reads the public "Restplätze Lehrgänge" page of the own Kreis in fox112 daily; the address is set
  * by the Ausbildungsleitung (Lehrgangsliste). Only the Lehrgänge
  * "ohne festen Termin" count: they are what a Kamerad can announce Bedarf for. Dated Lehrgänge with
- * Restplätze are ignored. New Lehrgänge go onto the Standardliste, so one that leaves the page for a
- * while stays offered; only Lehrgänge taken off the Standardliste end with the page.
+ * Restplätze are ignored. What isn't offered yet becomes a suggestion for the Ausbildungsleiter; what
+ * leaves the page is flagged for a decision, never deleted.
  */
 class CatalogImporter
 {
@@ -104,7 +105,13 @@ class CatalogImporter
             }
 
             $stats = DB::transaction(fn () => $this->store($undated));
-            $this->remember(true, sprintf('%d Lehrgänge in fox112, %d neu, %d nicht mehr in fox112.', $stats['listed'], $stats['courses'], $stats['gone']));
+            $this->remember(true, sprintf('%d Lehrgänge in fox112, %d neue Vorschläge, %d angebotene nicht mehr in fox112.', $stats['listed'], $stats['courses'], $stats['gone']));
+            // The Ausbildungsleiter decide: new suggestions and Lehrgänge that left fox112
+            if ($stats['courses'] + $stats['gone'] > 0) {
+                foreach (app(RegistrationService::class)->managers() as $manager) {
+                    rescue(fn () => $manager->notify(new CatalogChangedNotification($stats['courses'], $stats['gone'])));
+                }
+            }
 
             return $stats;
         } catch (Throwable $e) {
@@ -155,7 +162,14 @@ class CatalogImporter
         return $rows;
     }
 
-    /** @param list<array> $rows */
+    /**
+     * fox112 only suggests: a Lehrgang that isn't offered yet (new, or taken off the list) becomes a suggestion
+     * for the Ausbildungsleiter, unless it was ignored. One that left fox112 is flagged, never deleted – fox112
+     * often drops a Lehrgang for a while.
+     *
+     * @param  list<array>  $rows
+     * @return array{listed: int, courses: int, gone: int}
+     */
     private function store(array $rows): array
     {
         $stats = ['listed' => 0, 'courses' => 0, 'gone' => 0];
@@ -163,17 +177,22 @@ class CatalogImporter
         $seen = [];
 
         foreach (collect($rows)->groupBy('course_name') as $name => $variants) {
-            $course = Course::whereRaw('lower(name) = ?', [mb_strtolower($name)])->first() ?? new Course(['name' => mb_substr($name, 0, 150), 'is_standard' => true]);
-            $stats['courses'] += $course->exists ? 0 : 1;
-            $course->fill(['titles' => $variants->pluck('title')->unique()->values()->all(), 'listed' => true, 'last_seen_at' => $now])->save();
+            $course = Course::whereRaw('lower(name) = ?', [mb_strtolower($name)])->first() ?? new Course(['name' => mb_substr($name, 0, 150), 'is_standard' => false]);
+            $course->fill(['titles' => $variants->pluck('title')->unique()->values()->all(), 'listed' => true, 'last_seen_at' => $now, 'gone_since' => null]);
+            if ((! $course->is_standard || $course->removed_at) && ! $course->ignored_at && ! $course->suggested_at) {
+                $course->suggested_at = $now;
+                $stats['courses']++;
+            }
+            $course->save();
             $seen[] = $course->id;
             $stats['listed']++;
         }
 
-        $stats['gone'] = Course::where('listed', true)->whereNotIn('id', $seen)->update(['listed' => false]);
-
-        // Lehrgänge no longer offered that nobody ever asked for are taken out
-        Course::where('listed', false)->where('is_standard', false)->whereDoesntHave('records')->delete();
+        // Left fox112: flagged for a decision if it is offered, kept in any case
+        $gone = Course::where('listed', true)->whereNotIn('id', $seen);
+        $stats['gone'] = (clone $gone)->where('is_standard', true)->whereNull('removed_at')->count();
+        (clone $gone)->where('is_standard', true)->whereNull('removed_at')->update(['gone_since' => $now]);
+        $gone->update(['listed' => false, 'suggested_at' => null]);
 
         return $stats;
     }

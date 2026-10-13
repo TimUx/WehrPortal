@@ -4,6 +4,7 @@ use App\Livewire\Dashboard\Home;
 use App\Models\Module;
 use App\Models\ModuleUser;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -14,17 +15,23 @@ use Modules\Lehrgaenge\src\Livewire\CourseList;
 use Modules\Lehrgaenge\src\Livewire\MemberProfile;
 use Modules\Lehrgaenge\src\Livewire\Members;
 use Modules\Lehrgaenge\src\Livewire\MyCourses;
+use Modules\Lehrgaenge\src\Livewire\Qualifications;
 use Modules\Lehrgaenge\src\Livewire\Registrations;
+use Modules\Lehrgaenge\src\Livewire\ResultImports;
 use Modules\Lehrgaenge\src\Models\Course;
 use Modules\Lehrgaenge\src\Models\Deletion;
 use Modules\Lehrgaenge\src\Models\Record;
+use Modules\Lehrgaenge\src\Notifications\CatalogChangedNotification;
 use Modules\Lehrgaenge\src\Notifications\CourseConfirmedNotification;
 use Modules\Lehrgaenge\src\Notifications\CourseReminderNotification;
+use Modules\Lehrgaenge\src\Notifications\RefreshDigestNotification;
+use Modules\Lehrgaenge\src\Notifications\RefreshDueNotification;
 use Modules\Lehrgaenge\src\Notifications\RegistrationCancelledNotification;
 use Modules\Lehrgaenge\src\Notifications\RegistrationRejectedNotification;
 use Modules\Lehrgaenge\src\Notifications\RequestReceivedNotification;
 use Modules\Lehrgaenge\src\Services\CatalogImporter;
 use Modules\Lehrgaenge\src\Services\RegistrationService;
+use Modules\Lehrgaenge\src\Services\ResultImport;
 
 /**
  * A Restplätze page like fox112 delivers it (ISO-8859-1). Rows: [id, name, suffix, dated]; dated rows
@@ -72,6 +79,8 @@ beforeEach(function () {
     CatalogImporter::saveUrl('musterkreis');
     fakePortal($this->rows);
     app(CatalogImporter::class)->import();
+    // fox112 only suggests: the Ausbildungsleitung offers them
+    Course::whereNotNull('suggested_at')->update(['is_standard' => true, 'suggested_at' => null]);
     $this->agt = Course::where('name', 'Atemschutzgeräteträger')->first();
 
     $this->leader = User::factory()->create(['name' => 'Bernd Blaulicht', 'phone' => null]);
@@ -98,36 +107,71 @@ test('only the Lehrgänge without fixed date come from fox112, with their varian
     expect(Course::count())->toBe(3);
 });
 
-test('a Lehrgang that leaves fox112 stays offered from the Standardliste; taken off it, it ends with fox112', function () {
-    $this->r->request($this->member, $this->agt, null);
+test('fox112 only suggests: the Ausbildungsleiter offers or ignores, nothing is offered by itself', function () {
+    fakePortal([...$this->rows, [105, 'Vegetationsbrandbekämpfung', null, false], [106, 'Kettensägenführer', null, false]]);
+    $stats = app(CatalogImporter::class)->import();
+    expect($stats)->toMatchArray(['courses' => 2, 'gone' => 0])
+        ->and(Course::offered()->where('name', 'Vegetationsbrandbekämpfung')->exists())->toBeFalse();
+    Notification::assertSentTo($this->leader, CatalogChangedNotification::class);
 
+    $veg = Course::where('name', 'Vegetationsbrandbekämpfung')->sole();
+    $saw = Course::where('name', 'Kettensägenführer')->sole();
+    Livewire::actingAs($this->leader)->test(CourseList::class)->assertSee('Vorschläge aus fox112 (2)')
+        ->call('accept', $veg->id)->assertSee('„Vegetationsbrandbekämpfung“ wird angeboten.')
+        ->call('ignore', $saw->id)->assertSee('nicht mehr vorgeschlagen');
+    expect($veg->fresh()->isOffered())->toBeTrue()->and($saw->fresh()->isOffered())->toBeFalse();
+
+    // Ignored stays quiet on the next import
+    app(CatalogImporter::class)->import();
+    expect($saw->fresh()->suggested_at)->toBeNull();
+});
+
+test('a Lehrgang that leaves fox112 is kept and flagged; the Ausbildungsleiter decides', function () {
+    $this->r->request($this->member, $this->agt, null);
     fakePortal([$this->rows[2]]);
     $stats = app(CatalogImporter::class)->import();
 
     expect($stats)->toMatchArray(['listed' => 1, 'courses' => 0, 'gone' => 2])
-        ->and(Course::offered()->orderBy('name')->pluck('name')->all())->toBe(['Atemschutzgeräteträger', 'Tierrettung - Großtiere', 'Truppführung Teil 1'])
-        ->and($this->agt->fresh()->listed)->toBeFalse();
+        ->and(Course::offered()->count())->toBe(3)   // still offered, nothing deleted
+        ->and($this->agt->fresh()->gone_since)->not->toBeNull();
+    Notification::assertSentTo($this->leader, CatalogChangedNotification::class);
 
-    // Taken off the Standardliste: no longer offered; one nobody asked for goes with the next import
     $tier = Course::where('name', 'Tierrettung - Großtiere')->sole();
-    Livewire::actingAs($this->leader)->test(CourseList::class)
-        ->call('toggle', $this->agt->id)->assertSee('wird nicht mehr angeboten')
-        ->call('toggle', $tier->id);
-    expect(fn () => $this->r->request(User::factory()->create(), $this->agt->fresh(), null))->toThrow(ValidationException::class, 'nicht mehr angeboten');
-    app(CatalogImporter::class)->import();
-    expect(Course::where('name', 'Tierrettung - Großtiere')->exists())->toBeFalse()
-        ->and($this->agt->fresh())->not->toBeNull();                                 // has a record, stays
+    Livewire::actingAs($this->leader)->test(CourseList::class)->assertSee('Nicht mehr in fox112 (2)')->assertSee('1 mit Interesse')
+        ->call('keep', $this->agt->id)->assertSee('bleibt angeboten')
+        ->call('remove', $tier->id);
+    expect($this->agt->fresh())->gone_since->toBeNull()->isOffered()->toBeTrue()
+        ->and(Course::find($tier->id))->toBeNull();
 
-    // Back on the page, back in the offer
+    // Back in fox112: nothing to decide
     fakePortal($this->rows);
     app(CatalogImporter::class)->import();
-    expect($this->agt->fresh()->isOffered())->toBeTrue();
+    expect($this->agt->fresh()->listed)->toBeTrue();
+});
+
+test('Lehrgänge are deleted from the list; with entries they are only hidden and fox112 suggests them again', function () {
+    $this->r->recordCompleted($this->member, 'Atemschutzgeräteträger', '2027-01-10');
+    $own = Course::create(['name' => 'Vegetationsbrandbekämpfung', 'is_standard' => true]);
+
+    Livewire::actingAs($this->leader)->test(CourseList::class)
+        ->call('remove', $own->id)->assertSee('gelöscht.')
+        ->call('remove', $this->agt->id)->assertSee('die Einträge der Kameraden bleiben');
+    expect(Course::find($own->id))->toBeNull()
+        ->and($this->agt->fresh())->removed_at->not->toBeNull()->isOffered()->toBeFalse()
+        ->and(Record::where('course_id', $this->agt->id)->count())->toBe(1);
+    Livewire::actingAs($this->member)->test(MyCourses::class)->assertDontSee('Atemschutzgeräteträger</option>', false);
+
+    // The next import suggests it again; offering brings it back
+    app(CatalogImporter::class)->import();
+    expect($this->agt->fresh()->suggested_at)->not->toBeNull()->and($this->agt->fresh()->isOffered())->toBeFalse();
+    Livewire::actingAs($this->leader)->test(CourseList::class)->assertSee('von dir gelöscht, fox112 führt ihn weiter')->call('accept', $this->agt->id);
+    expect($this->agt->fresh())->isOffered()->toBeTrue()->removed_at->toBeNull();
 });
 
 test('the Ausbildungsleiter adds a Lehrgang missing in fox112; Kameraden can report Interesse for it', function () {
     Livewire::actingAs($this->leader)->test(CourseList::class)
         ->set('newName', '  Vegetationsbrandbekämpfung ')->call('add')
-        ->assertSee('„Vegetationsbrandbekämpfung“ steht auf der Standardliste', false)
+        ->assertSee('„Vegetationsbrandbekämpfung“ steht auf der Lehrgangsliste und wird angeboten.', false)
         ->set('newName', 'vegetationsbrandbekämpfung')->call('add')
         ->assertHasErrors('newName');
 
@@ -144,7 +188,7 @@ test('the Ausbildungsleiter adds a Lehrgang missing in fox112; Kameraden can rep
     expect($course->fresh()->isOffered())->toBeTrue();
 
     $this->actingAs($this->member)->get('/lehrgaenge/lehrgangsliste')->assertForbidden();
-    $this->actingAs($this->leader)->get('/lehrgaenge/lehrgangsliste')->assertOk()->assertSee('Standardliste');
+    $this->actingAs($this->leader)->get('/lehrgaenge/lehrgangsliste')->assertOk()->assertSee('angeboten');
 });
 
 test('the Ausbildungsleitung sets the fox112 page of the own Kreis; only fox112 addresses are taken', function () {
@@ -541,4 +585,63 @@ test('admins and Ausbildungsleiter correct and delete absolvierte Lehrgänge, wi
     $other = $this->r->recordCompleted($this->member, 'Maschinist', '2020-01-01');
     Livewire::actingAs($chief)->test(MemberProfile::class, ['member' => $this->member])->assertDontSee('Bearbeiten')
         ->call('startDelete', $other->id)->assertForbidden();
+});
+
+test('a Lehrgang with a refresher interval: valid until, Auffrischung by a later date, reminders', function () {
+    $this->agt->update(['repeat_months' => 24]);
+    $record = $this->r->recordCompleted($this->member, 'Atemschutzgeräteträger', '2025-07-01');
+    expect($record->fresh('course')->validUntil()->toDateString())->toBe('2027-07-01')->and($record->fresh('course')->refreshState())->toBe('soon');
+
+    Livewire::actingAs($this->member)->test(Home::class)->assertSee('Auffrischung „Atemschutzgeräteträger“ fällig bis 01.07.2027');
+    $this->artisan('lehrgaenge:remind-refresh')->assertSuccessful();
+    Notification::assertSentTo($this->member, RefreshDueNotification::class);
+    Notification::assertSentTo($this->leader, RefreshDigestNotification::class);
+    Notification::fake();
+    $this->artisan('lehrgaenge:remind-refresh')->assertSuccessful();
+    Notification::assertNothingSent();
+
+    // The Auffrischung: a later date of the same Lehrgang
+    $this->r->recordCompleted($this->member, 'Atemschutzgeräteträger', '2027-05-20');
+    expect(Record::where('user_id', $this->member->id)->count())->toBe(1)
+        ->and($record->fresh('course'))->completed_on->toDateString()->toBe('2027-05-20')->refreshState()->toBe('ok');
+
+    // Set on the Lehrgangsliste
+    Livewire::actingAs($this->leader)->test(CourseList::class)->call('setRepeat', $this->agt->id, '200')->assertHasErrors('repeat')
+        ->call('setRepeat', $this->agt->id, '')->assertSee('ohne Auffrischung');
+    expect($this->agt->fresh()->repeat_months)->toBeNull();
+});
+
+test('the Ausbildungsstand shows Kameraden × Lehrgänge, also as CSV', function () {
+    $this->agt->update(['repeat_months' => 12]);
+    $this->r->recordCompleted($this->member, 'Atemschutzgeräteträger', '2025-01-10');   // overdue
+    $this->r->recordCompleted($this->leader, 'Truppmann Teil 1', '2020-03-01');
+
+    Livewire::actingAs($this->leader)->test(Qualifications::class)->assertSee('Atemschutzgeräteträger')->assertSee('Truppmann Teil 1')->assertSee('✓ 01/2025')->assertSee('bg-red-50', false);
+    $csv = $this->actingAs($this->leader)->get(route('lehrgaenge.qualifications.csv'))->assertOk()->getContent();
+    expect($csv)->toContain('10.01.2025 (Auffrischung überfällig)')->toContain('01.03.2020');
+    $this->actingAs($this->member)->get(route('lehrgaenge.qualifications'))->assertForbidden();
+});
+
+test('results of an external Träger come in as CSV, with a preview', function () {
+    $this->agt->update(['repeat_months' => 24]);
+    $this->r->recordCompleted($this->member, 'Atemschutzgeräteträger', '2025-05-01');
+    $fritz = User::factory()->create(['name' => 'Fritz Feuer', 'email' => 'fritz@example.com']);
+    $csv = "Nachname;Vorname;E-Mail;Lehrgang;Abschluss;Ergebnis\n"
+        ."Hydrant;Hanna;;Atemschutzgeräteträger;20.05.2026;bestanden\n"
+        .";;fritz@example.com;Maschinist;15.04.2026;bestanden\n"
+        .";;fritz@example.com;Sprechfunker;16.04.2026;nicht bestanden\n"
+        ."Unbekannt;Udo;;Maschinist;15.04.2026;bestanden\n"
+        ."Hydrant;Hanna;;Truppführung Teil 1;;bestanden\n";
+
+    $rows = collect(app(ResultImport::class)->preview($csv));
+    expect($rows->pluck('action')->all())->toBe(['refresh', 'new', 'failed', 'no_user', 'no_date']);
+
+    $this->travelBack();
+    Livewire::actingAs($this->leader)->test(ResultImports::class)
+        ->set('file', UploadedFile::fake()->createWithContent('kreis-2027.csv', $csv))->assertSee('Auffrischung')->assertSee('Kamerad nicht gefunden')->assertSee('2 übernehmen')
+        ->call('apply')->assertSee('2 Lehrgänge übernommen');
+    expect(Record::where('user_id', $fritz->id)->sole())->status->toBe('completed')->notes->toBe('Import: kreis-2027.csv')
+        ->and(Record::where('user_id', $this->member->id)->where('course_id', $this->agt->id)->sole()->completed_on->toDateString())->toBe('2026-05-20');
+
+    $this->actingAs($this->member)->get(route('lehrgaenge.import'))->assertForbidden();
 });

@@ -1,6 +1,6 @@
 # openwehr
 
-> Kostenlose Open-Source-Web-App (AGPL-3.0) für Freiwillige Feuerwehren in Deutschland: ein gemeinsamer Kern mit Anmeldung ohne Passwort, Kameraden, Startseite, Benachrichtigungen und Admin-Bereich, dazu 21 Module, die jede Wehr einzeln einschaltet. Für das Handy gemacht, Oberfläche auf Deutsch, Betrieb auf dem eigenen Server (Docker-Image mit PostgreSQL).
+> Kostenlose Open-Source-Web-App (AGPL-3.0) für Freiwillige Feuerwehren in Deutschland: ein gemeinsamer Kern mit Anmeldung ohne Passwort, Kameraden, Startseite, Benachrichtigungen und Admin-Bereich, dazu 22 Module, die jede Wehr einzeln einschaltet. Für das Handy gemacht, Oberfläche auf Deutsch, Betrieb auf dem eigenen Server (Docker-Image mit PostgreSQL).
 
 - Projektseite: https://www.openwehr.de/
 - Quellcode und ausführliche Dokumentation (README): https://github.com/roberteinsle/openwehr
@@ -20,17 +20,18 @@
 - Kalender & Termine: Termine für eine Zielgruppe mit Ort samt Navigation, Kleidung und Rückmeldung, Terminabfragen, Kalender-Abo, gemeinsame Übungen mit Nachbarwehren; Erziehungsberechtigte (z. B. Jugendfeuerwehr) bekommen die Termin-Mails und sagen ohne eigenes Konto für das Kind zu oder ab
 - Schichtplan: Schichten verteilen oder Mitglieder selbst eintragen lassen
 - Übungsdienstplaner: Übungsdienste mit Thema und Verantwortlichen für den Vorstand; jeder Dienst steht ohne Thema im Kalender der Zielgruppe
-- Personalverwaltung: eigener Bereich für Personalverwalter, persönliche Daten (Anschrift, Geburtsdatum, Mobilnummer) zuschaltbar mit Selbstpflege und Benachrichtigung, Diensthistorie (Dienstgrade, Abteilungen, Funktionen, Ereignisse, Dienstzeiten in anderen Wehren) mit Nachweisen und anrechenbarer Dienstzeit, Ehrungen nach Dienstjahren (mit üblichen Ehrungsarten als Vorlage), Sammelverarbeitung für Beförderungen, Ehrungen und Funktionen, Auswertungen für Kommune und Verband, Dienstausweis (auch digital auf dem Handy mit Prüf-QR-Code), Änderungswünsche der Kameraden zur eigenen Akte, Dienstbeteiligung aus dem Kalender, Zugriff je Abteilung
-- Lehrgänge & Qualifikationen: Interesse an Lehrgängen, Anmeldung über die Ausbildungsleitung, Lehrgangsplan, absolvierte Lehrgänge nachtragen, bearbeiten und mit dokumentierter Begründung löschen, Personalakte
+- Personalverwaltung: eigener Bereich für Personalverwalter, persönliche Daten (Anschrift, Geburtsdatum, Mobilnummer) zuschaltbar mit Selbstpflege und Benachrichtigung, Diensthistorie (Dienstgrade, Abteilungen, Funktionen, Ereignisse, Dienstzeiten in anderen Wehren) mit Nachweisen und anrechenbarer Dienstzeit, Ehrungen nach Dienstjahren (mit üblichen Ehrungsarten als Vorlage), Sammelverarbeitung für Beförderungen, Ehrungen und Funktionen, Auswertungen für Kommune und Verband, Dienstausweis (auch digital auf dem Handy mit Prüf-QR-Code), Änderungswünsche der Kameraden zur eigenen Akte, neue Mitglieder anlegen oder per CSV importieren und per QR-Code einladen, Rolle Personaleinsicht nur lesend, Dienstbeteiligung aus dem Kalender, Zugriff je Abteilung
+- Lehrgänge & Qualifikationen: Interesse an Lehrgängen, Anmeldung über die Ausbildungsleitung, Lehrgangsplan, absolvierte Lehrgänge nachtragen, Auffrischung mit Wiederholungsintervall, Ausbildungsstand der Mannschaft, Import von Ergebnislisten externer Träger, bearbeiten und mit dokumentierter Begründung löschen, Personalakte
 - Ausrüstungsverwaltung: Geräte, Prüffristen, Ausleihe, Rückrufe, Beladeplan, Geräteinfo per QR-Code (auf Wunsch ohne Login)
 - Schlüsselverwaltung: Schlüssel und Transponder mit Ausgabe, unterschriebener Schlüsselquittung, Rückgabefristen, Verlust und QR-Etikett
 - Wartungsmanagement: Prüfungen nach Vorlage, unterschriebene Prüfprotokolle als PDF
 - Kleiderkammer: Ausgabe und Rücknahme der Bekleidung, Größen, Bestand, QR-Etiketten
 - Mängelmanagement: Mängel per QR-Code melden und verfolgen
 - Expositionen (Gefahrstoffe): Gefahrstoff-Expositionen nach Einsatz und Übung erfassen, für die Besatzung aus dem Einsatzbericht vorschlagen, verschlüsselt und 40 Jahre aufbewahrt, Meldeliste und CSV für die Zentrale Expositionsdatenbank (ZED) der DGUV, Expositionsnachweis für die Einsatzkraft
+- Führerscheine: Kontrolle per Foto statt Termin in der Wache, Fotos nach der Prüfung gelöscht, Klassen und Feuerwehr-Fahrberechtigung (4,75 t / 7,5 t) mit Fristen, Erinnerung und Kalender, Klassen je Abteilung, wer welches Fahrzeug fahren darf, Warnung im Fahrtenbuch
 - Verbandbuch & Vorfälle: Dokumentation nach DGUV, verschlüsselt, mit Unterschrift und Löschfrist
 - Budget & Finanzen: Budgets, Ausgaben mit Beleg und Genehmigung, Jahresabschluss
-- Mitteilungen: Nachrichten der Wehrführung an die Kameraden, auf Wunsch per E-Mail oder als kurzfristige Push-Ansage
+- Mitteilungen: Nachrichten der Wehrführung an Abteilungen oder Funktionen, mit Gültigkeitszeitraum, Priorität, Anhängen und Lesebestätigung, auf Wunsch per E-Mail oder als kurzfristige Push-Ansage
 
 ## Kern
 

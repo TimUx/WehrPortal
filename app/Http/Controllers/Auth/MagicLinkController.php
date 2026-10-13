@@ -65,7 +65,7 @@ class MagicLinkController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('home'));
+        return $request->session()->pull('first_login') ? redirect()->route('welcome') : redirect()->intended(route('home'));
     }
 
     public function logout(Request $request): RedirectResponse

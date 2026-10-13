@@ -15,6 +15,12 @@
                     <p class="text-sm text-gray-500">{{ $member->rank ?: 'ohne Dienstgrad' }} · {{ $member->status?->label() }}@if($years !== null) · {{ $years.' Dienstjahre' }}@endif</p>
                 </div>
             </div>
+            @if($canEdit && $member->is_active)
+                <span class="flex flex-wrap gap-2">
+                    <button type="button" wire:click="invite" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">Einladung (QR-Code)</button>
+                    <button type="button" wire:click="mailInvite" wire:confirm="Einladung an {{ $member->email }} schicken?" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">Einladung per Mail</button>
+                </span>
+            @endif
             @if($isAdmin)<a href="{{ \App\Filament\Resources\UserResource::getUrl('edit', ['record' => $member]) }}" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">Mitgliedsdaten bearbeiten</a>@endif
         </div>
         <dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
@@ -26,7 +32,15 @@
         <p class="text-xs text-gray-500">Dienstgrad, Abteilungen, Funktionen und Status ändern Admins unter Admin → Kameraden, Beförderungen und Funktionen auch Personalverwalter über die Sammelverarbeitung in der Liste; jede Änderung landet hier von selbst in der Diensthistorie.</p>
     </section>
 
-    @if($fields)
+    @if($inviteQr)
+        <section class="space-y-2 rounded-2xl border border-fw-navy bg-white p-4 text-center shadow-sm">
+            <img src="{{ $inviteQr }}" alt="QR-Code der Einladung" class="mx-auto h-48 w-48">
+            <p class="text-xs text-gray-500">Mit dem Handy scannen – {{ $member->name }} ist angemeldet, ohne Passwort. Gilt bis {{ $invite['until'] }} Uhr und nur einmal.</p>
+            <p class="break-all text-xs text-gray-600">{{ $invite['url'] }}</p>
+        </section>
+    @endif
+
+    @if($fields && $canEdit)
         <section class="{{ $card }}">
             <div class="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 class="text-sm font-semibold text-gray-900">Persönliche Daten</h2>
@@ -42,8 +56,9 @@
 
     <section class="{{ $card }}">
         <h2 class="text-sm font-semibold text-gray-900">Diensthistorie</h2>
-        @include('personalverwaltung::partials.history', ['history' => $history, 'edit' => true])
-        <form wire:submit="addStage" class="space-y-2 border-t border-gray-100 pt-3">
+        @include('personalverwaltung::partials.history', ['history' => $history, 'edit' => $canEdit])
+        @if($canEdit)
+<form wire:submit="addStage" class="space-y-2 border-t border-gray-100 pt-3">
             <p class="text-sm font-medium text-gray-700">Nachtragen (z. B. aus der Papierakte)</p>
             <p class="text-xs text-gray-500">Frühere Stationen mit „seit“ und „bis“. Ein <b>Ereignis</b> (Verpflichtung, Ernennung, Versetzung, Übertritt …) hat nur ein Datum („seit“). Eine <b>Dienstzeit in anderer Wehr</b> (z. B. „FF Nachbarstadt“) zählt zur anrechenbaren Dienstzeit.</p>
             <div class="grid grid-cols-1 gap-2 sm:grid-cols-5">
@@ -56,6 +71,7 @@
             @foreach(['history_kind', 'history_label', 'history_since', 'history_until'] as $f)@error($f)<p class="text-sm text-red-600">{{ $message }}</p>@enderror @endforeach
             <button type="submit" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700">Nachtragen</button>
         </form>
+        @endif
     </section>
 
     <section class="{{ $card }}">
@@ -69,13 +85,14 @@
                     <span><span class="font-medium text-gray-900">{{ $h->title }}</span>@if($h->awarded_by)<span class="text-gray-500"> · {{ $h->awarded_by }}</span>@endif
                         @if($h->note)<span class="block text-xs text-gray-500">{{ $h->note }}</span>@endif</span>
                     <span class="flex items-center gap-3 text-xs text-gray-500">{{ $h->awarded_on->format('d.m.Y') }}
-                        <button type="button" wire:click="deleteHonor({{ $h->id }})" wire:confirm="Ehrung löschen?" class="text-red-600 underline">Löschen</button></span>
+                        @if($canEdit)<button type="button" wire:click="deleteHonor({{ $h->id }})" wire:confirm="Ehrung löschen?" class="text-red-600 underline">Löschen</button>@endif</span>
                 </li>
             @empty
                 <li class="py-1.5 text-sm text-gray-500">Noch keine Ehrungen.</li>
             @endforelse
         </ul>
-        <form wire:submit="addHonor" class="space-y-2 border-t border-gray-100 pt-3">
+        @if($canEdit)
+<form wire:submit="addHonor" class="space-y-2 border-t border-gray-100 pt-3">
             <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <select wire:model="honor.honor_type_id" class="{{ $input }}"><option value="">– Ehrung wählen –</option>@foreach($types as $t)<option value="{{ $t->id }}">{{ $t->name }}</option>@endforeach</select>
                 <input type="text" wire:model="honor.title" maxlength="200" placeholder="oder frei benennen" class="{{ $input }}">
@@ -88,8 +105,10 @@
             @foreach(['honor_title', 'honor_date'] as $f)@error($f)<p class="text-sm text-red-600">{{ $message }}</p>@enderror @endforeach
             <button type="submit" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700">Ehrung eintragen</button>
         </form>
+        @endif
     </section>
 
+    @if($canEdit)
     <section class="{{ $card }}">
         <h2 class="text-sm font-semibold text-gray-900">Erziehungsberechtigte</h2>
         <p class="text-xs text-gray-500">Bekommen die Kalender-Mails des Kameraden und sagen über einen Link für ihn zu oder ab – ohne eigenes Konto.</p>
@@ -112,6 +131,11 @@
             @foreach(['guardian_name', 'guardian_email', 'guardian_phone'] as $f)@error($f)<p class="text-sm text-red-600 sm:col-span-4">{{ $message }}</p>@enderror @endforeach
         </form>
     </section>
+    @endif
+
+    @if(app(\App\Services\ModuleRegistry::class)->isActive('fuehrerscheine'))
+        @include('fuehrerscheine::partials.member-status', ['member' => $member])
+    @endif
 
     @if(app(\App\Services\ModuleRegistry::class)->isActive('atemschutz'))
         @include('atemschutz::partials.member-status', ['member' => $member])
@@ -128,7 +152,9 @@
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <section class="{{ $card }}">
             <h2 class="text-sm font-semibold text-gray-900">Dienstausweis</h2>
-            <form wire:submit="saveIdCard" class="space-y-2">
+            @unless($canEdit)<p class="text-sm text-gray-700">{{ $idCard['number'] ?: 'ohne Nummer' }}{{ $idCard['valid_until'] ? ' · gültig bis '.\Illuminate\Support\Carbon::parse($idCard['valid_until'])->format('d.m.Y') : '' }}</p>@endunless
+            @if($canEdit)
+<form wire:submit="saveIdCard" class="space-y-2">
                 <div class="grid grid-cols-2 gap-2">
                     <label class="block text-xs text-gray-600">Ausweisnummer<input type="text" wire:model="idCard.number" maxlength="50" class="{{ $input }}"></label>
                     <label class="block text-xs text-gray-600">gültig bis<input type="date" wire:model="idCard.valid_until" class="{{ $input }}"></label>
@@ -136,6 +162,7 @@
                 @error('id_card_valid_until')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
                 <button type="submit" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700">Speichern</button>
             </form>
+        @endif
         </section>
         @if($hours->isNotEmpty())
             <section class="{{ $card }}">

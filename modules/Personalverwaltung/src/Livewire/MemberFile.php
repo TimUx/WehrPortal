@@ -5,6 +5,8 @@ namespace Modules\Personalverwaltung\src\Livewire;
 use App\Livewire\Profile\Hours;
 use App\Models\User;
 use App\Services\HoursRegistry;
+use App\Services\Invitation;
+use App\Support\QrCode;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -44,7 +46,7 @@ class MemberFile extends Component
 
     public function mount(PersonnelService $personnel): void
     {
-        abort_unless(PersonnelService::mayView(auth()->user(), $this->member), 403);
+        abort_unless(PersonnelService::mayRead(auth()->user(), $this->member), 403);
         $personnel->syncHistory($this->member);
         $profile = MemberProfile::find($this->member->id);
         $this->idCard = ['number' => (string) $profile?->id_card_number, 'valid_until' => (string) $profile?->id_card_valid_until?->toDateString()];
@@ -112,6 +114,24 @@ class MemberFile extends Component
         $this->run(fn () => $personnel->deleteGuardian(auth()->user(), $this->member->guardians()->findOrFail($id)), 'Erziehungsberechtigte(n) entfernt.');
     }
 
+    /** Einladung: a one-time login link for some days, as QR code to scan or by mail */
+    public ?array $invite = null;
+
+    public function invite(Invitation $invitation): void
+    {
+        abort_unless(PersonnelService::mayView(auth()->user(), $this->member), 403);
+        $this->run(function () use ($invitation) {
+            $link = $invitation->create($this->member);
+            $this->invite = ['url' => $link['url'], 'until' => $link['expires_at']->setTimezone('Europe/Berlin')->format('d.m.Y H:i')];
+        }, 'Einladung erstellt.');
+    }
+
+    public function mailInvite(Invitation $invitation): void
+    {
+        abort_unless(PersonnelService::mayView(auth()->user(), $this->member), 403);
+        $this->run(fn () => $invitation->send($this->member, auth()->user()), 'Einladung an '.$this->member->email.' geschickt.');
+    }
+
     public function saveFile(PersonnelService $personnel): void
     {
         $this->validate(['upload' => ['required', 'file', 'max:'.HistoryFile::MAX_KB, 'mimetypes:'.implode(',', HistoryFile::MIMES)]], [
@@ -173,6 +193,8 @@ class MemberFile extends Component
             'hours' => app(HoursRegistry::class)->forUser($member, ...Hours::period($year))->groupBy('source')->map->sum('minutes'),
             'year' => $year,
             'isAdmin' => auth()->user()->is_admin,
+            'canEdit' => PersonnelService::mayView(auth()->user(), $member),
+            'inviteQr' => $this->invite ? QrCode::dataUri($this->invite['url'], 220) : null,
             'guardians' => $member->guardians()->get(),
             'fields' => PersonnelService::activeFields(),
         ]);

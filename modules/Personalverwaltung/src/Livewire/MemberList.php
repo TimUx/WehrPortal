@@ -100,6 +100,7 @@ class MemberList extends Component
             'due' => $personnel->dueHonors($manager, $year)->groupBy(fn ($row) => $row['user']->id),
             'withAttendance' => $withAttendance,
             'scoped' => $scope !== [],
+            'canEdit' => PersonnelService::canManage($manager),
             'steps' => collect(range(0, FireRanks::maxStep()))->mapWithKeys(fn ($s) => [$s => FireRanks::label($s)]),
             'honorTypes' => HonorType::orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
             'functions' => MemberFunction::assignable()->with('parent')->get()->mapWithKeys(fn (MemberFunction $f) => [$f->id => $f->fullLabel()])->sort(),

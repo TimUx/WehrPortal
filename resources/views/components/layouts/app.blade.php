@@ -84,9 +84,11 @@
                         @if(auth()->user()->canManageLehrgaenge())
                         <a href="{{ route('lehrgaenge.registrations') }}" class="hover:text-fw-grey-light {{ request()->routeIs('lehrgaenge.registrations') ? 'font-semibold' : '' }}">Anmeldungen</a>
                         <a href="{{ route('lehrgaenge.courses') }}" class="hover:text-fw-grey-light {{ request()->routeIs('lehrgaenge.courses') ? 'font-semibold' : '' }}">Lehrgangsliste</a>
+                        <a href="{{ route('lehrgaenge.import') }}" class="hover:text-fw-grey-light {{ request()->routeIs('lehrgaenge.import') ? 'font-semibold' : '' }}">Import</a>
                         @endif
                         @if(auth()->user()->canViewLehrgaenge())
                         <a href="{{ route('lehrgaenge.plan') }}" class="hover:text-fw-grey-light {{ request()->routeIs('lehrgaenge.plan') ? 'font-semibold' : '' }}">Lehrgangsplan</a>
+                        <a href="{{ route('lehrgaenge.qualifications') }}" class="hover:text-fw-grey-light {{ request()->routeIs('lehrgaenge.qualifications') ? 'font-semibold' : '' }}">Ausbildungsstand</a>
                         <a href="{{ route('lehrgaenge.members') }}" class="hover:text-fw-grey-light {{ request()->routeIs('lehrgaenge.members', 'lehrgaenge.member') ? 'font-semibold' : '' }}">Kameraden</a>
                         @endif
                         @endif

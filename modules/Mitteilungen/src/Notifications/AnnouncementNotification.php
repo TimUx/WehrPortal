@@ -12,12 +12,13 @@ class AnnouncementNotification extends Notification
 {
     use InApp;
 
-    public function __construct(private readonly Announcement $announcement) {}
+    /** $reminder: a second call to confirm a Mitteilung with Lesebestätigung */
+    public function __construct(private readonly Announcement $announcement, private readonly bool $reminder = false) {}
 
     public function toMail(object $notifiable): MailMessage
     {
         $mail = (new MailMessage)
-            ->subject(($this->announcement->important ? 'Wichtig: ' : 'Mitteilung: ').$this->announcement->title)
+            ->subject(($this->reminder ? 'Bitte bestätigen: ' : ($this->announcement->important ? 'Wichtig: ' : 'Mitteilung: ')).$this->announcement->title)
             ->greeting('Hallo '.$notifiable->name.',')
             ->line('**'.$this->announcement->title.'**');
 
@@ -25,8 +26,15 @@ class AnnouncementNotification extends Notification
             $mail->line($this->announcement->body);
         }
 
+        if ($this->announcement->files()->exists()) {
+            $mail->line('Anhänge: '.$this->announcement->files()->pluck('filename')->implode(', ').' – in der App.');
+        }
+        if ($this->announcement->needs_ack) {
+            $mail->line('Bitte bestätige in der App, dass du die Mitteilung gelesen hast.');
+        }
+
         return $mail
-            ->action('Zu den Mitteilungen', route('mitteilungen.index'))
+            ->action($this->announcement->needs_ack ? 'Lesen und bestätigen' : 'Zu den Mitteilungen', route('mitteilungen.index'))
             ->salutation(app(OrganizationSettings::class)->salutation());
     }
 }

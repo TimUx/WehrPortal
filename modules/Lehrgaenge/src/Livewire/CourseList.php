@@ -6,11 +6,12 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Modules\Lehrgaenge\src\Models\Course;
 use Modules\Lehrgaenge\src\Services\CatalogImporter;
+use Modules\Lehrgaenge\src\Services\RegistrationService;
 use RuntimeException;
 
 /**
- * The Standardliste for the Ausbildungsleiter: all known Lehrgänge, whether fox112 lists them now,
- * and whether they stay offered without fox112. Lehrgänge missing in fox112 can be added by hand.
+ * The Lehrgangsliste for the Ausbildungsleiter: what is offered, the suggestions from fox112, the offered
+ * Lehrgänge that left fox112, deleting, and Lehrgänge missing in fox112 added by hand.
  */
 class CourseList extends Component
 {
@@ -66,24 +67,93 @@ class CourseList extends Component
         $name = trim(preg_replace('/\s+/u', ' ', $this->newName));
         $course = Course::whereRaw('lower(name) = ?', [mb_strtolower($name)])->first();
 
-        if ($course?->is_standard) {
-            $this->addError('newName', '„'.$course->name.'“ steht schon auf der Standardliste.');
+        if ($course?->isOffered()) {
+            $this->addError('newName', '„'.$course->name.'“ steht schon auf der Lehrgangsliste.');
 
             return;
         }
 
-        $course ? $course->update(['is_standard' => true]) : Course::create(['name' => $name, 'is_standard' => true]);
-        $this->flash = '„'.$name.'“ steht auf der Standardliste.';
+        $course ? $this->offer($course) : Course::create(['name' => $name, 'is_standard' => true]);
+        $this->flash = '„'.$name.'“ steht auf der Lehrgangsliste und wird angeboten.';
         $this->newName = '';
+    }
+
+    /** A suggestion from fox112 (or a Lehrgang taken off the list) is offered to the Kameraden */
+    public function accept(int $courseId): void
+    {
+        $course = Course::findOrFail($courseId);
+        $this->offer($course);
+        $this->flash = '„'.$course->name.'“ wird angeboten.';
+    }
+
+    public function acceptAll(): void
+    {
+        $courses = Course::whereNotNull('suggested_at')->get();
+        $courses->each(fn (Course $c) => $this->offer($c));
+        $this->flash = $courses->count().' Lehrgänge werden angeboten.';
+    }
+
+    /** Not offered, and fox112 doesn't suggest it again – until "doch vorschlagen" */
+    public function ignore(int $courseId): void
+    {
+        $course = Course::findOrFail($courseId);
+        $course->update(['suggested_at' => null, 'ignored_at' => now(), 'is_standard' => false]);
+        $this->flash = '„'.$course->name.'“ wird nicht angeboten und nicht mehr vorgeschlagen.';
+    }
+
+    public function unignore(int $courseId): void
+    {
+        $course = Course::findOrFail($courseId);
+        $course->update(['ignored_at' => null, 'suggested_at' => $course->listed ? now() : null]);
+        $this->flash = '„'.$course->name.'“ wird wieder vorgeschlagen, sobald fox112 ihn führt.';
+    }
+
+    /** Left fox112, but stays: maybe it is only dropped for a while */
+    public function keep(int $courseId): void
+    {
+        $course = Course::findOrFail($courseId);
+        $course->update(['gone_since' => null]);
+        $this->flash = '„'.$course->name.'“ bleibt angeboten, auch ohne fox112.';
+    }
+
+    /**
+     * Takes a Lehrgang off the list. Without anything on record it is deleted; when Kameraden have it absolviert
+     * or asked for it, it is only hidden, so their entries keep their Lehrgang. fox112 may suggest it again.
+     */
+    public function remove(int $courseId): void
+    {
+        $course = Course::withCount('records')->findOrFail($courseId);
+        $course->records_count
+            ? $course->update(['removed_at' => now(), 'is_standard' => false, 'suggested_at' => null, 'gone_since' => null])
+            : $course->delete();
+        $this->flash = '„'.$course->name.'“ ist von der Lehrgangsliste gelöscht'.($course->records_count ? ' – die Einträge der Kameraden bleiben.' : '.');
+    }
+
+    private function offer(Course $course): void
+    {
+        $course->update(['is_standard' => true, 'suggested_at' => null, 'ignored_at' => null, 'removed_at' => null]);
+    }
+
+    /** Wiederholungsintervall in months; empty = none */
+    public function setRepeat(int $courseId, string $months, RegistrationService $registrations): void
+    {
+        $this->resetErrorBag();
+        $course = Course::findOrFail($courseId);
+        try {
+            $registrations->setRepeat($course, trim($months) === '' ? null : (int) $months);
+        } catch (ValidationException $e) {
+            $this->addError('repeat', collect($e->errors())->flatten()->first());
+
+            return;
+        }
+        $this->flash = '„'.$course->name.'“: '.($course->repeat_months ? 'Auffrischung alle '.$course->repeat_months.' Monate.' : 'ohne Auffrischung.');
     }
 
     public function toggle(int $courseId): void
     {
         $course = Course::findOrFail($courseId);
-        $course->update(['is_standard' => ! $course->is_standard]);
-        $this->flash = $course->is_standard
-            ? '„'.$course->name.'“ steht auf der Standardliste.'
-            : '„'.$course->name.'“ ist von der Standardliste genommen'.($course->listed ? ' und bleibt angeboten, solange fox112 ihn führt.' : ' und wird nicht mehr angeboten.');
+        $course->update(['is_standard' => ! $course->is_standard, 'suggested_at' => null]);
+        $this->flash = '„'.$course->name.'“ '.($course->is_standard ? 'wird angeboten.' : 'wird nicht mehr angeboten – Kameraden können kein Interesse mehr melden.');
     }
 
     public function render()
@@ -91,9 +161,12 @@ class CourseList extends Component
         $term = trim($this->search);
 
         return view('lehrgaenge::livewire.course-list', [
-            'courses' => Course::withCount(['records as open_count' => fn ($q) => $q->where('status', 'requested')])
+            'courses' => Course::onList()->whereNull('suggested_at')->withCount(['records as open_count' => fn ($q) => $q->where('status', 'requested')])
                 ->when($term !== '', fn ($q) => $q->where('name', 'ilike', '%'.$term.'%'))
                 ->orderBy('name')->get(),
+            'suggestions' => Course::whereNotNull('suggested_at')->orderBy('name')->get(),
+            'gone' => Course::onList()->whereNotNull('gone_since')->withCount(['records as open_count' => fn ($q) => $q->where('status', 'requested')])->orderBy('name')->get(),
+            'ignored' => Course::whereNotNull('ignored_at')->orderBy('name')->get(),
         ]);
     }
 }

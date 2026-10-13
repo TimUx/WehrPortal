@@ -15,12 +15,16 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use Modules\Lehrgaenge\src\Console\Commands\ImportCatalog;
+use Modules\Lehrgaenge\src\Console\Commands\RemindRefresh;
 use Modules\Lehrgaenge\src\Console\Commands\RemindUpcomingCourses;
 use Modules\Lehrgaenge\src\Livewire\CourseList;
 use Modules\Lehrgaenge\src\Livewire\MemberProfile;
 use Modules\Lehrgaenge\src\Livewire\Members;
 use Modules\Lehrgaenge\src\Livewire\MyCourses;
+use Modules\Lehrgaenge\src\Livewire\Qualifications;
 use Modules\Lehrgaenge\src\Livewire\Registrations;
+use Modules\Lehrgaenge\src\Livewire\ResultImports;
+use Modules\Lehrgaenge\src\Models\Course;
 use Modules\Lehrgaenge\src\Models\Record;
 use Modules\Lehrgaenge\src\Models\Session;
 use Modules\Lehrgaenge\src\Services\CatalogImporter;
@@ -44,7 +48,7 @@ class LehrgaengeServiceProvider extends ServiceProvider
         }
         $this->loadMigrationsFrom($base.'/database/migrations');
 
-        $this->commands([ImportCatalog::class, RemindUpcomingCourses::class]);
+        $this->commands([ImportCatalog::class, RemindUpcomingCourses::class, RemindRefresh::class]);
 
         // Scheduled commands write to /dev/null by default, so send their output to the container log
         $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
@@ -54,12 +58,14 @@ class LehrgaengeServiceProvider extends ServiceProvider
             $schedule->command(ImportCatalog::class)->dailyAt('06:30')->timezone('Europe/Berlin')->withoutOverlapping()->appendOutputTo($output);
             // Kameraden hear 14 days ahead that their Lehrgang begins
             $schedule->command(RemindUpcomingCourses::class)->dailyAt('07:20')->timezone('Europe/Berlin')->withoutOverlapping()->appendOutputTo($output);
+            // Refreshers that become due
+            $schedule->command(RemindRefresh::class)->dailyAt('07:22')->timezone('Europe/Berlin')->withoutOverlapping()->appendOutputTo($output);
         });
 
         Gate::define('manage-lehrgaenge', fn (User $user) => $user->canManageLehrgaenge());
         Gate::define('view-lehrgaenge', fn (User $user) => $user->canViewLehrgaenge());
 
-        foreach (['my-courses' => MyCourses::class, 'registrations' => Registrations::class, 'members' => Members::class, 'member-profile' => MemberProfile::class, 'course-list' => CourseList::class] as $name => $class) {
+        foreach (['my-courses' => MyCourses::class, 'registrations' => Registrations::class, 'members' => Members::class, 'member-profile' => MemberProfile::class, 'course-list' => CourseList::class, 'qualifications' => Qualifications::class, 'result-imports' => ResultImports::class] as $name => $class) {
             Livewire::component('lehrgaenge.'.$name, $class);
         }
 
@@ -80,9 +86,15 @@ class LehrgaengeServiceProvider extends ServiceProvider
             $todo = $user->canManageLehrgaenge() && app(RegistrationService::class)->managers()->contains('id', $user->id) ? [
                 'requested' => Record::where('status', 'requested')->count(),
                 'cancelled' => Record::where('status', 'cancelled')->where('cancelled_at', '>=', now()->subDays(7))->count(),
+                'suggested' => Course::whereNotNull('suggested_at')->count(),
+                'gone' => Course::onList()->whereNotNull('gone_since')->count(),
             ] : [];
 
-            return ! $next && array_sum($todo) === 0 ? null : view('lehrgaenge::cards.attention', compact('next', 'todo'))->render();
+            // Own refreshers due within REFRESH_WARN_DAYS or overdue
+            $refresh = Record::with('course')->where('user_id', $user->id)->where('status', 'completed')->whereHas('course', fn ($q) => $q->whereNotNull('repeat_months'))->get()
+                ->filter(fn (Record $r) => in_array($r->refreshState(), ['soon', 'expired'], true))->values();
+
+            return ! $next && array_sum($todo) === 0 && $refresh->isEmpty() ? null : view('lehrgaenge::cards.attention', compact('next', 'todo', 'refresh'))->render();
         });
 
         // Personalakte → Lehrgänge: the Kamerad's absolvierte and confirmed Lehrgänge

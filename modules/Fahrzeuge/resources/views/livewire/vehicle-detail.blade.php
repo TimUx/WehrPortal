@@ -193,6 +193,9 @@
         @include('fahrtenbuch::partials.vehicle-section', ['vehicle' => $vehicle])
     @endif
 
+    {{-- Who may drive it, from the checked Führerscheine (if that module is on) --}}
+    @include('fuehrerscheine::partials.drivers', ['vehicleId' => $vehicle->id])
+
     {{-- Vehicle keys, when the Schlüsselverwaltung is on --}}
     @if(app(\App\Services\ModuleRegistry::class)->isActive('schluessel') && auth()->user()->canUseModule('schluessel'))
         @include('schluessel::partials.keys-for', ['column' => 'vehicle_id', 'id' => $vehicle->id, 'class' => $card])

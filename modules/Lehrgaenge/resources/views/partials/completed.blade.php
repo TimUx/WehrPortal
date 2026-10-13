@@ -6,6 +6,7 @@
                 <span><span class="font-medium text-gray-900">{{ $record->course->name }}</span>
                     @if($record->entered_manually && $record->notes)<span class="block text-xs text-gray-500">{{ $record->notes }}</span>@endif</span>
                 <span class="flex items-center gap-3 text-gray-500">absolviert {{ $record->completed_on?->format('d.m.Y') }}{{ $record->entered_manually ? ' · nachgetragen' : '' }}
+                    @if($record->validUntil())<span class="{{ ['expired' => 'font-semibold text-red-700', 'soon' => 'text-amber-700'][$record->refreshState()] ?? '' }}">· gültig bis {{ $record->validUntil()->format('d.m.Y') }}</span>@endif
                     @if($canManage ?? false)
                         <button type="button" wire:click="startEdit({{ $record->id }})" class="text-xs text-fw-navy underline">Bearbeiten</button>
                         <button type="button" wire:click="startDelete({{ $record->id }})" class="text-xs text-red-600 underline">Löschen</button>

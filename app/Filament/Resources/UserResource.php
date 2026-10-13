@@ -10,6 +10,7 @@ use App\Models\Module;
 use App\Models\User;
 use App\Services\EmailChangeService;
 use App\Services\Impersonation;
+use App\Services\Invitation;
 use App\Services\MagicLinkService;
 use App\Services\MemberRemoval;
 use App\Services\ModuleRegistry;
@@ -395,6 +396,22 @@ class UserResource extends Resource
                 static::impersonateAction(Actions\Action::make('impersonate'))
                     ->iconButton()
                     ->tooltip('Als Kamerad ansehen'),
+
+                // Einladung: QR code to scan in the Wache, or the link by mail (valid for some days, once)
+                Actions\Action::make('invite')
+                    ->label('Einladung')
+                    ->icon('heroicon-o-qr-code')
+                    ->color('gray')
+                    ->iconButton()
+                    ->tooltip('Einladung (QR-Code)')
+                    ->visible(fn (User $record) => $record->is_active)
+                    ->modalHeading(fn (User $record) => 'Einladung für '.$record->name)
+                    ->modalContent(fn (User $record) => view('filament.invite', ['user' => $record, 'invite' => app(Invitation::class)->create($record)]))
+                    ->modalSubmitActionLabel('Per E-Mail schicken')
+                    ->action(function (User $record, Invitation $invitation) {
+                        $invitation->send($record, auth()->user());
+                        Notification::make()->title('Einladung an '.$record->email.' geschickt')->success()->send();
+                    }),
 
                 Actions\Action::make('send_login_link')
                     ->label('Login-Link senden')

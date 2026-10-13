@@ -86,7 +86,7 @@
                 <p class="p-4 text-sm text-gray-500">{{ $search !== '' ? 'Kein Lehrgang passt zur Suche.' : 'Noch keine Lehrgänge geladen.' }}</p>
             @endforelse
         </div>
-        <p class="mt-2 text-xs text-gray-400">Die Lehrgänge ohne festen Termin aus @if($fox = \Modules\Lehrgaenge\src\Services\CatalogImporter::url())<a href="{{ $fox }}" target="_blank" rel="noopener" class="underline">fox112</a>@else fox112 @endif (täglich aktualisiert) und die Standardliste der Ausbildungsleitung.</p>
+        <p class="mt-2 text-xs text-gray-400">Die Lehrgänge ohne festen Termin aus @if($fox = \Modules\Lehrgaenge\src\Services\CatalogImporter::url())<a href="{{ $fox }}" target="_blank" rel="noopener" class="underline">fox112</a>@else fox112 @endif und von Hand ergänzte – die Ausbildungsleitung entscheidet, welche angeboten werden.</p>
     </section>
 
     @if($completed->isNotEmpty())

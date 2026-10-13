@@ -5,6 +5,7 @@ namespace Modules\Mitteilungen;
 use App\Models\User;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -45,11 +46,12 @@ class MitteilungenServiceProvider extends ServiceProvider
 
         // On the start page, full width on top – only when there is something to read
         app(DashboardRegistry::class)->register('mitteilungen', 'board', function (User $user) {
-            $announcements = Announcement::visibleTo($user)->with('author')->orderByDesc('important')->latest()->get();
+            $announcements = Announcement::visibleTo($user)->with(['author', 'files'])->orderByDesc('important')->latest()->get();
 
             return $announcements->isEmpty() ? null : view('mitteilungen::cards.board', [
                 'announcements' => $announcements,
                 'canPost' => $user->canPostAnnouncements(),
+                'acknowledged' => DB::table('announcement_reads')->where('user_id', $user->id)->whereNotNull('acknowledged_at')->pluck('announcement_id')->all(),
             ])->render();
         }, DashboardRegistry::TOP);
     }
