@@ -86,11 +86,11 @@ class ModuleOverview
         UserModulePreference::updateOrCreate(['user_id' => $user->id, 'module_key' => $key], ['hidden' => $hidden]);
     }
 
-    /** Back to the start: sorted by use, nothing hidden. The usage stays. */
+    /** Back to the start: the standard order (fixed), nothing hidden. The usage stays. */
     public function reset(User $user): void
     {
         UserModulePreference::where('user_id', $user->id)->update(['sort_order' => null, 'hidden' => false]);
-        $this->setLocked($user, false);
+        $this->setLocked($user, true);
     }
 
     private static function decayed(float $score, mixed $usedAt, Carbon $now): float

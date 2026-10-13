@@ -51,6 +51,7 @@ test('a Kamerad sorts the modules and the order is kept', function () {
 
 test('without a lock the most used modules move up; repeated views within half an hour count once', function () {
     $overview = app(ModuleOverview::class);
+    $overview->setLocked($this->member, false);
 
     $this->actingAs($this->member)->get('/maengelmanagement')->assertOk();
     $this->get('/maengelmanagement')->assertOk();                       // same visit
@@ -70,6 +71,7 @@ test('without a lock the most used modules move up; repeated views within half a
 
 test('old use fades: the score halves every 30 days', function () {
     $overview = app(ModuleOverview::class);
+    $overview->setLocked($this->member, false);
     foreach (range(1, 3) as $day) {
         $overview->recordUse($this->member, 'kleiderkammer');
         $this->travel(1)->days();
@@ -82,14 +84,21 @@ test('old use fades: the score halves every 30 days', function () {
         ->and(round(array_values($overview->for($this->member->fresh()))[1]['score'], 2))->toBeLessThan(0.5);
 });
 
-test('sorting by hand locks the order; the lock can be released and the start page sorts by use again', function () {
+test('the own order is the default; sorting by use is switched on, sorting by hand locks again, reset goes back to the default', function () {
     $overview = app(ModuleOverview::class);
     $overview->recordUse($this->member, 'maengelmanagement');
 
-    Livewire::actingAs($this->member)->test(Home::class)
+    // Default: fixed, in the standard order despite the use
+    expect($this->member->fresh()->modules_locked)->toBeTrue()
+        ->and(array_keys($overview->for($this->member->fresh())))->toBe(['fahrzeugbuchung', 'kleiderkammer', 'maengelmanagement']);
+    Livewire::actingAs($this->member)->test(Home::class)->assertSee('eigene Reihenfolge')
+        ->set('editing', true)->assertSee('Reihenfolge fixiert')
+        ->call('toggleLock')->assertSee('Automatisch nach Nutzung sortieren');
+    expect(array_keys($overview->for($this->member->fresh()))[0])->toBe('maengelmanagement');
+
+    Livewire::actingAs($this->member->fresh())->test(Home::class)
         ->assertSee('nach Nutzung')
         ->set('editing', true)
-        ->assertSee('Automatisch nach Nutzung sortieren')
         ->call('move', 'kleiderkammer', -1)
         ->assertSee('Reihenfolge fixiert');
 
@@ -106,6 +115,10 @@ test('sorting by hand locks the order; the lock can be released and the start pa
     Livewire::actingAs($this->member->fresh())->test(Home::class)->call('toggleLock');
     expect($this->member->fresh()->modules_locked)->toBeFalse()
         ->and(array_keys($overview->for($this->member->fresh()))[0])->toBe('fahrzeugbuchung');
+
+    Livewire::actingAs($this->member->fresh())->test(Home::class)->call('resetOrder');
+    expect($this->member->fresh()->modules_locked)->toBeTrue()
+        ->and(array_keys($overview->for($this->member->fresh())))->toBe(['fahrzeugbuchung', 'kleiderkammer', 'maengelmanagement']);
 });
 
 test('an admin looking as the Kamerad does not change the Kamerad\'s use', function () {

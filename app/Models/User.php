@@ -22,6 +22,9 @@ class User extends Authenticatable implements FilamentUser
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
+    /** The start page keeps the own module order unless the Kamerad switches to sorting by use */
+    protected $attributes = ['modules_locked' => true];
+
     protected $fillable = [
         'name',
         'email',

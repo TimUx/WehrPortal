@@ -17,7 +17,7 @@
             </h2>
             <div class="flex items-center gap-3 text-sm">
                 @if($editing)
-                    <button type="button" wire:click="resetOrder" wire:confirm="Reihenfolge und ausgeblendete Module zurücksetzen? Danach wird wieder nach Nutzung sortiert." class="text-gray-500 underline">Zurücksetzen</button>
+                    <button type="button" wire:click="resetOrder" wire:confirm="Reihenfolge und ausgeblendete Module zurücksetzen? Danach gilt wieder die Standardreihenfolge." class="text-gray-500 underline">Zurücksetzen</button>
                     <button type="button" wire:click="$set('editing', false)" class="rounded-lg bg-fw-navy px-3 py-1.5 font-semibold text-white">Fertig</button>
                 @else
                     <button type="button" wire:click="$set('editing', true)" class="inline-flex items-center gap-1.5 text-fw-navy hover:underline">
