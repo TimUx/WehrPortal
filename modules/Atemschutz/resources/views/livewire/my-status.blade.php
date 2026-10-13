@@ -15,6 +15,7 @@
                     </dd>
                 @endforeach
             </dl>
+            <a href="{{ route('credentials') }}" class="mt-2 inline-block text-sm text-fw-navy underline">Atemschutzpass zum Vorzeigen →</a>
         </section>
     @endif
 

@@ -1,6 +1,7 @@
 <nav class="mb-4 flex flex-wrap gap-2 text-sm">
     @foreach(array_filter([
         'personalverwaltung.index' => 'Kameraden',
+        'personalverwaltung.requests' => 'Änderungswünsche',
         'personalverwaltung.honors' => 'Ehrungen',
         'personalverwaltung.attendance' => \Modules\Personalverwaltung\src\Services\PersonnelService::attendanceAvailable() ? 'Dienstbeteiligung' : null,
         'personalverwaltung.settings' => 'Einstellungen',

@@ -30,4 +30,29 @@
             @include('personalverwaltung::partials.attendance', ['attendance' => $attendance])
         </section>
     @endif
+    <section class="{{ $card }}" id="aenderung">
+        <h2 class="text-sm font-semibold text-gray-900">Stimmt etwas nicht?</h2>
+        <p class="text-xs text-gray-500">Melde der Personalverwaltung, was in deiner Personalakte fehlt oder falsch ist – sie prüft es und gibt dir Bescheid.</p>
+        @if($flash)<p class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{{ $flash }}</p>@endif
+        <form wire:submit="requestChange" class="space-y-2">
+            <select wire:model="topic" class="w-full rounded-lg border-gray-300 text-sm" aria-label="Worum geht es?">
+                @foreach(\Modules\Personalverwaltung\src\Models\ChangeRequest::TOPICS as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
+            </select>
+            <textarea wire:model="requestText" rows="3" maxlength="2000" placeholder="z. B. „Beförderung zum Oberfeuerwehrmann war am 12.03.2027“" class="w-full rounded-lg border-gray-300 text-sm"></textarea>
+            @foreach(['request_topic', 'request_message'] as $f)@error($f)<p class="text-sm text-red-600">{{ $message }}</p>@enderror @endforeach
+            <button type="submit" class="rounded-lg bg-fw-navy px-3 py-1.5 text-sm font-semibold text-white">Änderung melden</button>
+        </form>
+        @if($requests->isNotEmpty())
+            <ul class="divide-y divide-gray-100 border-t border-gray-100 text-sm">
+                @foreach($requests as $r)
+                    <li class="py-2" wire:key="cr-{{ $r->id }}">
+                        <p class="flex flex-wrap justify-between gap-2"><span class="text-gray-900">{{ $r->topicLabel() }}</span>
+                            <span class="text-xs {{ $r->status === 'open' ? 'text-amber-700' : ($r->status === 'done' ? 'text-green-700' : 'text-gray-500') }}">{{ $r->statusLabel() }} · {{ $r->created_at->setTimezone('Europe/Berlin')->format('d.m.Y') }}</span></p>
+                        <p class="text-xs text-gray-600">{{ $r->message }}</p>
+                        @if($r->answer)<p class="mt-0.5 text-xs text-gray-800">Antwort: {{ $r->answer }}</p>@endif
+                    </li>
+                @endforeach
+            </ul>
+        @endif
+    </section>
 </div>

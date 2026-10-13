@@ -4,6 +4,7 @@ namespace Modules\Atemschutz;
 
 use App\Models\User;
 use App\Services\AnnualReportRegistry;
+use App\Services\CredentialRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\PersonnelFileRegistry;
@@ -76,6 +77,13 @@ class AtemschutzServiceProvider extends ServiceProvider
         );
 
         app(PersonnelFileRegistry::class)->register('atemschutz', 'Atemschutz', 'atemschutz.personnel-file');
+
+        // Personalakte → Nachweise: the Atemschutzpass of everyone in the pool (dates only, never findings)
+        $state = fn (User $user) => ($wearer = Wearer::where('user_id', $user->id)->where('is_active', true)->first()) ? app(ReadinessService::class)->forWearer($wearer) : null;
+        app(CredentialRegistry::class)->register('atemschutz', 'Atemschutzpass',
+            fn (User $user) => ($s = $state($user)) ? view('atemschutz::credentials.pass', ['state' => $s, 'wear' => app(ReadinessService::class)->wearTime($user)])->render() : null,
+            fn (User $user) => ($s = $state($user)) ? view('atemschutz::credentials.pass-check', ['state' => $s])->render() : null,
+        );
 
         // Jahresbericht: Überwachungen and Trupps of the year, Nachweise, the pool as of today
         app(AnnualReportRegistry::class)->register('atemschutz', 'Atemschutz', function (int $year) {

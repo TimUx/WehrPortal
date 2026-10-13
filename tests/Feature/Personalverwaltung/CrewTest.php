@@ -1,0 +1,87 @@
+<?php
+
+use App\Livewire\Dashboard\Home;
+use App\Livewire\Profile\Credentials;
+use App\Models\Group;
+use App\Models\Module;
+use App\Models\User;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\URL;
+use Livewire\Livewire;
+use Modules\Atemschutz\src\Models\Training;
+use Modules\Atemschutz\src\Models\Wearer;
+use Modules\Personalverwaltung\src\Livewire\ChangeRequests;
+use Modules\Personalverwaltung\src\Livewire\OwnFile;
+use Modules\Personalverwaltung\src\Livewire\Settings;
+use Modules\Personalverwaltung\src\Models\ChangeRequest;
+use Modules\Personalverwaltung\src\Models\MemberProfile;
+use Modules\Personalverwaltung\src\Notifications\ChangeRequestAnsweredNotification;
+use Modules\Personalverwaltung\src\Notifications\ChangeRequestedNotification;
+
+beforeEach(function () {
+    Module::whereIn('key', ['personalverwaltung', 'atemschutz'])->update(['is_active' => true]);
+    Cache::forget('modules_active_keys');
+    $this->ea = Group::create(['name' => 'Einsatzabteilung', 'sort_order' => 1]);
+    $this->pv = User::factory()->create(['name' => 'Petra Personal']);
+    $this->pv->moduleAccess()->create(['module' => 'personalverwaltung', 'role' => 'personalverwalter']);
+    $this->hanna = User::factory()->create(['name' => 'Hanna Hydrant', 'rank' => 'Oberfeuerwehrfrau']);
+    $this->hanna->groups()->attach($this->ea);
+    foreach (['personalverwaltung', 'atemschutz'] as $m) {
+        $this->hanna->moduleAccess()->create(['module' => $m]);
+    }
+});
+
+test('a Kamerad reports an Änderungswunsch, the Personalverwalter answers it', function () {
+    Notification::fake();
+    Livewire::actingAs($this->hanna)->test(OwnFile::class)
+        ->set('topic', 'laufbahn')->set('requestText', 'Beförderung war am 12.03.2027')->call('requestChange')
+        ->assertHasNoErrors()->assertSee('Dein Änderungswunsch ist bei der Personalverwaltung')->assertSee('Offen')
+        ->set('requestText', ' ')->call('requestChange')->assertHasErrors('request_message');
+    $request = ChangeRequest::sole();
+    Notification::assertSentTo($this->pv, ChangeRequestedNotification::class);
+
+    Livewire::actingAs($this->pv)->test(Home::class)->assertSee('1 offener Änderungswunsch');
+    $list = Livewire::actingAs($this->pv)->test(ChangeRequests::class)->assertSee('Beförderung war am 12.03.2027');
+    // Not taken over needs a reason
+    $list->call('answer', $request->id, 'declined')->assertHasErrors('request-'.$request->id);
+    $list->set('answers.'.$request->id, 'Ist korrigiert.')->call('answer', $request->id, 'done')->assertSee('erledigt');
+
+    expect($request->fresh())->status->toBe('done')->answer->toBe('Ist korrigiert.')->handled_by->toBe($this->pv->id);
+    Notification::assertSentTo($this->hanna, ChangeRequestAnsweredNotification::class);
+    Livewire::actingAs($this->hanna)->test(OwnFile::class)->assertSee('Erledigt')->assertSee('Antwort: Ist korrigiert.');
+
+    // Kameraden don't get the list
+    $this->actingAs($this->hanna)->get(route('personalverwaltung.requests'))->assertForbidden();
+});
+
+test('Dienstausweis and Atemschutzpass on the phone, checked by a QR code that runs out', function () {
+    // Nothing yet: no Dienstausweis switched on, not in the pool
+    $this->actingAs($this->hanna)->get(route('credentials'))->assertOk()->assertSee('keine digitalen Nachweise');
+    $this->get(route('profile'))->assertDontSee(route('credentials'));
+
+    Livewire::actingAs($this->pv)->test(Settings::class)->set('fields.digital_id', true)->call('save');
+    MemberProfile::create(['user_id' => $this->hanna->id, 'id_card_number' => 'MS-0815', 'id_card_valid_until' => now()->addYear()->toDateString()]);
+    Wearer::create(['user_id' => $this->hanna->id, 'is_agt' => true, 'g263_examined_on' => now()->subYear()->toDateString(), 'g263_valid_until' => now()->addYears(2)->toDateString()]);
+    foreach (['belastungsuebung', 'unterweisung'] as $kind) {
+        Training::create(['user_id' => $this->hanna->id, 'kind' => $kind, 'done_on' => now()->subMonth()->toDateString()]);
+    }
+
+    $this->get(route('profile'))->assertSee(route('credentials'));
+    Livewire::actingAs($this->hanna)->test(Credentials::class)
+        ->assertSee('Dienstausweis')->assertSee('Hanna Hydrant')->assertSee('Oberfeuerwehrfrau')->assertSee('Nr. MS-0815')
+        ->assertSee('Atemschutzpass')->assertSee('Einsatzbereit')->assertSee('Tragezeit')->assertSee('QR-Code zur Prüfung');
+
+    // The checker's page: no login, signed, today's state
+    auth()->logout();
+    $url = URL::temporarySignedRoute('credentials.check', now()->addMinutes(10), ['user' => $this->hanna->id]);
+    $this->get($url)->assertOk()->assertSee('Aktives Mitglied')->assertSee('MS-0815')->assertSee('Einsatzbereit unter Atemschutz');
+    $this->get(route('credentials.check', $this->hanna))->assertForbidden();
+
+    // Left the Wehr: the same code shows it at once
+    $this->hanna->update(['status' => 'left']);
+    $this->get($url)->assertOk()->assertSee('Kein aktives Mitglied')->assertDontSee('MS-0815');
+
+    $this->travel(11)->minutes();
+    $this->get($url)->assertForbidden();
+});

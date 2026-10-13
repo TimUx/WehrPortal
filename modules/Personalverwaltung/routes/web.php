@@ -15,6 +15,7 @@ Route::middleware(['auth', 'active', 'module:personalverwaltung'])->group(functi
 
         Route::get('/', fn () => $page('personalverwaltung.member-list', 'Personalverwaltung'))->name('index');
         Route::get('/kamerad/{member}', fn (User $member) => $page('personalverwaltung.member-file', $member->name, ['member' => $member]))->whereNumber('member')->name('member');
+        Route::get('/aenderungswuensche', fn () => $page('personalverwaltung.change-requests', 'Änderungswünsche'))->name('requests');
         Route::get('/ehrungen', fn () => $page('personalverwaltung.honors', 'Ehrungen'))->name('honors');
         Route::get('/dienstbeteiligung', function () use ($page) {
             abort_unless(PersonnelService::attendanceAvailable(), 404);

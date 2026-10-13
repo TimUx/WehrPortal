@@ -11,7 +11,7 @@
 ## Module
 
 - Einsatzbericht: Einsätze erfassen und freigeben, Besatzung und Stärke, DIVERA-24/7-Anbindung, Lagemeldungen, Jahresstatistik aus freigegebenen Berichten, Jahresbericht über alle Module
-- Atemschutzüberwachung: Trupps mit Uhr, Drücken, Rückzugsdruck und Warnungen nach FwDV 7, Protokoll als PDF; Geräteträger-Verwaltung mit G26.3-Fristen, Ampel und Erinnerungen, Atemschutzeinsätze aus dem Einsatzbericht
+- Atemschutzüberwachung: Trupps mit Uhr, Drücken, Rückzugsdruck und Warnungen nach FwDV 7, Protokoll als PDF; Geräteträger-Verwaltung mit G26.3-Fristen, Ampel und Erinnerungen, Atemschutzpass auf dem Handy, Atemschutzeinsätze aus dem Einsatzbericht
 - Objektpläne & Brandschutzunterlagen: Feuerwehrpläne mit Versionen, bei Alarm die Pläne der Einsatzstelle per GPS, offline verfügbar
 - Wasserkarte & Hydranten: Löschwasserquellen auf der Karte mit Status, Leistung und Prüffristen, Saugstellen mit Saughöhe, QR-Etikett vor Ort, Prüfnachweis als CSV
 - Fahrzeugbuchung: Fahrzeuge im gemeinsamen Kalender reservieren, Konfliktentscheidung, Wachen-Monitor
@@ -20,7 +20,7 @@
 - Kalender & Termine: Termine für eine Zielgruppe mit Ort samt Navigation, Kleidung und Rückmeldung, Terminabfragen, Kalender-Abo; Erziehungsberechtigte (z. B. Jugendfeuerwehr) bekommen die Termin-Mails und sagen ohne eigenes Konto für das Kind zu oder ab
 - Schichtplan: Schichten verteilen oder Mitglieder selbst eintragen lassen
 - Übungsdienstplaner: Übungsdienste mit Thema und Verantwortlichen für den Vorstand; jeder Dienst steht ohne Thema im Kalender der Zielgruppe
-- Personalverwaltung: eigener Bereich für Personalverwalter, persönliche Daten (Anschrift, Geburtsdatum, Mobilnummer) zuschaltbar mit Selbstpflege und Benachrichtigung, Laufbahn (Dienstgrade, Abteilungen, Funktionen) mit Historie, Ehrungen nach Dienstjahren, Dienstausweis, Dienstbeteiligung aus dem Kalender, Zugriff je Abteilung
+- Personalverwaltung: eigener Bereich für Personalverwalter, persönliche Daten (Anschrift, Geburtsdatum, Mobilnummer) zuschaltbar mit Selbstpflege und Benachrichtigung, Laufbahn (Dienstgrade, Abteilungen, Funktionen) mit Historie, Ehrungen nach Dienstjahren, Dienstausweis (auch digital auf dem Handy mit Prüf-QR-Code), Änderungswünsche der Kameraden zur eigenen Akte, Dienstbeteiligung aus dem Kalender, Zugriff je Abteilung
 - Lehrgänge & Qualifikationen: Interesse an Lehrgängen, Anmeldung über die Ausbildungsleitung, Lehrgangsplan, absolvierte Lehrgänge nachtragen, Personalakte
 - Ausrüstungsverwaltung: Geräte, Prüffristen, Ausleihe, Rückrufe, Beladeplan, Geräteinfo per QR-Code (auf Wunsch ohne Login)
 - Schlüsselverwaltung: Schlüssel und Transponder mit Ausgabe, unterschriebener Schlüsselquittung, Rückgabefristen, Verlust und QR-Etikett

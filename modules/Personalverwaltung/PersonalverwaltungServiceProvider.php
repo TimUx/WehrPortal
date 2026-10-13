@@ -4,6 +4,7 @@ namespace Modules\Personalverwaltung;
 
 use App\Models\User;
 use App\Services\AnnualReportRegistry;
+use App\Services\CredentialRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\PersonnelFileRegistry;
@@ -15,6 +16,7 @@ use Livewire\Livewire;
 use Modules\Personalverwaltung\src\Console\Commands\SyncHistory;
 use Modules\Personalverwaltung\src\Livewire\Access;
 use Modules\Personalverwaltung\src\Livewire\Attendance;
+use Modules\Personalverwaltung\src\Livewire\ChangeRequests;
 use Modules\Personalverwaltung\src\Livewire\Honors;
 use Modules\Personalverwaltung\src\Livewire\MemberFile;
 use Modules\Personalverwaltung\src\Livewire\MemberList;
@@ -80,7 +82,7 @@ class PersonalverwaltungServiceProvider extends ServiceProvider
 
         foreach (['member-list' => MemberList::class, 'member-file' => MemberFile::class, 'honors' => Honors::class,
             'attendance' => Attendance::class, 'access' => Access::class, 'own-file' => OwnFile::class,
-            'settings' => Settings::class, 'own-data' => OwnData::class] as $name => $class) {
+            'settings' => Settings::class, 'own-data' => OwnData::class, 'change-requests' => ChangeRequests::class] as $name => $class) {
             Livewire::component('personalverwaltung.'.$name, $class);
         }
 
@@ -99,17 +101,24 @@ class PersonalverwaltungServiceProvider extends ServiceProvider
         app(PersonnelFileRegistry::class)->register('personalverwaltung', 'Laufbahn & Ehrungen', 'personalverwaltung.own');
         app(PersonnelFileRegistry::class)->register('personalverwaltung', 'Persönliche Daten', 'personalverwaltung.own-data', fn () => PersonnelService::selfService());
 
-        // Personalverwalter: Ehrungen due this year and Dienstausweise running out
+        // Personalverwalter: open Änderungswünsche, Ehrungen due this year and Dienstausweise running out
         app(DashboardRegistry::class)->register('personalverwaltung', 'due', function (User $user) {
             if (! PersonnelService::canManage($user)) {
                 return null;
             }
+            $requests = app(PersonnelService::class)->openRequests($user)->count();
             $due = app(PersonnelService::class)->dueHonors($user, (int) now('Europe/Berlin')->year)->count();
             $cards = MemberProfile::whereIn('user_id', PersonnelService::visibleMembers($user)->where('status', 'active')->select('id'))
                 ->whereNotNull('id_card_valid_until')->where('id_card_valid_until', '<=', PersonnelService::today()->addDays(60)->toDateString())->count();
 
-            return $due + $cards === 0 ? null : view('personalverwaltung::cards.due', compact('due', 'cards'))->render();
+            return $requests + $due + $cards === 0 ? null : view('personalverwaltung::cards.due', compact('requests', 'due', 'cards'))->render();
         });
+
+        // Personalakte → Nachweise: the Dienstausweis on the phone, while the Personalverwalter switched it on
+        app(CredentialRegistry::class)->register('personalverwaltung', 'Dienstausweis',
+            fn (User $user) => ($id = PersonnelService::digitalIdFor($user)) ? view('personalverwaltung::credentials.id-card', ['id' => $id])->render() : null,
+            fn (User $user) => ($id = PersonnelService::digitalIdFor($user)) ? view('personalverwaltung::credentials.id-check', ['id' => $id])->render() : null,
+        );
 
         // Jahresbericht: strength, Eintritte, Austritte, Beförderungen, Ehrungen
         app(AnnualReportRegistry::class)->register('personalverwaltung', 'Mitglieder', fn (int $year) => view('personalverwaltung::annual.section', [

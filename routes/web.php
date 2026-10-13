@@ -6,6 +6,7 @@ use App\Http\Controllers\ScanController;
 use App\Models\Contact;
 use App\Models\FeedbackThread;
 use App\Models\User;
+use App\Services\CredentialRegistry;
 use App\Services\Impersonation;
 use App\Services\OrganizationSettings;
 use Illuminate\Support\Facades\Route;
@@ -41,6 +42,8 @@ Route::name('auth.')->group(function () {
 // -----------------------------------------------------------------------
 Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/personalakte', fn () => view('pages.profile'))->name('profile');
+    // Digitale Nachweise (Dienstausweis, Atemschutzpass) with a QR code for checking
+    Route::get('/personalakte/nachweise', fn () => view('pages.credentials'))->name('credentials');
     Route::get('/ansprechpartner', fn () => view('pages.contacts', ['contacts' => Contact::with('group')->orderBy('sort_order')->orderBy('id')->get()]))->name('contacts');
 
     // Notifications (the bell): the list, and opening one marks it read and leads to where something is to do
@@ -90,6 +93,12 @@ Route::middleware(['auth', 'active'])->group(function () {
 Route::get('/i/{code}', ScanController::class)->name('scan.code');
 
 // Organization logo (public, versioned for browser caching)
+// What a checker sees after scanning the QR code of the Digitale Nachweise: signed, valid for 10 minutes,
+// no login – today's state, not a screenshot
+Route::get('/nachweis/{user}', function (User $user) {
+    return view('pages.credential-check', ['member' => $user, 'items' => $user->is_active ? app(CredentialRegistry::class)->verify($user) : []]);
+})->middleware(['signed', 'throttle:60,1'])->whereNumber('user')->name('credentials.check');
+
 // The app on the home screen (PWA): manifest and the page the service worker shows without network
 Route::get('/manifest.webmanifest', function (OrganizationSettings $org) {
     return response()->json([

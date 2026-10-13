@@ -7,6 +7,7 @@ use App\Services\ModuleRegistry;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Modules\Atemschutz\src\Models\Team;
 use Modules\Atemschutz\src\Models\Training;
 use Modules\Atemschutz\src\Models\Wearer;
 use Modules\Atemschutz\src\Notifications\DeadlineNotification;
@@ -71,6 +72,16 @@ class ReadinessService
     public function forWearer(Wearer $wearer): array
     {
         return $this->forWearers(collect([$wearer]))->first();
+    }
+
+    /** @return array{year: int, minutes: int, teams: int} time under Atemschutz this year, from the Trupps of the Überwachung */
+    public function wearTime(User $user, ?int $year = null): array
+    {
+        $year ??= (int) now('Europe/Berlin')->year;
+        $teams = Team::whereNotNull('started_at')->whereYear('started_at', $year)
+            ->whereHas('members', fn ($q) => $q->where('user_id', $user->id))->get();
+
+        return ['year' => $year, 'minutes' => (int) $teams->sum(fn (Team $t) => $t->minutes()), 'teams' => $teams->count()];
     }
 
     /** @return array{ready: int, soon: int, not_ready: int} the pool in numbers */

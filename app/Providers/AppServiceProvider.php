@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\User;
 use App\Services\ActivityRecorder;
 use App\Services\AnnualReportRegistry;
+use App\Services\CredentialRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\OrganizationSettings;
@@ -34,6 +35,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(PersonnelFileRegistry::class);
         $this->app->singleton(VehicleBlockRegistry::class);
         $this->app->singleton(PushService::class);
+        $this->app->singleton(CredentialRegistry::class);
     }
 
     public function boot(): void

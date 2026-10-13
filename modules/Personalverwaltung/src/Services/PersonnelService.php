@@ -9,6 +9,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Services\ModuleRegistry;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -16,10 +17,13 @@ use Illuminate\Validation\ValidationException;
 use Modules\Kalender\src\Models\Event;
 use Modules\Kalender\src\Models\Response;
 use Modules\Kalender\src\Support\Audience;
+use Modules\Personalverwaltung\src\Models\ChangeRequest;
 use Modules\Personalverwaltung\src\Models\HistoryEntry;
 use Modules\Personalverwaltung\src\Models\Honor;
 use Modules\Personalverwaltung\src\Models\HonorType;
 use Modules\Personalverwaltung\src\Models\MemberProfile;
+use Modules\Personalverwaltung\src\Notifications\ChangeRequestAnsweredNotification;
+use Modules\Personalverwaltung\src\Notifications\ChangeRequestedNotification;
 use Modules\Personalverwaltung\src\Notifications\PersonalDataChangedNotification;
 use Throwable;
 
@@ -95,14 +99,15 @@ class PersonnelService
      * Which personal data the Personalverwaltung keeps (all off until switched on) and whether
      * Kameraden keep their own in the Personalakte.
      *
-     * @return array{address: bool, birth_date: bool, phone: bool, self_service: bool}
+     * @return array{address: bool, birth_date: bool, phone: bool, self_service: bool, digital_id: bool}
      */
     public static function settings(): array
     {
         $stored = json_decode((string) Setting::get(self::SETTINGS_KEY, ''), true) ?: [];
 
         return ['address' => (bool) ($stored['address'] ?? false), 'birth_date' => (bool) ($stored['birth_date'] ?? false),
-            'phone' => (bool) ($stored['phone'] ?? false), 'self_service' => (bool) ($stored['self_service'] ?? true)];
+            'phone' => (bool) ($stored['phone'] ?? false), 'self_service' => (bool) ($stored['self_service'] ?? true),
+            'digital_id' => (bool) ($stored['digital_id'] ?? false)];
     }
 
     /** @return list<string> the switched-on fields */
@@ -123,6 +128,7 @@ class PersonnelService
         Setting::set(self::SETTINGS_KEY, json_encode([
             'address' => (bool) ($data['address'] ?? false), 'birth_date' => (bool) ($data['birth_date'] ?? false),
             'phone' => (bool) ($data['phone'] ?? false), 'self_service' => (bool) ($data['self_service'] ?? false),
+            'digital_id' => (bool) ($data['digital_id'] ?? false),
         ]));
     }
 
@@ -549,6 +555,67 @@ class PersonnelService
         } catch (Throwable) {
             throw ValidationException::withMessages([$field => 'Bitte ein gültiges Datum angeben.']);
         }
+    }
+
+    // ─── Änderungswünsche ────────────────────────────────────────────────────
+
+    /** A Kamerad reports what is wrong in their Personalakte; the responsible Personalverwalter hear it */
+    public function requestChange(User $member, string $topic, string $message): ChangeRequest
+    {
+        $message = trim($message);
+        $errors = array_filter([
+            'request_topic' => array_key_exists($topic, ChangeRequest::TOPICS) ? null : 'Bitte wählen, worum es geht.',
+            'request_message' => $message === '' || mb_strlen($message) > 2000 ? 'Bitte beschreiben, was geändert werden soll (höchstens 2000 Zeichen).' : null,
+        ]);
+        if ($errors) {
+            throw ValidationException::withMessages($errors);
+        }
+        if (ChangeRequest::where('user_id', $member->id)->where('status', 'open')->count() >= 5) {
+            throw ValidationException::withMessages(['request_message' => 'Du hast schon fünf offene Änderungswünsche – bitte warte auf die Antwort.']);
+        }
+
+        $request = ChangeRequest::create(['user_id' => $member->id, 'topic' => $topic, 'message' => $message]);
+        $this->responsibleManagers($member)->each(fn (User $manager) => rescue(fn () => $manager->notify(new ChangeRequestedNotification($request->load('user')))));
+
+        return $request;
+    }
+
+    /** Done or not taken over, with an optional answer; the Kamerad hears it */
+    public function answerChange(User $by, ChangeRequest $request, string $status, ?string $answer): void
+    {
+        $this->assertMayView($by, $request->user);
+        if (! in_array($status, ['done', 'declined'], true) || $request->status !== 'open') {
+            throw ValidationException::withMessages(['request' => 'Dieser Änderungswunsch ist schon beantwortet.']);
+        }
+        if ($status === 'declined' && blank($answer)) {
+            throw ValidationException::withMessages(['request' => 'Bitte kurz begründen, warum die Änderung nicht übernommen wird.']);
+        }
+
+        $request->update(['status' => $status, 'answer' => filled($answer) ? mb_substr(trim($answer), 0, 2000) : null, 'handled_by' => $by->id, 'handled_at' => now()]);
+        rescue(fn () => $request->user->notify(new ChangeRequestAnsweredNotification($request)));
+    }
+
+    /** Open Änderungswünsche of the Kameraden this Personalverwalter looks after */
+    public function openRequests(User $manager): EloquentCollection
+    {
+        return ChangeRequest::with('user')->where('status', 'open')
+            ->whereIn('user_id', self::visibleMembers($manager)->select('id'))->oldest()->get();
+    }
+
+    // ─── Digitaler Dienstausweis ─────────────────────────────────────────────
+
+    /** The Dienstausweis on the phone, while the Personalverwalter switched it on and the Kamerad is active */
+    public static function digitalIdFor(User $user): ?array
+    {
+        if (! self::settings()['digital_id'] || ! $user->is_active) {
+            return null;
+        }
+        $profile = MemberProfile::find($user->id);
+
+        return [
+            'user' => $user->loadMissing('groups'), 'number' => $profile?->id_card_number, 'valid_until' => $profile?->id_card_valid_until,
+            'expired' => $profile?->id_card_valid_until?->lt(self::today()) ?? false,
+        ];
     }
 
     // ─── Erziehungsberechtigte ───────────────────────────────────────────────
