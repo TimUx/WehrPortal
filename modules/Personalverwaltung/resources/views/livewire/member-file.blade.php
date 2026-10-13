@@ -88,6 +88,10 @@
         </form>
     </section>
 
+    @if(app(\App\Services\ModuleRegistry::class)->isActive('schluessel'))
+        @include('schluessel::partials.held-by', ['member' => $member])
+    @endif
+
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <section class="{{ $card }}">
             <h2 class="text-sm font-semibold text-gray-900">Dienstausweis</h2>

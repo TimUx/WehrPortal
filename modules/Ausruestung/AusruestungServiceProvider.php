@@ -21,6 +21,7 @@ use Modules\Ausruestung\src\Services\LoadPlanService;
 use Modules\Ausruestung\src\Services\LoanService;
 use Modules\Ausruestung\src\Services\RecallService;
 use Modules\Ausruestung\src\Services\ReminderService;
+use Modules\Ausruestung\src\Support\PublicScan;
 
 class AusruestungServiceProvider extends ServiceProvider
 {
@@ -74,9 +75,12 @@ class AusruestungServiceProvider extends ServiceProvider
                 return null;
             }
 
-            return auth()->user()?->canManageAusruestung()
-                ? EquipmentResource::getUrl('edit', ['record' => $equipment], panel: 'ausruestung')
-                : route('ausruestung.show', $equipment);
+            return match (true) {
+                (bool) auth()->user()?->canManageAusruestung() => EquipmentResource::getUrl('edit', ['record' => $equipment], panel: 'ausruestung'),
+                // Not logged in: the short Geräteinfo, if a Gerätewart switched it on
+                ! auth()->check() && PublicScan::enabled() => route('ausruestung.public', $equipment->code),
+                default => route('ausruestung.show', $equipment),
+            };
         });
     }
 }

@@ -24,6 +24,7 @@ use Modules\Verbandbuch\VerbandbuchServiceProvider;
 use Modules\Wartung\WartungServiceProvider;
 use Modules\Objektplaene\ObjektplaeneServiceProvider;
 use Modules\Personalverwaltung\PersonalverwaltungServiceProvider;
+use Modules\Schluessel\SchluesselServiceProvider;
 use Modules\Wasserkarte\WasserkarteServiceProvider;
 
 return [
@@ -52,4 +53,5 @@ return [
     WasserkarteServiceProvider::class,
     ObjektplaeneServiceProvider::class,
     PersonalverwaltungServiceProvider::class,
+    SchluesselServiceProvider::class,
 ];

@@ -15,7 +15,7 @@ openwehr ist eine Web-App für Freiwillige Feuerwehren: ein gemeinsamer Kern (An
 | [Übungsdienstplaner](#übungsdienstplaner) | Wer welchen Übungsdienst mit welchem Thema übernimmt – nur für den Vorstand; jeder Dienst steht ohne Thema mit Ort, Kleidung und Zielgruppe im Kalender der Kameraden | – |
 | [Einsatzbericht](#einsatzbericht) | Einsätze digital erfassen und freigeben, Besatzung und Stärke, DIVERA-24/7-Anbindung, Lagemeldungen, Jahresstatistik | Einsatzleiter, Wehrführung |
 | [Kalender & Termine](#kalender--termine) | Übungen, Dienste und Veranstaltungen mit Zielgruppe, Ort mit Navigation, Kleidung und Rückmeldung, Terminabfragen, Abo für den eigenen Kalender | Terminverwalter |
-| [Ausrüstungsverwaltung](#ausrüstungsverwaltung) | Geräte, Prüffristen, Ausleihe, Rückrufe und Beladeplan | Gerätewart |
+| [Ausrüstungsverwaltung](#ausrüstungsverwaltung) | Geräte, Prüffristen, Ausleihe, Rückrufe und Beladeplan; Geräteinfo per QR-Code auch ohne Login (zuschaltbar) | Gerätewart |
 | [Budget & Finanzen](#budget--finanzen) | Budgets je Kostenstelle, Ausgaben mit Beleg und Genehmigung, Jahresabschluss und Export | Kassenwart, Wehrführung |
 | [Verbandbuch & Vorfälle](#verbandbuch--vorfälle) | Verletzungen, Unfälle und Vorfälle nach DGUV 204-021 dokumentieren, mit Unterschrift auf dem Bildschirm, verschlüsselt und mit Löschfrist | Sicherheitsbeauftragter, Wehrführung |
 | [Wartungsmanagement](#wartungsmanagement) | Prüf- und Wartungsverwaltung für die Geräte der Ausrüstungsverwaltung: Vorlagen mit Intervall und Checkliste, fällige Wartungen, unterschriebene Prüfprotokolle als PDF, Fachfirmen, Prüfer-IDs, Zeit und Kosten | Gerätewart, Prüfer |
@@ -25,6 +25,7 @@ openwehr ist eine Web-App für Freiwillige Feuerwehren: ein gemeinsamer Kern (An
 | [Wasserkarte & Hydranten](#wasserkarte--hydranten) | Alle Löschwasserquellen auf der Karte mit Status und Leistung, Mängel melden, Prüffristen, CSV-Import; im Einsatz die nächsten Quellen zur Einsatzstelle | Hydrantenwart |
 | [Objektpläne & Brandschutzunterlagen](#objektpläne--brandschutzunterlagen) | Feuerwehrpläne, Objektpläne und Brandschutzunterlagen je Objekt mit Versionen; bei Alarm die Pläne der Einsatzstelle per GPS, offline verfügbar | Planverwalter |
 | [Personalverwaltung](#personalverwaltung) | Eigener Bereich für Personalverwalter (kein Admin nötig): Anschrift, Geburtsdatum, Mobilnummer zuschaltbar mit Selbstpflege, Laufbahn, die sich selbst schreibt, Ehrungen nach Dienstjahren, Dienstausweis, Dienstbeteiligung; Zugriff je Abteilung | Personalverwalter |
+| [Schlüsselverwaltung](#schlüsselverwaltung) | Schlüssel, Transponder und Karten mit dem, was sie schließen (Ort, Fahrzeug, Objekt), Ausgabe mit unterschriebener Schlüsselquittung, Rückgabefristen, Verlust, QR-Etikett | Schlüsselwart |
 
 Jedes Modul ist nach der Installation **ausgeschaltet**. Ein Admin schaltet es unter Admin → Module ein und gibt es einzelnen Kameraden oder allen frei; die Rollen vergibt er dort ebenfalls. Admins dürfen in jedem Modul alles. Die Details zu Kern und Modulen stehen unten, die Einrichtung unter [Installation](#installation).
 
@@ -337,6 +338,7 @@ Das gesamte Material der Wehr: Geräte mit Standort, Prüffristen, Lebensdauer u
 - **Geräte:** alle Geräte im Dienst mit Status, Standort und nächster Prüfung; Suche nach Name, Code, Seriennummer, Hersteller, Modell; Filter nach Kategorie und Status. Hinweise „Prüfung überfällig“ und „Lebensdauer abgelaufen“ stehen am Gerät.
 - **Geräteseite:** Daten, Verlauf, wer es gerade hat oder reserviert hat. Hier meldet man einen **Schaden** (das Gerät wird sofort als defekt gekennzeichnet, die Gerätewarte bekommen eine Mail), **reserviert** es für einen Zeitraum oder trägt einen **Einsatz** oder eine **Übung** ein (Einsatzhistorie).
 - **QR-Code:** Der Scan des Etiketts (`/i/AR-0001`) oder des Hersteller-Barcodes öffnet die Geräteseite, für Gerätewarte direkt die Verwaltung.
+- **Geräteinfo ohne Login** (zuschaltbar): Für den schnellen Blick direkt am Fahrzeug oder Gerät schalten Gerätewarte unter `/admin/ausruestung/geraeteinfo` („Geräteinfo per QR-Code“) ein, dass ein Scan **ohne Anmeldung** eine kurze Seite zeigt (`/geraeteinfo/{code}`): Name, Code, Kategorie, ob das Gerät einsatzbereit ist (sonst defekt, gesperrt, in Reparatur …) mit Hinweisen wie „Prüfung überfällig“, die nächste Prüfung und wohin es gehört (Standort, Fahrzeug, Geräteraum). Seriennummer, Kaufdaten, Ausleihen, Schäden und Namen erscheinen dort nicht; die Seite ist für Suchmaschinen gesperrt. Angemeldete kommen wie bisher zur Geräteseite. Standard: aus – dann führt der Scan ohne Login zur Anmeldung.
 
 ### Für Gerätewarte (`/admin/ausruestung`)
 
@@ -479,6 +481,18 @@ Die Personalakte der Wehr: was ein Kamerad wann war, welche Ehrungen er hat und 
 - **Löschen mit Übertragung:** Laufbahn, Ehrungen und Dienstausweis gehören zur Person und werden mit ihr gelöscht.
 
 Für die übrige App (Profil, Admin → Kameraden, Buchungskonflikte, Geburtstagskarten) bleiben Anschrift, Geburtsdatum und Mobilnummer wie unter „Profil“ beschrieben abgeschaltet (`App\Support\MemberFields`); die Personalverwaltung schaltet sie nur für sich ein.
+
+## Schlüsselverwaltung
+
+Wer welchen Schlüssel der Wehr hat – statt Liste im Schlüsselkasten. Das Modul ist nach der Installation ausgeschaltet; ein Admin aktiviert es unter Admin → Module. Die Rolle **Schlüsselwart** pflegt die Schlüssel (Admins dürfen es immer; ein Schlüsselwart muss kein Admin sein – im Modul führt „Admin“ für ihn zu „Alle Schlüssel“), alle anderen mit Modulzugang sehen ihre eigenen.
+
+- **Schlüssel** (`/schluessel/alle`, Schlüsselwart): Schlüssel, Transponder/Chips, Schließkarten und Handsender mit Nummer (automatisch `SL-0001` …, oder eigene), Bezeichnung, Schließanlage/-gruppe, Aufbewahrung, wenn er nicht ausgegeben ist (z. B. Schlüsselkasten), Notizen und **was er schließt**: einen Ort aus der gemeinsamen Liste der Orte (mit Adresse und Navigation), ein Fahrzeug und – wenn die Objektpläne eingeschaltet sind – ein Objekt (z. B. den FSD-Schlüssel einer Schule). Suche nach Schlüssel, Nummer, Schließung oder Kamerad, Filter nach Status (vorhanden, ausgegeben, verloren, ausgesondert).
+- **Ausgeben mit Schlüsselquittung:** an einen aktiven Kameraden, optional mit Rückgabefrist und Bemerkung; der Kamerad bestätigt den Empfang mit seiner **Unterschrift auf dem Bildschirm**. Die Quittung gibt es als Druckansicht (mit Unterschrift, Feld für den Schlüsselwart). Ein Schlüssel kann nur einmal gleichzeitig ausgegeben sein (in der Datenbank abgesichert). Der Kamerad bekommt eine Mail und einen Eintrag in der Glocke. **Zurückgenommen** schließt die Ausgabe; der Verlauf zeigt jede Ausgabe mit Zeitraum, wer ausgegeben und wer zurückgenommen hat.
+- **Verlust:** Der Kamerad meldet unter „Meine Schlüssel“, der Schlüsselwart am Schlüssel „Verloren“; die Schlüsselwarte (ohne Schlüsselwart die Admins) bekommen eine Mail mit dem, was er schließt – ob ein Schloss getauscht werden muss. „Wiedergefunden“ macht ihn wieder verfügbar, „Aussondern“ nimmt ihn aus der Liste.
+- **Meine Schlüssel** (`/schluessel`, und in der Personalakte unter „Schlüssel“): eigene Schlüssel mit Frist, Quittung und „Verloren melden“.
+- **Erinnerung:** `schluessel:remind` läuft täglich um 7:10 Uhr; wer einen Schlüssel über die Frist hat, bekommt einmal eine Mail. Die Startseite zeigt dem Kameraden „Schlüssel zurückgeben“, dem Schlüsselwart überfällige, verlorene und **Schlüssel bei Kameraden, die nicht mehr aktiv sind** (ausgetreten oder inaktiv – zum Einsammeln; auch oben in der Liste).
+- **QR-Etikett:** Die Schlüsselseite zeigt den QR-Code des Schlüssels; der Scan (`/i/SL-0001`) öffnet für den Schlüsselwart den Schlüssel, für alle anderen „Meine Schlüssel“.
+- **Mit den anderen Modulen:** Die Seite eines **Objekts** (Objektpläne) und eines **Fahrzeugs** (Fahrzeugverwaltung) zeigt seine Schlüssel mit Aufbewahrung oder „ausgegeben“ (wer ihn hat, sieht nur der Schlüsselwart); die Akte in der **Personalverwaltung** zeigt die Schlüssel des Kameraden. „Löschen mit Übertragung“ überträgt die Ausgaben.
 
 ## Tech-Stack
 

@@ -118,6 +118,11 @@
         </div>
     </section>
 
+    {{-- Keys for this object (e.g. the FSD key), when the Schlüsselverwaltung is on --}}
+    @if(app(\App\Services\ModuleRegistry::class)->isActive('schluessel') && auth()->user()->canUseModule('schluessel'))
+        @include('schluessel::partials.keys-for', ['column' => 'object_id', 'id' => $object->id])
+    @endif
+
     @if($object->hasPosition())
         <section class="{{ $card }}">
             <div wire:ignore x-data="waterMap({ markers: @js(\Modules\Objektplaene\src\Services\ObjectPlanService::markers(collect([$object]))), center: null, einsatz: null, highlight: [{{ $object->id }}] })">

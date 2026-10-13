@@ -193,6 +193,11 @@
         @include('fahrtenbuch::partials.vehicle-section', ['vehicle' => $vehicle])
     @endif
 
+    {{-- Vehicle keys, when the Schlüsselverwaltung is on --}}
+    @if(app(\App\Services\ModuleRegistry::class)->isActive('schluessel') && auth()->user()->canUseModule('schluessel'))
+        @include('schluessel::partials.keys-for', ['column' => 'vehicle_id', 'id' => $vehicle->id, 'class' => $card])
+    @endif
+
     @if($equipment !== null)
         <section class="{{ $card }}">
             <p class="text-sm font-semibold text-gray-900">Beladung (Ausrüstung)</p>

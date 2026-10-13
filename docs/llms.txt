@@ -1,6 +1,6 @@
 # openwehr
 
-> Kostenlose Open-Source-Web-App (AGPL-3.0) für Freiwillige Feuerwehren in Deutschland: ein gemeinsamer Kern mit Anmeldung ohne Passwort, Kameraden, Startseite, Benachrichtigungen und Admin-Bereich, dazu 19 Module, die jede Wehr einzeln einschaltet. Für das Handy gemacht, Oberfläche auf Deutsch, Betrieb auf dem eigenen Server (Docker-Image mit PostgreSQL).
+> Kostenlose Open-Source-Web-App (AGPL-3.0) für Freiwillige Feuerwehren in Deutschland: ein gemeinsamer Kern mit Anmeldung ohne Passwort, Kameraden, Startseite, Benachrichtigungen und Admin-Bereich, dazu 20 Module, die jede Wehr einzeln einschaltet. Für das Handy gemacht, Oberfläche auf Deutsch, Betrieb auf dem eigenen Server (Docker-Image mit PostgreSQL).
 
 - Projektseite: https://www.openwehr.de/
 - Quellcode und ausführliche Dokumentation (README): https://github.com/roberteinsle/openwehr
@@ -22,7 +22,8 @@
 - Übungsdienstplaner: Übungsdienste mit Thema und Verantwortlichen für den Vorstand; jeder Dienst steht ohne Thema im Kalender der Zielgruppe
 - Personalverwaltung: eigener Bereich für Personalverwalter, persönliche Daten (Anschrift, Geburtsdatum, Mobilnummer) zuschaltbar mit Selbstpflege und Benachrichtigung, Laufbahn (Dienstgrade, Abteilungen, Funktionen) mit Historie, Ehrungen nach Dienstjahren, Dienstausweis, Dienstbeteiligung aus dem Kalender, Zugriff je Abteilung
 - Lehrgänge & Qualifikationen: Interesse an Lehrgängen, Anmeldung über die Ausbildungsleitung
-- Ausrüstungsverwaltung: Geräte, Prüffristen, Ausleihe, Rückrufe, Beladeplan
+- Ausrüstungsverwaltung: Geräte, Prüffristen, Ausleihe, Rückrufe, Beladeplan, Geräteinfo per QR-Code (auf Wunsch ohne Login)
+- Schlüsselverwaltung: Schlüssel und Transponder mit Ausgabe, unterschriebener Schlüsselquittung, Rückgabefristen, Verlust und QR-Etikett
 - Wartungsmanagement: Prüfungen nach Vorlage, unterschriebene Prüfprotokolle als PDF
 - Kleiderkammer: Ausgabe und Rücknahme der Bekleidung, Größen, Bestand, QR-Etiketten
 - Mängelmanagement: Mängel per QR-Code melden und verfolgen
