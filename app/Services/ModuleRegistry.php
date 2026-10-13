@@ -37,7 +37,8 @@ class ModuleRegistry
     /** The in-app admin page of the module the current route belongs to, if the user may open it */
     public function adminRouteFor(?string $routeName, ?User $user): ?string
     {
-        if (! $routeName || ! $user) {
+        // Admins always go to the admin area; the module's own admin page is for role holders without admin rights
+        if (! $routeName || ! $user || $user->is_admin) {
             return null;
         }
         foreach ($this->definitions as $key => $def) {

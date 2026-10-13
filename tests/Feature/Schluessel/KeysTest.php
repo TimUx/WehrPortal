@@ -111,3 +111,12 @@ test('lost keys reach the Schlüsselwart; keys at former members show up; other 
     $this->actingAs($this->wart)->get('/i/'.$fsd->code)->assertRedirect(route('schluessel.show', $fsd));
     $this->actingAs($this->bernd)->get('/i/'.$fsd->code)->assertRedirect(route('schluessel.index'));
 });
+
+test('"Admin" in the header: admins go to the admin area, Schlüsselwarte without admin rights to all keys', function () {
+    $admin = User::factory()->create(['is_admin' => true]);
+    $html = $this->actingAs($admin)->get(route('schluessel.list'))->assertOk()->getContent();
+    expect($html)->toContain('href="'.route('filament.admin.pages.dashboard').'"');
+
+    $html = $this->actingAs($this->wart)->get(route('schluessel.index'))->assertOk()->getContent();
+    expect($html)->toContain('href="'.route('schluessel.list').'" class="hover:text-fw-grey-light">Admin</a>');
+});
