@@ -117,6 +117,13 @@
                         <a href="{{ route($adminRoute) }}" class="hover:text-fw-grey-light">Admin</a>
                         @endif
                     </nav>
+                    {{-- The digitaler Dienstausweis, for every active Kamerad once the Personalverwaltung switched it on --}}
+                    @if(\Modules\Personalverwaltung\src\Services\PersonnelService::digitalIdFor(auth()->user()))
+                        <a href="{{ route('personalverwaltung.digital-id') }}" title="Dienstausweis" aria-label="Dienstausweis"
+                           class="inline-flex h-9 w-9 items-center justify-center rounded-lg hover:bg-white/10 {{ request()->routeIs('personalverwaltung.digital-id') ? 'bg-white/10' : '' }}">
+                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="11" r="2"/><path stroke-linecap="round" d="M5.5 16c.5-1.5 1.6-2.2 3-2.2s2.5.7 3 2.2M14 10h4M14 13h4"/></svg>
+                        </a>
+                    @endif
                     <livewire:notifications.bell />
                     {{-- On the phone the text navigation is hidden: Profil and Admin are in the 3×3 menu --}}
                     <x-app-launcher :admin-url="$showAdmin ? route($adminRoute) : null" :unread-feedback="$unreadFeedback" />

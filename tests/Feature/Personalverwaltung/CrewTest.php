@@ -58,7 +58,8 @@ test('a Kamerad reports an Änderungswunsch, the Personalverwalter answers it', 
 test('Dienstausweis and Atemschutzpass on the phone, checked by a QR code that runs out', function () {
     // Nothing yet: no Dienstausweis switched on, not in the pool
     $this->actingAs($this->hanna)->get(route('credentials'))->assertOk()->assertSee('keine digitalen Nachweise');
-    $this->get(route('profile'))->assertDontSee(route('credentials'));
+    $this->get(route('profile'))->assertDontSee(route('credentials'))->assertDontSee(route('personalverwaltung.digital-id'));
+    $this->get(route('personalverwaltung.digital-id'))->assertNotFound();
 
     Livewire::actingAs($this->pv)->test(Settings::class)->set('fields.digital_id', true)->call('save');
     MemberProfile::create(['user_id' => $this->hanna->id, 'id_card_number' => 'MS-0815', 'id_card_valid_until' => now()->addYear()->toDateString()]);
@@ -67,10 +68,19 @@ test('Dienstausweis and Atemschutzpass on the phone, checked by a QR code that r
         Training::create(['user_id' => $this->hanna->id, 'kind' => $kind, 'done_on' => now()->subMonth()->toDateString()]);
     }
 
-    $this->get(route('profile'))->assertSee(route('credentials'));
+    // The Dienstausweis has its own page behind the card icon in the header, not under Nachweise
+    $this->actingAs($this->hanna)->get(route('profile'))->assertSee(route('personalverwaltung.digital-id'))->assertSee(route('credentials'));
+    $this->get(route('personalverwaltung.digital-id'))->assertOk()
+        ->assertSee('Dienstausweis')->assertSee('Hanna Hydrant')->assertSee('Oberfeuerwehrfrau')->assertSee('Nr. MS-0815')->assertSee('QR-Code zur Prüfung');
     Livewire::actingAs($this->hanna)->test(Credentials::class)
-        ->assertSee('Dienstausweis')->assertSee('Hanna Hydrant')->assertSee('Oberfeuerwehrfrau')->assertSee('Nr. MS-0815')
+        ->assertDontSee('Nr. MS-0815')
         ->assertSee('Atemschutzpass')->assertSee('Einsatzbereit')->assertSee('Tragezeit')->assertSee('QR-Code zur Prüfung');
+
+    // Every active Kamerad sees it, also without access to the Personalverwaltung
+    $bernd = User::factory()->create(['name' => 'Bernd Blaulicht']);
+    $this->actingAs($bernd)->get(route('personalverwaltung.digital-id'))->assertOk()->assertSee('Bernd Blaulicht');
+    $this->actingAs($bernd)->get(route('profile'))->assertSee(route('personalverwaltung.digital-id'));
+    $this->actingAs($this->hanna);
 
     // The checker's page: no login, signed, today's state
     auth()->logout();

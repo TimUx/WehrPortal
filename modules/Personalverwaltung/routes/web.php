@@ -9,6 +9,13 @@ use Modules\Personalverwaltung\src\Livewire\Reports;
 use Modules\Personalverwaltung\src\Models\HistoryFile;
 use Modules\Personalverwaltung\src\Services\PersonnelService;
 
+// The digitaler Dienstausweis: for every active Kamerad, no module access needed (the header's card icon)
+Route::get('/dienstausweis', function () {
+    abort_unless(PersonnelService::digitalIdFor(auth()->user()), 404);
+
+    return view('personalverwaltung::pages.digital-id');
+})->middleware(['auth', 'active'])->name('personalverwaltung.digital-id');
+
 Route::middleware(['auth', 'active', 'module:personalverwaltung'])->group(function () {
     // Personalakte → Laufbahn & Ehrungen: every Kamerad with access sees their own
     Route::get('/personalakte/laufbahn', fn () => view('personalverwaltung::pages.own-file'))->name('personalverwaltung.own');

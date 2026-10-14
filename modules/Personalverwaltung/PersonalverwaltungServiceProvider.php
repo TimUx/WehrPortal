@@ -19,6 +19,7 @@ use Modules\Personalverwaltung\src\Console\Commands\SyncHistory;
 use Modules\Personalverwaltung\src\Livewire\Access;
 use Modules\Personalverwaltung\src\Livewire\Attendance;
 use Modules\Personalverwaltung\src\Livewire\ChangeRequests;
+use Modules\Personalverwaltung\src\Livewire\DigitalId;
 use Modules\Personalverwaltung\src\Livewire\Honors;
 use Modules\Personalverwaltung\src\Livewire\HoursOverview;
 use Modules\Personalverwaltung\src\Livewire\MemberFile;
@@ -88,7 +89,8 @@ class PersonalverwaltungServiceProvider extends ServiceProvider
 
         foreach (['member-list' => MemberList::class, 'member-file' => MemberFile::class, 'honors' => Honors::class,
             'attendance' => Attendance::class, 'access' => Access::class, 'own-file' => OwnFile::class,
-            'settings' => Settings::class, 'own-data' => OwnData::class, 'change-requests' => ChangeRequests::class, 'hours-overview' => HoursOverview::class, 'reports' => Reports::class, 'new-members' => NewMembers::class] as $name => $class) {
+            'settings' => Settings::class, 'own-data' => OwnData::class, 'change-requests' => ChangeRequests::class, 'hours-overview' => HoursOverview::class, 'reports' => Reports::class, 'new-members' => NewMembers::class,
+            'digital-id' => DigitalId::class] as $name => $class) {
             Livewire::component('personalverwaltung.'.$name, $class);
         }
 
@@ -121,8 +123,10 @@ class PersonalverwaltungServiceProvider extends ServiceProvider
         });
 
         // Personalakte → Nachweise: the Dienstausweis on the phone, while the Personalverwalter switched it on
+        // The Dienstausweis has its own page (/dienstausweis, the card icon in the header), not a card
+        // under Nachweise; the checker's page after the QR scan still shows it
         app(CredentialRegistry::class)->register('personalverwaltung', 'Dienstausweis',
-            fn (User $user) => ($id = PersonnelService::digitalIdFor($user)) ? view('personalverwaltung::credentials.id-card', ['id' => $id])->render() : null,
+            fn (User $user) => null,
             fn (User $user) => ($id = PersonnelService::digitalIdFor($user)) ? view('personalverwaltung::credentials.id-check', ['id' => $id])->render() : null,
         );
 

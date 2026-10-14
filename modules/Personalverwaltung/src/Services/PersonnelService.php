@@ -990,10 +990,13 @@ class PersonnelService
 
     // ─── Digitaler Dienstausweis ─────────────────────────────────────────────
 
-    /** The Dienstausweis on the phone, while the Personalverwalter switched it on and the Kamerad is active */
+    /**
+     * The Dienstausweis on the phone for every active Kamerad – no access to the module needed –
+     * while the module is on and the Personalverwalter switched it on.
+     */
     public static function digitalIdFor(User $user): ?array
     {
-        if (! self::settings()['digital_id'] || ! $user->is_active) {
+        if (! $user->is_active || ! app(ModuleRegistry::class)->isActive(self::MODULE) || ! self::settings()['digital_id']) {
             return null;
         }
         $profile = MemberProfile::find($user->id);
