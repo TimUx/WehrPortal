@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\AnnualReportRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
+use App\Support\ModuleNav;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -82,5 +83,14 @@ class FahrtenbuchServiceProvider extends ServiceProvider
                 'rows' => $trips->groupBy('vehicle_id')->map(fn ($t) => ['name' => $t->first()->vehicle?->name, 'trips' => $t->count(), 'km' => $t->sum(fn (Trip $trip) => $trip->distance() ?? 0)])->sortBy('name')->values(),
             ])->render();
         }, 60);
+
+        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        app(ModuleRegistry::class)->navigation('fahrtenbuch', fn (User $u) => [
+            'tabs' => [
+                ModuleNav::tab('Fahrzeuge', 'fahrtenbuch.index', ['fahrtenbuch.vehicle', 'fahrtenbuch.trip']),
+                ModuleNav::tab('Tanken', 'fahrtenbuch.fuel'),
+                LogbookService::canManage($u) ? ModuleNav::tab('Auswertung', 'fahrtenbuch.statistics') : null,
+            ],
+        ]);
     }
 }

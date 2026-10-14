@@ -8,6 +8,7 @@ use App\Services\InventoryRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\PersonnelFileRegistry;
 use App\Services\ScanRegistry;
+use App\Support\ModuleNav;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -65,8 +66,6 @@ class SchluesselServiceProvider extends ServiceProvider
             provider: self::class,
             route: 'schluessel.index',
             // The Schlüsselwart need not be an admin: "Admin" leads to all keys
-            adminRoute: 'schluessel.list',
-            canAdmin: fn (User $user) => KeyService::canManage($user),
         );
 
         app(PersonnelFileRegistry::class)->register('schluessel', 'Schlüssel', 'schluessel.personnel-file');
@@ -118,5 +117,14 @@ class SchluesselServiceProvider extends ServiceProvider
 
             return $lines === [] ? null : view('schluessel::cards.status', compact('lines', 'manage'))->render();
         });
+
+        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        app(ModuleRegistry::class)->navigation('schluessel', fn (User $u) => [
+            'tabs' => [
+                ModuleNav::tab('Meine Schlüssel', 'schluessel.index'),
+                KeyService::canManage($u) ? ModuleNav::tab('Alle Schlüssel', 'schluessel.list', ['schluessel.show', 'schluessel.edit']) : null,
+            ],
+            'action' => KeyService::canManage($u) ? ModuleNav::action('Neuer Schlüssel', 'schluessel.create') : null,
+        ]);
     }
 }

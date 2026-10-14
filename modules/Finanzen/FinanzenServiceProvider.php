@@ -5,6 +5,7 @@ namespace Modules\Finanzen;
 use App\Models\User;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
+use App\Support\ModuleNav;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -69,5 +70,16 @@ class FinanzenServiceProvider extends ServiceProvider
 
             return array_sum($todo) > 0 ? view('finanzen::cards.todo', ['todo' => $todo])->render() : null;
         });
+
+        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        app(ModuleRegistry::class)->navigation('finanzen', fn (User $u) => [
+            'tabs' => [
+                ModuleNav::tab('Übersicht', 'finanzen.index', ['finanzen.entry', 'finanzen.edit']),
+                FinanceService::canReview($u) ? ModuleNav::tab('Buchungen', 'finanzen.entries', ['finanzen.book']) : null,
+                FinanceService::canManage($u) ? ModuleNav::tab('Budget & Kostenstellen', 'finanzen.budget') : null,
+                FinanceService::canReview($u) ? ModuleNav::tab('Jahresabschluss', 'finanzen.report') : null,
+            ],
+            'action' => ModuleNav::action('Ausgabe einreichen', 'finanzen.submit'),
+        ]);
     }
 }

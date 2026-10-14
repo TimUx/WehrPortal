@@ -5,7 +5,7 @@
     {{-- A new element per count: its x-init hands the count to the alarm --}}
     <span hidden wire:key="alarm-{{ $warningCount }}" x-init="count = {{ $warningCount }}"></span>
 
-    <a href="{{ route('atemschutz.index') }}" class="text-sm text-gray-500 hover:text-gray-900">← Übersicht</a>
+    <a href="{{ route('atemschutz.index') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Übersicht</a>
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
             <p class="text-sm text-gray-500">{{ \Modules\Atemschutz\src\Models\Operation::KINDS[$operation->kind] }} · seit {{ $operation->started_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }}@if($operation->report) · Einsatz {{ $operation->report->number }}@endif</p>

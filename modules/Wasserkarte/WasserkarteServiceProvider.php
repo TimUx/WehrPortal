@@ -7,6 +7,7 @@ use App\Services\AnnualReportRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\ScanRegistry;
+use App\Support\ModuleNav;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -89,5 +90,14 @@ class WasserkarteServiceProvider extends ServiceProvider
             return $checked === 0 ? null : '<div class="ar-grid"><div class="ar-tile"><span>Geprüfte Wasserquellen</span><strong>'.$checked.'</strong></div>'
                 .'<div class="ar-tile"><span>Wasserquellen gesamt</span><strong>'.Source::active()->count().'</strong></div></div>';
         }, 75);
+
+        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        app(ModuleRegistry::class)->navigation('wasserkarte', fn (User $u) => [
+            'tabs' => [
+                ModuleNav::tab('Karte', 'wasserkarte.index', ['wasserkarte.source', 'wasserkarte.edit']),
+                WaterService::canManage($u) ? ModuleNav::tab('Prüfungen & Import', 'wasserkarte.inspections') : null,
+            ],
+            'action' => WaterService::canManage($u) ? ModuleNav::action('Neue Wasserquelle', 'wasserkarte.create') : null,
+        ]);
     }
 }

@@ -4,6 +4,7 @@ namespace Modules\Fahrzeugbuchung;
 
 use App\Models\User;
 use App\Services\ModuleRegistry;
+use App\Support\ModuleNav;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -21,6 +22,7 @@ use Modules\Fahrzeugbuchung\src\Livewire\Decisions\DecisionIndex;
 use Modules\Fahrzeugbuchung\src\Livewire\Monitor\StationBoard;
 use Modules\Fahrzeugbuchung\src\Models\Booking;
 use Modules\Fahrzeugbuchung\src\Models\BookingComment;
+use Modules\Fahrzeugbuchung\src\Models\BookingDecision;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 use Modules\Fahrzeugbuchung\src\Policies\BookingCommentPolicy;
 use Modules\Fahrzeugbuchung\src\Policies\BookingPolicy;
@@ -80,5 +82,15 @@ class FahrzeugbuchungServiceProvider extends ServiceProvider
             provider: self::class,
             route: 'fahrzeugbuchung.calendar',
         );
+
+        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        app(ModuleRegistry::class)->navigation('fahrzeugbuchung', fn (User $u) => [
+            'tabs' => [
+                ModuleNav::tab('Kalender', 'fahrzeugbuchung.calendar'),
+                ModuleNav::tab('Meine Buchungen', 'fahrzeugbuchung.my-bookings'),
+                $u->canDecide() ? ModuleNav::tab('Entscheidungen', 'fahrzeugbuchung.decisions.index', ['fahrzeugbuchung.decisions.*'], BookingDecision::pending()->count()) : null,
+            ],
+            'manage' => $u->is_admin ? route('filament.fahrzeugbuchung.pages.dashboard') : null,
+        ]);
     }
 }

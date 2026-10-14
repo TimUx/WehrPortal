@@ -1,7 +1,7 @@
 <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-            <a href="{{ route('kalender.index') }}" class="text-sm text-gray-500 hover:text-gray-900">← Kalender</a>
+            <a href="{{ route('kalender.index') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Kalender</a>
             <h1 class="text-xl font-bold text-gray-900">Terminabfragen</h1>
             <p class="text-sm text-gray-500">Wann passt es den meisten? Bei jedem Vorschlag ankreuzen – der Terminverwalter legt danach den Termin fest.</p>
         </div>

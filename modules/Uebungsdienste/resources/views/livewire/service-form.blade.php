@@ -1,7 +1,7 @@
 @php($input = 'mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-base sm:text-sm focus:border-fw-red focus:ring-fw-red')
 <div class="mx-auto max-w-xl space-y-4">
     <div>
-        <a href="{{ route('uebungsdienste.index') }}" class="text-sm text-gray-500 hover:text-gray-900">← Übungsdienstplaner</a>
+        <a href="{{ route('uebungsdienste.index') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Übungsdienstplaner</a>
         <h1 class="mt-1 text-xl font-bold text-gray-900">{{ $service ? 'Dienst am '.$service->dateLabel().' ändern' : 'Übungsdienst anlegen' }}</h1>
         <p class="text-sm text-gray-500">{{ $service ? 'Datum, Zeit, Ort, Kleidung und Teilnehmer. Thema und Verantwortliche ändert der Vorstand direkt im Plan.' : 'Einzeln oder als Serie, z. B. alle zwei Wochen bis Jahresende. Thema und Verantwortliche trägt der Vorstand danach im Plan ein.' }}</p>
     </div>

@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\PersonnelFileRegistry;
+use App\Support\ModuleNav;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -62,5 +63,11 @@ class VerbandbuchServiceProvider extends ServiceProvider
 
             return $count === 0 ? null : view('verbandbuch::cards.report', compact('count'))->render();
         });
+
+        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        app(ModuleRegistry::class)->navigation('verbandbuch', fn (User $u) => [
+            'tabs' => [ModuleNav::tab(VerbandbuchService::canManage($u) ? 'Verbandbuch' : 'Meine Einträge', 'verbandbuch.index', ['verbandbuch.show'])],
+            'action' => ModuleNav::action('Eintrag erfassen', 'verbandbuch.create'),
+        ]);
     }
 }

@@ -1,6 +1,6 @@
 <div class="mx-auto max-w-2xl space-y-4">
     <div>
-        <a href="{{ route('einsatzbericht.show', $report) }}" class="text-sm text-gray-500 hover:text-gray-900">← Einsatz {{ $report->number }}</a>
+        <a href="{{ route('einsatzbericht.show', $report) }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Einsatz {{ $report->number }}</a>
         <h1 class="text-xl font-bold text-gray-900">Gefahrstoff-Exposition für die Besatzung</h1>
         <p class="text-sm text-gray-500">Die Angaben gehen als Vorschlag an jede ausgewählte Einsatzkraft; sie ergänzt (z. B. Dauer, eigene Schutzausrüstung) und bestätigt. Wer im Einsatzbericht „unter Atemschutz“ steht, ist vorausgewählt und hat umluftunabhängigen Atemschutz schon eingetragen.</p>
     </div>

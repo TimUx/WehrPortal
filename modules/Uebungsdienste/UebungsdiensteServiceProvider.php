@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\AnnualReportRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
+use App\Support\ModuleNav;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -77,5 +78,14 @@ class UebungsdiensteServiceProvider extends ServiceProvider
             return $count === 0 ? null : '<div class="ar-grid"><div class="ar-tile"><span>Übungsdienste geplant</span><strong>'.$count.'</strong></div>'
                 .'<div class="ar-tile"><span>davon stattgefunden</span><strong>'.Service::whereYear('date', $year)->whereDate('date', '<', ServicePlan::today())->count().'</strong></div></div>';
         }, 35);
+
+        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        app(ModuleRegistry::class)->navigation('uebungsdienste', fn (User $u) => [
+            'tabs' => [
+                ModuleNav::tab('Übungsdienste', 'uebungsdienste.index', ['uebungsdienste.edit', 'uebungsdienste.create']),
+                $u->can('plan-uebungsdienste') ? ModuleNav::tab('Orte & Kleidung', 'uebungsdienste.places') : null,
+            ],
+            'action' => $u->can('plan-uebungsdienste') ? ModuleNav::action('Übungsdienst anlegen', 'uebungsdienste.create') : null,
+        ]);
     }
 }

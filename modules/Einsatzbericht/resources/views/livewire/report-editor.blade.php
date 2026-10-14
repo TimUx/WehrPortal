@@ -4,7 +4,7 @@
 <div class="mx-auto max-w-4xl space-y-4 pb-24">
     {{-- Header --}}
     <div>
-        <a href="{{ route('einsatzbericht.index') }}" class="text-sm text-gray-500 hover:text-gray-900">← Einsätze</a>
+        <a href="{{ route('einsatzbericht.index') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Einsätze</a>
         <div class="mt-1 flex flex-wrap items-start justify-between gap-3">
             <div>
                 <h1 class="text-xl font-bold text-gray-900">Einsatz {{ $report->number }}{{ $report->keyword ? ' · '.$report->keyword : '' }}</h1>

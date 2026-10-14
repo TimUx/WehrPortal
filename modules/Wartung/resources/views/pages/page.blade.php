@@ -1,6 +1,5 @@
 {{-- Every page of the module: the tabs and one Livewire component --}}
 <x-layouts.app :title="$title">
-    @include('wartung::partials.nav')
     @if(\Modules\Wartung\src\Services\WartungService::ready())
         @livewire($livewireComponent, $params ?? [])
     @else

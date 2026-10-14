@@ -1,6 +1,6 @@
 <div class="mx-auto max-w-3xl space-y-4">
     <div>
-        <a href="{{ route('unterweisungen.overview') }}" class="text-sm text-gray-500 hover:text-gray-900">← Übersicht</a>
+        <a href="{{ route('unterweisungen.overview') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Übersicht</a>
         <h1 class="text-xl font-bold text-gray-900">{{ $session->topic->label() }}</h1>
         <p class="text-sm text-gray-600">{{ $session->held_on->format('d.m.Y') }} · unterwiesen von {{ $session->instructor_name }}</p>
         @if($session->notes)<p class="mt-1 whitespace-pre-line text-sm text-gray-700">{{ $session->notes }}</p>@endif

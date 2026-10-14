@@ -1,5 +1,5 @@
 <div class="max-w-3xl mx-auto space-y-4">
-    <a href="{{ route('kalender.index') }}" class="text-sm text-gray-500 hover:text-gray-900">← Kalender</a>
+    <a href="{{ route('kalender.index') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Kalender</a>
 
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <div class="flex flex-wrap items-start justify-between gap-3">

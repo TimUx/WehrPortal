@@ -9,6 +9,7 @@ use App\Services\DashboardRegistry;
 use App\Services\HoursRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\PersonnelFileRegistry;
+use App\Support\ModuleNav;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
@@ -123,5 +124,18 @@ class LehrgaengeServiceProvider extends ServiceProvider
                 'people' => $records->pluck('user_id')->unique()->count(),
             ])->render();
         }, 40);
+
+        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        app(ModuleRegistry::class)->navigation('lehrgaenge', fn (User $u) => [
+            'tabs' => [
+                ModuleNav::tab('Meine Lehrgänge', 'lehrgaenge.index'),
+                $u->canViewLehrgaenge() ? ModuleNav::tab('Lehrgangsplan', 'lehrgaenge.plan') : null,
+                $u->canViewLehrgaenge() ? ModuleNav::tab('Ausbildungsstand', 'lehrgaenge.qualifications') : null,
+                $u->canViewLehrgaenge() ? ModuleNav::tab('Kameraden', 'lehrgaenge.members', ['lehrgaenge.member']) : null,
+                $u->canManageLehrgaenge() ? ModuleNav::tab('Anmeldungen', 'lehrgaenge.registrations') : null,
+                $u->canManageLehrgaenge() ? ModuleNav::tab('Lehrgangsliste', 'lehrgaenge.courses') : null,
+                $u->canManageLehrgaenge() ? ModuleNav::tab('Import', 'lehrgaenge.import') : null,
+            ],
+        ]);
     }
 }

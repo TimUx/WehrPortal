@@ -1,7 +1,7 @@
 @php($input = 'mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-base sm:text-sm focus:border-fw-red focus:ring-fw-red')
 @php($card = 'space-y-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm')
 <div class="mx-auto max-w-4xl space-y-4">
-    <a href="{{ route('personalverwaltung.index') }}" class="text-sm text-gray-500 hover:text-gray-900">← Kameraden</a>
+    <a href="{{ route('personalverwaltung.index') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Kameraden</a>
     @if($flash)<p class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{{ $flash }}</p>@endif
     @error('personal')<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{ $message }}</p>@enderror
     @error('history')<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{ $message }}</p>@enderror

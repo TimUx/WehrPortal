@@ -1,5 +1,6 @@
 {{-- 3×3 dots like Microsoft 365: every module the Kamerad may use, also the ones hidden on the start page.
-     On the phone also Profil and Admin, as the text navigation is hidden there. --}}
+     On the phone also Profil and Admin, as the text navigation is hidden there; the Bestand for
+     whoever can use one of its modules. --}}
 @props(['adminUrl' => null, 'unreadFeedback' => false])
 @php
     $launcherModules = app(\App\Services\ModuleOverview::class)->for(auth()->user());
@@ -27,6 +28,14 @@
             Profil
             @if($unreadFeedback)<span class="ml-auto inline-block h-2 w-2 rounded-full bg-fw-red" title="Neue Antwort auf dein Feedback"></span>@endif
         </a>
+        @if(app(\App\Services\InventoryRegistry::class)->availableFor(auth()->user()))
+            <a href="{{ route('inventory') }}" class="flex items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-gray-50 {{ request()->routeIs('inventory') ? 'bg-gray-50' : '' }}">
+                <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-fw-navy/10">
+                    <svg class="h-4 w-4 text-fw-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7 12 3 4 7m16 0-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                </span>
+                Bestand
+            </a>
+        @endif
         @if(\App\Models\Contact::exists())
             <a href="{{ route('contacts') }}" class="flex items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-gray-50 {{ request()->routeIs('contacts') ? 'bg-gray-50' : '' }}">
                 <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-fw-navy/10">
@@ -52,7 +61,7 @@
             <nav class="max-h-[70vh] overflow-y-auto pb-2">
                 @foreach($launcherModules as $key => $module)
                     {{-- Module routes are named after their key, e.g. kalender.* --}}
-                    @php($active = request()->routeIs($key.'.*'))
+                    @php($active = request()->routeIs($key.'.*') && ! str_starts_with((string) request()->route()?->uri(), 'personalakte'))
                     <a href="{{ $module['url'] }}" class="flex items-center gap-3 px-4 py-2 text-sm hover:bg-gray-50 {{ $active ? 'bg-gray-50 font-semibold text-fw-navy' : '' }}">
                         <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg {{ $active ? 'bg-fw-navy text-white' : 'bg-fw-navy/10 text-fw-navy' }}">
                             <x-module-icon :key="$key" class="h-4 w-4" />

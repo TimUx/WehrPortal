@@ -1,5 +1,5 @@
 <div class="max-w-2xl mx-auto">
-    <a href="{{ route('maengelmanagement.index') }}" class="text-sm text-gray-500 hover:text-gray-900">← Alle Mängel</a>
+    <a href="{{ route('maengelmanagement.index') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Alle Mängel</a>
     <h1 class="text-xl font-bold text-gray-900 mt-1 mb-4">Mangel melden</h1>
 
     <form wire:submit="save" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-5">

@@ -5,6 +5,7 @@ namespace Modules\Wartung;
 use App\Models\User;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
+use App\Support\ModuleNav;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -85,5 +86,16 @@ class WartungServiceProvider extends ServiceProvider
 
             return $open === 0 ? null : view('wartung::cards.due', compact('overdue', 'open'))->render();
         });
+
+        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        app(ModuleRegistry::class)->navigation('wartung', fn (User $u) => [
+            'tabs' => [
+                ModuleNav::tab('Fällige Wartungen', 'wartung.index', ['wartung.perform', 'wartung.device']),
+                ModuleNav::tab('Prüfprotokolle', 'wartung.protocols', ['wartung.protocol']),
+                WartungService::canManage($u) ? ModuleNav::tab('Vorlagen', 'wartung.templates', ['wartung.template', 'wartung.template.create']) : null,
+                WartungService::canManage($u) ? ModuleNav::tab('Fachfirmen', 'wartung.providers') : null,
+                WartungService::canManage($u) ? ModuleNav::tab('Prüfer', 'wartung.inspectors') : null,
+            ],
+        ]);
     }
 }

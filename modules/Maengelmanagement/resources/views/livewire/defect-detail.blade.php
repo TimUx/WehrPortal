@@ -1,6 +1,6 @@
 @php($input = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-fw-red focus:ring-fw-red')
 <div class="max-w-3xl mx-auto">
-    <a href="{{ route('maengelmanagement.index') }}" class="text-sm text-gray-500 hover:text-gray-900">← Alle Mängel</a>
+    <a href="{{ route('maengelmanagement.index') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Alle Mängel</a>
 
     @if(session('success'))
         <p class="mt-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{{ session('success') }}</p>

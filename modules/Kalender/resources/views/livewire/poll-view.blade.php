@@ -1,7 +1,7 @@
 @php($icons = ['yes' => ['✓', 'bg-green-100 text-green-800'], 'maybe' => ['(✓)', 'bg-amber-100 text-amber-900'], 'no' => ['✗', 'bg-gray-100 text-gray-500']])
 <div class="space-y-4">
     <div>
-        <a href="{{ route('kalender.polls') }}" class="text-sm text-gray-500 hover:text-gray-900">← Terminabfragen</a>
+        <a href="{{ route('kalender.polls') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Terminabfragen</a>
         <h1 class="mt-1 text-xl font-bold text-gray-900">{{ $poll->title }}</h1>
         <p class="text-sm text-gray-500">{{ $poll->typeLabel() }}{{ $poll->location ? ' · '.$poll->location : '' }}
             @if($poll->deadline) · Antworten bis {{ $poll->deadline->copy()->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }} Uhr @endif

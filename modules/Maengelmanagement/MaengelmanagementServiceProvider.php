@@ -8,6 +8,7 @@ use App\Services\DashboardRegistry;
 use App\Services\InventoryRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\ScanRegistry;
+use App\Support\ModuleNav;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Route;
@@ -118,5 +119,12 @@ class MaengelmanagementServiceProvider extends ServiceProvider
                 ? route('maengelmanagement.report', ['objekt' => $code])
                 : null;
         });
+
+        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        app(ModuleRegistry::class)->navigation('maengelmanagement', fn (User $u) => [
+            'tabs' => [ModuleNav::tab('Mängel', 'maengelmanagement.index', ['maengelmanagement.show'])],
+            'action' => ModuleNav::action('Mangel melden', 'maengelmanagement.report'),
+            'manage' => $u->canManageMaengel() ? route('filament.maengelmanagement.pages.dashboard') : null,
+        ]);
     }
 }

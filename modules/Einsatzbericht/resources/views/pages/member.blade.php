@@ -1,8 +1,7 @@
 <x-layouts.app :title="'Einsätze '.$user->name">
-    @include('einsatzbericht::partials.nav')
     <div class="space-y-4">
         <div>
-            <a href="{{ route('einsatzbericht.members') }}" class="text-sm text-gray-500 hover:text-gray-900">← Kameraden</a>
+            <a href="{{ route('einsatzbericht.members') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Kameraden</a>
             <h1 class="mt-1 text-xl font-bold text-gray-900">Einsätze: {{ $user->name }}</h1>
         </div>
         <livewire:einsatzbericht.member-missions :member="$user" :key="'member-'.$user->id" />

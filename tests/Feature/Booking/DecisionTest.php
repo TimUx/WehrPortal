@@ -158,13 +158,13 @@ test('only deciders and admins can open decisions', function () {
     $this->actingAs(User::factory()->admin()->create())->get(route('fahrzeugbuchung.decisions.index'))->assertOk();
 });
 
-test('deciders see the red decision button while a decision is open', function () {
-    $this->actingAs($this->deciderA)->get(route('fahrzeugbuchung.calendar'))->assertDontSee('Entscheidung (');
+test('deciders see open decisions as a red count on the tab "Entscheidungen"', function () {
+    $this->actingAs($this->deciderA)->get(route('fahrzeugbuchung.calendar'))->assertSee('Entscheidungen')->assertDontSee('bg-fw-red px-1.5 text-center text-xs font-semibold leading-5 text-white">1</span>', false);
 
     requestConflict();
 
-    $this->actingAs($this->deciderA)->get(route('fahrzeugbuchung.calendar'))->assertSee('Entscheidung (1)');
-    $this->actingAs($this->requester)->get(route('fahrzeugbuchung.calendar'))->assertDontSee('Entscheidung (');
+    $this->actingAs($this->deciderA)->get(route('fahrzeugbuchung.calendar'))->assertSee('bg-fw-red px-1.5 text-center text-xs font-semibold leading-5 text-white">1</span>', false);
+    $this->actingAs($this->requester)->get(route('fahrzeugbuchung.calendar'))->assertDontSee('Entscheidungen');
 });
 
 test('pending requests show up in the calendar feed', function () {
@@ -306,7 +306,7 @@ test('reopening restores the state before the decision and informs everyone', fu
         DecisionReopenedNotification::class
     );
 
-    $this->actingAs($this->deciderB)->get(route('fahrzeugbuchung.calendar'))->assertSee('Entscheidung (1)');
+    $this->actingAs($this->deciderB)->get(route('fahrzeugbuchung.calendar'))->assertSee('bg-fw-red px-1.5 text-center text-xs font-semibold leading-5 text-white">1</span>', false);
 });
 
 test('reversal fails with a message when the freed slot was booked in the meantime', function () {
@@ -378,17 +378,15 @@ test('cancelling the kept booking confirms the rejected request', function () {
     Notification::assertSentTo($this->requester, BookingReactivatedNotification::class);
 });
 
-test('mobile tab bar shows decisions for deciders; Profil and Admin are in the 3×3 menu', function () {
+test('the Modulleiste shows decisions for deciders; admins get the Verwaltung and Admin in the 3×3 menu', function () {
     $this->actingAs($this->requester)->get(route('fahrzeugbuchung.calendar'))
-        ->assertDontSee('Entscheid.')
-        ->assertSee('grid-template-columns: repeat(2', false);
+        ->assertSee('data-module-bar', false)->assertSee('Meine Buchungen')->assertDontSee('Entscheidungen')
+        ->assertDontSee('fixed bottom-0', false)->assertDontSee('aria-label="Verwaltung"', false);
 
-    $this->actingAs($this->deciderA)->get(route('fahrzeugbuchung.calendar'))
-        ->assertSee('Entscheid.')
-        ->assertSee('grid-template-columns: repeat(3', false);
+    $this->actingAs($this->deciderA)->get(route('fahrzeugbuchung.calendar'))->assertSee('Entscheidungen');
 
     $this->actingAs(User::factory()->admin()->create())->get(route('fahrzeugbuchung.calendar'))
-        ->assertSee('Entscheid.')
-        ->assertSee('grid-template-columns: repeat(3', false)
+        ->assertSee('Entscheidungen')
+        ->assertSee('href="'.route('filament.fahrzeugbuchung.pages.dashboard').'" title="Verwaltung"', false)
         ->assertSee('data-launcher-admin', false);
 });

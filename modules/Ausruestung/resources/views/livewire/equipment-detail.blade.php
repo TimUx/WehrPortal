@@ -1,5 +1,5 @@
 <div class="max-w-3xl mx-auto">
-    <a href="{{ route('ausruestung.equipment') }}" class="text-sm text-gray-500 hover:text-gray-900">← Alle Geräte</a>
+    <a href="{{ route('ausruestung.equipment') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Alle Geräte</a>
 
     @if($flash)
         <p class="mt-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{{ $flash }}</p>

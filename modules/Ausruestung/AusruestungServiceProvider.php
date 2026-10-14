@@ -7,6 +7,7 @@ use App\Services\AnnualReportRegistry;
 use App\Services\InventoryRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\ScanRegistry;
+use App\Support\ModuleNav;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -125,5 +126,15 @@ class AusruestungServiceProvider extends ServiceProvider
                     'detail' => 'Lebensdauer bis '.$e->lifetimeEndsAt()->format('d.m.Y').($e->category ? ' · '.$e->category->name : ''),
                     'cost_cents' => $e->purchase_price !== null ? (int) round((float) $e->purchase_price * 100) : null, 'url' => route('ausruestung.show', $e)]);
         }, 20);
+
+        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        app(ModuleRegistry::class)->navigation('ausruestung', fn (User $u) => [
+            'tabs' => [
+                ModuleNav::tab('Geräte', 'ausruestung.equipment', ['ausruestung.show']),
+                ModuleNav::tab('Meine Ausleihen', 'ausruestung.index'),
+                $u->canManageAusruestung() ? ModuleNav::tab('Inventur', 'ausruestung.stocktake') : null,
+            ],
+            'manage' => $u->canManageAusruestung() ? route('filament.ausruestung.pages.dashboard') : null,
+        ]);
     }
 }

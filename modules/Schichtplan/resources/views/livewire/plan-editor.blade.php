@@ -3,7 +3,7 @@
 <div class="space-y-6">
     {{-- Header --}}
     <div>
-        <a href="{{ route('schichtplan.index') }}" class="text-sm text-gray-500 hover:text-gray-900">← Schichtplan</a>
+        <a href="{{ route('schichtplan.index') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Schichtplan</a>
         <div class="mt-1 flex flex-wrap items-start justify-between gap-3">
             <div>
                 <h1 class="text-xl font-bold text-gray-900">{{ $plan->title }}</h1>

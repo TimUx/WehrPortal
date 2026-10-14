@@ -7,6 +7,7 @@ use App\Services\AnnualReportRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\HoursRegistry;
 use App\Services\ModuleRegistry;
+use App\Support\ModuleNav;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
@@ -130,5 +131,16 @@ class KalenderServiceProvider extends ServiceProvider
                 'attendances' => Response::whereIn('event_id', $ids)->where('attended', true)->count(),
             ])->render();
         }, 30);
+
+        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        app(ModuleRegistry::class)->navigation('kalender', fn (User $u) => [
+            'tabs' => [
+                ModuleNav::tab('Kalender', 'kalender.index', ['kalender.show', 'kalender.edit', 'kalender.create']),
+                ModuleNav::tab('Terminabfragen', 'kalender.polls', ['kalender.polls.*']),
+                $u->canManageKalender() ? ModuleNav::tab('Orte & Kleidung', 'kalender.places') : null,
+                $u->canManageKalender() ? ModuleNav::tab('Externe Kalender', 'kalender.sources') : null,
+            ],
+            'action' => $u->canManageKalender() ? ModuleNav::action('Termin anlegen', 'kalender.create') : null,
+        ]);
     }
 }

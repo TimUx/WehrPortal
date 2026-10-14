@@ -1,7 +1,6 @@
 <div>
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h1 class="text-xl font-bold text-gray-900">Geräte</h1>
-        <a href="{{ route('ausruestung.index') }}" class="text-sm text-gray-500 hover:text-gray-900">Meine Ausleihen</a>
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">

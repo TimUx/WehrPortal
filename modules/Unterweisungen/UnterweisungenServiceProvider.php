@@ -9,6 +9,7 @@ use App\Services\DashboardRegistry;
 use App\Services\DriverRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\PersonnelFileRegistry;
+use App\Support\ModuleNav;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -60,8 +61,6 @@ class UnterweisungenServiceProvider extends ServiceProvider
             roles: ['unterweisungsbeauftragter'],
             provider: self::class,
             route: 'unterweisungen.index',
-            adminRoute: 'unterweisungen.overview',
-            canAdmin: fn (User $user) => InstructionService::canManage($user),
         );
 
         app(PersonnelFileRegistry::class)->register('unterweisungen', 'Unterweisungen', 'unterweisungen.personnel-file');
@@ -98,5 +97,15 @@ class UnterweisungenServiceProvider extends ServiceProvider
                 'byTopic' => $sessions->groupBy(fn ($s) => $s->topic->name)->map->sum('attendances_count'),
             ])->render();
         }, 42);
+
+        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        app(ModuleRegistry::class)->navigation('unterweisungen', fn (User $u) => [
+            'tabs' => [
+                ModuleNav::tab('Meine Unterweisungen', 'unterweisungen.index'),
+                InstructionService::canManage($u) ? ModuleNav::tab('Übersicht', 'unterweisungen.overview', ['unterweisungen.session']) : null,
+                InstructionService::canManage($u) ? ModuleNav::tab('Arten', 'unterweisungen.topics') : null,
+            ],
+            'action' => InstructionService::canManage($u) ? ModuleNav::action('Durchführen', 'unterweisungen.new') : null,
+        ]);
     }
 }

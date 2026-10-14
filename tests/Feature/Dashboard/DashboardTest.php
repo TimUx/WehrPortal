@@ -187,7 +187,7 @@ test('the launcher lists the modules in the own order and marks the current one'
         ->and($launcher)->toContain('bg-fw-navy text-white');
 });
 
-test('on the phone Profil and Admin are in the 3×3 menu; the bottom bar only holds module tabs', function () {
+test('on the phone Profil and Admin are in the 3×3 menu; modules have the Modulleiste', function () {
     $admin = User::factory()->admin()->create(['name' => 'Anna Admin']);
 
     $this->actingAs($admin)->get(route('home'))->assertOk()
@@ -197,7 +197,7 @@ test('on the phone Profil and Admin are in the 3×3 menu; the bottom bar only ho
     $this->actingAs($this->member)->get(route('home'))->assertOk()
         ->assertSee('data-launcher-profile', false)->assertDontSee('data-launcher-admin', false);
 
-    // Inside a module the tabs stay, without Profil and Admin
+    // Inside a module the Modulleiste holds the tabs; there is no bar at the bottom any more
     $this->actingAs($admin)->get(route('fahrzeugbuchung.calendar'))->assertOk()
-        ->assertSee('fixed bottom-0', false)->assertSee('repeat(3, minmax(0, 1fr))', false);
+        ->assertSee('data-module-bar', false)->assertDontSee('fixed bottom-0', false);
 });

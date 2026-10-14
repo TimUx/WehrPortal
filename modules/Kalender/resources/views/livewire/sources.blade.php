@@ -1,7 +1,7 @@
 @php($input = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-fw-red focus:ring-fw-red')
 <div class="max-w-3xl mx-auto space-y-6">
     <div>
-        <a href="{{ route('kalender.index') }}" class="text-sm text-gray-500 hover:text-gray-900">← Kalender</a>
+        <a href="{{ route('kalender.index') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Kalender</a>
         <h1 class="text-xl font-bold text-gray-900 mt-1">Externe Kalender &amp; Einbindung</h1>
         <p class="text-sm text-gray-500">Kalender anderer Stellen (z. B. Kreisfeuerwehrverband, Gemeinde, Schulferien) per iCal-Adresse einbinden. Die Termine erscheinen für alle im Kalender, sind nur lesbar und werden stündlich aktualisiert.</p>
     </div>

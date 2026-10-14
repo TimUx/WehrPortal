@@ -8,6 +8,7 @@ use App\Services\DashboardRegistry;
 use App\Services\HoursRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\PersonnelFileRegistry;
+use App\Support\ModuleNav;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Http\Request;
@@ -110,5 +111,16 @@ class EinsatzberichtServiceProvider extends ServiceProvider
         app(AnnualReportRegistry::class)->register('einsatzbericht', 'Einsätze', fn (int $year) => view('einsatzbericht::annual.section', [
             'stats' => app(ReportService::class)->statistics($year),
         ])->render(), 10);
+
+        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        app(ModuleRegistry::class)->navigation('einsatzbericht', fn (User $u) => [
+            'tabs' => [
+                ModuleNav::tab('Einsätze', 'einsatzbericht.index', ['einsatzbericht.show', 'einsatzbericht.situation']),
+                ReportService::canRelease($u) ? ModuleNav::tab('Jahresstatistik', 'einsatzbericht.statistics', ['einsatzbericht.annual']) : null,
+                ReportService::canRelease($u) ? ModuleNav::tab('Kameraden', 'einsatzbericht.members', ['einsatzbericht.member']) : null,
+                $u->can('einsatzbericht-materials') ? ModuleNav::tab('Material', 'einsatzbericht.materials') : null,
+                ReportService::canRelease($u) ? ModuleNav::tab('Einstellungen', 'einsatzbericht.settings') : null,
+            ],
+        ]);
     }
 }

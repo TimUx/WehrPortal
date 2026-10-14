@@ -9,6 +9,7 @@ use App\Services\DashboardRegistry;
 use App\Services\DriverRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\PersonnelFileRegistry;
+use App\Support\ModuleNav;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -56,8 +57,6 @@ class FuehrerscheineServiceProvider extends ServiceProvider
             roles: ['fuehrerscheinpruefer'],
             provider: self::class,
             route: 'fuehrerscheine.index',
-            adminRoute: 'fuehrerscheine.review',
-            canAdmin: fn (User $user) => LicenseService::canManage($user),
         );
 
         app(PersonnelFileRegistry::class)->register('fuehrerscheine', 'Führerschein', 'fuehrerscheine.personnel-file');
@@ -93,5 +92,13 @@ class FuehrerscheineServiceProvider extends ServiceProvider
 
             return $own || $pending ? view('fuehrerscheine::cards.attention', compact('own', 'pending'))->render() : null;
         });
+
+        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        app(ModuleRegistry::class)->navigation('fuehrerscheine', fn (User $u) => [
+            'tabs' => [
+                ModuleNav::tab('Mein Führerschein', 'fuehrerscheine.index'),
+                LicenseService::canManage($u) ? ModuleNav::tab('Prüfen', 'fuehrerscheine.review') : null,
+            ],
+        ]);
     }
 }

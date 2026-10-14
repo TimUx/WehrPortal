@@ -5,6 +5,7 @@ namespace Modules\Objektplaene;
 use App\Models\User;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
+use App\Support\ModuleNav;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -79,5 +80,11 @@ class ObjektplaeneServiceProvider extends ServiceProvider
 
             return $due === 0 ? null : view('objektplaene::cards.review', compact('due'))->render();
         });
+
+        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        app(ModuleRegistry::class)->navigation('objektplaene', fn (User $u) => [
+            'tabs' => [ModuleNav::tab('Bibliothek', 'objektplaene.index', ['objektplaene.object', 'objektplaene.edit'])],
+            'action' => ObjectPlanService::canManage($u) ? ModuleNav::action('Neues Objekt', 'objektplaene.create') : null,
+        ]);
     }
 }

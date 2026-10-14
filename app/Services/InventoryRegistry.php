@@ -29,6 +29,12 @@ class InventoryRegistry
         $this->sources[$module] = ['label' => $label, 'search' => $search, 'replacements' => $replacements, 'order' => $order];
     }
 
+    /** Whether the Bestand has something for this user: an active source module they can use */
+    public function availableFor(User $user): bool
+    {
+        return $this->active()->keys()->contains(fn ($module) => $user->canUseModule($module));
+    }
+
     /** @return array<string, string> module => label of the active sources */
     public function labels(): array
     {

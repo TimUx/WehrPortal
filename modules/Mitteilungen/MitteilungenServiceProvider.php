@@ -5,6 +5,7 @@ namespace Modules\Mitteilungen;
 use App\Models\User;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
+use App\Support\ModuleNav;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -54,5 +55,13 @@ class MitteilungenServiceProvider extends ServiceProvider
                 'acknowledged' => DB::table('announcement_reads')->where('user_id', $user->id)->whereNotNull('acknowledged_at')->pluck('announcement_id')->all(),
             ])->render();
         }, DashboardRegistry::TOP);
+
+        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        app(ModuleRegistry::class)->navigation('mitteilungen', fn (User $u) => [
+            'tabs' => [
+                ModuleNav::tab('Mitteilungen', 'mitteilungen.index'),
+                $u->can('post-announcements') ? ModuleNav::tab('Verwalten', 'mitteilungen.manage') : null,
+            ],
+        ]);
     }
 }

@@ -1,6 +1,6 @@
 @php($input = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-fw-red focus:ring-fw-red')
 <div class="max-w-2xl mx-auto">
-    <a href="{{ route('kalender.polls') }}" class="text-sm text-gray-500 hover:text-gray-900">← Terminabfragen</a>
+    <a href="{{ route('kalender.polls') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Terminabfragen</a>
     <h1 class="text-xl font-bold text-gray-900 mt-1 mb-4">Neue Terminabfrage</h1>
     <form wire:submit="save" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">

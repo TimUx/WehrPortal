@@ -7,6 +7,7 @@ use App\Services\AnnualReportRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\PersonnelFileRegistry;
+use App\Support\ModuleNav;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -48,8 +49,6 @@ class ExpositionenServiceProvider extends ServiceProvider
             roles: ['expositionsbeauftragter'],
             provider: self::class,
             route: 'expositionen.index',
-            adminRoute: 'expositionen.manage',
-            canAdmin: fn (User $user) => ExposureService::canManage($user),
         );
 
         app(PersonnelFileRegistry::class)->register('expositionen', 'Expositionen', 'expositionen.personnel-file');
@@ -71,5 +70,14 @@ class ExpositionenServiceProvider extends ServiceProvider
                 'total' => $rows->count(), 'people' => $rows->pluck('person_name')->unique()->count(), 'reported' => $rows->where('status', 'reported')->count(),
             ])->render();
         }, 45);
+
+        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        app(ModuleRegistry::class)->navigation('expositionen', fn (User $u) => [
+            'tabs' => [
+                ModuleNav::tab('Meine Expositionen', 'expositionen.index', ['expositionen.edit', 'expositionen.crew']),
+                ExposureService::canManage($u) ? ModuleNav::tab('Meldeliste', 'expositionen.manage') : null,
+            ],
+            'action' => ModuleNav::action('Exposition erfassen', 'expositionen.create'),
+        ]);
     }
 }

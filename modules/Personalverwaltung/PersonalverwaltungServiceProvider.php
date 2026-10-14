@@ -10,6 +10,7 @@ use App\Services\DashboardRegistry;
 use App\Services\HoursRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\PersonnelFileRegistry;
+use App\Support\ModuleNav;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -102,8 +103,6 @@ class PersonalverwaltungServiceProvider extends ServiceProvider
             provider: self::class,
             route: 'personalverwaltung.own',
             // Its own admin area for the Personalverwalter, who need not be admins
-            adminRoute: 'personalverwaltung.settings',
-            canAdmin: fn (User $user) => PersonnelService::canManage($user),
         );
 
         app(PersonnelFileRegistry::class)->register('personalverwaltung', 'Laufbahn & Ehrungen', 'personalverwaltung.own');
@@ -143,5 +142,20 @@ class PersonalverwaltungServiceProvider extends ServiceProvider
         app(AnnualReportRegistry::class)->register('personalverwaltung', 'Mitglieder', fn (int $year) => view('personalverwaltung::annual.section', [
             'a' => app(PersonnelService::class)->annual($year),
         ])->render(), 20);
+
+        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        app(ModuleRegistry::class)->navigation('personalverwaltung', fn (User $u) => [
+            'tabs' => [
+                ModuleNav::tab('Kameraden', 'personalverwaltung.index', ['personalverwaltung.member']),
+                PersonnelService::canManage($u) ? ModuleNav::tab('Neue Mitglieder', 'personalverwaltung.new') : null,
+                PersonnelService::canManage($u) ? ModuleNav::tab('Änderungswünsche', 'personalverwaltung.requests') : null,
+                PersonnelService::canManage($u) ? ModuleNav::tab('Ehrungen', 'personalverwaltung.honors') : null,
+                ModuleNav::tab('Auswertungen', 'personalverwaltung.reports'),
+                app(HoursRegistry::class)->sources() ? ModuleNav::tab('Stunden', 'personalverwaltung.hours') : null,
+                PersonnelService::attendanceAvailable() ? ModuleNav::tab('Dienstbeteiligung', 'personalverwaltung.attendance') : null,
+                PersonnelService::canManage($u) ? ModuleNav::tab('Einstellungen', 'personalverwaltung.settings') : null,
+                $u->is_admin ? ModuleNav::tab('Zugriff', 'personalverwaltung.access') : null,
+            ],
+        ]);
     }
 }

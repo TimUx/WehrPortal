@@ -9,6 +9,7 @@ use App\Services\CredentialRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\PersonnelFileRegistry;
+use App\Support\ModuleNav;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -118,5 +119,13 @@ class AtemschutzServiceProvider extends ServiceProvider
 
             return $pool || $state ? view('atemschutz::cards.pool', compact('pool', 'state'))->render() : null;
         });
+
+        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        app(ModuleRegistry::class)->navigation('atemschutz', fn (User $u) => [
+            'tabs' => [
+                ModuleNav::tab('Überwachung', 'atemschutz.index', ['atemschutz.board']),
+                MonitorService::canManage($u) ? ModuleNav::tab('Geräteträger', 'atemschutz.wearers') : null,
+            ],
+        ]);
     }
 }

@@ -1,5 +1,4 @@
 <x-layouts.app title="Lehrgangsplan">
-    @include('lehrgaenge::partials.nav')
     <div class="space-y-6">
         <div class="flex flex-wrap items-end justify-between gap-3">
             <div>

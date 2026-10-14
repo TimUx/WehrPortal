@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\InventoryRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\ScanRegistry;
+use App\Support\ModuleNav;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
@@ -101,5 +102,11 @@ class KleiderkammerServiceProvider extends ServiceProvider
                     'state' => $item->status->label(), 'tone' => $item->isRetired() ? 'gray' : ($item->isIssued() ? 'blue' : 'green'),
                     'url' => ItemResource::getUrl('edit', ['record' => $item->getKey()], panel: 'kleiderkammer')]);
         }, order: 40);
+
+        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        app(ModuleRegistry::class)->navigation('kleiderkammer', fn (User $u) => [
+            'tabs' => [ModuleNav::tab('Meine Ausrüstung', 'kleiderkammer.index')],
+            'manage' => $u->canManageKleiderkammer() ? route('filament.kleiderkammer.pages.dashboard') : null,
+        ]);
     }
 }
