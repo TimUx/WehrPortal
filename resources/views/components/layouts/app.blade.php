@@ -18,8 +18,8 @@
 <body class="h-full">
     @php
         $unreadFeedback = auth()->check() ? auth()->user()->feedbackThreads()->where('unread_for_user', true)->exists() : false;
-        // "Admin" is for admins only and always leads to /admin; role holders reach their area through the Modulleiste
-        $showAdmin = auth()->check() && auth()->user()->is_admin;
+        // "Admin" always leads to /admin: admins see everything there, module managers (Kleiderwarte …) their module's area
+        $showAdmin = auth()->check() && auth()->user()->canAccessPanel(\Filament\Facades\Filament::getPanel('admin'));
     @endphp
     <div class="min-h-full flex flex-col">
         {{-- Top Header --}}

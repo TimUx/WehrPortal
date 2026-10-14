@@ -11,6 +11,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Modules\Kleiderkammer\src\Filament\Concerns\KleiderkammerArea;
 use Modules\Kleiderkammer\src\Filament\Resources\StockResource\Pages;
 use Modules\Kleiderkammer\src\Models\ItemGroup;
 use Modules\Kleiderkammer\src\Models\ItemType;
@@ -20,7 +21,9 @@ use Modules\Kleiderkammer\src\Services\IssuingService;
 
 class StockResource extends Resource
 {
-    protected static ?string $slug = 'massenbestand';
+    use KleiderkammerArea;
+
+    protected static ?string $slug = 'kleiderkammer/massenbestand';
 
     protected static ?string $model = Stock::class;
 

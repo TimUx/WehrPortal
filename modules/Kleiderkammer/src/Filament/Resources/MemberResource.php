@@ -15,6 +15,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Modules\Kleiderkammer\src\Filament\Concerns\KleiderkammerArea;
 use Modules\Kleiderkammer\src\Filament\Resources\MemberResource\Pages;
 use Modules\Kleiderkammer\src\Filament\Resources\MemberResource\RelationManagers;
 use Modules\Kleiderkammer\src\Services\IssuingService;
@@ -23,9 +24,11 @@ use Modules\Kleiderkammer\src\Services\IssuingService;
 // (notes, clothing sizes, equipment); Abteilungen, functions, rank and status stay with the admins (/admin/users).
 class MemberResource extends Resource
 {
+    use KleiderkammerArea;
+
     protected static ?string $model = User::class;
 
-    protected static ?string $slug = 'kameraden';
+    protected static ?string $slug = 'kleiderkammer/kameraden';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-users';
 

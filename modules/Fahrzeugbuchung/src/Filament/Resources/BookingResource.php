@@ -9,13 +9,16 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Modules\Fahrzeugbuchung\src\Filament\Concerns\FahrzeugbuchungArea;
 use Modules\Fahrzeugbuchung\src\Filament\Resources\BookingResource\Pages;
 use Modules\Fahrzeugbuchung\src\Models\Booking;
 use Modules\Fahrzeugbuchung\src\Services\BookingService;
 
 class BookingResource extends Resource
 {
-    protected static ?string $slug = 'buchungen';
+    use FahrzeugbuchungArea;
+
+    protected static ?string $slug = 'fahrzeugbuchung/buchungen';
 
     protected static ?string $model = Booking::class;
 

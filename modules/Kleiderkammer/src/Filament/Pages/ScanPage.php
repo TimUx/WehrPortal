@@ -3,6 +3,7 @@
 namespace Modules\Kleiderkammer\src\Filament\Pages;
 
 use Filament\Pages\Page;
+use Modules\Kleiderkammer\src\Filament\Concerns\KleiderkammerArea;
 
 /**
  * QR/barcode scanner page.
@@ -10,7 +11,9 @@ use Filament\Pages\Page;
  */
 class ScanPage extends Page
 {
-    protected static ?string $slug = 'scanner';
+    use KleiderkammerArea;
+
+    protected static ?string $slug = 'kleiderkammer/scanner';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-qr-code';
 

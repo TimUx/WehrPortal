@@ -112,7 +112,7 @@ test('scanning an issued item opens the member, an available one the item', func
 
 test('the member profile shows open messages per issued item', function () {
     $this->actingAs($this->warden);
-    Filament::setCurrentPanel(Filament::getPanel('kleiderkammer'));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
     app(EquipmentMessageService::class)->send($this->member, $this->issued, 'Reißverschluss klemmt.');
 
     expect(IssuancesRelationManager::getBadge($this->member, 'x'))->toBe('1');
@@ -129,7 +129,7 @@ test('the member profile shows open messages per issued item', function () {
 
 test('the message list shortens the text and opens the full message on click', function () {
     $this->actingAs($this->warden);
-    Filament::setCurrentPanel(Filament::getPanel('kleiderkammer'));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
     $long = str_repeat('Lang ', 40).'ENDE';
     $message = app(EquipmentMessageService::class)->send($this->member, $this->issued, $long);
 

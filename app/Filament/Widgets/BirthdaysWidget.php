@@ -18,7 +18,7 @@ class BirthdaysWidget extends Widget
     /** Off while the birth date is switched off in MemberFields */
     public static function canView(): bool
     {
-        return MemberFields::BIRTH_DATE;
+        return MemberFields::BIRTH_DATE && (bool) auth()->user()?->is_admin;
     }
 
     protected function getViewData(): array

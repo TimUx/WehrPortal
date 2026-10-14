@@ -15,6 +15,11 @@ class LatestLoginsWidget extends Widget
 
     protected string $view = 'filament.widgets.latest-logins';
 
+    public static function canView(): bool
+    {
+        return (bool) auth()->user()?->is_admin;
+    }
+
     protected function getViewData(): array
     {
         return [

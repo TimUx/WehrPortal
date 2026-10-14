@@ -10,7 +10,6 @@ use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\MenuItem;
 use Filament\Navigation\NavigationItem;
-use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\View\PanelsRenderHook;
@@ -20,6 +19,10 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Modules\Ausruestung\AusruestungPlugin;
+use Modules\Fahrzeugbuchung\FahrzeugbuchungPlugin;
+use Modules\Kleiderkammer\KleiderkammerPlugin;
+use Modules\Maengelmanagement\MaengelmanagementPlugin;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -51,8 +54,14 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
-            ->pages([
-                Pages\Dashboard::class,
+            // One panel for everyone who manages something: admins see all of it, Kleiderwarte,
+            // Gerätewarte and Verantwortliche only their module's group (App\Filament\ModuleDashboard).
+            ->navigationGroups(['Fahrzeugbuchung', 'Kleiderkammer', 'Ausrüstung', 'Mängelmanagement'])
+            ->plugins([
+                FahrzeugbuchungPlugin::make(),
+                KleiderkammerPlugin::make(),
+                AusruestungPlugin::make(),
+                MaengelmanagementPlugin::make(),
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([])

@@ -16,6 +16,11 @@ class ServiceStatusWidget extends Widget
 
     protected string $view = 'filament.widgets.service-status';
 
+    public static function canView(): bool
+    {
+        return (bool) auth()->user()?->is_admin;
+    }
+
     public bool $fresh = false;
 
     public function recheck(): void

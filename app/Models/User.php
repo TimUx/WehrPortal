@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\MemberGender;
 use App\Enums\MemberStatus;
+use App\Filament\ModuleDashboard;
 use App\Services\ModuleRegistry;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
@@ -179,12 +180,8 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
-        return match ($panel->getId()) {
-            'kleiderkammer' => $this->canManageKleiderkammer(),
-            'maengelmanagement' => $this->canManageMaengel(),
-            'ausruestung' => $this->canManageAusruestung(),
-            default => $this->is_admin && $this->is_active,
-        };
+        // One panel: admins see all of it, module managers (Kleiderwarte …) only their module's area
+        return $this->is_active && ($this->is_admin || ModuleDashboard::accessibleFor($this) !== []);
     }
 
     /** Erziehungsberechtigte, e.g. of a member of the Jugendfeuerwehr */

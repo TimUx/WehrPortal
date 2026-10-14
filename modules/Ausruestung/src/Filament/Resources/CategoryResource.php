@@ -8,15 +8,18 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Modules\Ausruestung\src\Filament\Concerns\AusruestungArea;
 use Modules\Ausruestung\src\Filament\Resources\CategoryResource\Pages;
 use Modules\Ausruestung\src\Models\Category;
 
 /** Kinds of equipment with default service life and inspection interval */
 class CategoryResource extends Resource
 {
+    use AusruestungArea;
+
     protected static ?string $model = Category::class;
 
-    protected static ?string $slug = 'kategorien';
+    protected static ?string $slug = 'ausruestung/kategorien';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-tag';
 

@@ -25,7 +25,7 @@ class DamageReportedNotification extends Notification
             ->line(($this->damage->reporter?->name ?? 'Jemand').' hat einen Schaden gemeldet. Das Gerät ist als defekt gekennzeichnet.')
             ->line('**'.$equipment->name.'** ('.$equipment->code.'), '.$equipment->placeLabel())
             ->line($this->damage->description)
-            ->action('Gerät öffnen', EquipmentResource::getUrl('edit', ['record' => $equipment], panel: 'ausruestung'))
+            ->action('Gerät öffnen', EquipmentResource::getUrl('edit', ['record' => $equipment]))
             ->salutation(app(OrganizationSettings::class)->salutation());
     }
 }

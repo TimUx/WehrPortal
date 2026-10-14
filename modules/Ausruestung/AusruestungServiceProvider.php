@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use Modules\Ausruestung\src\Console\Commands\SendAusruestungReminders;
+use Modules\Ausruestung\src\Filament\Pages\AusruestungDashboard;
 use Modules\Ausruestung\src\Filament\Resources\EquipmentResource;
 use Modules\Ausruestung\src\Livewire\EquipmentDetail;
 use Modules\Ausruestung\src\Livewire\EquipmentList;
@@ -83,7 +84,7 @@ class AusruestungServiceProvider extends ServiceProvider
             }
 
             return match (true) {
-                (bool) auth()->user()?->canManageAusruestung() => EquipmentResource::getUrl('edit', ['record' => $equipment], panel: 'ausruestung'),
+                (bool) auth()->user()?->canManageAusruestung() => EquipmentResource::getUrl('edit', ['record' => $equipment]),
                 // Not logged in: the short Geräteinfo, if a Gerätewart switched it on
                 ! auth()->check() && PublicScan::enabled() => route('ausruestung.public', $equipment->code),
                 default => route('ausruestung.show', $equipment),
@@ -134,7 +135,7 @@ class AusruestungServiceProvider extends ServiceProvider
                 ModuleNav::tab('Meine Ausleihen', 'ausruestung.index'),
                 $u->canManageAusruestung() ? ModuleNav::tab('Inventur', 'ausruestung.stocktake') : null,
             ],
-            'manage' => $u->canManageAusruestung() ? route('filament.ausruestung.pages.dashboard') : null,
+            'manage' => $u->canManageAusruestung() ? AusruestungDashboard::getUrl() : null,
         ]);
     }
 }

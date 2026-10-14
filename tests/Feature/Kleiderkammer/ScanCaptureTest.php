@@ -21,7 +21,7 @@ beforeEach(function () {
     Module::where('key', 'kleiderkammer')->update(['is_active' => true]);
     Cache::forget('modules_active_keys');
     Setting::forget('org_code_prefix');
-    Filament::setCurrentPanel(Filament::getPanel('kleiderkammer'));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
 });
 
 function kleiderwart(): User

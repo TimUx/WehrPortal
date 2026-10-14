@@ -11,6 +11,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Modules\Ausruestung\src\Enums\DamageStatus;
+use Modules\Ausruestung\src\Filament\Concerns\AusruestungArea;
 use Modules\Ausruestung\src\Filament\Resources\DamageResource\Pages;
 use Modules\Ausruestung\src\Models\Damage;
 use Modules\Ausruestung\src\Services\EquipmentService;
@@ -18,9 +19,11 @@ use Modules\Ausruestung\src\Services\EquipmentService;
 /** Schadenmeldungen and their repair */
 class DamageResource extends Resource
 {
+    use AusruestungArea;
+
     protected static ?string $model = Damage::class;
 
-    protected static ?string $slug = 'schaeden';
+    protected static ?string $slug = 'ausruestung/schaeden';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-wrench';
 

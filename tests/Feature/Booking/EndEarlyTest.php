@@ -11,7 +11,7 @@ use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 use Modules\Fahrzeugbuchung\src\Services\BookingService;
 
 beforeEach(function () {
-    Filament::setCurrentPanel(Filament::getPanel('fahrzeugbuchung'));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
     $this->travelTo(Carbon::parse('2026-10-10 10:30:20', 'Europe/Berlin'));
 
     $this->vehicle = Vehicle::factory()->create();

@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Modules\Ausruestung\src\Enums\EquipmentStatus;
+use Modules\Ausruestung\src\Filament\Concerns\AusruestungArea;
 use Modules\Ausruestung\src\Filament\Resources\EquipmentResource\Pages;
 use Modules\Ausruestung\src\Filament\Resources\EquipmentResource\RelationManagers;
 use Modules\Ausruestung\src\Filament\Support\EquipmentActions;
@@ -27,9 +28,11 @@ use Modules\Ausruestung\src\Services\EquipmentService;
 
 class EquipmentResource extends Resource
 {
+    use AusruestungArea;
+
     protected static ?string $model = Equipment::class;
 
-    protected static ?string $slug = 'geraete';
+    protected static ?string $slug = 'ausruestung/geraete';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-wrench-screwdriver';
 

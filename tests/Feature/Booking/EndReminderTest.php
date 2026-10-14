@@ -14,7 +14,7 @@ use Modules\Fahrzeugbuchung\src\Notifications\BookingEndReminderNotification;
 use Modules\Fahrzeugbuchung\src\Services\BookingService;
 
 beforeEach(function () {
-    Filament::setCurrentPanel(Filament::getPanel('fahrzeugbuchung'));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
     $this->travelTo(Carbon::parse('2026-10-10 13:05', 'Europe/Berlin'));
 
     $this->vehicle = Vehicle::factory()->create(['name' => 'MTW']);

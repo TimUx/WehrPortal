@@ -8,6 +8,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Modules\Ausruestung\src\Filament\Concerns\AusruestungArea;
 use Modules\Ausruestung\src\Filament\Resources\LocationResource\Pages;
 use Modules\Ausruestung\src\Filament\Resources\LocationResource\RelationManagers\CompartmentsRelationManager;
 use Modules\Ausruestung\src\Models\Location;
@@ -15,9 +16,11 @@ use Modules\Ausruestung\src\Models\Location;
 /** Rooms, stores and vehicles, with their Geräteräume and Soll-Beladung */
 class LocationResource extends Resource
 {
+    use AusruestungArea;
+
     protected static ?string $model = Location::class;
 
-    protected static ?string $slug = 'standorte';
+    protected static ?string $slug = 'ausruestung/standorte';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-map-pin';
 

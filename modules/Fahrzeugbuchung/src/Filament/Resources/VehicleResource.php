@@ -8,12 +8,15 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Modules\Fahrzeugbuchung\src\Filament\Concerns\FahrzeugbuchungArea;
 use Modules\Fahrzeugbuchung\src\Filament\Resources\VehicleResource\Pages;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 
 class VehicleResource extends Resource
 {
-    protected static ?string $slug = 'fahrzeuge';
+    use FahrzeugbuchungArea;
+
+    protected static ?string $slug = 'fahrzeugbuchung/fahrzeuge';
 
     protected static ?string $model = Vehicle::class;
 

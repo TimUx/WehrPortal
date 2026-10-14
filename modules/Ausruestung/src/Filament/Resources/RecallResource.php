@@ -10,6 +10,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Modules\Ausruestung\src\Filament\Concerns\AusruestungArea;
 use Modules\Ausruestung\src\Filament\Resources\RecallResource\Pages;
 use Modules\Ausruestung\src\Filament\Resources\RecallResource\RelationManagers\AffectedEquipmentRelationManager;
 use Modules\Ausruestung\src\Models\Equipment;
@@ -18,9 +19,11 @@ use Modules\Ausruestung\src\Services\RecallService;
 
 class RecallResource extends Resource
 {
+    use AusruestungArea;
+
     protected static ?string $model = Recall::class;
 
-    protected static ?string $slug = 'rueckrufe';
+    protected static ?string $slug = 'ausruestung/rueckrufe';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-shield-exclamation';
 

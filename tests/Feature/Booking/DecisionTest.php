@@ -387,6 +387,6 @@ test('the Modulleiste shows decisions for deciders; admins get the Verwaltung an
 
     $this->actingAs(User::factory()->admin()->create())->get(route('fahrzeugbuchung.calendar'))
         ->assertSee('Entscheidungen')
-        ->assertSee('href="'.route('filament.fahrzeugbuchung.pages.dashboard').'" title="Verwaltung"', false)
+        ->assertSee('href="'.route('filament.admin.pages.fahrzeugbuchung').'" title="Verwaltung"', false)
         ->assertSee('data-launcher-admin', false);
 });

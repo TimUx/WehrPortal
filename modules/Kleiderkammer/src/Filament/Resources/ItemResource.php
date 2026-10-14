@@ -15,6 +15,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Modules\Kleiderkammer\src\Enums\ItemStatus;
+use Modules\Kleiderkammer\src\Filament\Concerns\KleiderkammerArea;
 use Modules\Kleiderkammer\src\Filament\Resources\ItemResource\Pages;
 use Modules\Kleiderkammer\src\Models\Item;
 use Modules\Kleiderkammer\src\Models\ItemGroup;
@@ -25,7 +26,9 @@ use Modules\Kleiderkammer\src\Services\LabelSheetGenerator;
 
 class ItemResource extends Resource
 {
-    protected static ?string $slug = 'einzelteile';
+    use KleiderkammerArea;
+
+    protected static ?string $slug = 'kleiderkammer/einzelteile';
 
     protected static ?string $model = Item::class;
 

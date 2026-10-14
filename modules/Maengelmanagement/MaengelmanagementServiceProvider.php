@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use Modules\Maengelmanagement\src\Console\Commands\SendDefectReminders;
+use Modules\Maengelmanagement\src\Filament\Pages\MaengelmanagementDashboard;
 use Modules\Maengelmanagement\src\Livewire\DefectDetail;
 use Modules\Maengelmanagement\src\Livewire\DefectList;
 use Modules\Maengelmanagement\src\Livewire\ReportForm;
@@ -124,7 +125,7 @@ class MaengelmanagementServiceProvider extends ServiceProvider
         app(ModuleRegistry::class)->navigation('maengelmanagement', fn (User $u) => [
             'tabs' => [ModuleNav::tab('Mängel', 'maengelmanagement.index', ['maengelmanagement.show'])],
             'action' => ModuleNav::action('Mangel melden', 'maengelmanagement.report'),
-            'manage' => $u->canManageMaengel() ? route('filament.maengelmanagement.pages.dashboard') : null,
+            'manage' => $u->canManageMaengel() ? MaengelmanagementDashboard::getUrl() : null,
         ]);
     }
 }

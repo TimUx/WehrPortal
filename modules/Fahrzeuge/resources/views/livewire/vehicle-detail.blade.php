@@ -294,7 +294,7 @@
         <section class="{{ $card }}">
             <p class="text-sm font-semibold text-gray-900">Beladung (Ausrüstung)</p>
             <p class="text-sm text-gray-700">{{ $equipment->count() }} Geräte an Bord{{ ($n = $equipment->filter->inspectionOverdue()->count()) ? ', '.$n.' mit überfälliger Prüfung' : '' }}{{ ($m = $equipment->reject->isUsable()->count()) ? ', '.$m.' nicht einsatzbereit' : '' }}.</p>
-            @if(auth()->user()->canManageAusruestung())<a href="{{ \Modules\Ausruestung\src\Filament\Pages\LoadPlanPage::getUrl(panel: 'ausruestung') }}" class="text-xs text-fw-navy underline">Beladeplan</a>@endif
+            @if(auth()->user()->canManageAusruestung())<a href="{{ \Modules\Ausruestung\src\Filament\Pages\LoadPlanPage::getUrl() }}" class="text-xs text-fw-navy underline">Beladeplan</a>@endif
         </section>
     @endif
 

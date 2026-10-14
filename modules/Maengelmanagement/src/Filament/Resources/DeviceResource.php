@@ -11,14 +11,17 @@ use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\HtmlString;
+use Modules\Maengelmanagement\src\Filament\Concerns\MaengelmanagementArea;
 use Modules\Maengelmanagement\src\Filament\Resources\DeviceResource\Pages;
 use Modules\Maengelmanagement\src\Models\Device;
 
 class DeviceResource extends Resource
 {
+    use MaengelmanagementArea;
+
     protected static ?string $model = Device::class;
 
-    protected static ?string $slug = 'geraete';
+    protected static ?string $slug = 'maengelmanagement/geraete';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-qr-code';
 

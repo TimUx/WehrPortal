@@ -19,10 +19,9 @@ class MaengelmanagementPlugin implements Plugin
 
     public function register(Panel $panel): void
     {
-        $panel->discoverResources(
-            in: __DIR__.'/src/Filament/Resources',
-            for: 'Modules\\Maengelmanagement\\src\\Filament\\Resources',
-        );
+        $panel
+            ->discoverResources(in: __DIR__.'/src/Filament/Resources', for: 'Modules\\Maengelmanagement\\src\\Filament\\Resources')
+            ->discoverPages(in: __DIR__.'/src/Filament/Pages', for: 'Modules\\Maengelmanagement\\src\\Filament\\Pages');
     }
 
     public function boot(Panel $panel): void

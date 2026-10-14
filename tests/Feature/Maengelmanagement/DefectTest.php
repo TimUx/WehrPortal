@@ -241,7 +241,7 @@ test('only managers and admins reach the panel', function () {
 
 test('the manager sees the defects and edits one through the service', function () {
     Notification::fake();
-    Filament::setCurrentPanel(Filament::getPanel('maengelmanagement'));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
     $defect = reportDefect($this->member);
 
     Livewire::actingAs($this->manager)

@@ -27,7 +27,7 @@
             </dd>
         </dl>
         @if(auth()->user()->canManageAusruestung())
-            <a href="{{ \Modules\Ausruestung\src\Filament\Resources\EquipmentResource::getUrl('edit', ['record' => $equipment], panel: 'ausruestung') }}" class="mt-2 inline-block text-xs text-fw-navy underline">Gerätedaten, Lebensdauer und Prüfintervall in der Ausrüstungsverwaltung ändern</a>
+            <a href="{{ \Modules\Ausruestung\src\Filament\Resources\EquipmentResource::getUrl('edit', ['record' => $equipment]) }}" class="mt-2 inline-block text-xs text-fw-navy underline">Gerätedaten, Lebensdauer und Prüfintervall in der Ausrüstungsverwaltung ändern</a>
         @endif
     </section>
 

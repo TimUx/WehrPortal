@@ -63,7 +63,7 @@
             <textarea wire:model="note" rows="2" maxlength="3000" placeholder="Notiz zur Änderung (z. B. Ersatzteil bestellt, Werkstatt informiert)" class="{{ $input }}"></textarea>
             <div class="flex flex-wrap items-center gap-3">
                 <button type="submit" class="rounded-lg bg-fw-navy px-3 py-1.5 text-sm font-semibold text-white">Speichern</button>
-                @if($canManage)<a href="{{ \Modules\Maengelmanagement\src\Filament\Resources\DefectResource::getUrl('edit', ['record' => $defect], panel: 'maengelmanagement') }}" class="text-xs text-gray-500 underline">in der Verwaltung</a>@endif
+                @if($canManage)<a href="{{ \Modules\Maengelmanagement\src\Filament\Resources\DefectResource::getUrl('edit', ['record' => $defect]) }}" class="text-xs text-gray-500 underline">in der Verwaltung</a>@endif
             </div>
         </form>
     @endif

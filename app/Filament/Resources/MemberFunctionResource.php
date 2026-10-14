@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\AdminOnly;
 use App\Filament\Resources\MemberFunctionResource\Pages;
 use App\Models\MemberFunction;
 use Filament\Actions;
@@ -14,6 +15,8 @@ use Filament\Tables\Table;
 /** What members do (Jugendwart, Gerätewart …), each with optional sub-functions; Abteilungen are where they belong */
 class MemberFunctionResource extends Resource
 {
+    use AdminOnly;
+
     protected static ?string $model = MemberFunction::class;
 
     protected static ?string $slug = 'funktionen';

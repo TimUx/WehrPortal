@@ -8,14 +8,17 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
+use Modules\Kleiderkammer\src\Filament\Concerns\KleiderkammerArea;
 use Modules\Kleiderkammer\src\Filament\Resources\EquipmentMessageResource\Pages;
 use Modules\Kleiderkammer\src\Models\EquipmentMessage;
 
 class EquipmentMessageResource extends Resource
 {
+    use KleiderkammerArea;
+
     protected static ?string $model = EquipmentMessage::class;
 
-    protected static ?string $slug = 'maengelmanagement';
+    protected static ?string $slug = 'kleiderkammer/maengelmanagement';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chat-bubble-left-right';
 

@@ -12,14 +12,16 @@ use Filament\Schemas\Schema;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Modules\Kleiderkammer\src\Filament\Concerns\KleiderkammerArea;
 use Modules\Kleiderkammer\src\Services\DataTransferService;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DataTransferPage extends Page implements HasForms
 {
-    protected static ?string $slug = 'datentransfer';
-
     use InteractsWithForms;
+    use KleiderkammerArea;
+
+    protected static ?string $slug = 'kleiderkammer/datentransfer';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-arrow-path';
 
@@ -40,9 +42,10 @@ class DataTransferPage extends Page implements HasForms
     /** What the uploaded file contains: part → row count, plus the item type names */
     public array $fileInfo = [];
 
+    // Admins only, not every Kleiderwart
     public static function canAccess(): bool
     {
-        return auth()->user()?->is_admin ?? false;
+        return (bool) auth()->user()?->is_admin && KleiderkammerDashboard::canAccess();
     }
 
     public function mount(): void

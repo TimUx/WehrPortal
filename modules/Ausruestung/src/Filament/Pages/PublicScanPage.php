@@ -5,18 +5,21 @@ namespace Modules\Ausruestung\src\Filament\Pages;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Modules\Ausruestung\src\Filament\Concerns\AusruestungArea;
 use Modules\Ausruestung\src\Support\PublicScan;
 
 /** The Gerätewart switches the Geräteinfo without login on or off */
 class PublicScanPage extends Page
 {
+    use AusruestungArea;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-qr-code';
 
     protected static ?string $navigationLabel = 'Geräteinfo per QR-Code';
 
     protected static ?string $title = 'Geräteinfo per QR-Code';
 
-    protected static ?string $slug = 'geraeteinfo';
+    protected static ?string $slug = 'ausruestung/geraeteinfo';
 
     protected static ?int $navigationSort = 90;
 

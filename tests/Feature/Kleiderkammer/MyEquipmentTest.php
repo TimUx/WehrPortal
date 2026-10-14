@@ -61,7 +61,7 @@ test('kleiderwart sees the link to the management panel', function () {
         ->get('/kleiderkammer')
         ->assertOk()
         ->assertSee('Kleiderkammer verwalten')
-        ->assertSee(route('filament.kleiderkammer.pages.dashboard'), false);
+        ->assertSee(route('filament.admin.pages.kleiderkammer'), false);
 });
 
 test('admin sees the link to the management panel', function () {

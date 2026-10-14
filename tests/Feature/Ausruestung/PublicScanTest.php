@@ -17,7 +17,7 @@ test('without login the scan leads to the login – until a Gerätewart switches
     $this->get(route('ausruestung.public', 'AR-0042'))->assertRedirect(route('ausruestung.show', $this->helmet));
 
     $wart = ausruestungMember('geraetewart');
-    Filament::setCurrentPanel(Filament::getPanel('ausruestung'));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
     Livewire::actingAs($wart)->test(PublicScanPage::class)->assertSee('ausgeschaltet')->callAction('toggle');
     auth()->logout();
     expect(PublicScan::enabled())->toBeTrue();

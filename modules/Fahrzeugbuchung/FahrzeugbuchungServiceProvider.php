@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use Modules\Fahrzeugbuchung\src\Console\Commands\SendBookingEndReminders;
+use Modules\Fahrzeugbuchung\src\Filament\Pages\FahrzeugbuchungDashboard;
 use Modules\Fahrzeugbuchung\src\Livewire\Booking\BookingComments;
 use Modules\Fahrzeugbuchung\src\Livewire\Booking\BookingDetail;
 use Modules\Fahrzeugbuchung\src\Livewire\Booking\BookingForm;
@@ -90,7 +91,7 @@ class FahrzeugbuchungServiceProvider extends ServiceProvider
                 ModuleNav::tab('Meine Buchungen', 'fahrzeugbuchung.my-bookings'),
                 $u->canDecide() ? ModuleNav::tab('Entscheidungen', 'fahrzeugbuchung.decisions.index', ['fahrzeugbuchung.decisions.*'], BookingDecision::pending()->count()) : null,
             ],
-            'manage' => $u->is_admin ? route('filament.fahrzeugbuchung.pages.dashboard') : null,
+            'manage' => $u->is_admin ? FahrzeugbuchungDashboard::getUrl() : null,
         ]);
     }
 }

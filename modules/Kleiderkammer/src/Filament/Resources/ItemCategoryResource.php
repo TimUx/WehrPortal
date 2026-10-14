@@ -8,12 +8,15 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Modules\Kleiderkammer\src\Filament\Concerns\KleiderkammerArea;
 use Modules\Kleiderkammer\src\Filament\Resources\ItemCategoryResource\Pages;
 use Modules\Kleiderkammer\src\Models\ItemCategory;
 
 class ItemCategoryResource extends Resource
 {
-    protected static ?string $slug = 'kategorien';
+    use KleiderkammerArea;
+
+    protected static ?string $slug = 'kleiderkammer/kategorien';
 
     protected static ?string $model = ItemCategory::class;
 

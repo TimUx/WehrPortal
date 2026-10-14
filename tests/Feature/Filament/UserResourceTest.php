@@ -68,11 +68,12 @@ test('user list can be filtered by group', function () {
         ->assertCanNotSeeTableRecords([$inMusik, $this->admin]);
 });
 
-test('core admin navigation shows the version but no module-specific items', function () {
+test('the admin navigation shows the version and the module areas', function () {
     $this->get('/admin')
         ->assertOk()
         ->assertSee(config('app.version'))
-        ->assertDontSee('Wachen-Monitor');
+        ->assertSee('href="'.url('/admin/fahrzeugbuchung').'"', false)
+        ->assertSee('Wachen-Monitor');
 });
 
 test('fahrzeugbuchung admin shows the station monitor in a new tab', function () {

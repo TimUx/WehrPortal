@@ -4,19 +4,22 @@ namespace Modules\Ausruestung\src\Filament\Pages;
 
 use Filament\Pages\Page;
 use Livewire\Attributes\Url;
+use Modules\Ausruestung\src\Filament\Concerns\AusruestungArea;
 use Modules\Ausruestung\src\Models\Location;
 use Modules\Ausruestung\src\Services\LoadPlanService;
 
 /** Beladeplan: Soll-/Ist-Vergleich per vehicle at a glance */
 class LoadPlanPage extends Page
 {
+    use AusruestungArea;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-truck';
 
     protected static ?string $navigationLabel = 'Beladeplan';
 
     protected static ?string $title = 'Beladeplan';
 
-    protected static ?string $slug = 'beladeplan';
+    protected static ?string $slug = 'ausruestung/beladeplan';
 
     protected static ?int $navigationSort = 15;
 

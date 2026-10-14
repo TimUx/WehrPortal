@@ -34,7 +34,7 @@
         </dl>
 
         @if(auth()->user()->canManageAusruestung())
-            <a href="{{ \Modules\Ausruestung\src\Filament\Resources\EquipmentResource::getUrl('edit', ['record' => $equipment], panel: 'ausruestung') }}"
+            <a href="{{ \Modules\Ausruestung\src\Filament\Resources\EquipmentResource::getUrl('edit', ['record' => $equipment]) }}"
                class="mt-4 inline-flex items-center rounded-lg bg-fw-navy px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90">In der Verwaltung öffnen</a>
         @endif
     </div>

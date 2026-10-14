@@ -20,7 +20,7 @@ use Modules\Kleiderkammer\src\Models\Size;
 beforeEach(function () {
     Module::where('key', 'kleiderkammer')->update(['is_active' => true]);
     Cache::forget('modules_active_keys');
-    Filament::setCurrentPanel(Filament::getPanel('kleiderkammer'));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
     $this->actingAs(User::factory()->admin()->create());
 });
 

@@ -171,7 +171,7 @@ test('mobile number, birth date and address are hidden; stored values stay', fun
 });
 
 test('the app version in the admin sidebar is smaller than the navigation text', function () {
-    foreach (['sidebar-end', 'fahrzeugbuchung-sidebar-end', 'kleiderkammer-sidebar-end', 'maengelmanagement-sidebar-end'] as $view) {
+    foreach (['sidebar-end'] as $view) {
         expect(file_get_contents(resource_path("views/filament/{$view}.blade.php")))->toContain('font-size: 0.7rem');
     }
 });

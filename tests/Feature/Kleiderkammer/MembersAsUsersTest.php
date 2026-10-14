@@ -80,7 +80,7 @@ test('items cannot be issued to members who are not active', function () {
 test('kleiderwart sees members with their equipment count but cannot create or delete them', function () {
     Module::where('key', 'kleiderkammer')->update(['is_active' => true]);
     Cache::forget('modules_active_keys');
-    Filament::setCurrentPanel(Filament::getPanel('kleiderkammer'));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
 
     $kleiderwart = User::factory()->create();
     $kleiderwart->moduleAccess()->create(['module' => 'kleiderkammer', 'role' => 'kleiderwart']);

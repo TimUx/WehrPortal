@@ -13,6 +13,7 @@ use Filament\Tables\Table;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 use Modules\Maengelmanagement\src\Enums\DefectStatus;
 use Modules\Maengelmanagement\src\Enums\Urgency;
+use Modules\Maengelmanagement\src\Filament\Concerns\MaengelmanagementArea;
 use Modules\Maengelmanagement\src\Filament\Resources\DefectResource\Pages;
 use Modules\Maengelmanagement\src\Filament\Resources\DefectResource\RelationManagers\EventsRelationManager;
 use Modules\Maengelmanagement\src\Models\Defect;
@@ -20,9 +21,11 @@ use Modules\Maengelmanagement\src\Models\Device;
 
 class DefectResource extends Resource
 {
+    use MaengelmanagementArea;
+
     protected static ?string $model = Defect::class;
 
-    protected static ?string $slug = 'maengel';
+    protected static ?string $slug = 'maengelmanagement/maengel';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-exclamation-triangle';
 

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\AdminOnly;
 use App\Filament\Resources\GroupResource\Pages;
 use App\Models\Group;
 use Filament\Actions;
@@ -13,6 +14,8 @@ use Filament\Tables\Table;
 
 class GroupResource extends Resource
 {
+    use AdminOnly;
+
     protected static ?string $slug = 'abteilungen';
 
     protected static ?string $model = Group::class;

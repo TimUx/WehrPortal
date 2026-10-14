@@ -15,6 +15,11 @@ class LatestFeedbackWidget extends Widget
 
     protected string $view = 'filament.widgets.latest-feedback';
 
+    public static function canView(): bool
+    {
+        return (bool) auth()->user()?->is_admin;
+    }
+
     protected function getViewData(): array
     {
         return [

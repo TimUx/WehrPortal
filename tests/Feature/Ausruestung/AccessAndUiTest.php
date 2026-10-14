@@ -124,7 +124,7 @@ test('the manufacturer barcode works like the own code', function () {
 // ─── admin area ──────────────────────────────────────────────────────────────
 
 test('the admin pages render', function () {
-    Filament::setCurrentPanel(Filament::getPanel('ausruestung'));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
     $this->actingAs($this->warden);
 
     Livewire::test(ListEquipment::class)->assertCanSeeTableRecords([$this->helmet]);
@@ -136,7 +136,7 @@ test('the admin pages render', function () {
 });
 
 test('a Gerätewart creates an item, records an inspection and lends it from the list', function () {
-    Filament::setCurrentPanel(Filament::getPanel('ausruestung'));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
     $this->actingAs($this->warden);
 
     Livewire::test(CreateEquipment::class)
@@ -154,7 +154,7 @@ test('a Gerätewart creates an item, records an inspection and lends it from the
 });
 
 test('the list filters items whose inspection is due', function () {
-    Filament::setCurrentPanel(Filament::getPanel('ausruestung'));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
     $due = equipment(['next_inspection_at' => today()->addDays(5)]);
 
     Livewire::actingAs($this->warden)->test(ListEquipment::class)
@@ -164,7 +164,7 @@ test('the list filters items whose inspection is due', function () {
 });
 
 test('the export downloads the filtered list as CSV', function () {
-    Filament::setCurrentPanel(Filament::getPanel('ausruestung'));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
 
     Livewire::actingAs($this->warden)->test(ListEquipment::class)
         ->callAction('export')
@@ -172,7 +172,7 @@ test('the export downloads the filtered list as CSV', function () {
 });
 
 test('creating a recall locks the matching items at once', function () {
-    Filament::setCurrentPanel(Filament::getPanel('ausruestung'));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
 
     Livewire::actingAs($this->warden)->test(CreateRecall::class)
         ->fillForm(['title' => 'Kinnriemen', 'manufacturer' => 'Dräger', 'model' => 'HPS 7000'])
@@ -184,7 +184,7 @@ test('creating a recall locks the matching items at once', function () {
 });
 
 test('every sub-list of an item, a recall and a location renders', function () {
-    Filament::setCurrentPanel(Filament::getPanel('ausruestung'));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
     $this->actingAs($this->warden);
     app(LoanService::class)->lend($this->helmet, $this->member, $this->warden, now()->addDay());
     app(EquipmentService::class)->recordInspection($this->helmet, $this->warden, today(), true);

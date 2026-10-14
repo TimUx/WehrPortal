@@ -37,10 +37,12 @@ test('main action and Verwaltung only for the roles, the tab of a sub page stays
     $this->actingAs($this->bernd)->get(route('schichtplan.create'))->assertOk()
         ->assertSee('aria-label="Neuer Plan"', false)->assertSee('href="'.route('schichtplan.index').'"', false);
 
-    $this->actingAs($this->hanna)->get(route('ausruestung.equipment'))->assertOk()->assertDontSee('title="Verwaltung"', false)->assertDontSee('Inventur');
-    $this->actingAs($this->bernd)->get(route('ausruestung.equipment'))->assertOk()
-        ->assertSee('href="'.route('filament.ausruestung.pages.dashboard').'" title="Verwaltung"', false)->assertSee('Inventur')
+    $this->actingAs($this->hanna)->get(route('ausruestung.equipment'))->assertOk()->assertDontSee('title="Verwaltung"', false)->assertDontSee('Inventur')
         ->assertDontSee('>Admin</a>', false);
+    // The Gerätewart's admin area is part of /admin, so the blue bar offers it too
+    $this->actingAs($this->bernd)->get(route('ausruestung.equipment'))->assertOk()
+        ->assertSee('href="'.route('filament.admin.pages.ausruestung').'" title="Verwaltung"', false)->assertSee('Inventur')
+        ->assertSee('>Admin</a>', false);
 });
 
 test('no Modulleiste outside modules and for modules the Kamerad has no access to', function () {

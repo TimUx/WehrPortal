@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Modules\Ausruestung\src\Enums\EquipmentStatus;
 use Modules\Ausruestung\src\Enums\LoanStatus;
+use Modules\Ausruestung\src\Filament\Concerns\AusruestungArea;
 use Modules\Ausruestung\src\Filament\Resources\LoanResource\Pages;
 use Modules\Ausruestung\src\Filament\Support\EquipmentActions;
 use Modules\Ausruestung\src\Models\Equipment;
@@ -23,9 +24,11 @@ use Modules\Ausruestung\src\Services\LoanService;
 /** Who has which item until when, and the reservations */
 class LoanResource extends Resource
 {
+    use AusruestungArea;
+
     protected static ?string $model = Loan::class;
 
-    protected static ?string $slug = 'ausleihe';
+    protected static ?string $slug = 'ausruestung/ausleihe';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-arrows-right-left';
 

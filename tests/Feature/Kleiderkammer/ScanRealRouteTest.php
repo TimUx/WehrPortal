@@ -33,7 +33,7 @@ test('scanning an unknown code redirects to the create form in the Kleiderkammer
 });
 
 test('the item form section spans the full width', function () {
-    Filament::setCurrentPanel(Filament::getPanel('kleiderkammer'));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
 
     $section = Livewire::actingAs($this->kleiderwart)
         ->test(CreateItem::class)

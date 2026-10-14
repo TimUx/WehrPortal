@@ -35,7 +35,7 @@ class DefectReportedNotification extends Notification
         }
 
         return $mail
-            ->action('Mangel bearbeiten', DefectResource::getUrl('edit', ['record' => $defect], panel: 'maengelmanagement'))
+            ->action('Mangel bearbeiten', DefectResource::getUrl('edit', ['record' => $defect]))
             ->salutation(app(OrganizationSettings::class)->salutation());
     }
 }

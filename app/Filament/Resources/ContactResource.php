@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\AdminOnly;
 use App\Filament\Resources\ContactResource\Pages;
 use App\Models\Contact;
 use App\Models\Group;
@@ -15,6 +16,8 @@ use Filament\Tables\Table;
 /** Ansprechpartner of the Wehr: every Kamerad sees them under /ansprechpartner, with phone to tap */
 class ContactResource extends Resource
 {
+    use AdminOnly;
+
     protected static ?string $slug = 'ansprechpartner';
 
     protected static ?string $model = Contact::class;

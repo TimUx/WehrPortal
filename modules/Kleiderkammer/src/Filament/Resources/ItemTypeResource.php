@@ -9,6 +9,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Modules\Kleiderkammer\src\Filament\Concerns\KleiderkammerArea;
 use Modules\Kleiderkammer\src\Filament\Resources\ItemTypeResource\Pages;
 use Modules\Kleiderkammer\src\Filament\Resources\ItemTypeResource\RelationManagers;
 use Modules\Kleiderkammer\src\Models\ItemCategory;
@@ -16,7 +17,9 @@ use Modules\Kleiderkammer\src\Models\ItemType;
 
 class ItemTypeResource extends Resource
 {
-    protected static ?string $slug = 'artikeltypen';
+    use KleiderkammerArea;
+
+    protected static ?string $slug = 'kleiderkammer/artikeltypen';
 
     protected static ?string $model = ItemType::class;
 

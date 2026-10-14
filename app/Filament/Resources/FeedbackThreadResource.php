@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\AdminOnly;
 use App\Filament\Resources\FeedbackThreadResource\Pages;
 use App\Models\FeedbackThread;
 use App\Services\ModuleRegistry;
@@ -15,6 +16,8 @@ use Filament\Tables\Table;
 
 class FeedbackThreadResource extends Resource
 {
+    use AdminOnly;
+
     protected static ?string $slug = 'feedback';
 
     protected static ?string $model = FeedbackThread::class;

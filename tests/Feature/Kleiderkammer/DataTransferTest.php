@@ -210,7 +210,7 @@ test('admin can import an uploaded export file on the data transfer page', funct
     Storage::fake('local');
     Module::where('key', 'kleiderkammer')->update(['is_active' => true]);
     Cache::forget('modules_active_keys');
-    Filament::setCurrentPanel(Filament::getPanel('kleiderkammer'));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
 
     $json = json_encode(['version' => 1, 'groups' => ['members' => ['members' => [
         ['name' => 'Hanna Hydrant', 'email' => 'hanna.hydrant@example.com'],
@@ -230,7 +230,7 @@ test('admin can import an uploaded export file on the data transfer page', funct
 test('the export button downloads the JSON file', function () {
     Module::where('key', 'kleiderkammer')->update(['is_active' => true]);
     Cache::forget('modules_active_keys');
-    Filament::setCurrentPanel(Filament::getPanel('kleiderkammer'));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
     seedCatalog();
 
     Livewire::actingAs(User::factory()->admin()->create())

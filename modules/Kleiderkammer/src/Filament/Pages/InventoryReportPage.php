@@ -3,11 +3,14 @@
 namespace Modules\Kleiderkammer\src\Filament\Pages;
 
 use Filament\Pages\Page;
+use Modules\Kleiderkammer\src\Filament\Concerns\KleiderkammerArea;
 use Modules\Kleiderkammer\src\Services\InventoryReport;
 
 class InventoryReportPage extends Page
 {
-    protected static ?string $slug = 'bestandsbericht';
+    use KleiderkammerArea;
+
+    protected static ?string $slug = 'kleiderkammer/bestandsbericht';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chart-bar';
 

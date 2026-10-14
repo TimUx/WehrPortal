@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Enums\MemberGender;
 use App\Enums\MemberStatus;
+use App\Filament\Concerns\AdminOnly;
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\MemberFunction;
 use App\Models\Module;
@@ -37,6 +38,8 @@ use Illuminate\Validation\ValidationException;
 
 class UserResource extends Resource
 {
+    use AdminOnly;
+
     protected static ?string $slug = 'kameraden';
 
     protected static ?string $model = User::class;

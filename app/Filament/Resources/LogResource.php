@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\AdminOnly;
 use App\Filament\Resources\LogResource\Pages;
 use App\Listeners\LogSentMail;
 use App\Models\ActivityLog;
@@ -22,6 +23,8 @@ use Throwable;
 /** Admin "Logs": every change in the app – also by the Kameraden –, logins and sent e-mails */
 class LogResource extends Resource
 {
+    use AdminOnly;
+
     protected static ?string $model = ActivityLog::class;
 
     protected static ?string $slug = 'logs';

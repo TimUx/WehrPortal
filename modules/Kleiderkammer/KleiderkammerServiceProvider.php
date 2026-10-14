@@ -10,6 +10,7 @@ use App\Support\ModuleNav;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
+use Modules\Kleiderkammer\src\Filament\Pages\KleiderkammerDashboard;
 use Modules\Kleiderkammer\src\Filament\Resources\ItemResource;
 use Modules\Kleiderkammer\src\Filament\Resources\MemberResource;
 use Modules\Kleiderkammer\src\Livewire\EquipmentMessageForm;
@@ -76,8 +77,8 @@ class KleiderkammerServiceProvider extends ServiceProvider
                 $holder = $item->currentIssuance()->latest('issued_at')->value('user_id');
 
                 return $holder !== null
-                    ? MemberResource::getUrl('edit', ['record' => $holder], panel: 'kleiderkammer')
-                    : ItemResource::getUrl('edit', ['record' => $item->getKey()], panel: 'kleiderkammer');
+                    ? MemberResource::getUrl('edit', ['record' => $holder])
+                    : ItemResource::getUrl('edit', ['record' => $item->getKey()]);
             }
 
             return null;
@@ -86,7 +87,7 @@ class KleiderkammerServiceProvider extends ServiceProvider
         // Unknown code: whoever manages the Kleiderkammer can register the item right away.
         // A fallback, so codes of other modules are not mistaken for new items.
         app(ScanRegistry::class)->registerFallback('kleiderkammer', fn (string $code): ?string => auth()->user()?->canManageKleiderkammer()
-            ? ItemResource::getUrl('create', ['code' => $code], panel: 'kleiderkammer')
+            ? ItemResource::getUrl('create', ['code' => $code])
             : null);
 
         // Bestand: Kleidung by code or Art, for those who run the Kleiderkammer
@@ -100,13 +101,13 @@ class KleiderkammerServiceProvider extends ServiceProvider
                 ->orderBy('code')->limit(50)->get()
                 ->map(fn (Item $item) => ['title' => trim(($item->itemType?->name ?? 'Teil').' '.($item->size?->name ?? '')), 'code' => $item->code, 'place' => null,
                     'state' => $item->status->label(), 'tone' => $item->isRetired() ? 'gray' : ($item->isIssued() ? 'blue' : 'green'),
-                    'url' => ItemResource::getUrl('edit', ['record' => $item->getKey()], panel: 'kleiderkammer')]);
+                    'url' => ItemResource::getUrl('edit', ['record' => $item->getKey()])]);
         }, order: 40);
 
         // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
         app(ModuleRegistry::class)->navigation('kleiderkammer', fn (User $u) => [
             'tabs' => [ModuleNav::tab('Meine Ausrüstung', 'kleiderkammer.index')],
-            'manage' => $u->canManageKleiderkammer() ? route('filament.kleiderkammer.pages.dashboard') : null,
+            'manage' => $u->canManageKleiderkammer() ? KleiderkammerDashboard::getUrl() : null,
         ]);
     }
 }

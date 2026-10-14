@@ -9,12 +9,15 @@ use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\HtmlString;
+use Modules\Fahrzeugbuchung\src\Filament\Concerns\FahrzeugbuchungArea;
 use Modules\Fahrzeugbuchung\src\Filament\Resources\MailTemplateResource\Pages;
 use Modules\Fahrzeugbuchung\src\Models\MailTemplate;
 
 class MailTemplateResource extends Resource
 {
-    protected static ?string $slug = 'e-mail-texte';
+    use FahrzeugbuchungArea;
+
+    protected static ?string $slug = 'fahrzeugbuchung/e-mail-texte';
 
     protected static ?string $model = MailTemplate::class;
 

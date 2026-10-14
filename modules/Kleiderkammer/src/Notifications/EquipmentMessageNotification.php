@@ -23,7 +23,7 @@ class EquipmentMessageNotification extends Notification
             ->greeting('Hallo '.$notifiable->name.',')
             ->line($this->message->user->name.' hat eine Nachricht zu „'.$this->message->item_label.'“ geschickt:')
             ->line($this->message->body)
-            ->action('In der Kleiderkammer öffnen', EquipmentMessageResource::getUrl('index', panel: 'kleiderkammer'))
+            ->action('In der Kleiderkammer öffnen', EquipmentMessageResource::getUrl('index'))
             ->salutation(app(OrganizationSettings::class)->salutation());
     }
 }

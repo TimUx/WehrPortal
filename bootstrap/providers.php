@@ -2,10 +2,6 @@
 
 use App\Providers\AppServiceProvider;
 use App\Providers\Filament\AdminPanelProvider;
-use App\Providers\Filament\AusruestungAdminPanelProvider;
-use App\Providers\Filament\FahrzeugbuchungAdminPanelProvider;
-use App\Providers\Filament\KleiderkammerAdminPanelProvider;
-use App\Providers\Filament\MaengelmanagementAdminPanelProvider;
 use Modules\Atemschutz\AtemschutzServiceProvider;
 use Modules\Ausruestung\AusruestungServiceProvider;
 use Modules\Einsatzbericht\EinsatzberichtServiceProvider;
@@ -33,10 +29,6 @@ use Modules\Wasserkarte\WasserkarteServiceProvider;
 return [
     AppServiceProvider::class,
     AdminPanelProvider::class,
-    FahrzeugbuchungAdminPanelProvider::class,
-    KleiderkammerAdminPanelProvider::class,
-    MaengelmanagementAdminPanelProvider::class,
-    AusruestungAdminPanelProvider::class,
     FahrzeugbuchungServiceProvider::class,
     KleiderkammerServiceProvider::class,
     MaengelmanagementServiceProvider::class,

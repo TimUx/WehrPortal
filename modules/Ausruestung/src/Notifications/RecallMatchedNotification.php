@@ -35,7 +35,7 @@ class RecallMatchedNotification extends Notification
         }
 
         return $mail
-            ->action('Rückruf öffnen', RecallResource::getUrl('edit', ['record' => $this->recall], panel: 'ausruestung'))
+            ->action('Rückruf öffnen', RecallResource::getUrl('edit', ['record' => $this->recall]))
             ->salutation(app(OrganizationSettings::class)->salutation());
     }
 }

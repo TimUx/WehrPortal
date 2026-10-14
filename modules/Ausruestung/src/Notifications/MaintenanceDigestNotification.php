@@ -6,6 +6,7 @@ use App\Notifications\Concerns\InApp;
 use App\Services\OrganizationSettings;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Modules\Ausruestung\src\Filament\Pages\AusruestungDashboard;
 use Modules\Ausruestung\src\Models\Equipment;
 use Modules\Ausruestung\src\Models\Loan;
 
@@ -47,7 +48,7 @@ class MaintenanceDigestNotification extends Notification
         }
 
         return $mail
-            ->action('Zur Ausrüstungsverwaltung', route('filament.ausruestung.pages.dashboard'))
+            ->action('Zur Ausrüstungsverwaltung', AusruestungDashboard::getUrl())
             ->salutation(app(OrganizationSettings::class)->salutation());
     }
 }
