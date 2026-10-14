@@ -1,15 +1,32 @@
 <?php
 
-namespace Modules\Personalverwaltung\src\Livewire;
+namespace Modules\Personalverwaltung\src\Filament\Pages;
 
+use App\Filament\Concerns\IsModuleArea;
+use App\Filament\ModuleArea;
 use App\Models\Group;
+use App\Models\User;
+use Filament\Pages\Page;
 use Illuminate\Validation\ValidationException;
-use Livewire\Component;
 use Modules\Personalverwaltung\src\Services\PersonnelService;
 
-/** Admin area of the Personalverwalter: which personal data is kept, and whether Kameraden keep their own */
-class Settings extends Component
+/** /admin/personalverwaltung/einstellungen – Personalverwalter: which personal data is kept, self-service, Dienstausweis, Dienstzeit */
+class SettingsPage extends Page implements ModuleArea
 {
+    use IsModuleArea;
+
+    protected static ?string $slug = 'personalverwaltung/einstellungen';
+
+    protected static ?string $title = 'Einstellungen Personalverwaltung';
+
+    protected static ?string $navigationLabel = 'Einstellungen';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Personalverwaltung';
+
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-cog-6-tooth';
+
+    protected string $view = 'personalverwaltung::filament.pages.settings';
+
     public array $fields = [];
 
     public ?string $flash = null;
@@ -20,6 +37,11 @@ class Settings extends Component
     public string $youthRule = 'full';
 
     public int $youthAge = 16;
+
+    public static function allows(User $user): bool
+    {
+        return PersonnelService::canManage($user);
+    }
 
     public function mount(): void
     {
@@ -54,8 +76,8 @@ class Settings extends Component
         $this->flash = 'Gespeichert.';
     }
 
-    public function render()
+    protected function getViewData(): array
     {
-        return view('personalverwaltung::livewire.settings', ['groups' => Group::orderBy('sort_order')->orderBy('name')->get(['id', 'name'])]);
+        return ['groups' => Group::orderBy('sort_order')->orderBy('name')->get(['id', 'name'])];
     }
 }

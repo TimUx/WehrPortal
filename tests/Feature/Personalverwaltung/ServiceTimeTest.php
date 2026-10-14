@@ -7,8 +7,8 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Livewire;
+use Modules\Personalverwaltung\src\Filament\Pages\SettingsPage;
 use Modules\Personalverwaltung\src\Livewire\MemberFile;
-use Modules\Personalverwaltung\src\Livewire\Settings;
 use Modules\Personalverwaltung\src\Models\HistoryEntry;
 use Modules\Personalverwaltung\src\Models\HistoryFile;
 use Modules\Personalverwaltung\src\Services\PersonnelService;
@@ -68,7 +68,7 @@ test('Dienstzeit in another Wehr counts; Jugendfeuerwehr only from the chosen ag
         ->and(ServiceTime::on($other)['other'])->toBeGreaterThan(1800);
 
     $jf = Group::create(['name' => 'Jugendfeuerwehr', 'sort_order' => 2]);
-    Livewire::actingAs($this->pv)->test(Settings::class)->set('youthGroupId', (string) $jf->id)->set('youthRule', 'age')->set('youthAge', 16)->call('saveRules')->assertHasNoErrors();
+    Livewire::actingAs($this->pv)->test(SettingsPage::class)->set('youthGroupId', (string) $jf->id)->set('youthRule', 'age')->set('youthAge', 16)->call('saveRules')->assertHasNoErrors();
 
     $kid = historyMember([
         ['status', 'Aktiv', '1993-06-01', null, null],
@@ -82,7 +82,7 @@ test('Dienstzeit in another Wehr counts; Jugendfeuerwehr only from the chosen ag
     expect(ServiceTime::on($unknown))->years->toBe(34)->notes->toHaveCount(1);
 
     // "zählt nicht"
-    Livewire::actingAs($this->pv)->test(Settings::class)->set('youthRule', 'none')->call('saveRules');
+    Livewire::actingAs($this->pv)->test(SettingsPage::class)->set('youthRule', 'none')->call('saveRules');
     expect(ServiceTime::on($kid)['start']->toDateString())->toBe('2001-06-01');
 
     $this->actingAs($this->pv)->get(route('personalverwaltung.member', $kid))->assertOk()

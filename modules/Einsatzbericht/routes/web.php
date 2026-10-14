@@ -67,7 +67,6 @@ Route::middleware(['auth', 'active', 'module:einsatzbericht'])->group(function (
 
                 return view('einsatzbericht::pages.annual', ['year' => $year, 'sections' => app(AnnualReportRegistry::class)->for($year)]);
             })->name('annual');
-            Route::get('/einstellungen', fn () => view('einsatzbericht::pages.manage', ['livewireComponent' => 'einsatzbericht.settings', 'title' => 'Einstellungen Einsatzbericht']))->name('settings');
             Route::get('/kameraden', fn () => view('einsatzbericht::pages.manage', ['livewireComponent' => 'einsatzbericht.members', 'title' => 'Einsätze der Kameraden']))->name('members');
             Route::get('/kameraden/{user}', fn (User $user) => view('einsatzbericht::pages.member', compact('user')))->whereNumber('user')->name('member');
         });

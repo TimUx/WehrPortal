@@ -20,9 +20,11 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Modules\Ausruestung\AusruestungPlugin;
+use Modules\Einsatzbericht\EinsatzberichtPlugin;
 use Modules\Fahrzeugbuchung\FahrzeugbuchungPlugin;
 use Modules\Kleiderkammer\KleiderkammerPlugin;
 use Modules\Maengelmanagement\MaengelmanagementPlugin;
+use Modules\Personalverwaltung\PersonalverwaltungPlugin;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -54,14 +56,16 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
-            // One panel for everyone who manages something: admins see all of it, Kleiderwarte,
-            // Gerätewarte and Verantwortliche only their module's group (App\Filament\ModuleDashboard).
-            ->navigationGroups(['Fahrzeugbuchung', 'Kleiderkammer', 'Ausrüstung', 'Mängelmanagement'])
+            // One panel for everyone who manages something: admins see all of it, module managers
+            // (Kleiderwart, Wehrführung, Personalverwalter …) only their module's group (App\Filament\ModuleArea).
+            ->navigationGroups(['Fahrzeugbuchung', 'Kleiderkammer', 'Ausrüstung', 'Mängelmanagement', 'Einsatzbericht', 'Personalverwaltung'])
             ->plugins([
                 FahrzeugbuchungPlugin::make(),
                 KleiderkammerPlugin::make(),
                 AusruestungPlugin::make(),
                 MaengelmanagementPlugin::make(),
+                EinsatzberichtPlugin::make(),
+                PersonalverwaltungPlugin::make(),
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([])

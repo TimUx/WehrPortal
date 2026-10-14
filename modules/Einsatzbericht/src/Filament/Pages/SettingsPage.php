@@ -1,18 +1,35 @@
 <?php
 
-namespace Modules\Einsatzbericht\src\Livewire;
+namespace Modules\Einsatzbericht\src\Filament\Pages;
 
+use App\Filament\Concerns\IsModuleArea;
+use App\Filament\ModuleArea;
 use App\Models\Setting;
+use App\Models\User;
+use Filament\Pages\Page;
 use Illuminate\Support\Arr;
-use Livewire\Component;
 use Modules\Einsatzbericht\src\Models\DiveraRequest;
 use Modules\Einsatzbericht\src\Models\Report;
 use Modules\Einsatzbericht\src\Services\DiveraWebhook;
 use Modules\Einsatzbericht\src\Services\ReportService;
 
-/** Wehrführung: mandatory fields of a report, and the DIVERA 24/7 webhook */
-class Settings extends Component
+/** /admin/einsatzbericht/einstellungen – Wehrführung: mandatory fields of a report, counting, and the DIVERA 24/7 webhook */
+class SettingsPage extends Page implements ModuleArea
 {
+    use IsModuleArea;
+
+    protected static ?string $slug = 'einsatzbericht/einstellungen';
+
+    protected static ?string $title = 'Einstellungen Einsatzbericht';
+
+    protected static ?string $navigationLabel = 'Einstellungen';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Einsatzbericht';
+
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-cog-6-tooth';
+
+    protected string $view = 'einsatzbericht::filament.pages.settings';
+
     /** @var list<string> */
     public array $required = [];
 
@@ -33,9 +50,9 @@ class Settings extends Component
 
     public ?string $flash = null;
 
-    public function boot(): void
+    public static function allows(User $user): bool
     {
-        abort_unless(ReportService::canRelease(auth()->user()), 403);
+        return ReportService::canRelease($user);
     }
 
     public function mount(): void
@@ -105,17 +122,17 @@ class Settings extends Component
         $this->mapping = DiveraWebhook::DEFAULT_MAPPING;
     }
 
-    public function render()
+    protected function getViewData(): array
     {
         $requests = DiveraRequest::with('report')->latest('id')->limit(20)->get();
         $latest = $requests->first();
 
-        return view('einsatzbericht::livewire.settings', [
+        return [
             'fields' => Report::REQUIRABLE,
             'url' => DiveraWebhook::url(),
             'requests' => $requests,
             // What the last request contained, to set the mapping by
             'latestFields' => $latest ? Arr::dot(DiveraWebhook::parse($latest)) : [],
-        ]);
+        ];
     }
 }

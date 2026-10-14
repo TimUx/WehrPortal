@@ -8,7 +8,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
-use Modules\Einsatzbericht\src\Livewire\Settings;
+use Modules\Einsatzbericht\src\Filament\Pages\SettingsPage;
 use Modules\Einsatzbericht\src\Models\DiveraRequest;
 use Modules\Einsatzbericht\src\Models\Report;
 use Modules\Einsatzbericht\src\Services\DiveraWebhook;
@@ -129,7 +129,7 @@ test('the Wehrführung switches the webhook, copies the address, sets mapping an
     $chief->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'wehrführung']);
     $this->postJson($this->url, $this->alarm);
 
-    Livewire::actingAs($chief)->test(Settings::class)
+    Livewire::actingAs($chief)->test(SettingsPage::class)
         ->assertSee($this->url)
         ->assertSee('Einsatz angelegt')
         ->assertSee('Felder im letzten Request')->assertSee('address')
@@ -143,7 +143,9 @@ test('the Wehrführung switches the webhook, copies the address, sets mapping an
 
     $leader = User::factory()->create();
     $leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
-    $this->actingAs($leader)->get('/einsatzbericht/einstellungen')->assertForbidden();
+    $this->actingAs($leader)->get('/admin/einsatzbericht/einstellungen')->assertForbidden();
+    $this->actingAs($chief)->get('/admin/einsatzbericht/einstellungen')->assertOk()->assertSee('DIVERA 24/7 (Webhook)');
+    $this->actingAs($chief)->get('/einsatzbericht/einstellungen')->assertRedirect('/admin/einsatzbericht/einstellungen');
 });
 
 test('the draft shows its DIVERA origin and message', function () {
@@ -169,7 +171,7 @@ test('a test alarm from the app runs the same way as a DIVERA request and makes 
     $chief = User::factory()->create(['name' => 'Wilma Wehrführer']);
     $chief->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'wehrführung']);
 
-    Livewire::actingAs($chief)->test(Settings::class)
+    Livewire::actingAs($chief)->test(SettingsPage::class)
         ->set('test.keyword', 'TH 1 – Test')
         ->set('test.address', 'Am Teich 3, Musterstadt')
         ->set('test.latitude', '51.17')
@@ -184,7 +186,7 @@ test('a test alarm from the app runs the same way as a DIVERA request and makes 
         ->and(json_decode(DiveraRequest::sole()->body, true))->toMatchArray(['title' => 'TH 1 – Test', 'address' => 'Am Teich 3, Musterstadt']);
 
     // Each test alarm is its own alarm, no re-alarm
-    Livewire::actingAs($chief)->test(Settings::class)->call('sendTestAlarm');
+    Livewire::actingAs($chief)->test(SettingsPage::class)->call('sendTestAlarm');
     expect(Report::count())->toBe(2);
 });
 
@@ -202,10 +204,10 @@ test('a test alarm needs the webhook switched on; a failing public address is re
     $chief = User::factory()->admin()->create();
 
     Http::fake(['*' => Http::response('', 502)]);
-    Livewire::actingAs($chief)->test(Settings::class)->set('test.via_url', true)->call('sendTestAlarm')
+    Livewire::actingAs($chief)->test(SettingsPage::class)->set('test.via_url', true)->call('sendTestAlarm')
         ->assertSee('Test-Alarm fehlgeschlagen: Die Adresse antwortet mit HTTP 502.');
 
     DiveraWebhook::setEnabled(false);
-    Livewire::actingAs($chief)->test(Settings::class)->call('sendTestAlarm')->assertSee('Der Webhook ist ausgeschaltet');
+    Livewire::actingAs($chief)->test(SettingsPage::class)->call('sendTestAlarm')->assertSee('Der Webhook ist ausgeschaltet');
     expect(Report::count())->toBe(0);
 });

@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use Modules\Personalverwaltung\src\Console\Commands\SyncHistory;
+use Modules\Personalverwaltung\src\Filament\Pages\SettingsPage;
 use Modules\Personalverwaltung\src\Livewire\Access;
 use Modules\Personalverwaltung\src\Livewire\Attendance;
 use Modules\Personalverwaltung\src\Livewire\ChangeRequests;
@@ -29,7 +30,6 @@ use Modules\Personalverwaltung\src\Livewire\NewMembers;
 use Modules\Personalverwaltung\src\Livewire\OwnData;
 use Modules\Personalverwaltung\src\Livewire\OwnFile;
 use Modules\Personalverwaltung\src\Livewire\Reports;
-use Modules\Personalverwaltung\src\Livewire\Settings;
 use Modules\Personalverwaltung\src\Models\MemberProfile;
 use Modules\Personalverwaltung\src\Services\PersonnelService;
 use Throwable;
@@ -90,7 +90,7 @@ class PersonalverwaltungServiceProvider extends ServiceProvider
 
         foreach (['member-list' => MemberList::class, 'member-file' => MemberFile::class, 'honors' => Honors::class,
             'attendance' => Attendance::class, 'access' => Access::class, 'own-file' => OwnFile::class,
-            'settings' => Settings::class, 'own-data' => OwnData::class, 'change-requests' => ChangeRequests::class, 'hours-overview' => HoursOverview::class, 'reports' => Reports::class, 'new-members' => NewMembers::class,
+            'own-data' => OwnData::class, 'change-requests' => ChangeRequests::class, 'hours-overview' => HoursOverview::class, 'reports' => Reports::class, 'new-members' => NewMembers::class,
             'digital-id' => DigitalId::class] as $name => $class) {
             Livewire::component('personalverwaltung.'.$name, $class);
         }
@@ -153,9 +153,9 @@ class PersonalverwaltungServiceProvider extends ServiceProvider
                 ModuleNav::tab('Auswertungen', 'personalverwaltung.reports'),
                 app(HoursRegistry::class)->sources() ? ModuleNav::tab('Stunden', 'personalverwaltung.hours') : null,
                 PersonnelService::attendanceAvailable() ? ModuleNav::tab('Dienstbeteiligung', 'personalverwaltung.attendance') : null,
-                PersonnelService::canManage($u) ? ModuleNav::tab('Einstellungen', 'personalverwaltung.settings') : null,
                 $u->is_admin ? ModuleNav::tab('Zugriff', 'personalverwaltung.access') : null,
             ],
+            'manage' => PersonnelService::canManage($u) ? SettingsPage::getUrl() : null,
         ]);
     }
 }

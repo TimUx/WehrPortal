@@ -12,13 +12,13 @@ use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Modules\Kalender\src\Services\EventService;
+use Modules\Personalverwaltung\src\Filament\Pages\SettingsPage;
 use Modules\Personalverwaltung\src\Livewire\Access;
 use Modules\Personalverwaltung\src\Livewire\Attendance;
 use Modules\Personalverwaltung\src\Livewire\Honors;
 use Modules\Personalverwaltung\src\Livewire\MemberFile;
 use Modules\Personalverwaltung\src\Livewire\MemberList;
 use Modules\Personalverwaltung\src\Livewire\OwnData;
-use Modules\Personalverwaltung\src\Livewire\Settings;
 use Modules\Personalverwaltung\src\Models\HistoryEntry;
 use Modules\Personalverwaltung\src\Models\Honor;
 use Modules\Personalverwaltung\src\Notifications\PersonalDataChangedNotification;
@@ -146,15 +146,18 @@ test('the Dienstausweis is kept; one running out shows on the start page', funct
 });
 
 test('the Personalverwalter switch personal data on in their own admin area – no admin needed', function () {
+    // The gear of the Modulleiste leads to /admin/personalverwaltung/einstellungen
     $this->actingAs($this->manager)->get(route('personalverwaltung.index'))->assertOk()
-        ->assertSee('href="'.route('personalverwaltung.settings').'"', false);
-    $this->actingAs($this->hanna)->get(route('personalverwaltung.own'))->assertOk()->assertDontSee(route('personalverwaltung.settings'));
+        ->assertSee('href="'.SettingsPage::getUrl().'" title="Verwaltung"', false);
+    $this->actingAs($this->manager)->get(SettingsPage::getUrl())->assertOk()->assertSee('Einstellungen Personalverwaltung');
+    $this->actingAs($this->hanna)->get(route('personalverwaltung.own'))->assertOk()->assertDontSee(SettingsPage::getUrl());
+    $this->actingAs($this->hanna)->get(SettingsPage::getUrl())->assertForbidden();
 
     expect(PersonnelService::activeFields())->toBe([]);
     $this->actingAs($this->hanna)->get(route('personalverwaltung.own-data'))->assertNotFound();
     $this->actingAs($this->hanna)->get(route('profile'))->assertDontSee('Persönliche Daten');
 
-    Livewire::actingAs($this->manager)->test(Settings::class)
+    Livewire::actingAs($this->manager)->test(SettingsPage::class)
         ->set('fields.address', true)->set('fields.birth_date', true)->set('fields.phone', true)->call('save')->assertSee('Gespeichert');
     expect(PersonnelService::activeFields())->toBe(['address', 'birth_date', 'phone'])->and(PersonnelService::selfService())->toBeTrue();
     expect(fn () => $this->p->saveSettings($this->hanna, ['address' => false]))->toThrow(ValidationException::class);

@@ -78,8 +78,6 @@ Route::middleware(['auth', 'active', 'module:personalverwaltung'])->group(functi
                 'Content-Disposition' => 'attachment; filename="Dienstbeteiligung-'.$year.'.csv"',
             ]);
         })->name('attendance.csv');
-        // The admin area of the Personalverwalter (no admin rights needed)
-        Route::get('/einstellungen', fn () => $page('personalverwaltung.settings', 'Einstellungen'))->name('settings')->middleware('can:personalverwaltung-manage');
         Route::get('/adressliste.csv', function (PersonnelService $personnel) {
             abort_unless(PersonnelService::activeFields() !== [], 404);
 

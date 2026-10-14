@@ -202,6 +202,9 @@ foreach ([
     'admin/ausruestung/locations' => 'admin/ausruestung/standorte',
     'admin/ausruestung/recalls' => 'admin/ausruestung/rueckrufe',
     'admin/ausruestung/load-plan' => 'admin/ausruestung/beladeplan',
+    // Module settings moved into the admin panel
+    'einsatzbericht/einstellungen' => 'admin/einsatzbericht/einstellungen',
+    'personalverwaltung/einstellungen' => 'admin/personalverwaltung/einstellungen',
 ] as $old => $new) {
     Route::get($old.'/{rest?}', function (?string $rest = null) use ($new) {
         // Admin sub-pages: …/create → …/neu, …/{id}/edit → …/{id}/bearbeiten

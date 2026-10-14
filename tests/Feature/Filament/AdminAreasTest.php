@@ -79,3 +79,20 @@ test('global search only offers resources of the own area', function () {
     expect($searchable)->not->toBeEmpty()
         ->and($searchable->every(fn (string $resource) => str_starts_with($resource, 'Modules\\Kleiderkammer\\')))->toBeTrue();
 });
+
+test('the Wehrführung and Personalverwalter find their module settings in /admin', function () {
+    Module::query()->whereIn('key', ['einsatzbericht', 'personalverwaltung'])->update(['is_active' => true]);
+    Cache::forget('modules_active_keys');
+    $chief = User::factory()->create(['name' => 'Bernd Blaulicht']);
+    $chief->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'wehrführung']);
+
+    $this->actingAs($chief)->get('/admin')->assertRedirect('/admin/einsatzbericht/einstellungen');
+    $this->actingAs($chief)->get('/admin/einsatzbericht/einstellungen')->assertOk()
+        ->assertSee('Pflichtfelder')
+        ->assertDontSee('href="'.url('/admin/personalverwaltung/einstellungen').'"', false)
+        ->assertDontSee('href="'.url('/admin/kleiderkammer').'"', false);
+    $this->actingAs($chief)->get('/admin/personalverwaltung/einstellungen')->assertForbidden();
+
+    $chief->moduleAccess()->create(['module' => 'personalverwaltung', 'role' => 'personalverwalter']);
+    $this->actingAs($chief)->get('/admin/personalverwaltung/einstellungen')->assertOk()->assertSee('Dienstzeit');
+});

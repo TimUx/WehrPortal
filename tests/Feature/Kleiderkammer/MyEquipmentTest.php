@@ -56,20 +56,16 @@ test('returned equipment is not listed', function () {
         ->assertSee('keine Ausrüstung ausgegeben');
 });
 
-test('kleiderwart sees the link to the management panel', function () {
-    $this->actingAs(memberUser('kleiderwart'))
-        ->get('/kleiderkammer')
-        ->assertOk()
-        ->assertSee('Kleiderkammer verwalten')
-        ->assertSee(route('filament.admin.pages.kleiderkammer'), false);
-});
+// The way into the Kleiderkammer area is the gear ("Verwaltung") of the Modulleiste, no extra button
+test('kleiderwart and admin reach the management area through the Modulleiste', function (string $who) {
+    $user = $who === 'admin' ? User::factory()->admin()->create() : memberUser('kleiderwart');
 
-test('admin sees the link to the management panel', function () {
-    $this->actingAs(User::factory()->admin()->create())
+    $this->actingAs($user)
         ->get('/kleiderkammer')
         ->assertOk()
-        ->assertSee('Kleiderkammer verwalten');
-});
+        ->assertSee('href="'.route('filament.admin.pages.kleiderkammer').'" title="Verwaltung"', false)
+        ->assertDontSee('Kleiderkammer verwalten');
+})->with(['kleiderwart', 'admin']);
 
 test('plain member cannot open the management panel', function () {
     $this->actingAs(memberUser())

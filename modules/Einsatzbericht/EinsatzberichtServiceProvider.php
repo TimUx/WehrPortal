@@ -19,13 +19,13 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use Modules\Einsatzbericht\src\Console\Commands\SendReportReminders;
+use Modules\Einsatzbericht\src\Filament\Pages\SettingsPage;
 use Modules\Einsatzbericht\src\Livewire\ExternalReport;
 use Modules\Einsatzbericht\src\Livewire\MaterialCatalog;
 use Modules\Einsatzbericht\src\Livewire\MemberMissions;
 use Modules\Einsatzbericht\src\Livewire\Members;
 use Modules\Einsatzbericht\src\Livewire\ReportEditor;
 use Modules\Einsatzbericht\src\Livewire\ReportList;
-use Modules\Einsatzbericht\src\Livewire\Settings;
 use Modules\Einsatzbericht\src\Livewire\SituationLog;
 use Modules\Einsatzbericht\src\Livewire\Statistics;
 use Modules\Einsatzbericht\src\Models\Report;
@@ -74,7 +74,7 @@ class EinsatzberichtServiceProvider extends ServiceProvider
         Gate::define('einsatzbericht-materials', fn (User $user) => $user->is_admin && $user->is_active);
 
         foreach (['report-list' => ReportList::class, 'report-editor' => ReportEditor::class, 'statistics' => Statistics::class,
-            'settings' => Settings::class, 'members' => Members::class, 'member-missions' => MemberMissions::class,
+            'members' => Members::class, 'member-missions' => MemberMissions::class,
             'situation-log' => SituationLog::class, 'material-catalog' => MaterialCatalog::class, 'external-report' => ExternalReport::class] as $name => $class) {
             Livewire::component('einsatzbericht.'.$name, $class);
         }
@@ -119,8 +119,8 @@ class EinsatzberichtServiceProvider extends ServiceProvider
                 ReportService::canRelease($u) ? ModuleNav::tab('Jahresstatistik', 'einsatzbericht.statistics', ['einsatzbericht.annual']) : null,
                 ReportService::canRelease($u) ? ModuleNav::tab('Kameraden', 'einsatzbericht.members', ['einsatzbericht.member']) : null,
                 $u->can('einsatzbericht-materials') ? ModuleNav::tab('Material', 'einsatzbericht.materials') : null,
-                ReportService::canRelease($u) ? ModuleNav::tab('Einstellungen', 'einsatzbericht.settings') : null,
             ],
+            'manage' => ReportService::canRelease($u) ? SettingsPage::getUrl() : null,
         ]);
     }
 }

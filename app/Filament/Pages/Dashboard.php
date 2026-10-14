@@ -2,7 +2,7 @@
 
 namespace App\Filament\Pages;
 
-use App\Filament\ModuleDashboard;
+use App\Filament\ModuleAreas;
 use Filament\Facades\Filament;
 use Filament\Pages\Dashboard as BaseDashboard;
 
@@ -14,7 +14,7 @@ class Dashboard extends BaseDashboard
     {
         $user = auth()->user();
 
-        if (! $user->is_admin && ($first = ModuleDashboard::accessibleFor($user)[0] ?? null)) {
+        if (! $user->is_admin && ($first = ModuleAreas::for($user)[0] ?? null)) {
             $this->redirect($first::getUrl());
         }
     }

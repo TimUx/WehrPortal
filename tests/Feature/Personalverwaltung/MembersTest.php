@@ -80,7 +80,8 @@ test('Personaleinsicht sees the files read-only, without personal data and witho
     Livewire::actingAs($viewer)->test(MemberList::class)->assertDontSee('Sammelverarbeitung')
         ->set('selected', [(string) $hanna->id])->call('applyBulk')->assertHasErrors('bulk');
     $this->actingAs($viewer)->get(route('personalverwaltung.reports'))->assertOk();
-    foreach (['new', 'settings', 'honors', 'requests'] as $route) {
+    foreach (['new', 'honors', 'requests'] as $route) {
         $this->get(route('personalverwaltung.'.$route))->assertForbidden();
     }
+    $this->get('/admin/personalverwaltung/einstellungen')->assertForbidden();
 });

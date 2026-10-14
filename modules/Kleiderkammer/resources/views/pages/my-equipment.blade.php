@@ -1,14 +1,6 @@
 <x-layouts.app title="Meine Ausrüstung">
 
-    <div class="flex items-center justify-between gap-4 mb-4">
-        <h1 class="text-xl font-bold text-gray-900">Meine Ausrüstung</h1>
-        @if(auth()->user()->canManageKleiderkammer())
-            <a href="{{ \Modules\Kleiderkammer\src\Filament\Pages\KleiderkammerDashboard::getUrl() }}"
-               class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-fw-red text-white text-sm font-semibold hover:bg-fw-red-dark">
-                Kleiderkammer verwalten
-            </a>
-        @endif
-    </div>
+    <h1 class="text-xl font-bold text-gray-900 mb-4">Meine Ausrüstung</h1>
 
     @if($items->isEmpty())
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-sm text-gray-600">

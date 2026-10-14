@@ -11,9 +11,9 @@ use Illuminate\Support\Facades\URL;
 use Livewire\Livewire;
 use Modules\Atemschutz\src\Models\Training;
 use Modules\Atemschutz\src\Models\Wearer;
+use Modules\Personalverwaltung\src\Filament\Pages\SettingsPage;
 use Modules\Personalverwaltung\src\Livewire\ChangeRequests;
 use Modules\Personalverwaltung\src\Livewire\OwnFile;
-use Modules\Personalverwaltung\src\Livewire\Settings;
 use Modules\Personalverwaltung\src\Models\ChangeRequest;
 use Modules\Personalverwaltung\src\Models\MemberProfile;
 use Modules\Personalverwaltung\src\Notifications\ChangeRequestAnsweredNotification;
@@ -61,7 +61,7 @@ test('Dienstausweis and Atemschutzpass on the phone, checked by a QR code that r
     $this->get(route('profile'))->assertDontSee(route('credentials'))->assertDontSee(route('personalverwaltung.digital-id'));
     $this->get(route('personalverwaltung.digital-id'))->assertNotFound();
 
-    Livewire::actingAs($this->pv)->test(Settings::class)->set('fields.digital_id', true)->call('save');
+    Livewire::actingAs($this->pv)->test(SettingsPage::class)->set('fields.digital_id', true)->call('save');
     MemberProfile::create(['user_id' => $this->hanna->id, 'id_card_number' => 'MS-0815', 'id_card_valid_until' => now()->addYear()->toDateString()]);
     Wearer::create(['user_id' => $this->hanna->id, 'is_agt' => true, 'g263_examined_on' => now()->subYear()->toDateString(), 'g263_valid_until' => now()->addYears(2)->toDateString()]);
     foreach (['belastungsuebung', 'unterweisung'] as $kind) {

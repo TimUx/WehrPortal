@@ -10,10 +10,10 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
+use Modules\Einsatzbericht\src\Filament\Pages\SettingsPage;
 use Modules\Einsatzbericht\src\Livewire\MemberMissions;
 use Modules\Einsatzbericht\src\Livewire\ReportEditor;
 use Modules\Einsatzbericht\src\Livewire\ReportList;
-use Modules\Einsatzbericht\src\Livewire\Settings;
 use Modules\Einsatzbericht\src\Livewire\Statistics;
 use Modules\Einsatzbericht\src\Models\Report;
 use Modules\Einsatzbericht\src\Notifications\ReportStatusNotification;
@@ -177,7 +177,7 @@ test('closing needs the mandatory fields the Wehrführung chose', function () {
 
     expect(fn () => $this->r->close($this->leader, $report))->toThrow(ValidationException::class, 'Einsatzstichwort');
 
-    Livewire::actingAs($this->chief)->test(Settings::class)->set('required', ['keyword'])->call('save')->assertSee('Pflichtfelder gespeichert');
+    Livewire::actingAs($this->chief)->test(SettingsPage::class)->set('required', ['keyword'])->call('save')->assertSee('Pflichtfelder gespeichert');
     $this->r->update($this->leader, $report, ['keyword' => 'FEU 1']);
     $this->r->close($this->leader, $report->refresh());
 
@@ -258,7 +258,7 @@ test('the Jahresstatistik counts released reports by type, month and vehicle; cl
     // The Wehrführung can count closed ones too
     $second = fullReport();
     $this->r->close($this->leader, $second);
-    Livewire::actingAs($this->chief)->test(Settings::class)->set('releasedOnly', false)->call('saveCounting')->assertSee('auch abgeschlossene');
+    Livewire::actingAs($this->chief)->test(SettingsPage::class)->set('releasedOnly', false)->call('saveCounting')->assertSee('auch abgeschlossene');
     expect($this->r->statistics(2027)['total'])->toBe(2);
 });
 
