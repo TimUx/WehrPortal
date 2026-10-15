@@ -19,6 +19,34 @@
     @if($flash)<p class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{{ $flash }}</p>@endif
     @if($error)<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{ $error }}</p>@endif
 
+    {{-- The Ausbildungsleiter puts Kameraden down for a Lehrgang himself --}}
+    <details class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm" @if($registerCourse !== '' || $registerMembers) open @endif>
+        <summary class="cursor-pointer text-sm font-semibold text-gray-900">Kameraden zu einem Lehrgang anmelden</summary>
+        <form wire:submit="registerMembers" class="mt-3 space-y-3">
+            <label class="block text-sm text-gray-700">Lehrgang
+                <select wire:model.live="registerCourse" class="{{ $input }} mt-1 w-full"><option value="">Lehrgang wählen …</option>@foreach($offeredCourses as $c)<option value="{{ $c->id }}">{{ $c->name }}</option>@endforeach</select>
+            </label>
+            @if($registerCourse !== '')
+            <div>
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <span class="text-sm text-gray-700">Kameraden <span class="text-gray-500">({{ count($registerMembers) }} gewählt)</span></span>
+                    <input type="search" wire:model.live.debounce.300ms="memberSearch" placeholder="Name suchen" class="{{ $input }} w-48">
+                </div>
+                <div class="mt-1 max-h-56 overflow-y-auto rounded-lg border border-gray-200 p-2">
+                    @foreach($memberOptions as $m)
+                        <label class="flex items-center gap-2 py-0.5 text-sm" wire:key="rm-{{ $m->id }}"><input type="checkbox" wire:model="registerMembers" value="{{ $m->id }}" class="rounded border-gray-300 text-fw-red"> {{ $m->name }}</label>
+                    @endforeach
+                </div>
+            </div>
+            <label class="block text-sm text-gray-700">Bemerkung (optional, sieht der Kamerad)
+                <input type="text" wire:model="registerNote" maxlength="1000" placeholder="z. B. Absprache in der Dienstbesprechung" class="{{ $input }} mt-1 w-full">
+            </label>
+            @endif
+            <p class="text-xs text-gray-500">Die Kameraden stehen danach unter „Bedarf“ wie nach eigenem Interesse und bekommen eine E-Mail. Wer schon angemeldet ist oder den Lehrgang absolviert hat, wird übersprungen.</p>
+            <button type="submit" class="rounded-lg bg-fw-red px-4 py-2 text-sm font-semibold text-white hover:bg-fw-red-dark">Anmelden</button>
+        </form>
+    </details>
+
     @if($cancelled->isNotEmpty())
         <section>
             <h2 class="text-sm font-semibold text-gray-700 mb-1">Absagen</h2>

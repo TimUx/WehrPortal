@@ -131,5 +131,15 @@ test('the start page of the Vorstand shows the next Dienst', function () {
         ->assertSee('Nächster Übungsdienst')
         ->assertSee('Atemschutz: Absuchen von Räumen')
         ->assertSee('Hanna Hydrant');
-    Livewire::actingAs($this->member)->test(Home::class)->assertDontSee('Nächster Übungsdienst');
+    // Kameraden without access see the date, not the topic or who is responsible
+    Livewire::actingAs($this->member)->test(Home::class)->assertSee('Nächster Übungsdienst')->assertDontSee('Atemschutz: Absuchen von Räumen');
+});
+
+test('every Kamerad of the target group sees the next Übungsdienst on the start page, without topic', function () {
+    $this->plan->setTopic($this->next, 'Technische Hilfe: Rettungssatz');
+
+    Livewire::actingAs($this->member)->test(Home::class)
+        ->assertSee('Nächster Übungsdienst')->assertSee('19:00')->assertDontSee('Rettungssatz')->assertDontSee(route('uebungsdienste.index'));
+    Livewire::actingAs($this->board)->test(Home::class)
+        ->assertSee('Nächster Übungsdienst')->assertSee('Rettungssatz');
 });

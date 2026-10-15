@@ -16,12 +16,16 @@ class DashboardRegistry
     /** Small cards side by side (e.g. next event) */
     public const CARDS = 'cards';
 
-    /** @var array<string, array{module: string, position: string, render: callable(User): mixed}> */
+    /** @var array<string, array{module: string, position: string, render: callable(User): mixed, everyone: bool}> */
     private array $cards = [];
 
-    public function register(string $module, string $name, callable $render, string $position = self::CARDS): void
+    /**
+     * $everyone: the card is shown to every active Kamerad while the module is on, also without
+     * access to the module (e.g. the next Termin or Übungsdienst); the callable decides what they see.
+     */
+    public function register(string $module, string $name, callable $render, string $position = self::CARDS, bool $everyone = false): void
     {
-        $this->cards[$module.'.'.$name] = ['module' => $module, 'position' => $position, 'render' => $render];
+        $this->cards[$module.'.'.$name] = ['module' => $module, 'position' => $position, 'render' => $render, 'everyone' => $everyone];
     }
 
     /** @return array<int, mixed> rendered cards for this Kamerad, in registration order */
@@ -31,7 +35,7 @@ class DashboardRegistry
 
         return collect($this->cards)
             ->filter(fn ($card) => $card['position'] === $position)
-            ->filter(fn ($card) => $registry->isActive($card['module']) && $user->canUseModule($card['module']))
+            ->filter(fn ($card) => $registry->isActive($card['module']) && ($card['everyone'] || $user->canUseModule($card['module'])))
             ->map(fn ($card) => ($card['render'])($user))
             ->filter()
             ->values()

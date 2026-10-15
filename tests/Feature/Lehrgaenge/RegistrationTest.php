@@ -26,6 +26,7 @@ use Modules\Lehrgaenge\src\Notifications\CourseConfirmedNotification;
 use Modules\Lehrgaenge\src\Notifications\CourseReminderNotification;
 use Modules\Lehrgaenge\src\Notifications\RefreshDigestNotification;
 use Modules\Lehrgaenge\src\Notifications\RefreshDueNotification;
+use Modules\Lehrgaenge\src\Notifications\RegisteredByManagerNotification;
 use Modules\Lehrgaenge\src\Notifications\RegistrationCancelledNotification;
 use Modules\Lehrgaenge\src\Notifications\RegistrationRejectedNotification;
 use Modules\Lehrgaenge\src\Notifications\RequestReceivedNotification;
@@ -644,4 +645,27 @@ test('results of an external Träger come in as CSV, with a preview', function (
         ->and(Record::where('user_id', $this->member->id)->where('course_id', $this->agt->id)->sole()->completed_on->toDateString())->toBe('2026-05-20');
 
     $this->actingAs($this->member)->get(route('lehrgaenge.import'))->assertForbidden();
+});
+
+// ─── Ausbildungsleiter registers Kameraden, Kameraden see their state ────────
+
+test('the Ausbildungsleiter registers Kameraden for a Lehrgang; they are told and skipped when already in', function () {
+    $tim = User::factory()->create(['name' => 'Tim Tanklösch']);
+    $this->r->request($this->member, $this->agt, null);
+
+    Livewire::actingAs($this->leader)->test(Registrations::class)
+        ->set('registerCourse', (string) $this->agt->id)->set('registerMembers', [(string) $this->member->id, (string) $tim->id])
+        ->set('registerNote', 'Absprache Dienstbesprechung')->call('registerMembers')
+        ->assertSee('Angemeldet für „Atemschutzgeräteträger“: Tim Tanklösch.')->assertSee('Schon angemeldet oder absolviert: Hanna Hydrant.');
+
+    $record = Record::where('user_id', $tim->id)->sole();
+    expect($record->status)->toBe('requested')->and($record->notes)->toBe('Angemeldet von Bernd Blaulicht: Absprache Dienstbesprechung');
+    Notification::assertSentTo($tim, RegisteredByManagerNotification::class);
+
+    // Kameraden without the role can't
+    expect(fn () => $this->r->registerFor($this->member, $this->agt, [$tim->id]))->toThrow(ValidationException::class);
+
+    // Tim (no access to the module) sees it on his start page, Hanna with access always sees her Lehrgänge
+    Livewire::actingAs($tim)->test(Home::class)->assertSee('wartet auf die Termine')->assertDontSee(route('lehrgaenge.index'));
+    Livewire::actingAs($this->member)->test(Home::class)->assertSee('Lehrgänge')->assertSee('0 Lehrgänge absolviert')->assertSee(route('lehrgaenge.index'));
 });

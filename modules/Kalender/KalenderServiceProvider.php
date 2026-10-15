@@ -93,8 +93,9 @@ class KalenderServiceProvider extends ServiceProvider
             return $event ? view('kalender::cards.next-event', [
                 'event' => $event,
                 'response' => $event->responses()->where('user_id', $user->id)->first(),
+                'canOpen' => $user->canUseModule('kalender'),
             ])->render() : null;
-        });
+        }, everyone: true);
 
         // Start page: Terminabfragen the Kamerad has not answered yet
         app(DashboardRegistry::class)->register('kalender', 'polls', function (User $user) {

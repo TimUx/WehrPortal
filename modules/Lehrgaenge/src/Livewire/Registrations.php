@@ -2,8 +2,10 @@
 
 namespace Modules\Lehrgaenge\src\Livewire;
 
+use App\Models\User;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
+use Modules\Lehrgaenge\src\Models\Course;
 use Modules\Lehrgaenge\src\Models\Record;
 use Modules\Lehrgaenge\src\Services\CatalogImporter;
 use Modules\Lehrgaenge\src\Services\RegistrationService;
@@ -27,6 +29,16 @@ class Registrations extends Component
     public string $rejectComment = '';
 
     public ?string $flash = null;
+
+    /** Kameraden anmelden: the Lehrgang, who, and a note */
+    public string $registerCourse = '';
+
+    /** @var list<string> */
+    public array $registerMembers = [];
+
+    public string $registerNote = '';
+
+    public string $memberSearch = '';
 
     public ?string $error = null;
 
@@ -134,6 +146,27 @@ class Registrations extends Component
         }
     }
 
+    public function registerMembers(RegistrationService $registrations): void
+    {
+        $this->reset('flash', 'error');
+        $course = Course::find((int) $this->registerCourse);
+        if (! $course) {
+            $this->error = 'Bitte einen Lehrgang wählen.';
+
+            return;
+        }
+        try {
+            $result = $registrations->registerFor(auth()->user(), $course, array_map('intval', $this->registerMembers), $this->registerNote);
+        } catch (ValidationException $e) {
+            $this->error = collect($e->errors())->flatten()->first();
+
+            return;
+        }
+        $this->flash = ($result['registered'] ? 'Angemeldet für „'.$course->name.'“: '.implode(', ', $result['registered']).'.' : '')
+            .($result['skipped'] ? ' Schon angemeldet oder absolviert: '.implode(', ', $result['skipped']).'.' : '');
+        $this->reset('registerMembers', 'registerNote', 'memberSearch');
+    }
+
     public function render()
     {
         $records = Record::with(['user', 'course', 'sessions'])
@@ -150,6 +183,9 @@ class Registrations extends Component
                 ->map(fn ($group) => ['course' => $group->first()->course, 'records' => $group->sortBy('created_at')->values()])->values(),
             'confirmed' => $records->where('status', 'confirmed')->sortBy('starts_on')->values(),
             'lastRun' => CatalogImporter::lastRun(),
+            'offeredCourses' => Course::offered()->orderBy('name')->get(['id', 'name']),
+            'memberOptions' => $this->registerCourse === '' ? collect() : User::active()->when(trim($this->memberSearch) !== '', fn ($q) => $q->where('name', 'ilike', '%'.trim($this->memberSearch).'%'))
+                ->orderBy('name')->limit(200)->get(['id', 'name']),
         ]);
     }
 }

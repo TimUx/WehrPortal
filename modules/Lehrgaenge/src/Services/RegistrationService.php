@@ -16,6 +16,7 @@ use Modules\Lehrgaenge\src\Notifications\CourseConfirmedNotification;
 use Modules\Lehrgaenge\src\Notifications\CourseReminderNotification;
 use Modules\Lehrgaenge\src\Notifications\RefreshDigestNotification;
 use Modules\Lehrgaenge\src\Notifications\RefreshDueNotification;
+use Modules\Lehrgaenge\src\Notifications\RegisteredByManagerNotification;
 use Modules\Lehrgaenge\src\Notifications\RegistrationCancelledNotification;
 use Modules\Lehrgaenge\src\Notifications\RegistrationRejectedNotification;
 use Modules\Lehrgaenge\src\Notifications\RequestReceivedNotification;
@@ -59,6 +60,47 @@ class RegistrationService
         $this->notify($this->managers()->reject(fn (User $m) => $m->is($user)), new RequestReceivedNotification($record));
 
         return $record;
+    }
+
+    /**
+     * The Ausbildungsleiter (or an admin) puts Kameraden down for a Lehrgang themselves, e.g. after
+     * a Dienstbesprechung: like their own "Interesse melden", then the usual flow (fox112, Termine,
+     * absolviert). Kameraden with a running registration or the Lehrgang absolviert are skipped.
+     * The Kamerad is told by mail and under the bell.
+     *
+     * @param  list<int>  $memberIds
+     * @return array{registered: list<string>, skipped: list<string>} names
+     */
+    public function registerFor(User $by, Course $course, array $memberIds, ?string $note = null): array
+    {
+        if (! $by->canManageLehrgaenge()) {
+            throw ValidationException::withMessages(['register' => 'Anmelden können die Ausbildungsleiter.']);
+        }
+        if (! $course->isOffered()) {
+            throw ValidationException::withMessages(['register' => 'Dieser Lehrgang wird nicht angeboten.']);
+        }
+        $members = User::active()->whereIn('id', array_map('intval', $memberIds))->orderBy('name')->get();
+        if ($members->isEmpty()) {
+            throw ValidationException::withMessages(['register' => 'Bitte mindestens einen aktiven Kameraden wählen.']);
+        }
+        $note = filled($note) ? mb_substr(trim($note), 0, 1000) : null;
+        $result = ['registered' => [], 'skipped' => []];
+        foreach ($members as $member) {
+            $busy = Record::where('user_id', $member->id)->where('course_id', $course->id)->whereIn('status', [...Record::OPEN, 'completed'])->exists();
+            if ($busy) {
+                $result['skipped'][] = $member->name;
+
+                continue;
+            }
+            $record = Record::create(['user_id' => $member->id, 'course_id' => $course->id, 'status' => 'requested',
+                'notes' => trim('Angemeldet von '.$by->name.($note ? ': '.$note : ''))]);
+            $result['registered'][] = $member->name;
+            if (! $member->is($by)) {
+                $this->notify(collect([$member]), new RegisteredByManagerNotification($record->load('course'), $by->name));
+            }
+        }
+
+        return $result;
     }
 
     /**

@@ -64,12 +64,14 @@ class UebungsdiensteServiceProvider extends ServiceProvider
             audienceLabel: 'Vorstand',
         );
 
-        // Start page of the Vorstand: who is next, with which topic
+        // Start page: the next Übungsdienst. The Vorstand (module access) sees topic and who is responsible,
+        // every other Kamerad of the target group date, time and place – like the Kalender, never the topic
         app(DashboardRegistry::class)->register('uebungsdienste', 'next', function (User $user) {
-            $next = app(ServicePlan::class)->next();
+            $planner = $user->canUseModule('uebungsdienste');
+            $next = $planner ? app(ServicePlan::class)->next() : app(ServicePlan::class)->nextFor($user);
 
-            return $next ? view('uebungsdienste::cards.next', ['service' => $next])->render() : null;
-        });
+            return $next ? view('uebungsdienste::cards.next', ['service' => $next, 'planner' => $planner])->render() : null;
+        }, everyone: true);
 
         // Jahresbericht: how many Übungsdienste were planned (the topics stay in the plan)
         app(AnnualReportRegistry::class)->register('uebungsdienste', 'Übungsdienste', function (int $year) {

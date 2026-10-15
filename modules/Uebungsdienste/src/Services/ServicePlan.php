@@ -33,6 +33,21 @@ class ServicePlan
         return Service::with('responsible')->whereDate('date', '>=', self::today())->orderBy('date')->orderBy('starts_at')->first();
     }
 
+    /** The next Übungsdienst for a Kamerad: one without target group, or of their Abteilung or Funktion (with sub-functions) */
+    public function nextFor(User $user): ?Service
+    {
+        $groups = $user->groups()->pluck('groups.id')->all();
+        $functions = $user->functions()->pluck('member_functions.id')->all();
+
+        return Service::whereDate('date', '>=', self::today())->orderBy('date')->orderBy('starts_at')->get()
+            ->first(function (Service $s) use ($groups, $functions) {
+                $wantGroups = array_map('intval', $s->group_ids ?? []);
+                $wantFunctions = MemberFunction::idsWithChildren(array_map('intval', $s->function_ids ?? []));
+
+                return ($wantGroups === [] && $wantFunctions === []) || array_intersect($groups, $wantGroups) || array_intersect($functions, $wantFunctions);
+            });
+    }
+
     /**
      * @param  array{ends_at?: ?string, place_id?: ?int, dress_code_ids?: list<int>, group_ids?: list<int>, function_ids?: list<int>}  $details
      */

@@ -2,8 +2,15 @@
     <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Lehrgänge</p>
     @if($next)
         <p class="mt-1 text-sm text-gray-900">Dein nächster Lehrgang: <span class="font-semibold">{{ $next->course->name }}</span> ab {{ $next->starts_on->format('d.m.Y') }}</p>
-        <a href="{{ route('lehrgaenge.index') }}" class="text-sm text-fw-navy underline">Meine Lehrgänge</a>
     @endif
+    @foreach($open as $r)
+        <p class="mt-1 text-sm text-gray-700">„{{ $r->course->name }}“ – angemeldet, wartet auf die Termine</p>
+    @endforeach
+    @if(! $next && $open->isEmpty())
+        <p class="mt-1 text-sm text-gray-700">Gerade kein Lehrgang angemeldet.</p>
+    @endif
+    <p class="mt-1 text-xs text-gray-500">{{ $completed }} {{ $completed === 1 ? 'Lehrgang' : 'Lehrgänge' }} absolviert</p>
+    @if($canOpen)<a href="{{ route('lehrgaenge.index') }}" class="text-sm text-fw-navy underline">Meine Lehrgänge &amp; Angebote</a>@endif
     @foreach($refresh as $r)
         <p class="mt-1 text-sm {{ $r->refreshState() === 'expired' ? 'font-semibold text-red-700' : 'text-amber-800' }}">Auffrischung „{{ $r->course->name }}“ {{ $r->refreshState() === 'expired' ? 'überfällig seit' : 'fällig bis' }} {{ $r->validUntil()->format('d.m.Y') }}</p>
     @endforeach

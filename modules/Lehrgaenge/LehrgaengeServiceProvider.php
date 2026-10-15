@@ -96,8 +96,18 @@ class LehrgaengeServiceProvider extends ServiceProvider
             $refresh = Record::with('course')->where('user_id', $user->id)->where('status', 'completed')->whereHas('course', fn ($q) => $q->whereNotNull('repeat_months'))->get()
                 ->filter(fn (Record $r) => in_array($r->refreshState(), ['soon', 'expired'], true))->values();
 
-            return ! $next && array_sum($todo) === 0 && $refresh->isEmpty() ? null : view('lehrgaenge::cards.attention', compact('next', 'todo', 'refresh'))->render();
-        });
+            // Every Kamerad sees their own state: running registrations and what they have absolviert
+            $open = Record::with('course')->where('user_id', $user->id)->where('status', 'requested')->orderBy('created_at')->get();
+            $completed = Record::where('user_id', $user->id)->where('status', 'completed')->count();
+
+            // Without access to the module only when there is something of their own to see
+            $canOpen = $user->canUseModule('lehrgaenge');
+            if (! $canOpen && ! $next && $open->isEmpty() && $refresh->isEmpty()) {
+                return null;
+            }
+
+            return view('lehrgaenge::cards.attention', compact('next', 'todo', 'refresh', 'open', 'completed', 'canOpen'))->render();
+        }, everyone: true);
 
         // Personalakte → Lehrgänge: the Kamerad's absolvierte and confirmed Lehrgänge
         app(PersonnelFileRegistry::class)->register('lehrgaenge', 'Lehrgänge', 'lehrgaenge.personnel-file');

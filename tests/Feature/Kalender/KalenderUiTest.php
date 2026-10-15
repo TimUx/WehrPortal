@@ -12,6 +12,7 @@ use Modules\Kalender\src\Livewire\EventDetail;
 use Modules\Kalender\src\Livewire\EventForm;
 use Modules\Kalender\src\Livewire\Sources;
 use Modules\Kalender\src\Models\Event;
+use Modules\Kalender\src\Services\EventService;
 
 require_once __DIR__.'/Helpers.php';
 
@@ -183,4 +184,16 @@ test('week and list view, and the start view comes from the profile setting', fu
     expect(count($month->viewData('days')) % 7)->toBe(0);
 
     $month->call('setView', 'liste')->assertSet('view', 'liste');
+});
+
+test('the next Termin is on the start page also for Kameraden without access to the Kalender', function () {
+    Module::where('key', 'kalender')->update(['is_active' => true]);
+    Cache::forget('modules_active_keys');
+    $creator = User::factory()->admin()->create();
+    $kamerad = User::factory()->create(['name' => 'Tim Tanklösch']);
+    app(EventService::class)->create(['title' => 'Jahreshauptversammlung', 'type' => 'veranstaltung',
+        'starts_at' => now()->addDays(3), 'ends_at' => now()->addDays(3)->addHours(2)], [], $creator);
+
+    Livewire::actingAs($kamerad)->test(Home::class)
+        ->assertSee('Nächster Termin')->assertSee('Jahreshauptversammlung')->assertDontSee('kalender/termine/', false);
 });
