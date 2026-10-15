@@ -128,7 +128,7 @@ class AusruestungServiceProvider extends ServiceProvider
                     'cost_cents' => $e->purchase_price !== null ? (int) round((float) $e->purchase_price * 100) : null, 'url' => route('ausruestung.show', $e)]);
         }, 20);
 
-        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        // The Modulleiste: tabs and Verwaltung, each only for who may use it
         app(ModuleRegistry::class)->navigation('ausruestung', fn (User $u) => [
             'tabs' => [
                 ModuleNav::tab('Geräte', 'ausruestung.equipment', ['ausruestung.show']),

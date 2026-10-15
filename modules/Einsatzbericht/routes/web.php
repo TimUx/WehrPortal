@@ -16,7 +16,8 @@ Route::get('/extern/{key}', fn (string $key) => response()->view('einsatzbericht
 
 Route::middleware(['auth', 'active', 'module:einsatzbericht'])->group(function () {
     // Personalakte → Einsätze: every Kamerad sees the own Einsätze
-    Route::get('/personalakte/einsaetze', fn () => view('einsatzbericht::pages.personnel-file'))->name('einsatzbericht.personnel-file');
+    // The own Einsätze are on the Profil now; the old address leads there
+    Route::get('/personalakte/einsaetze', fn () => redirect(route('profile').'#einsatzbericht'))->name('einsatzbericht.personnel-file');
 
     Route::prefix('einsatzbericht')->name('einsatzbericht.')->group(function () {
         // Kameraden without a role see the running Einsätze (for Lagemeldungen) and their own

@@ -24,7 +24,7 @@ class KeyIssuedNotification extends Notification
             ->greeting('Hallo '.$notifiable->name.',')
             ->line('dir wurde der Schlüssel **'.$key->name.'** ('.$key->code.') ausgegeben'.($this->handover->due_on ? ', Rückgabe bis '.$this->handover->due_on->format('d.m.Y') : '').'.')
             ->line('Geht er verloren, melde es bitte sofort unter „Meine Schlüssel“.')
-            ->action('Meine Schlüssel', route('schluessel.index'))
+            ->action('Meine Schlüssel', route('profile').'#schluessel')
             ->salutation(app(OrganizationSettings::class)->salutation());
     }
 }

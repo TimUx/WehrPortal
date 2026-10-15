@@ -1,5 +1,6 @@
 <?php
 
+use App\Filament\Resources\UserResource;
 use App\Livewire\Dashboard\Home;
 use App\Models\Module;
 use App\Models\Place;
@@ -47,10 +48,13 @@ test('the Schlüsselwart keeps the keys with what they open; Kameraden only see 
     $key = Key::sole();
     expect($key)->code->toBe('SL-0001')->opensLabel()->toBe('Gerätehaus Musterstadt · Gruppe A')
         ->and($this->k->nextCode())->toBe('SL-0002');
-    $this->actingAs($this->hanna)->get(route('schluessel.list'))->assertForbidden();
+    $this->actingAs($this->hanna)->get(route('schluessel.index'))->assertRedirect(route('profile').'#schluessel');
     $this->actingAs($this->hanna)->get(route('schluessel.show', $key))->assertForbidden();
-    $this->actingAs($this->wart)->get(route('schluessel.list'))->assertOk()->assertSee('Gerätehaus Haupteingang')
-        ->assertSee('href="'.route('schluessel.list').'"', false);
+    // The module is the list of all keys: Nr. and name lead to the key, the button to a new one
+    $this->actingAs($this->wart)->get(route('schluessel.index'))->assertOk()->assertSee('Gerätehaus Haupteingang')
+        ->assertSee('href="'.route('schluessel.show', $key).'" class="text-fw-navy hover:underline">SL-0001', false)
+        ->assertSee('href="'.route('schluessel.create').'"', false);
+    $this->actingAs($this->wart)->get(route('schluessel.list'))->assertRedirect(route('schluessel.index'));
 });
 
 test('handed out with a signed Schlüsselquittung, once at a time; reminders after the return date', function () {
@@ -95,7 +99,7 @@ test('lost keys reach the Schlüsselwart; keys at former members show up; other 
     expect(fn () => $this->k->reportLost($this->bernd, $fsd))->toThrow(ValidationException::class);
 
     $this->hanna->update(['status' => 'left']);
-    $this->actingAs($this->wart)->get(route('schluessel.list'))->assertSee('nicht mehr aktiv sind')->assertSee('Hanna Hydrant (Ausgetreten)');
+    $this->actingAs($this->wart)->get(route('schluessel.index'))->assertSee('nicht mehr aktiv sind')->assertSee('Hanna Hydrant (Ausgetreten)');
 
     // Objektpläne, Fahrzeuge and Personalverwaltung show the keys; who has one only for the Schlüsselwart
     $viewer = User::factory()->create();
@@ -109,16 +113,18 @@ test('lost keys reach the Schlüsselwart; keys at former members show up; other 
 
     // The label: Schlüsselwart to the key, everyone else to their own keys
     $this->actingAs($this->wart)->get('/i/'.$fsd->code)->assertRedirect(route('schluessel.show', $fsd));
-    $this->actingAs($this->bernd)->get('/i/'.$fsd->code)->assertRedirect(route('schluessel.index'));
+    $this->actingAs($this->bernd)->get('/i/'.$fsd->code)->assertRedirect(route('profile').'#schluessel');
 });
 
-test('"Admin" is for admins only; the Schlüsselwart reaches all keys through the Modulleiste', function () {
+test('admins open the Kamerad who has a key; Kameraden find their keys on the Profil', function () {
+    $key = $this->k->saveKey($this->wart, null, ['name' => 'Jugendraum', 'kind' => 'transponder']);
+    $this->k->issue($this->wart, $key, $this->hanna, signature: signaturePng());
     $admin = User::factory()->create(['is_admin' => true]);
-    $html = $this->actingAs($admin)->get(route('schluessel.list'))->assertOk()->getContent();
-    expect($html)->toContain('href="'.route('filament.admin.pages.dashboard').'"');
+    $html = $this->actingAs($admin)->get(route('schluessel.index'))->assertOk()->getContent();
+    expect($html)->toContain('href="'.UserResource::getUrl('edit', ['record' => $this->hanna]).'"');
 
     $html = $this->actingAs($this->wart)->get(route('schluessel.index'))->assertOk()->getContent();
-    expect($html)->not->toContain('>Admin</a>')->toContain('Alle Schlüssel')->toContain('aria-label="Neuer Schlüssel"');
-    $html = $this->actingAs($this->hanna)->get(route('schluessel.index'))->assertOk()->getContent();
-    expect($html)->not->toContain('Alle Schlüssel')->not->toContain('aria-label="Neuer Schlüssel"');
+    expect($html)->toContain('Alle Schlüssel')->toContain('Neuer Schlüssel')->not->toContain(UserResource::getUrl('edit', ['record' => $this->hanna]));
+    $html = $this->actingAs($this->hanna)->get(route('profile'))->assertOk()->getContent();
+    expect($html)->toContain('Jugendraum')->toContain('Meine Schlüssel')->not->toContain('Alle Schlüssel verwalten');
 });

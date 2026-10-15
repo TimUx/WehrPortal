@@ -1,5 +1,5 @@
 <x-layouts.app title="Mitteilungen">
-    <div class="max-w-3xl mx-auto space-y-4">
+    <div class="space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <h1 class="text-xl font-bold text-gray-900">Mitteilungen</h1>
             @can('post-announcements')

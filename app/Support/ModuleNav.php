@@ -5,7 +5,7 @@ namespace App\Support;
 use Illuminate\Support\Str;
 
 /**
- * Builds the entries of the Modulleiste (ModuleRegistry::navigation): tabs and the one main action.
+ * Builds the entries of the Modulleiste (ModuleRegistry::navigation): its tabs.
  */
 class ModuleNav
 {
@@ -18,12 +18,6 @@ class ModuleNav
     public static function tab(string $label, string $route, array $also = [], ?int $badge = null, array $params = []): array
     {
         return ['label' => $label, 'route' => $route, 'also' => $also, 'badge' => $badge ?: null, 'params' => $params, 'active' => false];
-    }
-
-    /** The main action of the module, e.g. "Neuer Plan" */
-    public static function action(string $label, string $route, array $params = []): array
-    {
-        return ['label' => $label, 'url' => route($route, $params), 'route' => $route];
     }
 
     /**

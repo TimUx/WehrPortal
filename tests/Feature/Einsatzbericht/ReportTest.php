@@ -70,7 +70,7 @@ test('only Einsatzleiter, Wehrführung and admins open reports; Kameraden get th
     $this->actingAs($this->member)->get('/einsatzbericht/statistik')->assertForbidden();
     $this->actingAs($this->leader)->get('/einsatzbericht/statistik')->assertForbidden();
     $this->actingAs($this->chief)->get('/einsatzbericht/statistik')->assertOk();
-    $this->actingAs($this->tim)->get('/personalakte/einsaetze')->assertForbidden();   // no module access
+    $this->actingAs($this->tim)->get('/personalakte')->assertOk()->assertDontSee('Meine Einsätze');   // no module access: no Einsätze on the Profil
 });
 
 test('new reports get running numbers per year', function () {
@@ -226,7 +226,7 @@ test('the editor walks through close and release', function () {
 
 test('the Personalakte shows the own Einsätze with counters; drafts do not count', function () {
     $report = fullReport();
-    $this->actingAs($this->member)->get('/personalakte/einsaetze')->assertOk()->assertSee('Du hast noch keine Einsätze in der App.');
+    $this->actingAs($this->member)->get('/personalakte')->assertOk()->assertSee('Du hast noch keine Einsätze in der App.');
 
     $this->r->close($this->leader, $report);
 

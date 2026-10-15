@@ -91,10 +91,9 @@ class SchichtplanServiceProvider extends ServiceProvider
             return $open->isEmpty() && $requests === 0 ? null : view('schichtplan::cards.signup', compact('open', 'requests'))->render();
         });
 
-        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        // The Modulleiste: tabs and Verwaltung, each only for who may use it
         app(ModuleRegistry::class)->navigation('schichtplan', fn (User $u) => [
             'tabs' => [ModuleNav::tab('Schichtpläne', 'schichtplan.index', ['schichtplan.*'])],
-            'action' => $u->canManageSchichtplan() ? ModuleNav::action('Neuer Plan', 'schichtplan.create') : null,
         ]);
     }
 }

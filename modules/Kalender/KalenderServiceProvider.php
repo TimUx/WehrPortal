@@ -132,7 +132,7 @@ class KalenderServiceProvider extends ServiceProvider
             ])->render();
         }, 30);
 
-        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        // The Modulleiste: tabs and Verwaltung, each only for who may use it
         app(ModuleRegistry::class)->navigation('kalender', fn (User $u) => [
             'tabs' => [
                 ModuleNav::tab('Kalender', 'kalender.index', ['kalender.show', 'kalender.edit', 'kalender.create']),
@@ -140,7 +140,6 @@ class KalenderServiceProvider extends ServiceProvider
                 $u->canManageKalender() ? ModuleNav::tab('Orte & Kleidung', 'kalender.places') : null,
                 $u->canManageKalender() ? ModuleNav::tab('Externe Kalender', 'kalender.sources') : null,
             ],
-            'action' => $u->canManageKalender() ? ModuleNav::action('Termin anlegen', 'kalender.create') : null,
         ]);
     }
 }

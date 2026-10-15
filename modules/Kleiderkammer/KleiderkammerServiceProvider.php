@@ -104,7 +104,7 @@ class KleiderkammerServiceProvider extends ServiceProvider
                     'url' => ItemResource::getUrl('edit', ['record' => $item->getKey()])]);
         }, order: 40);
 
-        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        // The Modulleiste: tabs and Verwaltung, each only for who may use it
         app(ModuleRegistry::class)->navigation('kleiderkammer', fn (User $u) => [
             'tabs' => [ModuleNav::tab('Meine Ausrüstung', 'kleiderkammer.index')],
             'manage' => $u->canManageKleiderkammer() ? KleiderkammerDashboard::getUrl() : null,

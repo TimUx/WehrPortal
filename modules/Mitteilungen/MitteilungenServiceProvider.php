@@ -56,7 +56,7 @@ class MitteilungenServiceProvider extends ServiceProvider
             ])->render();
         }, DashboardRegistry::TOP);
 
-        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        // The Modulleiste: tabs and Verwaltung, each only for who may use it
         app(ModuleRegistry::class)->navigation('mitteilungen', fn (User $u) => [
             'tabs' => [
                 ModuleNav::tab('Mitteilungen', 'mitteilungen.index'),

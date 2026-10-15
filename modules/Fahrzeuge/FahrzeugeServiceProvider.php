@@ -135,13 +135,12 @@ class FahrzeugeServiceProvider extends ServiceProvider
             return view('fahrzeuge::cards.fleet', ['total' => $vehicles->count(), 'states' => $states, 'overdue' => $overdue])->render();
         });
 
-        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        // The Modulleiste: tabs and Verwaltung, each only for who may use it
         app(ModuleRegistry::class)->navigation('fahrzeuge', fn (User $u) => [
             'tabs' => [
                 ModuleNav::tab('Fahrzeuge', 'fahrzeuge.index', ['fahrzeuge.show', 'fahrzeuge.edit']),
                 ModuleNav::tab('Fristen', 'fahrzeuge.deadlines'),
             ],
-            'action' => FleetService::canManage($u) ? ModuleNav::action('Neues Fahrzeug', 'fahrzeuge.create') : null,
         ]);
     }
 }

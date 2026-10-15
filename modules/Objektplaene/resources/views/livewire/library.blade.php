@@ -5,21 +5,7 @@
             <h1 class="text-xl font-bold text-gray-900">Objektpläne & Brandschutzunterlagen</h1>
             <p class="text-sm text-gray-500">Feuerwehrpläne, Objektpläne und Brandschutzunterlagen – immer die aktuelle Version.</p>
         </div>
-        {{-- Offline: pages and current plan files in this browser --}}
-        <div wire:ignore x-data="offlinePlans({ urls: @js($offlineUrls), worker: @js(route('objektplaene.worker')) })" class="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm">
-            <template x-if="supported">
-                <div class="space-y-1">
-                    <div class="flex flex-wrap items-center gap-2">
-                        <button type="button" x-on:click="save" x-bind:disabled="busy" class="rounded-lg bg-fw-navy px-3 py-1.5 font-semibold text-white disabled:opacity-50">
-                            <span x-show="!busy">Für offline speichern</span><span x-show="busy" x-text="'Speichere … ' + done + ' / ' + total"></span>
-                        </button>
-                        <button type="button" x-show="savedAt" x-on:click="clear" class="text-xs text-gray-500 underline">Offline-Daten löschen</button>
-                    </div>
-                    <p class="text-xs text-gray-500" x-show="savedAt" x-text="'Offline gespeichert: ' + savedAt + (failed ? ' (' + failed + ' nicht geladen)' : '')"></p>
-                </div>
-            </template>
-            <p x-show="!supported" class="text-xs text-gray-500">Offline-Speichern geht in diesem Browser nicht.</p>
-        </div>
+        @if($manage)<x-page-action :href="route('objektplaene.create')">Neues Objekt</x-page-action>@endif
     </div>
 
     @foreach($running as $row)
@@ -69,5 +55,21 @@
         @empty
             <p class="px-4 py-6 text-center text-sm text-gray-500">{{ trim($search) !== '' || $type || $hazard || $due ? 'Kein Objekt passt zu der Suche.' : 'Noch keine Objekte angelegt.' }}</p>
         @endforelse
+    </div>
+    {{-- Offline: pages and current plan files in this browser, at the end of the library --}}
+    <div wire:ignore x-data="offlinePlans({ urls: @js($offlineUrls), worker: @js(route('objektplaene.worker')) })" class="rounded-2xl border border-gray-200 bg-white p-4 text-sm">
+        <p class="mb-2 font-semibold text-gray-900">Offline</p>
+        <template x-if="supported">
+            <div class="space-y-1">
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" x-on:click="save" x-bind:disabled="busy" class="rounded-lg bg-fw-navy px-3 py-1.5 font-semibold text-white disabled:opacity-50">
+                        <span x-show="!busy">Für offline speichern</span><span x-show="busy" x-text="'Speichere … ' + done + ' / ' + total"></span>
+                    </button>
+                    <button type="button" x-show="savedAt" x-on:click="clear" class="text-xs text-gray-500 underline">Offline-Daten löschen</button>
+                </div>
+                <p class="text-xs text-gray-500" x-show="savedAt" x-text="'Offline gespeichert: ' + savedAt + (failed ? ' (' + failed + ' nicht geladen)' : '')"></p>
+            </div>
+        </template>
+        <p x-show="!supported" class="text-xs text-gray-500">Offline-Speichern geht in diesem Browser nicht.</p>
     </div>
 </div>

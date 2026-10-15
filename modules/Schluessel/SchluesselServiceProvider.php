@@ -65,10 +65,13 @@ class SchluesselServiceProvider extends ServiceProvider
             roles: ['schluesselwart'],
             provider: self::class,
             route: 'schluessel.index',
+            // Kameraden without the role find their keys on the Profil
+            startRoute: fn (User $user) => KeyService::canManage($user) ? 'schluessel.index' : 'profile',
             // The Schlüsselwart need not be an admin: "Admin" leads to all keys
         );
 
-        app(PersonnelFileRegistry::class)->register('schluessel', 'Schlüssel', 'schluessel.personnel-file');
+        // The own keys right on the Profil; the module itself is the list of all keys for the Schlüsselwart
+        app(PersonnelFileRegistry::class)->section('schluessel', null, 'schluessel.my-keys');
 
         // The label of a key: the Schlüsselwart get the key, everyone else their own keys
         app(ScanRegistry::class)->register('schluessel', function (string $code): ?string {
@@ -77,7 +80,7 @@ class SchluesselServiceProvider extends ServiceProvider
                 return null;
             }
 
-            return auth()->user() && KeyService::canManage(auth()->user()) ? route('schluessel.show', $key) : route('schluessel.index');
+            return auth()->user() && KeyService::canManage(auth()->user()) ? route('schluessel.show', $key) : route('profile').'#schluessel';
         });
 
         // Bestand: keys by code or name, for the Schlüsselwart
@@ -118,13 +121,11 @@ class SchluesselServiceProvider extends ServiceProvider
             return $lines === [] ? null : view('schluessel::cards.status', compact('lines', 'manage'))->render();
         });
 
-        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        // The Modulleiste: tabs and Verwaltung, each only for who may use it
         app(ModuleRegistry::class)->navigation('schluessel', fn (User $u) => [
             'tabs' => [
-                ModuleNav::tab('Meine Schlüssel', 'schluessel.index'),
-                KeyService::canManage($u) ? ModuleNav::tab('Alle Schlüssel', 'schluessel.list', ['schluessel.show', 'schluessel.edit']) : null,
+                KeyService::canManage($u) ? ModuleNav::tab('Alle Schlüssel', 'schluessel.index', ['schluessel.show', 'schluessel.edit', 'schluessel.create']) : null,
             ],
-            'action' => KeyService::canManage($u) ? ModuleNav::action('Neuer Schlüssel', 'schluessel.create') : null,
         ]);
     }
 }

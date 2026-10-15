@@ -102,7 +102,8 @@ class PersonalverwaltungServiceProvider extends ServiceProvider
             roles: ['personalverwalter', 'personaleinsicht'],
             provider: self::class,
             route: 'personalverwaltung.own',
-            // Its own admin area for the Personalverwalter, who need not be admins
+            // Personalverwalter and Personaleinsicht open the module (Kameraden), everyone else their Laufbahn in the Personalakte
+            startRoute: fn (User $user) => PersonnelService::canView($user) ? 'personalverwaltung.index' : 'personalverwaltung.own',
         );
 
         app(PersonnelFileRegistry::class)->register('personalverwaltung', 'Laufbahn & Ehrungen', 'personalverwaltung.own');
@@ -143,7 +144,7 @@ class PersonalverwaltungServiceProvider extends ServiceProvider
             'a' => app(PersonnelService::class)->annual($year),
         ])->render(), 20);
 
-        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        // The Modulleiste: tabs and Verwaltung, each only for who may use it
         app(ModuleRegistry::class)->navigation('personalverwaltung', fn (User $u) => [
             'tabs' => [
                 ModuleNav::tab('Kameraden', 'personalverwaltung.index', ['personalverwaltung.member']),

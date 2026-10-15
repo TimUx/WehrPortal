@@ -81,10 +81,9 @@ class ObjektplaeneServiceProvider extends ServiceProvider
             return $due === 0 ? null : view('objektplaene::cards.review', compact('due'))->render();
         });
 
-        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        // The Modulleiste: tabs and Verwaltung, each only for who may use it
         app(ModuleRegistry::class)->navigation('objektplaene', fn (User $u) => [
             'tabs' => [ModuleNav::tab('Bibliothek', 'objektplaene.index', ['objektplaene.object', 'objektplaene.edit'])],
-            'action' => ObjectPlanService::canManage($u) ? ModuleNav::action('Neues Objekt', 'objektplaene.create') : null,
         ]);
     }
 }

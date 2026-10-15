@@ -1,5 +1,5 @@
 @php($input = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-fw-red focus:ring-fw-red')
-<div class="max-w-3xl mx-auto space-y-6">
+<div class="space-y-6">
     <div>
         <a href="{{ route('mitteilungen.index') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Mitteilungen</a>
         <h1 class="text-xl font-bold text-gray-900 mt-1">Mitteilungen verwalten</h1>

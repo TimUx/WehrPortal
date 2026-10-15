@@ -1,5 +1,5 @@
 @php($input = 'rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-fw-red focus:ring-fw-red')
-<div class="mx-auto max-w-3xl space-y-4">
+<div class="space-y-4">
     <div>
         <a href="{{ route('ausruestung.equipment') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Geräte</a>
         <h1 class="text-xl font-bold text-gray-900">Inventur</h1>

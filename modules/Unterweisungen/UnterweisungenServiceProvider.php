@@ -61,6 +61,8 @@ class UnterweisungenServiceProvider extends ServiceProvider
             roles: ['unterweisungsbeauftragter'],
             provider: self::class,
             route: 'unterweisungen.index',
+            // The Unterweisungsbeauftragte opens the Übersicht; everyone else finds their own in the Personalakte
+            startRoute: fn (User $user) => InstructionService::canManage($user) ? 'unterweisungen.overview' : 'unterweisungen.personnel-file',
         );
 
         app(PersonnelFileRegistry::class)->register('unterweisungen', 'Unterweisungen', 'unterweisungen.personnel-file');
@@ -98,14 +100,12 @@ class UnterweisungenServiceProvider extends ServiceProvider
             ])->render();
         }, 42);
 
-        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        // The Modulleiste: tabs and Verwaltung, each only for who may use it
         app(ModuleRegistry::class)->navigation('unterweisungen', fn (User $u) => [
             'tabs' => [
-                ModuleNav::tab('Meine Unterweisungen', 'unterweisungen.index'),
-                InstructionService::canManage($u) ? ModuleNav::tab('Übersicht', 'unterweisungen.overview', ['unterweisungen.session']) : null,
+                InstructionService::canManage($u) ? ModuleNav::tab('Übersicht', 'unterweisungen.overview', ['unterweisungen.session', 'unterweisungen.new']) : null,
                 InstructionService::canManage($u) ? ModuleNav::tab('Arten', 'unterweisungen.topics') : null,
             ],
-            'action' => InstructionService::canManage($u) ? ModuleNav::action('Durchführen', 'unterweisungen.new') : null,
         ]);
     }
 }

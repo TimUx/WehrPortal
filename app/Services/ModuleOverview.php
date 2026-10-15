@@ -32,7 +32,7 @@ class ModuleOverview
         $modules = collect($this->registry->all())
             ->filter(fn ($def, $key) => $this->registry->isActive($key) && $user->canUseModule($key))
             ->map(fn ($def, $key) => $def + [
-                'url' => str_starts_with($def['route'], '/') ? url($def['route']) : route($def['route']),
+                'url' => $this->registry->startUrl($key, $user),
                 'hidden' => (bool) $preferences->get($key)?->hidden,
                 'order' => $preferences->get($key)?->sort_order ?? 1000 + $position[$key],
                 'score' => self::decayed((float) $preferences->get($key)?->usage_score, $preferences->get($key)?->used_at, $now),

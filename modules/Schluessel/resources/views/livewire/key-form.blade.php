@@ -24,6 +24,6 @@
     <label class="block text-sm text-gray-700">Notizen<textarea wire:model="form.notes" rows="3" class="{{ $input }}"></textarea></label>
     <div class="flex gap-2">
         <button type="submit" class="rounded-lg bg-fw-red px-4 py-2 text-sm font-semibold text-white">Speichern</button>
-        <a href="{{ $item ? route('schluessel.show', $item) : route('schluessel.list') }}" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700">Abbrechen</a>
+        <a href="{{ $item ? route('schluessel.show', $item) : route('schluessel.index') }}" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700">Abbrechen</a>
     </div>
 </form>

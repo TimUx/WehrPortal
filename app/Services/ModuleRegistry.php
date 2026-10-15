@@ -25,21 +25,34 @@ class ModuleRegistry
      *                                          someone else needs a confirmation, and "automatisch freischalten" covers only them
      * @param  ?string  $audienceLabel  that group in the text, e.g. "Vorstand"
      */
-    public function register(string $key, string $name, string $description, array $roles = [], ?string $provider = null, string $route = '/', ?Closure $audience = null, ?string $audienceLabel = null): void
+    /**
+     * @param  ?Closure(User): ?string  $startRoute  where the module opens for this user (start page tile, 3×3 menu), e.g. the
+     *                                               overview for role holders and the own page in the Personalakte for everyone else; null = $route
+     */
+    public function register(string $key, string $name, string $description, array $roles = [], ?string $provider = null, string $route = '/', ?Closure $audience = null, ?string $audienceLabel = null, ?Closure $startRoute = null): void
     {
-        $this->definitions[$key] = ['name' => $name, 'description' => $description, 'route' => $route, 'provider' => $provider, 'roles' => $roles, 'audience' => $audience, 'audience_label' => $audienceLabel];
+        $this->definitions[$key] = ['name' => $name, 'description' => $description, 'route' => $route, 'provider' => $provider, 'roles' => $roles, 'audience' => $audience, 'audience_label' => $audienceLabel, 'start_route' => $startRoute];
+    }
+
+    /** The URL the module opens with for this user */
+    public function startUrl(string $key, User $user): string
+    {
+        $def = $this->definitions[$key];
+        $route = ($def['start_route'] ?? null) ? (($def['start_route'])($user) ?? $def['route']) : $def['route'];
+
+        return str_starts_with($route, '/') ? url($route) : route($route);
     }
 
     /** @var array<string, Closure> */
     private array $navigations = [];
 
     /**
-     * The Modulleiste of a module: its tabs, one main action and the link to its Verwaltung, each
+     * The Modulleiste of a module: its tabs and the link to its Verwaltung, each
      * only for who may use it. The closure gets the user and returns
-     * ['tabs' => list<?array>, 'action' => ?array, 'manage' => ?string url]; build tabs and the action
+     * ['tabs' => list<?array>, 'manage' => ?string url]; build the tabs
      * with App\Support\ModuleNav, null entries are dropped.
      *
-     * @param  Closure(User): array{tabs?: list<?array>, action?: ?array, manage?: ?string}  $items
+     * @param  Closure(User): array{tabs?: list<?array>, manage?: ?string}  $items
      */
     public function navigation(string $key, Closure $items): void
     {
@@ -50,7 +63,7 @@ class ModuleRegistry
      * The Modulleiste for the current page: the module whose routes are named "<key>.*". Pages of the
      * Personalakte (/personalakte/…) belong to the Personalakte, not to the module that adds them.
      *
-     * @return ?array{key: string, name: string, url: string, tabs: list<array>, action: ?array, manage: ?string}
+     * @return ?array{key: string, name: string, url: string, tabs: list<array>, manage: ?string}
      */
     public function navigationFor(?string $routeName, ?User $user): ?array
     {
@@ -62,7 +75,7 @@ class ModuleRegistry
         $def = $this->definitions[$key];
 
         return ['key' => $key, 'name' => $def['name'], 'url' => $tabs ? route($tabs[0]['route'], $tabs[0]['params']) : (str_starts_with($def['route'], '/') ? url($def['route']) : route($def['route'])),
-            'tabs' => ModuleNav::markActive($tabs, $routeName), 'action' => $nav['action'] ?? null, 'manage' => $nav['manage'] ?? null];
+            'tabs' => ModuleNav::markActive($tabs, $routeName), 'manage' => $nav['manage'] ?? null];
     }
 
     /** Whether the module is meant for this user: true for modules without a restricted audience and for admins */

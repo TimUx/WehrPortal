@@ -125,7 +125,7 @@ class LehrgaengeServiceProvider extends ServiceProvider
             ])->render();
         }, 40);
 
-        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        // The Modulleiste: tabs and Verwaltung, each only for who may use it
         app(ModuleRegistry::class)->navigation('lehrgaenge', fn (User $u) => [
             'tabs' => [
                 ModuleNav::tab('Meine Lehrgänge', 'lehrgaenge.index'),

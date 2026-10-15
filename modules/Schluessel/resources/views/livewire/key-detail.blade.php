@@ -1,7 +1,7 @@
 @php($input = 'mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-base sm:text-sm focus:border-fw-red focus:ring-fw-red')
 @php($card = 'space-y-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm')
 <div class="mx-auto max-w-3xl space-y-4">
-    <a href="{{ route('schluessel.list') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Alle Schlüssel</a>
+    <a href="{{ route('schluessel.index') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Alle Schlüssel</a>
     @if($flash)<p class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{{ $flash }}</p>@endif
     @foreach(['issue', 'due_on', 'signature'] as $f)@error($f)<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{ $message }}</p>@enderror @endforeach
 

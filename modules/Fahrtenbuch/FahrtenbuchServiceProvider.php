@@ -84,7 +84,7 @@ class FahrtenbuchServiceProvider extends ServiceProvider
             ])->render();
         }, 60);
 
-        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        // The Modulleiste: tabs and Verwaltung, each only for who may use it
         app(ModuleRegistry::class)->navigation('fahrtenbuch', fn (User $u) => [
             'tabs' => [
                 ModuleNav::tab('Fahrzeuge', 'fahrtenbuch.index', ['fahrtenbuch.vehicle', 'fahrtenbuch.trip']),

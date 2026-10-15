@@ -59,6 +59,14 @@
 
         </div>
 
+        {{-- What the modules show right on the Profil (Einsätze, Schlüssel …) --}}
+        @foreach(app(\App\Services\PersonnelFileRegistry::class)->sectionsFor(auth()->user()) as $section)
+            <section id="{{ $section['anchor'] }}" class="space-y-2 scroll-mt-24">
+                @if($section['title'])<h2 class="text-sm font-semibold text-gray-900">{{ $section['title'] }}</h2>@endif
+                @livewire($section['component'], [], key('profile-'.$section['component']))
+            </section>
+        @endforeach
+
         <livewire:profile.settings />
 
         <livewire:profile.push-settings />

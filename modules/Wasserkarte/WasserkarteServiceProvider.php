@@ -91,13 +91,12 @@ class WasserkarteServiceProvider extends ServiceProvider
                 .'<div class="ar-tile"><span>Wasserquellen gesamt</span><strong>'.Source::active()->count().'</strong></div></div>';
         }, 75);
 
-        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        // The Modulleiste: tabs and Verwaltung, each only for who may use it
         app(ModuleRegistry::class)->navigation('wasserkarte', fn (User $u) => [
             'tabs' => [
                 ModuleNav::tab('Karte', 'wasserkarte.index', ['wasserkarte.source', 'wasserkarte.edit']),
                 WaterService::canManage($u) ? ModuleNav::tab('Prüfungen & Import', 'wasserkarte.inspections') : null,
             ],
-            'action' => WaterService::canManage($u) ? ModuleNav::action('Neue Wasserquelle', 'wasserkarte.create') : null,
         ]);
     }
 }

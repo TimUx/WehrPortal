@@ -93,7 +93,7 @@ class FuehrerscheineServiceProvider extends ServiceProvider
             return $own || $pending ? view('fuehrerscheine::cards.attention', compact('own', 'pending'))->render() : null;
         });
 
-        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        // The Modulleiste: tabs and Verwaltung, each only for who may use it
         app(ModuleRegistry::class)->navigation('fuehrerscheine', fn (User $u) => [
             'tabs' => [
                 ModuleNav::tab('Mein Führerschein', 'fuehrerscheine.index'),

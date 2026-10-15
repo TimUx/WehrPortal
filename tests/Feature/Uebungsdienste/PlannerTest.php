@@ -76,7 +76,7 @@ test('date, time and place are changed by admins only, on their own page', funct
 });
 
 test('admins add single Dienste and series on "Dienst anlegen", and delete them', function () {
-    $this->actingAs($this->admin)->get('/uebungsdienste')->assertSee('Dienst anlegen');
+    $this->actingAs($this->admin)->get('/uebungsdienste')->assertSee('Übungsdienst anlegen');
     $this->actingAs($this->admin)->get('/uebungsdienste/anlegen')->assertOk()->assertSee('Übungsdienst anlegen');
 
     Livewire::actingAs($this->admin)->test(ServiceForm::class)

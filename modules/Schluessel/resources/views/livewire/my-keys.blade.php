@@ -19,5 +19,4 @@
             <p class="text-sm text-gray-500">Du hast keine Schlüssel der Wehr.</p>
         @endforelse
     </div>
-    @if($manage)<a href="{{ route('schluessel.list') }}" class="block rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-fw-navy hover:border-fw-navy">Alle Schlüssel verwalten →</a>@endif
 </div>

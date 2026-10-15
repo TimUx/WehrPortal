@@ -120,7 +120,7 @@ class AtemschutzServiceProvider extends ServiceProvider
             return $pool || $state ? view('atemschutz::cards.pool', compact('pool', 'state'))->render() : null;
         });
 
-        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        // The Modulleiste: tabs and Verwaltung, each only for who may use it
         app(ModuleRegistry::class)->navigation('atemschutz', fn (User $u) => [
             'tabs' => [
                 ModuleNav::tab('Überwachung', 'atemschutz.index', ['atemschutz.board']),

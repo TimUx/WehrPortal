@@ -10,8 +10,7 @@
         <div class="flex flex-wrap gap-2">
             <a href="{{ route('uebungsdienste.print', ['jahr' => $year]) }}" target="_blank" rel="noopener" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Drucken / PDF</a>
             @if($admin)
-                <a href="{{ route('uebungsdienste.places') }}" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Orte &amp; Kleidung</a>
-                <a href="{{ route('uebungsdienste.create') }}" class="inline-flex items-center rounded-lg bg-fw-red px-3 py-2 text-sm font-semibold text-white hover:bg-fw-red-dark">+ Dienst anlegen</a>
+                <x-page-action :href="route('uebungsdienste.create')">Übungsdienst anlegen</x-page-action>
             @endif
         </div>
     </div>

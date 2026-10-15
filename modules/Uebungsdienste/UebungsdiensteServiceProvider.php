@@ -79,13 +79,12 @@ class UebungsdiensteServiceProvider extends ServiceProvider
                 .'<div class="ar-tile"><span>davon stattgefunden</span><strong>'.Service::whereYear('date', $year)->whereDate('date', '<', ServicePlan::today())->count().'</strong></div></div>';
         }, 35);
 
-        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        // The Modulleiste: tabs and Verwaltung, each only for who may use it
         app(ModuleRegistry::class)->navigation('uebungsdienste', fn (User $u) => [
             'tabs' => [
                 ModuleNav::tab('Übungsdienste', 'uebungsdienste.index', ['uebungsdienste.edit', 'uebungsdienste.create']),
                 $u->can('plan-uebungsdienste') ? ModuleNav::tab('Orte & Kleidung', 'uebungsdienste.places') : null,
             ],
-            'action' => $u->can('plan-uebungsdienste') ? ModuleNav::action('Übungsdienst anlegen', 'uebungsdienste.create') : null,
         ]);
     }
 }

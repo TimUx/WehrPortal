@@ -1,6 +1,6 @@
 @php($input = 'rounded-lg border border-gray-300 px-3 py-2 text-base sm:text-sm focus:border-fw-red focus:ring-fw-red')
 @php($card = 'space-y-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm')
-<div class="mx-auto max-w-3xl space-y-4">
+<div class="space-y-4">
     <div>
         <h1 class="text-xl font-bold text-gray-900">Orte &amp; Kleidung</h1>
         <p class="text-sm text-gray-500">Diese Listen teilen sich alle Module (z. B. Kalender und Übungsdienstplaner): Was du hier änderst, steht überall gleich zur Auswahl.</p>

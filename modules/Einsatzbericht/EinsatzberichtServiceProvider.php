@@ -88,7 +88,8 @@ class EinsatzberichtServiceProvider extends ServiceProvider
             route: 'einsatzbericht.index',
         );
 
-        app(PersonnelFileRegistry::class)->register('einsatzbericht', 'Einsätze', 'einsatzbericht.personnel-file');
+        // The own Einsätze right on the Profil
+        app(PersonnelFileRegistry::class)->section('einsatzbericht', 'Meine Einsätze', 'einsatzbericht.member-missions');
 
         // Start page: drafts and current Einsätze for the Einsatzleiter, reports to release for the Wehrführung
         app(DashboardRegistry::class)->register('einsatzbericht', 'open', function (User $user) {
@@ -112,7 +113,7 @@ class EinsatzberichtServiceProvider extends ServiceProvider
             'stats' => app(ReportService::class)->statistics($year),
         ])->render(), 10);
 
-        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        // The Modulleiste: tabs and Verwaltung, each only for who may use it
         app(ModuleRegistry::class)->navigation('einsatzbericht', fn (User $u) => [
             'tabs' => [
                 ModuleNav::tab('Einsätze', 'einsatzbericht.index', ['einsatzbericht.show', 'einsatzbericht.situation']),

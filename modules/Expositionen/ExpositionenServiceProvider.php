@@ -71,13 +71,12 @@ class ExpositionenServiceProvider extends ServiceProvider
             ])->render();
         }, 45);
 
-        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        // The Modulleiste: tabs and Verwaltung, each only for who may use it
         app(ModuleRegistry::class)->navigation('expositionen', fn (User $u) => [
             'tabs' => [
                 ModuleNav::tab('Meine Expositionen', 'expositionen.index', ['expositionen.edit', 'expositionen.crew']),
                 ExposureService::canManage($u) ? ModuleNav::tab('Meldeliste', 'expositionen.manage') : null,
             ],
-            'action' => ModuleNav::action('Exposition erfassen', 'expositionen.create'),
         ]);
     }
 }

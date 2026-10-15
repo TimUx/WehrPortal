@@ -9,7 +9,7 @@
     @endforeach
     <div class="flex flex-wrap items-center justify-between gap-2">
         <h1 class="text-xl font-bold text-gray-900">Meine Expositionen</h1>
-        <span class="flex gap-3 text-sm"><a href="{{ route('expositionen.create') }}" class="rounded-lg bg-fw-navy px-3 py-1.5 font-semibold text-white">Exposition erfassen</a>
+        <span class="flex gap-3 text-sm"><x-page-action :href="route('expositionen.create')">Exposition erfassen</x-page-action>
             @if($exposures->isNotEmpty())<a href="{{ route('expositionen.certificate', auth()->user()) }}" target="_blank" class="py-1.5 text-fw-navy underline">Nachweis drucken</a>@endif</span>
     </div>
     <div class="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white text-sm shadow-sm">

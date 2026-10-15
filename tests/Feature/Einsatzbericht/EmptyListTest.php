@@ -10,7 +10,7 @@ test('all pages open while there are no reports yet', function () {
     Cache::forget('modules_active_keys');
     $admin = User::factory()->admin()->create();
 
-    foreach (['/einsatzbericht', '/einsatzbericht/statistik', '/einsatzbericht/kameraden', '/admin/einsatzbericht/einstellungen', '/personalakte/einsaetze', '/personalakte'] as $url) {
+    foreach (['/einsatzbericht', '/einsatzbericht/statistik', '/einsatzbericht/kameraden', '/admin/einsatzbericht/einstellungen', '/personalakte'] as $url) {
         $this->actingAs($admin)->get($url)->assertOk();
     }
 });

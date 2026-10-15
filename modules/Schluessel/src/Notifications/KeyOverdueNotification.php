@@ -23,7 +23,7 @@ class KeyOverdueNotification extends Notification
             ->subject('Schlüssel zurückgeben: '.$key->name)
             ->greeting('Hallo '.$notifiable->name.',')
             ->line('der Schlüssel **'.$key->name.'** ('.$key->code.') sollte bis '.$this->handover->due_on->format('d.m.Y').' zurück sein. Bitte gib ihn beim Schlüsselwart ab.')
-            ->action('Meine Schlüssel', route('schluessel.index'))
+            ->action('Meine Schlüssel', route('profile').'#schluessel')
             ->salutation(app(OrganizationSettings::class)->salutation());
     }
 }

@@ -201,3 +201,7 @@
 [x-cloak] {
     display: none !important;
 }
+
+/* Leaflet maps get their own stacking context, so their panes (z-index 400+) stay below the
+   header menus (3×3, bell) instead of covering them */
+.leaflet-container { isolation: isolate; z-index: 0; }

@@ -10,7 +10,10 @@
                 @if($due) · <span class="text-amber-800">{{ $due }} mit fälliger Prüfung (gelber Rand)</span>@endif
             </p>
         </div>
-        @if($einsatz)<a href="{{ route('wasserkarte.index') }}" class="text-sm text-gray-500 underline">Alle Quellen</a>@endif
+        <div class="flex flex-wrap items-center gap-3">
+            @if($einsatz)<a href="{{ route('wasserkarte.index') }}" class="text-sm text-gray-500 underline">Alle Quellen</a>@endif
+            @if($canManage)<x-page-action :href="route('wasserkarte.create')">Neue Wasserquelle</x-page-action>@endif
+        </div>
     </div>
 
     <div class="flex flex-wrap items-center gap-2">

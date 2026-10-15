@@ -1,5 +1,6 @@
 {{-- The Modulleiste under the blue bar: where am I (module or Personalakte), its tabs (only those the
-     Kamerad may open), one main action and the Verwaltung. Same place and look in every module. --}}
+     Kamerad may open) and the Verwaltung. Same place and look in every module. The main action of a
+     page ("Neuer Plan" …) sits next to the page title (x-page-action), not here. --}}
 @php
     $user = auth()->user();
     $route = request()->route();
@@ -13,7 +14,7 @@
         if (app(\App\Services\HoursRegistry::class)->sources()) {
             $items[] = ['label' => 'Stunden', 'route' => 'hours'];
         }
-        $bar = ['key' => null, 'name' => 'Meine Personalakte', 'url' => route('profile'), 'action' => null, 'manage' => null,
+        $bar = ['key' => null, 'name' => 'Meine Personalakte', 'url' => route('profile'), 'manage' => null,
             'tabs' => \App\Support\ModuleNav::markActive(array_map(fn ($i) => \App\Support\ModuleNav::tab($i['label'], $i['route']), $items), (string) $routeName)];
     } else {
         $bar = app(\App\Services\ModuleRegistry::class)->navigationFor($routeName, $user);
@@ -49,13 +50,6 @@
                         <a href="{{ $bar['manage'] }}" title="Verwaltung" aria-label="Verwaltung" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm text-gray-700 hover:border-fw-navy hover:text-fw-navy">
                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10.3 4.3c.4-1.8 2.9-1.8 3.4 0a1.7 1.7 0 0 0 2.6 1c1.5-.9 3.3.8 2.4 2.4a1.7 1.7 0 0 0 1 2.6c1.8.4 1.8 2.9 0 3.4a1.7 1.7 0 0 0-1 2.6c.9 1.5-.8 3.3-2.4 2.4a1.7 1.7 0 0 0-2.6 1c-.4 1.8-2.9 1.8-3.4 0a1.7 1.7 0 0 0-2.6-1c-1.5.9-3.3-.8-2.4-2.4a1.7 1.7 0 0 0-1-2.6c-1.8-.4-1.8-2.9 0-3.4a1.7 1.7 0 0 0 1-2.6c-.9-1.5.8-3.3 2.4-2.4a1.7 1.7 0 0 0 2.6-1z"/><circle cx="12" cy="12" r="3"/></svg>
                             <span class="hidden sm:inline">Verwaltung</span>
-                        </a>
-                    @endif
-                    @if($bar['action'])
-                        <a href="{{ $bar['action']['url'] }}" aria-label="{{ $bar['action']['label'] }}" title="{{ $bar['action']['label'] }}"
-                           class="inline-flex items-center gap-1 rounded-lg bg-fw-red px-3 py-1.5 text-sm font-semibold text-white hover:bg-fw-red-dark {{ request()->routeIs($bar['action']['route']) ? 'ring-2 ring-fw-red/30' : '' }}">
-                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>
-                            <span class="hidden sm:inline">{{ $bar['action']['label'] }}</span>
                         </a>
                     @endif
                 </div>

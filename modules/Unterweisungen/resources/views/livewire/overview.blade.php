@@ -7,7 +7,7 @@
         </div>
         <div class="flex items-center gap-2 print:hidden">
             <select wire:model.live="groupId" class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm" aria-label="Abteilung"><option value="">Alle Abteilungen</option>@foreach($groups as $id => $n)<option value="{{ $id }}">{{ $n }}</option>@endforeach</select>
-            <a href="{{ route('unterweisungen.new') }}" class="rounded-lg bg-fw-navy px-3 py-1.5 text-sm font-semibold text-white">Unterweisung durchführen</a>
+            <x-page-action :href="route('unterweisungen.new')">Durchführen</x-page-action>
             <button type="button" onclick="window.print()" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700">Drucken</button>
         </div>
     </div>

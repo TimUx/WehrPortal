@@ -2,6 +2,7 @@
 
 namespace Modules\Schluessel\src\Livewire;
 
+use App\Filament\Resources\UserResource;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Modules\Schluessel\src\Models\Key;
@@ -28,6 +29,9 @@ class KeyList extends Component
             ->when($this->status === '', fn ($q) => $q->where('status', '!=', 'retired'))
             ->orderBy('code')->get();
 
-        return view('schluessel::livewire.key-list', ['keys' => $list, 'former' => $keys->atFormerMembers()]);
+        // Admins open the Kamerad who has the key (Admin → Kameraden)
+        $memberUrl = fn ($user) => auth()->user()->is_admin ? UserResource::getUrl('edit', ['record' => $user]) : null;
+
+        return view('schluessel::livewire.key-list', ['keys' => $list, 'former' => $keys->atFormerMembers(), 'memberUrl' => $memberUrl]);
     }
 }

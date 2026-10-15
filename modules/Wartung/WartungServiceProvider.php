@@ -87,7 +87,7 @@ class WartungServiceProvider extends ServiceProvider
             return $open === 0 ? null : view('wartung::cards.due', compact('overdue', 'open'))->render();
         });
 
-        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        // The Modulleiste: tabs and Verwaltung, each only for who may use it
         app(ModuleRegistry::class)->navigation('wartung', fn (User $u) => [
             'tabs' => [
                 ModuleNav::tab('Fällige Wartungen', 'wartung.index', ['wartung.perform', 'wartung.device']),

@@ -121,10 +121,9 @@ class MaengelmanagementServiceProvider extends ServiceProvider
                 : null;
         });
 
-        // The Modulleiste: tabs, main action and Verwaltung, each only for who may use it
+        // The Modulleiste: tabs and Verwaltung, each only for who may use it
         app(ModuleRegistry::class)->navigation('maengelmanagement', fn (User $u) => [
             'tabs' => [ModuleNav::tab('Mängel', 'maengelmanagement.index', ['maengelmanagement.show'])],
-            'action' => ModuleNav::action('Mangel melden', 'maengelmanagement.report'),
             'manage' => $u->canManageMaengel() ? MaengelmanagementDashboard::getUrl() : null,
         ]);
     }
