@@ -8,6 +8,7 @@ use App\Models\MemberFunction;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\ModuleRegistry;
+use App\Services\OrganizationSettings;
 use App\Support\FireRanks;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -266,7 +267,11 @@ class PersonnelService
      * Which personal data the Personalverwaltung keeps (all off until switched on) and whether
      * Kameraden keep their own in the Personalakte.
      *
-     * @return array{address: bool, birth_date: bool, phone: bool, self_service: bool, digital_id: bool}
+     * The Dienstausweis: digital_id switches it on; id_issuer is the Ausstellende Behörde (e.g. the
+     * Gemeinde), id_birth_date shows the Geburtsdatum on the card, id_birth_on_check also on the
+     * checker's page, id_require_number shows it only once a Ausweisnummer is entered.
+     *
+     * @return array{address: bool, birth_date: bool, phone: bool, self_service: bool, digital_id: bool, id_issuer: string, id_birth_date: bool, id_birth_on_check: bool, id_require_number: bool}
      */
     public static function settings(): array
     {
@@ -274,7 +279,9 @@ class PersonnelService
 
         return ['address' => (bool) ($stored['address'] ?? false), 'birth_date' => (bool) ($stored['birth_date'] ?? false),
             'phone' => (bool) ($stored['phone'] ?? false), 'self_service' => (bool) ($stored['self_service'] ?? true),
-            'digital_id' => (bool) ($stored['digital_id'] ?? false)];
+            'digital_id' => (bool) ($stored['digital_id'] ?? false), 'id_issuer' => (string) ($stored['id_issuer'] ?? ''),
+            'id_birth_date' => (bool) ($stored['id_birth_date'] ?? true), 'id_birth_on_check' => (bool) ($stored['id_birth_on_check'] ?? false),
+            'id_require_number' => (bool) ($stored['id_require_number'] ?? false)];
     }
 
     /** @return list<string> the switched-on fields */
@@ -295,7 +302,9 @@ class PersonnelService
         Setting::set(self::SETTINGS_KEY, json_encode([
             'address' => (bool) ($data['address'] ?? false), 'birth_date' => (bool) ($data['birth_date'] ?? false),
             'phone' => (bool) ($data['phone'] ?? false), 'self_service' => (bool) ($data['self_service'] ?? false),
-            'digital_id' => (bool) ($data['digital_id'] ?? false),
+            'digital_id' => (bool) ($data['digital_id'] ?? false), 'id_issuer' => mb_substr(trim((string) ($data['id_issuer'] ?? '')), 0, 150),
+            'id_birth_date' => (bool) ($data['id_birth_date'] ?? false), 'id_birth_on_check' => (bool) ($data['id_birth_on_check'] ?? false),
+            'id_require_number' => (bool) ($data['id_require_number'] ?? false),
         ]));
     }
 
@@ -799,13 +808,14 @@ class PersonnelService
 
     // ─── Dienstausweis ───────────────────────────────────────────────────────
 
-    public function saveIdCard(User $by, User $member, ?string $number, ?string $validUntil): MemberProfile
+    public function saveIdCard(User $by, User $member, ?string $number, ?string $validUntil, ?string $birthPlace = null): MemberProfile
     {
         $this->assertMayView($by, $member);
 
         return MemberProfile::updateOrCreate(['user_id' => $member->id], [
             'id_card_number' => filled($number) ? mb_substr(trim($number), 0, 50) : null,
             'id_card_valid_until' => $this->date($validUntil, 'id_card_valid_until'),
+            'birth_place' => filled($birthPlace) ? mb_substr(trim($birthPlace), 0, 100) : null,
         ]);
     }
 
@@ -999,11 +1009,18 @@ class PersonnelService
         if (! $user->is_active || ! app(ModuleRegistry::class)->isActive(self::MODULE) || ! self::settings()['digital_id']) {
             return null;
         }
+        $settings = self::settings();
         $profile = MemberProfile::find($user->id);
+        if ($settings['id_require_number'] && blank($profile?->id_card_number)) {
+            return null;
+        }
 
         return [
             'user' => $user->loadMissing('groups'), 'number' => $profile?->id_card_number, 'valid_until' => $profile?->id_card_valid_until,
             'expired' => $profile?->id_card_valid_until?->lt(self::today()) ?? false,
+            'birth_date' => $settings['birth_date'] && $settings['id_birth_date'] ? $user->birth_date : null, 'birth_on_check' => $settings['id_birth_on_check'],
+            'birth_place' => $profile?->birth_place, 'issuer' => $settings['id_issuer'] ?: null,
+            'brigade' => app(OrganizationSettings::class)->name(),
         ];
     }
 

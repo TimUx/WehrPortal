@@ -13,7 +13,7 @@ class MemberProfile extends Model
 
     public $incrementing = false;
 
-    protected $fillable = ['user_id', 'id_card_number', 'id_card_valid_until'];
+    protected $fillable = ['user_id', 'id_card_number', 'id_card_valid_until', 'birth_place'];
 
     protected function casts(): array
     {

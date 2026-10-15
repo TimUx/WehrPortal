@@ -1,4 +1,4 @@
-<div class="mx-auto max-w-sm space-y-4" wire:poll.300s>
+<div class="mx-auto max-w-md space-y-4" wire:poll.300s>
     @if($id)
         @include('personalverwaltung::credentials.id-card', ['id' => $id])
         <section class="rounded-2xl border border-gray-100 bg-white p-4 text-center shadow-sm">

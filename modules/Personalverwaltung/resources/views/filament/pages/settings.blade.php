@@ -35,7 +35,12 @@
                 <fieldset>
                     <legend class="pv-legend">Digitaler Dienstausweis</legend>
                     <label class="pv-check"><x-filament::input.checkbox wire:model="fields.digital_id" /> Aktive Kameraden zeigen ihren Dienstausweis auf dem Handy (Karten-Symbol oben in der Leiste)</label>
-                    <p class="pv-hint">Mit Foto, Name, Dienstgrad, Abteilung, Ausweisnummer und Gültigkeit aus der Akte. Ein QR-Code, der nur 10 Minuten gilt, zeigt Prüfern den aktuellen Stand – ein ausgetretener Kamerad oder ein abgelaufener Ausweis fällt so sofort auf.</p>
+                    <p class="pv-hint">Im Scheckkartenformat wie der amtliche Ausweis – mit Foto, Name, Geburtsdatum und -ort, ausstellender Behörde, Ausweisnummer, Feuerwehr, Gültigkeit, Dienstgrad und Abteilung aus der Akte, aber ohne Landeswappen: Er ist die digitale Ausfertigung, kein amtlicher Ausweis. Ein QR-Code, der nur 10 Minuten gilt, zeigt Prüfern den aktuellen Stand – ein ausgetretener Kamerad oder ein abgelaufener Ausweis fällt so sofort auf.</p>
+                    <label><span class="pv-label">Ausstellende Behörde</span>
+                        <x-filament::input.wrapper><x-filament::input type="text" wire:model="fields.id_issuer" maxlength="150" placeholder="z. B. Gemeinde Musterstadt" /></x-filament::input.wrapper></label>
+                    <label class="pv-check"><x-filament::input.checkbox wire:model="fields.id_birth_date" /> Geburtsdatum auf dem Ausweis (wenn in der Akte eingetragen)</label>
+                    <label class="pv-check"><x-filament::input.checkbox wire:model="fields.id_birth_on_check" /> Geburtsdatum auch auf der Prüfseite hinter dem QR-Code</label>
+                    <label class="pv-check"><x-filament::input.checkbox wire:model="fields.id_require_number" /> Nur zeigen, wenn eine Ausweisnummer eingetragen ist (der digitale gehört dann immer zu einem ausgegebenen Ausweis)</label>
                 </fieldset>
                 <div><x-filament::button type="submit">Speichern</x-filament::button></div>
             </form>

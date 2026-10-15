@@ -29,7 +29,7 @@ class MemberFile extends Component
 
     public User $member;
 
-    public array $idCard = ['number' => '', 'valid_until' => ''];
+    public array $idCard = ['number' => '', 'valid_until' => '', 'birth_place' => ''];
 
     public array $stage = ['kind' => 'rank', 'label' => '', 'since' => '', 'until' => '', 'note' => ''];
 
@@ -49,7 +49,7 @@ class MemberFile extends Component
         abort_unless(PersonnelService::mayRead(auth()->user(), $this->member), 403);
         $personnel->syncHistory($this->member);
         $profile = MemberProfile::find($this->member->id);
-        $this->idCard = ['number' => (string) $profile?->id_card_number, 'valid_until' => (string) $profile?->id_card_valid_until?->toDateString()];
+        $this->idCard = ['number' => (string) $profile?->id_card_number, 'valid_until' => (string) $profile?->id_card_valid_until?->toDateString(), 'birth_place' => (string) $profile?->birth_place];
         $this->honor['awarded_on'] = PersonnelService::today()->toDateString();
         $m = $this->member;
         $this->data = ['street' => (string) $m->street, 'postal_code' => (string) $m->postal_code, 'city' => (string) $m->city,
@@ -63,7 +63,7 @@ class MemberFile extends Component
 
     public function saveIdCard(PersonnelService $personnel): void
     {
-        $this->run(fn () => $personnel->saveIdCard(auth()->user(), $this->member, $this->idCard['number'], $this->idCard['valid_until'] ?: null), 'Dienstausweis gespeichert.');
+        $this->run(fn () => $personnel->saveIdCard(auth()->user(), $this->member, $this->idCard['number'], $this->idCard['valid_until'] ?: null, $this->idCard['birth_place'] ?? null), 'Dienstausweis gespeichert.');
     }
 
     public function addStage(PersonnelService $personnel): void

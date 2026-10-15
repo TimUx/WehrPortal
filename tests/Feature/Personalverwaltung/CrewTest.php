@@ -13,6 +13,7 @@ use Modules\Atemschutz\src\Models\Training;
 use Modules\Atemschutz\src\Models\Wearer;
 use Modules\Personalverwaltung\src\Filament\Pages\SettingsPage;
 use Modules\Personalverwaltung\src\Livewire\ChangeRequests;
+use Modules\Personalverwaltung\src\Livewire\MemberFile;
 use Modules\Personalverwaltung\src\Livewire\OwnFile;
 use Modules\Personalverwaltung\src\Models\ChangeRequest;
 use Modules\Personalverwaltung\src\Models\MemberProfile;
@@ -71,7 +72,7 @@ test('Dienstausweis and Atemschutzpass on the phone, checked by a QR code that r
     // The Dienstausweis has its own page behind the card icon in the header, not under Nachweise
     $this->actingAs($this->hanna)->get(route('profile'))->assertSee(route('personalverwaltung.digital-id'))->assertSee(route('credentials'));
     $this->get(route('personalverwaltung.digital-id'))->assertOk()
-        ->assertSee('Dienstausweis')->assertSee('Hanna Hydrant')->assertSee('Oberfeuerwehrfrau')->assertSee('Nr. MS-0815')->assertSee('QR-Code zur Prüfung');
+        ->assertSee('Dienstausweis')->assertSee('Hanna Hydrant')->assertSee('Oberfeuerwehrfrau')->assertSee('MS-0815')->assertSee('Ausweisnummer')->assertSee('QR-Code zur Prüfung');
     Livewire::actingAs($this->hanna)->test(Credentials::class)
         ->assertDontSee('Nr. MS-0815')
         ->assertSee('Atemschutzpass')->assertSee('Einsatzbereit')->assertSee('Tragezeit')->assertSee('QR-Code zur Prüfung');
@@ -94,4 +95,31 @@ test('Dienstausweis and Atemschutzpass on the phone, checked by a QR code that r
 
     $this->travel(11)->minutes();
     $this->get($url)->assertForbidden();
+});
+
+test('the Dienstausweis like the official card: Geburtsdatum and -ort, Behörde, Feuerwehr; options of the Personalverwaltung', function () {
+    Livewire::actingAs($this->pv)->test(SettingsPage::class)
+        ->set('fields.digital_id', true)->set('fields.birth_date', true)->set('fields.id_issuer', 'Gemeinde Musterstadt')->call('save');
+    $this->hanna->update(['birth_date' => '1990-04-12']);
+    Livewire::actingAs($this->pv)->test(MemberFile::class, ['member' => $this->hanna])
+        ->set('idCard.number', 'MS-4711')->set('idCard.valid_until', now()->addYears(2)->toDateString())->set('idCard.birth_place', 'Musterhausen')
+        ->call('saveIdCard')->assertHasNoErrors();
+
+    $this->actingAs($this->hanna)->get(route('personalverwaltung.digital-id'))->assertOk()
+        ->assertSee('12.04.1990')->assertSee('Musterhausen')->assertSee('Gemeinde Musterstadt')->assertSee('MS-4711')
+        ->assertSee(now()->addYears(2)->format('m.Y'))->assertSee('Digitale Ausfertigung')->assertSee('FEUERWEHR');
+
+    // The checker sees the fields, the Geburtsdatum only when allowed
+    $url = URL::temporarySignedRoute('credentials.check', now()->addMinutes(10), ['user' => $this->hanna->id]);
+    auth()->logout();
+    $this->get($url)->assertOk()->assertSee('Gemeinde Musterstadt')->assertSee('Musterhausen')->assertDontSee('12.04.1990');
+    Livewire::actingAs($this->pv)->test(SettingsPage::class)->set('fields.id_birth_on_check', true)->call('save');
+    auth()->logout();
+    $this->get($url)->assertOk()->assertSee('12.04.1990');
+
+    // Only with a Ausweisnummer, if the Personalverwaltung wants it
+    Livewire::actingAs($this->pv)->test(SettingsPage::class)->set('fields.id_require_number', true)->call('save');
+    $bernd = User::factory()->create(['name' => 'Bernd Blaulicht']);
+    $this->actingAs($bernd)->get(route('personalverwaltung.digital-id'))->assertNotFound();
+    $this->actingAs($this->hanna)->get(route('personalverwaltung.digital-id'))->assertOk();
 });

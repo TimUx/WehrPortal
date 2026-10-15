@@ -156,12 +156,13 @@
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <section class="{{ $card }}">
             <h2 class="text-sm font-semibold text-gray-900">Dienstausweis</h2>
-            @unless($canEdit)<p class="text-sm text-gray-700">{{ $idCard['number'] ?: 'ohne Nummer' }}{{ $idCard['valid_until'] ? ' · gültig bis '.\Illuminate\Support\Carbon::parse($idCard['valid_until'])->format('d.m.Y') : '' }}</p>@endunless
+            @unless($canEdit)<p class="text-sm text-gray-700">{{ $idCard['number'] ?: 'ohne Nummer' }}{{ $idCard['valid_until'] ? ' · gültig bis '.\Illuminate\Support\Carbon::parse($idCard['valid_until'])->format('d.m.Y') : '' }}{{ $idCard['birth_place'] ? ' · geboren in '.$idCard['birth_place'] : '' }}</p>@endunless
             @if($canEdit)
 <form wire:submit="saveIdCard" class="space-y-2">
                 <div class="grid grid-cols-2 gap-2">
                     <label class="block text-xs text-gray-600">Ausweisnummer<input type="text" wire:model="idCard.number" maxlength="50" class="{{ $input }}"></label>
                     <label class="block text-xs text-gray-600">gültig bis<input type="date" wire:model="idCard.valid_until" class="{{ $input }}"></label>
+                    <label class="col-span-2 block text-xs text-gray-600">Geburtsort (für den Ausweis)<input type="text" wire:model="idCard.birth_place" maxlength="100" class="{{ $input }}"></label>
                 </div>
                 @error('id_card_valid_until')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
                 <button type="submit" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700">Speichern</button>

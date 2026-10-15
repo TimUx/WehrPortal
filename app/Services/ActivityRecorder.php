@@ -57,7 +57,7 @@ class ActivityRecorder
     private const SECRET = '/password|token|secret|hash$|_key$|^data$|^value$|signature|^photo$|^receipt$/i';
 
     /** Personal data of a Kamerad: only the Personalverwaltung sees it, so the log shows that it changed, not to what */
-    private const PERSONAL = ['street', 'postal_code', 'city', 'phone', 'birth_date'];
+    private const PERSONAL = ['street', 'postal_code', 'city', 'phone', 'birth_date', 'birth_place'];
     // Erziehungsberechtigte: mail and phone are hidden the same way
 
     private bool $paused = false;
