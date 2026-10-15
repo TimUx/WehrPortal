@@ -28,7 +28,7 @@
                         </span>
                         <span class="text-right text-sm text-gray-500 whitespace-nowrap">
                             seit {{ $issued->issued_at->setTimezone('Europe/Berlin')->format('d.m.Y') }}
-                            <span class="block text-xs text-fw-red">Nachricht schreiben</span>
+                            <span class="block text-xs text-fw-red">Mängel melden</span>
                         </span>
                     </button>
                     <div x-show="open" x-cloak>

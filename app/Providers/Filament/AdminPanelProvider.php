@@ -23,6 +23,7 @@ use Modules\Ausruestung\AusruestungPlugin;
 use Modules\Einsatzbericht\EinsatzberichtPlugin;
 use Modules\Fahrzeugbuchung\FahrzeugbuchungPlugin;
 use Modules\Kleiderkammer\KleiderkammerPlugin;
+use Modules\Kleiderkammer\src\Filament\Pages\ScanPage;
 use Modules\Maengelmanagement\MaengelmanagementPlugin;
 use Modules\Personalverwaltung\PersonalverwaltungPlugin;
 
@@ -48,11 +49,21 @@ class AdminPanelProvider extends PanelProvider
                     ->sort(-100),
             ])
             ->renderHook(PanelsRenderHook::SIDEBAR_NAV_END, fn () => view('filament.sidebar-end'))
+            // Under the name in the user menu: the e-mail address
+            ->renderHook(PanelsRenderHook::USER_MENU_PROFILE_AFTER, fn () => view('filament.user-menu-email'))
+            // The red Scan button for Kleiderwarte on the phone, on the pages of the Kleiderkammer
+            ->renderHook(PanelsRenderHook::BODY_END, fn () => view('kleiderkammer::partials.scan-button', ['scanUrl' => ScanPage::getUrl()]))
             ->userMenuItems([
                 MenuItem::make()
                     ->label('Zur Übersicht')
                     ->url(fn () => route('home'))
-                    ->icon('heroicon-o-arrow-left'),
+                    ->icon('heroicon-o-arrow-left')
+                    ->sort(1),
+                MenuItem::make()
+                    ->label('Meine Personalakte')
+                    ->url(fn () => route('profile'))
+                    ->icon('heroicon-o-user-circle')
+                    ->sort(2),
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')

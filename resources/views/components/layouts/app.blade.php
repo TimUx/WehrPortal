@@ -64,6 +64,11 @@
         </main>
 
     </div>
+    @auth
+        @if(app(\App\Services\ModuleRegistry::class)->isActive('kleiderkammer'))
+            @include('kleiderkammer::partials.scan-button', ['scanUrl' => \Modules\Kleiderkammer\src\Filament\Pages\ScanPage::getUrl()])
+        @endif
+    @endauth
     @livewireScripts
 </body>
 </html>
