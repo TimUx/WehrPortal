@@ -69,6 +69,11 @@
             @include('kleiderkammer::partials.scan-button', ['scanUrl' => \Modules\Kleiderkammer\src\Filament\Pages\ScanPage::getUrl()])
         @endif
     @endauth
+    @auth
+        @if(config('offline.enabled'))
+            @include('offline::partials.status')
+        @endif
+    @endauth
     @livewireScripts
 </body>
 </html>
