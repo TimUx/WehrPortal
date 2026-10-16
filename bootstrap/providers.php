@@ -12,6 +12,7 @@ use Modules\Fahrzeugbuchung\FahrzeugbuchungServiceProvider;
 use Modules\Fahrzeuge\FahrzeugeServiceProvider;
 use Modules\Finanzen\FinanzenServiceProvider;
 use Modules\Fuehrerscheine\FuehrerscheineServiceProvider;
+use Modules\Gefahrenmatrix\GefahrenmatrixServiceProvider;
 use Modules\Kalender\KalenderServiceProvider;
 use Modules\Kleiderkammer\KleiderkammerServiceProvider;
 use Modules\Lehrgaenge\LehrgaengeServiceProvider;
@@ -54,5 +55,6 @@ return [
     SchluesselServiceProvider::class,
     ExpositionenServiceProvider::class,
     FuehrerscheineServiceProvider::class,
+    GefahrenmatrixServiceProvider::class,
     UnterweisungenServiceProvider::class,
 ];

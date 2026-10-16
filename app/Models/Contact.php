@@ -18,8 +18,16 @@ class Contact extends Model
     /** "tel:+491701234567" from what was typed */
     public function telUrl(): ?string
     {
-        $digits = preg_replace('/[^0-9+]/', '', (string) $this->phone);
+        $phone = trim((string) $this->phone);
+        if ($phone === '' || ! preg_match('/^\+?[0-9\s().\/-]+$/u', $phone)) {
+            return null;
+        }
 
-        return $digits !== '' ? 'tel:'.$digits : null;
+        $digits = preg_replace('/\D/', '', $phone);
+        if (strlen($digits) < 3) {
+            return null;
+        }
+
+        return 'tel:'.(str_starts_with($phone, '+') ? '+' : '').$digits;
     }
 }

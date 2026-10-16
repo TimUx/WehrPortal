@@ -1,12 +1,21 @@
 <x-layouts.app title="Ansprechpartner">
-    <div class="mx-auto max-w-2xl space-y-4">
+    <div class="mx-auto max-w-2xl space-y-4" x-data="{ query: '' }">
         <h1 class="text-xl font-bold text-gray-900">Ansprechpartner</h1>
+        @if($contacts->isNotEmpty())
+            <label class="block">
+                <span class="sr-only">Ansprechpartner suchen</span>
+                <input type="search" x-model.debounce.150ms="query" placeholder="Name, Aufgabe, Abteilung oder Telefonnummer suchen"
+                    class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm">
+            </label>
+        @endif
         @forelse($contacts->groupBy(fn ($c) => $c->group?->name ?? '') as $group => $rows)
             <section class="space-y-2">
                 @if($group !== '')<h2 class="text-sm font-semibold text-gray-700">{{ $group }}</h2>@endif
                 <div class="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white shadow-sm">
                     @foreach($rows as $c)
-                        <div class="flex flex-wrap items-center justify-between gap-3 p-4">
+                        @php($search = \Illuminate\Support\Str::lower(implode(' ', array_filter([$c->role, $c->name, $c->phone, $c->email, $c->note, $group]))))
+                        <div data-contact data-search="{{ $search }}" x-show="!query || $el.dataset.search.includes(query.trim().toLowerCase())"
+                            class="flex flex-wrap items-center justify-between gap-3 p-4">
                             <div class="min-w-0">
                                 <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $c->role }}</p>
                                 <p class="font-semibold text-gray-900">{{ $c->name }}</p>
@@ -26,5 +35,11 @@
         @empty
             <p class="rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-500">Noch keine Ansprechpartner eingetragen. Admins pflegen sie unter Admin → Kameraden → Ansprechpartner.</p>
         @endforelse
+        @if($contacts->isNotEmpty())
+            <p x-cloak x-show="query && ![...$root.querySelectorAll('[data-contact]')].some(row => row.dataset.search.includes(query.trim().toLowerCase()))"
+                class="rounded-xl border border-gray-100 bg-white p-4 text-sm text-gray-500">
+                Keine passenden Ansprechpartner gefunden.
+            </p>
+        @endif
     </div>
 </x-layouts.app>
