@@ -58,6 +58,7 @@ Empfehlung: Branch Protection auf `main` (PR + grüne Checks), damit Upstream-Me
 
 ## Fork-spezifische Punkte
 
+- **Offline/PWA:** Die additive Erweiterung liegt unter `extensions/Offline/`; Details und Grenzen stehen in [`docs-extended/OFFLINE.md`](docs-extended/OFFLINE.md). Siehe dort auch die erforderlichen kleinen Eingriffe in Layout, Wasserkarte-Formular und Service-Worker-Einbindung.
 - **Workflows:** `fork-deploy.yml`, `fork-release.yml`, `fork-security.yml` ersetzen die Originale. Image: `ghcr.io/<owner>/<repo>` (automatisch aus `github.repository`). Die Original-Workflows `deploy.yml`, `release.yml`, `security.yml` sind deaktiviert (nur `workflow_dispatch`, nur der `on:`-Block geändert – bei Merge-Konflikten die eigene Variante behalten). Tests und Security-Checks laufen weiter bei Push/PR über `fork-deploy.yml`.
 - **Secrets/Variablen (optional):** `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN` (Pull-Limit), `COOLIFY_DEPLOY_ENABLED` (Variable) + `COOLIFY_DEPLOY_WEBHOOK`/`COOLIFY_WEBHOOK_TOKEN`. Ohne sie wird das Deployment übersprungen.
 - **Release-Tags:** Format `v<upstream-version>-x<n>` (z. B. `v0.5.8-x1`); `config/app.php` → `version` muss `V.0.5.8-x1` lauten, sonst bricht `fork-release.yml` ab.
@@ -71,3 +72,9 @@ Empfehlung: Branch Protection auf `main` (PR + grüne Checks), damit Upstream-Me
 |---|---|
 | `composer.json`, `composer.lock` | Autoload und Provider-Discovery für `extensions/` |
 | `.github/workflows/{deploy,release,security}.yml` | deaktiviert (`on:` nur `workflow_dispatch`) |
+| `resources/views/components/layouts/app.blade.php` | Offline-Statusbereich für angemeldete App-Seiten |
+| `modules/Wasserkarte/resources/views/livewire/source-form.blade.php` | explizite Offline-Entwurf-Markierungen der Formularfelder |
+| `public/sw.js` | Worker-Quelltext nach `extensions/Offline/resources/js/sw.js` verschoben; `/sw.js` liefert ihn jetzt mit korrekten Scope- und Cache-Headern aus |
+| `tests/Feature/Notifications/PushTest.php` | prüft den gerouteten Service Worker statt einer statischen Datei |
+| `README.md` | Hinweis auf Offline-Status und manuelle Wiederherstellung von Wasserquellen-Entwürfen |
+| `CLAUDE.md` | aktualisiert den Speicherort und die Verantwortung für den Root-Service-Worker |
