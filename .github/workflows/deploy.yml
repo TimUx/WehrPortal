@@ -183,7 +183,7 @@ jobs:
 
       # Known critical vulnerabilities with a fix in the image (OS packages, PHP, node) stop the release
       - name: Scan Image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0, pinned to the commit
         with:
           image-ref: openwehr:scan
           severity: CRITICAL
