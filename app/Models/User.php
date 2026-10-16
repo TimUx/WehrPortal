@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\MemberGender;
 use App\Enums\MemberStatus;
 use App\Filament\ModuleAreas;
+use App\Services\AuthMethodRegistry;
 use App\Services\ModuleRegistry;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
@@ -176,6 +177,12 @@ class User extends Authenticatable implements FilamentUser
         return $this->is_active
             && $this->canUseModule('schichtplan')
             && ($this->is_admin || $this->hasModuleRole('schichtplan', 'planer'));
+    }
+
+    /** An admin who can always log in locally (magic link), even if an external login method is exclusive or down */
+    public function isLocalAdmin(): bool
+    {
+        return app(AuthMethodRegistry::class)->isLocalAdmin($this);
     }
 
     public function canAccessPanel(Panel $panel): bool

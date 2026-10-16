@@ -9,7 +9,19 @@
             </div>
 
             <div class="bg-white rounded-2xl shadow-sm border border-fw-grey-light p-6">
-                <livewire:auth.login-form />
+                @inject('authMethods', \App\Services\AuthMethodRegistry::class)
+                @if($errors->has('auth'))
+                    <p class="mb-4 text-sm text-fw-red">{{ $errors->first('auth') }}</p>
+                @endif
+                {{-- With an exclusive login method the magic link form is only reachable for local admins on their own page --}}
+                @unless($authMethods->magicLinkRestricted() && ! ($localLogin ?? false))
+                    <livewire:auth.login-form />
+                @endunless
+                @foreach($authMethods->enabled() as $method)
+                    <a href="{{ $method->loginUrl() }}" class="@if(! $authMethods->magicLinkRestricted() || ($localLogin ?? false)) mt-4 @endif block w-full text-center bg-fw-navy text-white font-semibold py-3 px-4 rounded-xl hover:opacity-90 transition-colors">
+                        {{ $method->label() }}
+                    </a>
+                @endforeach
             </div>
         </div>
     </div>
