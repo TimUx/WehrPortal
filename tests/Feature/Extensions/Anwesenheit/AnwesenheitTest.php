@@ -2,6 +2,7 @@
 
 use App\Models\Module;
 use App\Models\User;
+use App\Services\HoursRegistry;
 use Extensions\Anwesenheit\Livewire\ListForm;
 use Extensions\Anwesenheit\Livewire\ListIndex;
 use Extensions\Anwesenheit\Livewire\ListShow;
@@ -190,7 +191,7 @@ it('feeds the Stundennachweis and keeps drafts out of it', function () {
     $draft = AttendanceList::create(['title' => 'Entwurf', 'created_by' => $this->hanna->id, 'starts_at' => now()->subDay(), 'duration_minutes' => 60]);
     $draft->participants()->attach($this->hanna->id);
 
-    $rows = collect(app(App\Services\HoursRegistry::class)->rows([$this->hanna->id], now()->subWeek(), now()));
+    $rows = collect(app(HoursRegistry::class)->rows([$this->hanna->id], now()->subWeek(), now()));
     expect($rows->pluck('title')->all())->toContain('Fertig')->not->toContain('Entwurf');
 });
 

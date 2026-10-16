@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
+use Modules\Kalender\src\Models\Event;
 use Throwable;
 
 /**
@@ -147,10 +148,10 @@ class AttendanceService
         return null;
     }
 
-    /** @return Collection<int, \Modules\Kalender\src\Models\Event> */
+    /** @return Collection<int, Event> */
     private function events(User $user): Collection
     {
-        $event = \Modules\Kalender\src\Models\Event::class;
+        $event = Event::class;
 
         if (! class_exists($event) || ! in_array('kalender', $this->activeModules(), true)) {
             return collect();

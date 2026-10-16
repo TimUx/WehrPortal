@@ -1,10 +1,10 @@
 <?php
 
+use App\Support\FileResponse;
 use Extensions\Anwesenheit\Models\AttendanceFile;
 use Extensions\Anwesenheit\Models\AttendanceList;
 use Extensions\Anwesenheit\Services\AttendancePdf;
 use Extensions\Anwesenheit\Services\AttendanceService;
-use App\Support\FileResponse;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('anwesenheit')->name('anwesenheit.')

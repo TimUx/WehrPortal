@@ -11,3 +11,7 @@ Ein Entwurf wird **nicht** im Hintergrund gesendet. Livewire-Snapshots, CSRF-Tok
 Entwürfe sind nach Benutzer und Formularseite getrennt, laufen nach 30 Tagen ab und werden beim Abmelden aus dem lokalen IndexedDB-Speicher gelöscht. Sie können auf gemeinsam genutzten Geräten bis dahin lokale Daten enthalten. Der Statusbereich zeigt den Verbindungszustand und die Anzahl gespeicherter Entwürfe. „Jetzt synchronisieren“ aktualisiert den Service Worker und den Entwurfsstatus; es sendet keine Formulardaten.
 
 Die Funktion lässt sich mit `OFFLINE_ENABLED=false` abschalten. Das schaltet Offline-UI und Entwürfe ab; Manifest, Fallback-Seite und Service Worker bleiben als bestehende PWA-Grundlage aktiv. Die vorhandene Offline-Bibliothek der Objektpläne bleibt in ihrem eigenen Service-Worker-Bereich `/objektplaene`.
+
+## Anwesenheitslisten
+
+Das Formular der Anwesenheitsliste (`data-offline-draft="anwesenheit-list"`) nutzt dasselbe Entwurfsmuster: lokale Sicherung, Wiederherstellen/Verwerfen, Löschen beim Absenden. Dateien und Teilnehmerauswahl werden nicht lokal gesichert. Siehe [`ANWESENHEIT.md`](ANWESENHEIT.md).
