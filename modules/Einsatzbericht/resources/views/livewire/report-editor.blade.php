@@ -222,6 +222,8 @@
                 </div>
             @endif
         </section>
+        {{-- openwehr-extended: Sollbesatzung-Hinweise, Kostenpflicht, Personen, Verdienstausfall (see FORK.md) --}}
+        @includeIf('ebp::partials.editor', ['report' => $report, 'canEdit' => $canEdit, 'card' => $card])
 
         {{-- Verbrauchsmaterial --}}
         <section class="{{ $card }}">
