@@ -1,12 +1,8 @@
 name: Create Release
 
+# Disabled in the fork: see fork-release.yml (upstream's image, registry and deployment are not ours)
 on:
-  push:
-    tags:
-      - 'v[0-9]+.[0-9]+'
-      - 'v[0-9]+.[0-9]+.[0-9]+'
-      # Hotfix on top of a release, e.g. v0.8.9.1
-      - 'v[0-9]+.[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io

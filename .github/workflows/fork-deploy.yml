@@ -1,0 +1,227 @@
+name: Fork Build & Deploy
+
+on:
+  push:
+    branches: [main]
+    # The project page in docs/ (GitHub Pages) needs no tests and no new image
+    paths-ignore:
+      - 'docs/**'
+  # Pull requests (Dependabot, larger changes) run tests and security checks, but build nothing
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: openwehr_test
+          POSTGRES_USER: openwehr
+          POSTGRES_PASSWORD: secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: pdo_pgsql, intl, mbstring, openssl, bcmath, gd, exif
+          coverage: none
+
+      - name: Install Composer Dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Copy .env
+        run: cp .env.example .env
+
+      - name: Generate Application Key
+        run: php artisan key:generate
+
+      - name: Configure Test Database
+        run: |
+          php artisan migrate --env=testing --force
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: openwehr_test
+          DB_USERNAME: openwehr
+          DB_PASSWORD: secret
+
+      - name: Run Tests
+        run: ./vendor/bin/pest --parallel
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: openwehr_test
+          DB_USERNAME: openwehr
+          DB_PASSWORD: secret
+
+  security:
+    name: Security Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: pdo_pgsql, intl, mbstring, openssl, bcmath, gd, exif
+          coverage: none
+
+      - name: Install Composer Dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      # Larastan boots the app; it needs an environment like the tests
+      - name: Prepare Environment
+        run: cp .env.example .env && php artisan key:generate
+
+      # Known vulnerabilities in the PHP packages (GitHub/FriendsOfPHP advisories) fail the build
+      - name: Composer Audit
+        run: composer audit --no-interaction
+
+      # Static analysis (Larastan, level 5); old findings are in phpstan-baseline.neon, new code must be clean
+      - name: Static Analysis
+        run: ./vendor/bin/phpstan analyse --memory-limit=2G --no-progress --error-format=github
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install npm Dependencies
+        run: npm ci --no-audit --no-fund
+
+      # Known vulnerabilities in the JavaScript packages that end up in the app
+      - name: npm Audit
+        run: npm audit --omit=dev --audit-level=high
+
+      # Passwords, keys or tokens committed by mistake (whole history)
+      - name: Secret Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    if: github.event_name == 'push'
+    env:
+      HAS_DOCKERHUB: ${{ secrets.DOCKERHUB_USERNAME != '' }}
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Optional: logged-in pulls avoid Docker Hub's anonymous rate limit (only when the secrets exist)
+      - name: Log in to Docker Hub
+        if: ${{ env.HAS_DOCKERHUB == 'true' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-,format=short
+
+      # Built and loaded first, so it can be scanned before anything is pushed
+      - name: Build Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: openwehr-fork:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Known critical vulnerabilities with a fix in the image (OS packages, PHP, node) stop the release
+      - name: Scan Image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0, pinned to the commit
+        with:
+          image-ref: openwehr-fork:scan
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: table
+
+      - name: Push Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+
+      # Without the repository variable (not a secret) the deploy is skipped; say so on the run page
+      - name: Coolify Deployment skipped
+        if: ${{ vars.COOLIFY_DEPLOY_ENABLED != 'true' }}
+        run: echo "::notice title=Coolify::Deployment skipped – repository variable COOLIFY_DEPLOY_ENABLED is not 'true' (Settings → Secrets and variables → Actions → Variables)."
+
+      # A refused webhook (wrong URL or token, Coolify down) fails the job instead of passing silently
+      - name: Trigger Coolify Deployment
+        if: ${{ vars.COOLIFY_DEPLOY_ENABLED == 'true' }}
+        env:
+          WEBHOOK: ${{ secrets.COOLIFY_DEPLOY_WEBHOOK }}
+          TOKEN: ${{ secrets.COOLIFY_WEBHOOK_TOKEN }}
+        run: |
+          if [ -z "$WEBHOOK" ] || [ -z "$TOKEN" ]; then
+            echo "::error title=Coolify::Secret COOLIFY_DEPLOY_WEBHOOK or COOLIFY_WEBHOOK_TOKEN is missing."
+            exit 1
+          fi
+          status=$(curl -sS -o response.txt -w "%{http_code}" --max-time 60 -X POST "$WEBHOOK" -H "Authorization: Bearer $TOKEN") || {
+            echo "::error title=Coolify::Webhook not reachable."
+            exit 1
+          }
+          echo "Coolify answered HTTP $status"
+          cat response.txt; echo
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "::error title=Coolify::Webhook refused with HTTP $status."
+            exit 1
+          fi

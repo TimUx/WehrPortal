@@ -1,0 +1,63 @@
+name: Upstream Sync
+
+# Brings changes of the original (roberteinsle/openwehr) into this fork as a pull request.
+# Weekly and on demand. The merge happens on the branch `upstream-sync`; conflicts are left
+# in the pull request for a human (the PR is opened as draft with a note).
+on:
+  schedule:
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  UPSTREAM_REPO: roberteinsle/openwehr
+  UPSTREAM_BRANCH: main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Merge upstream
+        id: merge
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream "https://github.com/${UPSTREAM_REPO}.git"
+          git fetch upstream "$UPSTREAM_BRANCH"
+          if git merge-base --is-ancestor "upstream/${UPSTREAM_BRANCH}" HEAD; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          git checkout -B upstream-sync
+          if git merge --no-edit "upstream/${UPSTREAM_BRANCH}"; then
+            echo "conflicts=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "conflicts=true" >> "$GITHUB_OUTPUT"
+            git add -A
+            git commit -m "Merge upstream (conflicts to resolve)" 
+          fi
+          git push --force origin upstream-sync
+
+      - name: Open pull request
+        if: steps.merge.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONFLICTS: ${{ steps.merge.outputs.conflicts }}
+        run: |
+          if [ -n "$(gh pr list --head upstream-sync --state open --json number --jq '.[0].number')" ]; then
+            echo "Pull request already open, branch updated."; exit 0
+          fi
+          draft=""; note="Clean merge of upstream/${UPSTREAM_BRANCH}."
+          if [ "$CONFLICTS" = "true" ]; then
+            draft="--draft"
+            note="Merge has conflicts (conflict markers are committed). Resolve them on the branch, then mark ready. See FORK.md."
+          fi
+          gh pr create $draft --base "${{ github.event.repository.default_branch }}" --head upstream-sync \
+            --title "Upstream sync: ${UPSTREAM_REPO}" --body "$note"

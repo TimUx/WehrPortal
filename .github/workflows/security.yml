@@ -3,9 +3,8 @@ name: Security
 # New advisories appear for packages that were fine yesterday: check the dependencies and the
 # published image every week even when nothing is pushed. Findings show as a failed run (mail to
 # the maintainer) and, for the image, in the repository's Security tab.
+# Disabled in the fork: see fork-security.yml
 on:
-  schedule:
-    - cron: '17 5 * * 1'
   workflow_dispatch:
 
 permissions:
