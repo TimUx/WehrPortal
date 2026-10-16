@@ -2,6 +2,7 @@
 
 namespace Modules\Ausruestung\src\Services;
 
+use App\Support\Csv;
 use Illuminate\Database\Eloquent\Builder;
 use Modules\Ausruestung\src\Models\Equipment;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -20,12 +21,12 @@ class InventoryExport
         return response()->streamDownload(function () use ($query) {
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF"); // BOM, so Excel reads the umlauts
-            fputcsv($out, self::COLUMNS, ';');
+            Csv::put($out, self::COLUMNS, ';');
 
             $query->with(['category', 'location', 'compartment.location'])->orderBy('code')
                 ->chunk(500, function ($items) use ($out) {
                     foreach ($items as $equipment) {
-                        fputcsv($out, $this->row($equipment), ';');
+                        Csv::put($out, $this->row($equipment), ';');
                     }
                 });
 

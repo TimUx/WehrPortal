@@ -3,6 +3,8 @@
 use App\Livewire\Profile\Hours;
 use App\Models\User;
 use App\Services\HoursRegistry;
+use App\Support\Csv;
+use App\Support\FileResponse;
 use App\Support\HoursCsv;
 use Illuminate\Support\Facades\Route;
 use Modules\Personalverwaltung\src\Livewire\Reports;
@@ -26,9 +28,7 @@ Route::middleware(['auth', 'active', 'module:personalverwaltung'])->group(functi
         abort_unless($owner->is(auth()->user()) || (PersonnelService::canManage(auth()->user()) && PersonnelService::mayView(auth()->user(), $owner)), 403);
         $data = HistoryFile::whereKey($file->id)->value('data');
 
-        return response(base64_decode($data), 200, [
-            'Content-Type' => $file->mime, 'Content-Disposition' => 'inline; filename="'.addcslashes($file->filename, '"\\').'"', 'Cache-Control' => 'private, max-age=3600',
-        ]);
+        return FileResponse::make(base64_decode($data), $file->filename);
     })->whereNumber('file')->name('personalverwaltung.history-file');
     Route::get('/personalakte/persoenliche-daten', fn () => view('personalverwaltung::pages.own-data'))->name('personalverwaltung.own-data');
 
@@ -44,9 +44,9 @@ Route::middleware(['auth', 'active', 'module:personalverwaltung'])->group(functi
             $rows = $personnel->report(auth()->user(), $kind, ...Reports::period((string) request('von'), (string) request('bis')));
             $out = fopen('php://temp', 'r+');
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, [PersonnelService::REPORTS[$kind], 'Name', 'Angabe', 'Datum'], ';');
+            Csv::put($out, [PersonnelService::REPORTS[$kind], 'Name', 'Angabe', 'Datum'], ';');
             foreach ($rows as $row) {
-                fputcsv($out, [$row['group'], $row['name'], $row['detail'], $row['date']?->format('d.m.Y')], ';');
+                Csv::put($out, [$row['group'], $row['name'], $row['detail'], $row['date']?->format('d.m.Y')], ';');
             }
             rewind($out);
 

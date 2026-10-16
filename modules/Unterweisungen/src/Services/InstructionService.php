@@ -4,6 +4,7 @@ namespace Modules\Unterweisungen\src\Services;
 
 use App\Models\User;
 use App\Services\ModuleRegistry;
+use App\Support\FileResponse;
 use App\Support\SignatureImage;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\UploadedFile;
@@ -113,6 +114,8 @@ class InstructionService
         foreach ($files as $file) {
             if ($file->getSize() > 10 * 1024 * 1024) {
                 $errors['session_files'] = '„'.$file->getClientOriginalName().'“ ist zu groß (höchstens 10 MB).';
+            } elseif (! in_array(mb_strtolower($file->getClientOriginalExtension()), FileResponse::allowedExtensions(), true)) {
+                $errors['session_files'] = '„'.$file->getClientOriginalName().'“: bitte PDF, Foto oder Office-Datei.';
             }
         }
         if ($errors) {

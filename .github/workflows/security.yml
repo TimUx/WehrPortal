@@ -1,0 +1,55 @@
+name: Security
+
+# New advisories appear for packages that were fine yesterday: check the dependencies and the
+# published image every week even when nothing is pushed. Findings show as a failed run (mail to
+# the maintainer) and, for the image, in the repository's Security tab.
+on:
+  schedule:
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: pdo_pgsql, intl, mbstring, openssl, bcmath, gd, exif
+          coverage: none
+
+      - name: Composer Audit
+        run: composer install --no-interaction --prefer-dist --no-scripts && composer audit --no-interaction
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: npm Audit
+        run: npm ci --no-audit --no-fund && npm audit --omit=dev --audit-level=high
+
+  image:
+    name: Image Scan (latest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scan ghcr.io/roberteinsle/openwehr:latest
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/roberteinsle/openwehr:latest
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          format: sarif
+          output: trivy.sarif
+
+      - name: Upload to the Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy.sarif

@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\FileResponse;
 use Illuminate\Support\Facades\Route;
 use Modules\Objektplaene\src\Models\PlanObject;
 use Modules\Objektplaene\src\Models\Version;
@@ -19,12 +20,7 @@ Route::prefix('objektplaene')->name('objektplaene.')
             abort_unless($version->version === $current || ObjectPlanService::canManage(auth()->user()), 403);
             abort_unless($version->document?->object?->is_active || ObjectPlanService::canManage(auth()->user()), 404);
 
-            return response(base64_decode($version->data), 200, [
-                'Content-Type' => $version->mime,
-                'Content-Disposition' => 'inline; filename="'.addslashes($version->name).'"',
-                'Cache-Control' => 'private, max-age=31536000, immutable',
-                'X-Content-Type-Options' => 'nosniff',
-            ]);
+            return FileResponse::make(base64_decode($version->data), $version->name, 'private, max-age=31536000, immutable');
         })->whereNumber('version')->name('file');
 
         // The service worker for "Für offline speichern"; its scope is the whole module

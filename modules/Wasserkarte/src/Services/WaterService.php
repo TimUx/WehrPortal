@@ -5,6 +5,7 @@ namespace Modules\Wasserkarte\src\Services;
 use App\Models\User;
 use App\Services\ImageResizer;
 use App\Services\ModuleRegistry;
+use App\Support\Csv;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
@@ -287,11 +288,11 @@ class WaterService
         $out = fopen('php://temp', 'r+');
         fwrite($out, "\xEF\xBB\xBF");
         $num = fn ($v) => $v === null ? '' : str_replace('.', ',', (string) $v);
-        fputcsv($out, ['Nummer', 'Art', 'Lage', 'Breitengrad', 'Längengrad', 'Status', 'Durchfluss l/min', 'Ruhedruck bar', 'DN', 'Inhalt m³', 'Saughöhe m',
+        Csv::put($out, ['Nummer', 'Art', 'Lage', 'Breitengrad', 'Längengrad', 'Status', 'Durchfluss l/min', 'Ruhedruck bar', 'DN', 'Inhalt m³', 'Saughöhe m',
             'Betreiber', 'Letzte Prüfung', 'Ergebnis', 'Gemessen l/min', 'Fließdruck bar', 'Geprüft von', 'Nächste Prüfung'], ';');
         foreach (Source::active()->with(['inspections' => fn ($q) => $q->with('user')])->orderBy('number')->orderBy('id')->get() as $s) {
             $last = $s->inspections->first();
-            fputcsv($out, [$s->number, $s->kindLabel(), $s->location, $s->latitude, $s->longitude, $s->statusLabel(), $s->flow_lpm, $num($s->pressure_bar), $s->pipe_dn,
+            Csv::put($out, [$s->number, $s->kindLabel(), $s->location, $s->latitude, $s->longitude, $s->statusLabel(), $s->flow_lpm, $num($s->pressure_bar), $s->pipe_dn,
                 $s->capacity_m3, $num($s->suction_height_m), $s->operator, $last?->inspected_on->format('d.m.Y'), $last ? Inspection::RESULTS[$last->result] ?? $last->result : null,
                 $last?->flow_lpm, $num($last?->flow_pressure_bar), $last?->user?->name, $s->next_inspection_on?->format('d.m.Y')], ';');
         }

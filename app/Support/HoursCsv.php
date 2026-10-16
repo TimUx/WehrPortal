@@ -13,9 +13,9 @@ final class HoursCsv
     {
         $out = fopen('php://temp', 'r+');
         fwrite($out, "\xEF\xBB\xBF");
-        fputcsv($out, ['Name', 'Datum', 'Herkunft', 'Was', 'Stunden'], ';');
+        Csv::put($out, ['Name', 'Datum', 'Herkunft', 'Was', 'Stunden'], ';');
         foreach ($rows->sortBy(fn ($r) => $r['date']->timestamp) as $row) {
-            fputcsv($out, [$names[$row['user_id']] ?? '', $row['date']->copy()->setTimezone('Europe/Berlin')->format('d.m.Y'), $row['source'], $row['title'],
+            Csv::put($out, [$names[$row['user_id']] ?? '', $row['date']->copy()->setTimezone('Europe/Berlin')->format('d.m.Y'), $row['source'], $row['title'],
                 str_replace(' h', '', HoursRegistry::format($row['minutes']))], ';');
         }
         rewind($out);

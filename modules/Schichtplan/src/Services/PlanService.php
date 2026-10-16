@@ -4,6 +4,7 @@ namespace Modules\Schichtplan\src\Services;
 
 use App\Models\Group;
 use App\Models\User;
+use App\Support\Csv;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -266,26 +267,26 @@ class PlanService
 
         $out = fopen('php://temp', 'r+');
         fwrite($out, "\xEF\xBB\xBF");
-        fputcsv($out, [$plan->title, $plan->timeLabel(), (string) $plan->location], ';');
-        fputcsv($out, [], ';');
-        fputcsv($out, ['Zeit', ...$plan->stations->pluck('name')->all()], ';');
-        fputcsv($out, ['Verantwortlich', ...$plan->stations->map(fn (Station $s) => $s->lead?->name ?? '')->all()], ';');
+        Csv::put($out, [$plan->title, $plan->timeLabel(), (string) $plan->location], ';');
+        Csv::put($out, [], ';');
+        Csv::put($out, ['Zeit', ...$plan->stations->pluck('name')->all()], ';');
+        Csv::put($out, ['Verantwortlich', ...$plan->stations->map(fn (Station $s) => $s->lead?->name ?? '')->all()], ';');
 
         foreach ($plan->slots as $slot) {
-            fputcsv($out, [$slot->label(), ...$plan->stations->map(fn (Station $s) => $assignments
+            Csv::put($out, [$slot->label(), ...$plan->stations->map(fn (Station $s) => $assignments
                 ->where('slot_id', $slot->id)->where('station_id', $s->id)->map(fn (Assignment $a) => $a->user->name.($a->isRequested() ? ' (angefragt)' : ''))
                 ->sort()->implode(', '))->all()], ';');
         }
 
-        fputcsv($out, [], ';');
-        fputcsv($out, ['Name', 'Schichten', 'Stationsverantwortung'], ';');
+        Csv::put($out, [], ';');
+        Csv::put($out, ['Name', 'Schichten', 'Stationsverantwortung'], ';');
         $people = $plan->participants->pluck('user')->concat($plan->stations->pluck('lead'))->filter()->unique('id')->sortBy('name');
 
         foreach ($people as $user) {
             $shifts = $assignments->where('user_id', $user->id)
                 ->sortBy(fn (Assignment $a) => $plan->slots->firstWhere('id', $a->slot_id)?->starts_at)
                 ->map(fn (Assignment $a) => $plan->slots->firstWhere('id', $a->slot_id)?->label().' '.$plan->stations->firstWhere('id', $a->station_id)?->name);
-            fputcsv($out, [$user->name, $shifts->implode(' · '), $plan->stations->where('lead_user_id', $user->id)->pluck('name')->implode(', ')], ';');
+            Csv::put($out, [$user->name, $shifts->implode(' · '), $plan->stations->where('lead_user_id', $user->id)->pluck('name')->implode(', ')], ';');
         }
 
         rewind($out);

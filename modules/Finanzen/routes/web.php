@@ -1,10 +1,13 @@
 <?php
 
+use App\Support\FileResponse;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 use Modules\Finanzen\src\Models\Entry;
 use Modules\Finanzen\src\Models\Receipt;
 use Modules\Finanzen\src\Services\FinanceExport;
 use Modules\Finanzen\src\Services\FinanceService;
+use Symfony\Component\HttpFoundation\HeaderUtils;
 
 Route::prefix('finanzen')->name('finanzen.')
     ->middleware(['auth', 'active', 'module:finanzen'])
@@ -28,12 +31,12 @@ Route::prefix('finanzen')->name('finanzen.')
         Route::get('/beleg/{receipt}', function (Receipt $receipt) {
             abort_unless(FinanceService::canView(auth()->user(), $receipt->entry), 403);
 
-            return response(base64_decode($receipt->data), 200, [
-                'Content-Type' => $receipt->mime,
-                'Content-Disposition' => (request()->boolean('download') ? 'attachment' : 'inline').'; filename="'.addslashes($receipt->name).'"',
-                'Cache-Control' => 'private, max-age=3600',
-                'X-Content-Type-Options' => 'nosniff',
-            ]);
+            $response = FileResponse::make(base64_decode($receipt->data), $receipt->name);
+            if (request()->boolean('download')) {
+                $response->headers->set('Content-Disposition', HeaderUtils::makeDisposition('attachment', $receipt->name, Str::ascii($receipt->name) ?: 'beleg'));
+            }
+
+            return $response;
         })->whereNumber('receipt')->name('receipt');
 
         // Kassenwart, Wehrführung and admins: all Buchungen, Jahresabschluss and export

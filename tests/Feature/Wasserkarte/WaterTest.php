@@ -172,3 +172,15 @@ test('a QR label leads to the source; the Prüfnachweis comes as CSV', function 
     $this->get(route('wasserkarte.label', $this->h1))->assertForbidden();
     $this->get(route('wasserkarte.source', $this->h1))->assertDontSee('QR-Etikett drucken');
 });
+
+test('the map shows where an Einsatz was only while it runs, or to the Einsatzleitung', function () {
+    $leader = User::factory()->create();
+    $leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
+    $reports = app(ReportService::class);
+    $report = $reports->create($leader);
+    $reports->update($leader, $report, ['keyword' => 'RD Tragehilfe', 'latitude' => WK_LAT, 'longitude' => WK_LNG]);
+
+    // A draft, not running: Kameraden can't find out where it is by trying ids
+    Livewire::actingAs($this->hanna)->withQueryParams(['einsatz' => $report->id])->test(MapView::class)
+        ->assertDontSee('RD Tragehilfe')->assertDontSee('Nächste Wasserquellen zur Einsatzstelle');
+});

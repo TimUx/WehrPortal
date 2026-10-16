@@ -6,6 +6,11 @@ on:
     # The project page in docs/ (GitHub Pages) needs no tests and no new image
     paths-ignore:
       - 'docs/**'
+  # Pull requests (Dependabot, larger changes) run tests and security checks, but build nothing
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
 
 env:
   REGISTRY: ghcr.io
@@ -76,10 +81,62 @@ jobs:
           DB_USERNAME: openwehr
           DB_PASSWORD: secret
 
+  security:
+    name: Security Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: pdo_pgsql, intl, mbstring, openssl, bcmath, gd, exif
+          coverage: none
+
+      - name: Install Composer Dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      # Larastan boots the app; it needs an environment like the tests
+      - name: Prepare Environment
+        run: cp .env.example .env && php artisan key:generate
+
+      # Known vulnerabilities in the PHP packages (GitHub/FriendsOfPHP advisories) fail the build
+      - name: Composer Audit
+        run: composer audit --no-interaction
+
+      # Static analysis (Larastan, level 5); old findings are in phpstan-baseline.neon, new code must be clean
+      - name: Static Analysis
+        run: ./vendor/bin/phpstan analyse --memory-limit=2G --no-progress --error-format=github
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install npm Dependencies
+        run: npm ci --no-audit --no-fund
+
+      # Known vulnerabilities in the JavaScript packages that end up in the app
+      - name: npm Audit
+        run: npm audit --omit=dev --audit-level=high
+
+      # Passwords, keys or tokens committed by mistake (whole history)
+      - name: Secret Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   build-and-push:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
-    needs: test
+    needs: [test, security]
+    if: github.event_name == 'push'
     permissions:
       contents: read
       packages: write
@@ -114,7 +171,27 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-,format=short
 
-      - name: Build and Push Image
+      # Built and loaded first, so it can be scanned before anything is pushed
+      - name: Build Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: openwehr:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Known critical vulnerabilities with a fix in the image (OS packages, PHP, node) stop the release
+      - name: Scan Image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: openwehr:scan
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: table
+
+      - name: Push Image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -122,7 +199,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       # Without the repository variable (not a secret) the deploy is skipped; say so on the run page
       - name: Coolify Deployment skipped

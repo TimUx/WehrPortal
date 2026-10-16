@@ -9,9 +9,11 @@ use Modules\Ausruestung\src\Support\PublicScan;
 Route::get('/geraeteinfo/{code}', function (string $code) {
     $equipment = Equipment::findByScan($code) ?? abort(404);
     $equipment->load(['category', 'compartment.location', 'location']);
-    if (auth()->check() || ! PublicScan::enabled()) {
+    if (auth()->check()) {
         return redirect()->route('ausruestung.show', $equipment);
     }
+    // Switched off: guests learn nothing, not even that the code exists
+    abort_unless(PublicScan::enabled(), 404);
 
     return response()->view('ausruestung::pages.public', ['equipment' => $equipment, 'org' => app(OrganizationSettings::class)->name()])
         ->header('Referrer-Policy', 'no-referrer');

@@ -2,6 +2,7 @@
 
 namespace Modules\Kleiderkammer\src\Livewire;
 
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Modules\Kleiderkammer\src\Models\EquipmentMessage;
 use Modules\Kleiderkammer\src\Models\IssuedItem;
@@ -10,6 +11,7 @@ use Modules\Kleiderkammer\src\Services\EquipmentMessageService;
 /** "Meine Ausrüstung": write to the Kleiderwart about one issued item */
 class EquipmentMessageForm extends Component
 {
+    #[Locked]
     public int $issuedItemId;
 
     public string $body = '';

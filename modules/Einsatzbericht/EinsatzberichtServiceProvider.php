@@ -59,7 +59,8 @@ class EinsatzberichtServiceProvider extends ServiceProvider
         }
 
         // DIVERA: at most 30 requests a minute per address
-        RateLimiter::for('divera', fn (Request $request) => Limit::perMinute(30)->by('divera|'.$request->route('key')));
+        // Per address (a real alarm burst) and per sender IP (wrong keys tried out)
+        RateLimiter::for('divera', fn (Request $request) => [Limit::perMinute(30)->by('divera|'.$request->route('key')), Limit::perMinute(60)->by('divera-ip|'.$request->ip())]);
         $this->loadMigrationsFrom($base.'/database/migrations');
 
         $this->commands([SendReportReminders::class]);

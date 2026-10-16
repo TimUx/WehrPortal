@@ -4,6 +4,7 @@ namespace Modules\Expositionen\src\Services;
 
 use App\Models\User;
 use App\Services\ModuleRegistry;
+use App\Support\Csv;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -188,9 +189,9 @@ class ExposureService
     {
         $out = fopen('php://temp', 'r+');
         fwrite($out, "\xEF\xBB\xBF");
-        fputcsv($out, ['Name', 'Geburtsdatum', 'Datum', 'Anlass', 'Tätigkeit', 'Gefahrstoffe', 'Dauer (min)', 'Aufnahmeweg', 'Schutzmaßnahmen', 'Bemerkung', 'Status', 'Gemeldet am', 'ZED-Referenz', 'Aufbewahren bis'], ';');
+        Csv::put($out, ['Name', 'Geburtsdatum', 'Datum', 'Anlass', 'Tätigkeit', 'Gefahrstoffe', 'Dauer (min)', 'Aufnahmeweg', 'Schutzmaßnahmen', 'Bemerkung', 'Status', 'Gemeldet am', 'ZED-Referenz', 'Aufbewahren bis'], ';');
         foreach ($exposures as $e) {
-            fputcsv($out, [$e->person_name, $e->user?->birth_date?->format('d.m.Y'), $e->occurred_on->format('d.m.Y'), $e->occasion, $e->activityLabel(), $e->substanceList(),
+            Csv::put($out, [$e->person_name, $e->user?->birth_date?->format('d.m.Y'), $e->occurred_on->format('d.m.Y'), $e->occasion, $e->activityLabel(), $e->substanceList(),
                 $e->duration_minutes, $e->routeList(), $e->protectionList(), $e->notes, $e->statusLabel(), $e->reported_on?->format('d.m.Y'), $e->zed_reference,
                 $e->retain_until->format('d.m.Y')], ';');
         }

@@ -26,7 +26,8 @@ RUN composer install \
     --prefer-dist
 
 # Install Node.js dependencies and build frontend assets
-RUN npm ci --silent && npm run build && rm -rf node_modules
+# Node is only needed for the build; it does not stay in the running image
+RUN npm ci --silent && npm run build && rm -rf node_modules && apk del nodejs npm
 
 # Custom startup scripts (run after serversideup's migrations, see 50-laravel-automations)
 COPY --chmod=755 docker/entrypoint.d/ /etc/entrypoint.d/

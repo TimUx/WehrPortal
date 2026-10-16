@@ -31,6 +31,22 @@ class Invitation
         return ['url' => route('auth.magic-link.confirm', $raw), 'expires_at' => $expires];
     }
 
+    /**
+     * The link to show on screen (QR code, copy): whoever sees it can log in as $member. So only an
+     * admin may show it for anyone; a Personalverwalter only for a Kamerad who has never logged in and
+     * is no admin – everyone else gets the Einladung by mail to their own address (send()).
+     *
+     * @return array{url: string, expires_at: Carbon}
+     */
+    public function createForScreen(User $member, User $by): array
+    {
+        if (! $by->is_admin && ($member->is_admin || $member->last_login_at !== null)) {
+            throw ValidationException::withMessages(['invite' => 'Wer sich schon angemeldet hat (oder Admin ist), bekommt die Einladung nur per Mail an die eigene Adresse.']);
+        }
+
+        return $this->create($member);
+    }
+
     public function send(User $member, User $by): Carbon
     {
         $invite = $this->create($member);

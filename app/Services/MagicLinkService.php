@@ -35,7 +35,12 @@ class MagicLinkService
             'created_at' => now(),
         ]);
 
-        $user->notify(new MagicLinkNotification($rawToken));
+        // A mail error must not answer differently than an unknown address (enumeration)
+        try {
+            $user->notify(new MagicLinkNotification($rawToken));
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     public function consumeToken(string $rawToken, Request $request): User
@@ -53,11 +58,17 @@ class MagicLinkService
             ]);
         }
 
-        $loginToken->update([
+        // Claimed atomically: of two simultaneous clicks only one logs in
+        $claimed = LoginToken::whereKey($loginToken->id)->whereNull('used_at')->update([
             'used_at' => now(),
             'ip' => $request->ip(),
-            'user_agent' => $request->userAgent(),
+            'user_agent' => mb_substr((string) $request->userAgent(), 0, 255),
         ]);
+        if ($claimed === 0) {
+            throw ValidationException::withMessages([
+                'token' => ['Dieser Link ist ungültig oder abgelaufen. Bitte fordere einen neuen Link an.'],
+            ]);
+        }
 
         $user = $loginToken->user;
 

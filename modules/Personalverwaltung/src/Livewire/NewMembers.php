@@ -42,7 +42,7 @@ class NewMembers extends Component
 
             return;
         }
-        $link = $invitation->create($member);
+        $link = $invitation->createForScreen($member, auth()->user());
         $this->invite = ['id' => $member->id, 'name' => $member->name, 'url' => $link['url'], 'until' => $link['expires_at']->setTimezone('Europe/Berlin')->format('d.m.Y H:i')];
         $this->member = ['name' => '', 'email' => '', 'group_ids' => [], 'joined_at' => '', 'rank' => '', 'gender' => ''];
         $this->flash = $member->name.' ist angelegt. Zeig den QR-Code zum Scannen oder schick die Einladung per Mail.';

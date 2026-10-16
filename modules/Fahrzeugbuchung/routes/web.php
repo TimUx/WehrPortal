@@ -20,12 +20,12 @@ Route::prefix('fahrzeugbuchung')->name('fahrzeugbuchung.')->group(function () {
         return response()
             ->view('fahrzeugbuchung::pages.monitor')
             ->header('Referrer-Policy', 'no-referrer');   // X-Robots-Tag comes from the NoIndex middleware
-    })->name('monitor');
+    })->middleware('throttle:30,1')->name('monitor');
 
     // -----------------------------------------------------------------------
     // Return a vehicle early from the reminder mail: signed link, no login needed
     // -----------------------------------------------------------------------
-    Route::middleware('signed')->group(function () {
+    Route::middleware(['signed', 'throttle:30,1'])->group(function () {
         Route::get('/buchungen/{booking}/zurueckgeben', [BookingReturnController::class, 'show'])->name('bookings.return');
         Route::post('/buchungen/{booking}/zurueckgeben', [BookingReturnController::class, 'store']);
 

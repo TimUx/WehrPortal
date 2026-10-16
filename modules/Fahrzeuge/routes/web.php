@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\FileResponse;
 use Illuminate\Support\Facades\Route;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 use Modules\Fahrzeuge\src\Models\Attachment;
@@ -40,18 +41,9 @@ Route::prefix('fahrzeuge')->name('fahrzeuge.')
         Route::get('/dokumente/{document}', function (Document $document) {
             abort_unless(FleetService::canSeeDocument(auth()->user(), $document), 403);
 
-            return response(base64_decode($document->data), 200, [
-                'Content-Type' => $document->mime,
-                'Content-Disposition' => 'inline; filename="'.addslashes($document->name).'"',
-                'Cache-Control' => 'private, max-age=3600',
-                'X-Content-Type-Options' => 'nosniff',
-            ]);
+            return FileResponse::make(base64_decode($document->data), $document->name);
         })->whereNumber('document')->name('document');
 
-        Route::get('/anhaenge/{attachment}', fn (Attachment $attachment) => response(base64_decode($attachment->data), 200, [
-            'Content-Type' => $attachment->mime,
-            'Content-Disposition' => 'inline; filename="'.addslashes($attachment->name).'"',
-            'Cache-Control' => 'private, max-age=3600',
-            'X-Content-Type-Options' => 'nosniff',
-        ]))->whereNumber('attachment')->name('attachment');
+        Route::get('/anhaenge/{attachment}', fn (Attachment $attachment) => FileResponse::make(base64_decode($attachment->data), $attachment->name))
+            ->whereNumber('attachment')->name('attachment');
     });

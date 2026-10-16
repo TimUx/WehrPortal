@@ -786,6 +786,8 @@ Neue Versionen erscheinen unter [Releases](https://github.com/roberteinsle/openw
 2. Bei der App den **Tag** auf die neue Version setzen (z. B. `v0.8.2`), **Save**, dann **Redeploy**.
 3. Datenbank-Änderungen laufen beim Start automatisch. Die Version steht im Admin-Bereich unten in der Navigation.
 
+**Wie oft?** Mindestens **monatlich**, und sofort, wenn ein Release als **Sicherheitsupdate** gekennzeichnet ist. Wer „Watch → Custom → Releases“ beim Repository einschaltet, bekommt jede neue Version per Mail.
+
 Zurück auf die vorige Version geht genauso über den alten Tag. Die Datenbank wird dabei nicht zurückgedreht; macht ein Update Probleme, das Backup aus Schritt 1 einspielen.
 
 ### 9. Sicherungen im Blick behalten
@@ -804,7 +806,7 @@ Alle Einstellungen laufen über Umgebungsvariablen (in Coolify unter **Environme
 
 | Variable                 | Beschreibung                                            |
 |--------------------------|---------------------------------------------------------|
-| `APP_URL`                | Öffentliche URL. Wird für die Links in den Magic-Link-Mails verwendet. |
+| `APP_URL`                | Öffentliche URL. Alle Links in Mails (Login, Einladung) werden daraus gebaut, nie aus dem Host der Anfrage. Mit `https://` sind die Session-Cookies automatisch `Secure`. |
 | `DB_*`                   | Zugangsdaten für PostgreSQL                             |
 | `MAIL_*`                 | SMTP-Server für alle Mails. Für Port 465 gilt `MAIL_SCHEME=smtps`. |
 | `ADMIN_EMAILS`           | Kommagetrennte Adressen, die beim Container-Start als Admin angelegt bzw. aktiviert werden |
@@ -814,6 +816,17 @@ Alle Einstellungen laufen über Umgebungsvariablen (in Coolify unter **Environme
 | `LOG_CHANNEL`            | Im Docker-Image `stderr`, damit Fehler in den Container-Logs erscheinen |
 
 Alle Mails werden sofort verschickt, ein Queue-Worker ist nicht nötig. Der Laravel-Scheduler läuft im Docker-Image als eigener Dienst neben nginx und PHP-FPM mit, ein separater Container oder Cronjob ist nicht nötig. Er verschickt jede Minute fällige Erinnerungsmails und räumt täglich abgelaufene Login-Tokens auf.
+
+## Sicherheit
+
+Wie openwehr gegen Lücken abgesichert wird und wie man eine meldet, steht in [SECURITY.md](SECURITY.md). Kurz:
+
+- **Updates:** Dependabot schlägt jede Woche Updates aller Abhängigkeiten vor (PHP, JavaScript, Docker-Basis-Image, GitHub-Actions); Sicherheitsupdates sofort. Jede Änderung läuft durch alle Tests, bevor ein Image entsteht.
+- **Prüfungen bei jedem Push und Pull Request** (GitHub-Workflow „Build & Deploy“, Job „Security Checks“): `composer audit` und `npm audit` (bekannte Schwachstellen), Larastan (statische Analyse, Level 5; alte Befunde in `phpstan-baseline.neon`, neuer Code muss sauber sein), Gitleaks (versehentlich eingecheckte Geheimnisse). Das Docker-Image wird vor dem Veröffentlichen mit Trivy gescannt; kritische Lücken mit verfügbarer Korrektur stoppen es.
+- **Wöchentlich** (Workflow „Security“): dieselben Audits und ein Scan des veröffentlichten Images `latest` – auch ohne Änderung, weil täglich neue Schwachstellen bekannt werden. Funde stehen im Security-Tab des Repositorys.
+- **KI-Sicherheitsreview:** Pull Requests prüft die GitHub-Action „Claude Code Security Review“ (Workflow „Claude Security Review“; braucht das Repository-Secret `ANTHROPIC_API_KEY`, sonst wird sie übersprungen). Lokal geht dasselbe mit `/security-review` in Claude Code.
+- **In der App:** Security-Header auf jeder Antwort (`X-Content-Type-Options`, `X-Frame-Options` – außer dem öffentlichen Kalender zum Einbetten –, `Referrer-Policy`, `Permissions-Policy`, HSTS unter HTTPS und eine Content-Security-Policy, vorerst im Beobachtungsmodus „Report-Only“). Hochgeladene Dateien werden mit festem Dateityp ausgeliefert, nur PDFs und Fotos öffnen im Browser, alles andere wird heruntergeladen. CSV-Exporte entschärfen Zellen, die in Excel als Formel laufen würden. Externe Kalender lassen sich nur von öffentlichen Adressen abrufen. Links in Mails nehmen ihre Adresse immer aus `APP_URL`. Session-Cookies sind unter HTTPS automatisch `Secure`.
+- **Einladungslinks:** Den Login-Link als QR-Code oder zum Kopieren zeigt die Personalverwaltung nur für Kameraden, die sich noch nie angemeldet haben (Admins für jeden); alle anderen bekommen die Einladung per Mail an ihre eigene Adresse. Mails mit Login- oder Aktionslinks werden im Mail-Protokoll ohne Inhalt gespeichert.
 
 ## Lizenz
 

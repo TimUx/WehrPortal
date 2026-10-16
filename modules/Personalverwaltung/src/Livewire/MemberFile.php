@@ -121,7 +121,7 @@ class MemberFile extends Component
     {
         abort_unless(PersonnelService::mayView(auth()->user(), $this->member), 403);
         $this->run(function () use ($invitation) {
-            $link = $invitation->create($this->member);
+            $link = $invitation->createForScreen($this->member, auth()->user());
             $this->invite = ['url' => $link['url'], 'until' => $link['expires_at']->setTimezone('Europe/Berlin')->format('d.m.Y H:i')];
         }, 'Einladung erstellt.');
     }

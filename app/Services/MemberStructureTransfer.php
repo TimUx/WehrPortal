@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Group;
 use App\Models\MemberFunction;
 use App\Models\User;
+use App\Support\Csv;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -147,9 +148,9 @@ class MemberStructureTransfer
     {
         $out = fopen('php://temp', 'r+');
         fwrite($out, "\xEF\xBB\xBF");
-        fputcsv($out, $header, ';');
+        Csv::put($out, $header, ';');
         foreach ($rows as $row) {
-            fputcsv($out, $row, ';');
+            Csv::put($out, $row, ';');
         }
         rewind($out);
 

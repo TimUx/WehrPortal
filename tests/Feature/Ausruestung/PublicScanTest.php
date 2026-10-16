@@ -14,7 +14,7 @@ beforeEach(function () {
 
 test('without login the scan leads to the login – until a Gerätewart switches the Geräteinfo on', function () {
     $this->get('/i/AR-0042')->assertRedirect(route('ausruestung.show', $this->helmet));
-    $this->get(route('ausruestung.public', 'AR-0042'))->assertRedirect(route('ausruestung.show', $this->helmet));
+    $this->get(route('ausruestung.public', 'AR-0042'))->assertNotFound();   // switched off: guests learn nothing
 
     $wart = ausruestungMember('geraetewart');
     Filament::setCurrentPanel(Filament::getPanel('admin'));

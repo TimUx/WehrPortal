@@ -1,0 +1,36 @@
+name: Claude Security Review
+
+# An AI security review of every pull request diff (Anthropic's Claude Code security review):
+# findings come as comments on the pull request. Needs the repository secret ANTHROPIC_API_KEY
+# (Settings → Secrets and variables → Actions); without it the job is skipped.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    name: Security Review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for the API key
+        id: key
+        env:
+          KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "::notice title=Security Review::Skipped – repository secret ANTHROPIC_API_KEY is not set."; fi
+
+      - uses: actions/checkout@v4
+        if: steps.key.outputs.present == 'true'
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+
+      - uses: anthropics/claude-code-security-review@main
+        if: steps.key.outputs.present == 'true'
+        with:
+          comment-pr: true
+          claude-api-key: ${{ secrets.ANTHROPIC_API_KEY }}

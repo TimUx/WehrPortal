@@ -9,6 +9,7 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Modules\Einsatzbericht\src\Models\Report;
+use Modules\Einsatzbericht\src\Services\ReportService;
 use Modules\Wasserkarte\src\Models\Source;
 use Modules\Wasserkarte\src\Services\OsmImporter;
 use Modules\Wasserkarte\src\Services\WaterService;
@@ -128,8 +129,10 @@ class MapView extends Component
             return null;
         }
         $report = Report::find($this->reportId);
+        // Where an Einsatz was is for the Einsatzleitung; everyone else only while it is running
+        $mayShow = $report && ($report->isRunning() || ReportService::canLead(auth()->user()));
 
-        return $report && $report->latitude && $report->longitude ? $report : null;
+        return $mayShow && $report->latitude && $report->longitude ? $report : null;
     }
 
     /** @return list<int> ids of the nearest sources to the Einsatzstelle or my position */

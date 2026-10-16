@@ -26,7 +26,7 @@ class BookingEndReminderNotification extends Notification
             'ende' => BookingSummary::dateTime($this->booking->ends_at),
             'ende_uhrzeit' => $this->booking->ends_at->setTimezone('Europe/Berlin')->format('H:i'),
             'restzeit' => $this->timeLeft(),
-        ], URL::signedRoute('fahrzeugbuchung.bookings.return', $this->booking));
+        ], URL::temporarySignedRoute('fahrzeugbuchung.bookings.return', $this->booking->ends_at->copy()->addDay(), ['booking' => $this->booking]));
     }
 
     /** The signed return link only holds under the address it was made for; "Meine Buchungen" has the button too */

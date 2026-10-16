@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\FileResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Modules\Unterweisungen\src\Models\Session;
@@ -19,8 +20,7 @@ Route::middleware(['auth', 'active', 'module:unterweisungen'])->group(function (
             $mine = DB::table('uw_attendances')->where('session_id', $file->session_id)->where('user_id', auth()->id())->exists();
             abort_unless(InstructionService::canManage(auth()->user()) || $mine, 403);
 
-            return response(base64_decode(SessionFile::whereKey($file->id)->value('data')), 200, ['Content-Type' => $file->mime,
-                'Content-Disposition' => 'inline; filename="'.addcslashes($file->filename, '"\\').'"', 'Cache-Control' => 'private, max-age=3600']);
+            return FileResponse::make(base64_decode(SessionFile::whereKey($file->id)->value('data')), $file->filename);
         })->whereNumber('file')->name('file');
 
         Route::middleware('can:unterweisungen-manage')->group(function () use ($page) {

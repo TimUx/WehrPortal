@@ -14,6 +14,8 @@ composer test                  # config:clear + artisan test
 ./vendor/bin/pest tests/Feature/Booking/DecisionTest.php
 ./vendor/bin/pest --filter="admins are asked when there is no decider"    # single test by name
 ./vendor/bin/pint              # code style (Laravel Pint; not enforced in CI, run it before committing)
+./vendor/bin/phpstan analyse --memory-limit=2G   # Larastan level 5, enforced in CI; old findings in phpstan-baseline.neon (never add new code to it)
+composer audit && npm audit --omit=dev           # known vulnerabilities, enforced in CI
 npm run build                  # production assets
 docker compose up --build      # full stack on :8080, mails go to storage/logs/laravel.log
 ```
@@ -126,6 +128,15 @@ The app timezone is UTC and timestamps are stored as `timestamptz`. Everything i
 - New instances start empty: vehicles, Abteilungen and Funktionen are created in the admin area. `2026_09_28_000000_seed_base_data` is an empty migration kept for the history; the seeders are for local dev.
 - `trustProxies(at: '*')` is set because the app runs behind a reverse proxy (e.g. Coolify).
 - No indexing: `public/robots.txt` disallows everything (AI crawlers named too) and the global middleware `App\Http\Middleware\NoIndex` sets `X-Robots-Tag` on every response; HTML layouts also carry `<meta name="robots" content="noindex, nofollow">`. The project page in `docs/` is the opposite: meant to be found.
+
+## Security
+CI (`deploy.yml`, job "Security Checks", on every push and pull request): `composer audit`, `npm audit --omit=dev --audit-level=high`, Larastan (`phpstan.neon`, level 5, module migrations listed under `databaseMigrationsPath`) and Gitleaks; the image is scanned with Trivy (critical, fixed) before it is pushed. `security.yml` repeats the audits and scans `latest` weekly; `security-review.yml` runs Anthropic's Claude Code security review on pull requests when the secret `ANTHROPIC_API_KEY` is set; Dependabot (`.github/dependabot.yml`) proposes updates weekly. Rules for new code:
+- Serve stored uploads only through `App\Support\FileResponse::make($bytes, $filename)` (type by extension, inline only for PDF/images, sandbox CSP); validate uploads by extension (`FileResponse::allowedExtensions()`), never trust `getMimeType()` for serving.
+- CSV exports use `App\Support\Csv::put()` instead of `fputcsv()` (formula injection).
+- Outbound requests to user-entered URLs go through `App\Support\SafeUrl::get()` (public IPs only, pinned, redirects re-checked); tests resolve hosts via `SafeUrl::resolveUsing()` (set in `tests/Pest.php`).
+- Login links shown on screen: `Invitation::createForScreen($member, $by)`; mails carrying login or action links belong in `LogSentMail::SENSITIVE`.
+- `App\Http\Middleware\SecurityHeaders` sets the headers (CSP report-only; pages meant for iframes go into `EMBEDDABLE`). URLs are forced to `APP_URL` in `AppServiceProvider`; Livewire updates re-run `active` and `module:` via `addPersistentMiddleware`.
+- Livewire props holding ids of records the user must not switch get `#[Locked]`; components that load a record by id authorize it.
 
 ## Deployment
 The app version (`config/app.php` → `version`, e.g. `V.0.5.8`) is bumped by hand and shown at the bottom of the admin navigation (`resources/views/filament/sidebar-end.blade.php`). Each version gets a GitHub release with the tag in lowercase semver form (`v0.5.8`) and the title as written (`V.0.5.8`); versions may have two to four parts (`V.0.9`, `V.0.8.9.1` → tags `v0.9`, `v0.8.9.1`), which `release.yml` accepts.

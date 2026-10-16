@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\FileResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Modules\Mitteilungen\src\Models\Announcement;
@@ -41,9 +42,7 @@ Route::prefix('mitteilungen')->name('mitteilungen.')
             abort_unless(auth()->user()->canPostAnnouncements() || Announcement::for(auth()->user())->whereKey($announcement->id)->exists(), 403);
             $announcements->markRead($announcement, auth()->user());
 
-            return response(base64_decode(AnnouncementFile::whereKey($file->id)->value('data')), 200, [
-                'Content-Type' => $file->mime, 'Content-Disposition' => 'inline; filename="'.addcslashes($file->filename, '"\\').'"', 'Cache-Control' => 'private, max-age=3600',
-            ]);
+            return FileResponse::make(base64_decode(AnnouncementFile::whereKey($file->id)->value('data')), $file->filename);
         })->whereNumber('file')->name('file');
 
         Route::get('/verwalten', fn () => view('mitteilungen::pages.manage'))->middleware('can:post-announcements')->name('manage');

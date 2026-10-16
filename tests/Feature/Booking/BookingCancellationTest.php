@@ -108,9 +108,7 @@ test('owner cannot cancel a past booking, admin can, and the form refuses the ed
     Livewire::actingAs($this->owner)
         ->test(BookingForm::class)
         ->call('openForEdit', $pastBooking->id)
-        ->set('purpose', 'Nachträglich geändert')
-        ->call('save')
-        ->assertForbidden();
+        ->assertForbidden();   // the form doesn't even load a booking that may no longer be changed
 
     expect($pastBooking->fresh()->purpose)->not->toBe('Nachträglich geändert');
 });

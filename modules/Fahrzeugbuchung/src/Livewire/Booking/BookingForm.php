@@ -277,6 +277,8 @@ class BookingForm extends Component
     public function loadBooking(int $bookingId): void
     {
         $booking = Booking::findOrFail($bookingId);
+        // Only who may change the booking gets it into the form (with its notes and destination)
+        $this->authorize('update', $booking);
         $this->bookingId = $booking->id;
         $this->ownerId = $booking->user_id;
         $this->vehicleId = $booking->vehicle_id;

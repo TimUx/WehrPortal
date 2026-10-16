@@ -5,6 +5,7 @@ namespace Modules\Fahrtenbuch\src\Services;
 use App\Models\User;
 use App\Services\ImageResizer;
 use App\Services\ModuleRegistry;
+use App\Support\Csv;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
@@ -526,7 +527,7 @@ class LogbookService
         $out = fopen('php://temp', 'r+');
         fwrite($out, "\xEF\xBB\xBF");
         foreach ($rows as $row) {
-            fputcsv($out, $row, ';');
+            Csv::put($out, $row, ';');
         }
         rewind($out);
 

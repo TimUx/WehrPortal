@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Support\Csv;
 use Illuminate\Support\Facades\Route;
 use Modules\Lehrgaenge\src\Livewire\Qualifications;
 use Modules\Lehrgaenge\src\Support\CoursePlan;
@@ -31,9 +32,9 @@ Route::prefix('lehrgaenge')->name('lehrgaenge.')
                 $t = Qualifications::table(request()->integer('abteilung') ?: null);
                 $out = fopen('php://temp', 'r+');
                 fwrite($out, "\xEF\xBB\xBF");
-                fputcsv($out, ['Kamerad', ...$t['courses']->pluck('name')->all()], ';');
+                Csv::put($out, ['Kamerad', ...$t['courses']->pluck('name')->all()], ';');
                 foreach ($t['members'] as $m) {
-                    fputcsv($out, [$m->name, ...$t['courses']->map(function ($c) use ($t, $m) {
+                    Csv::put($out, [$m->name, ...$t['courses']->map(function ($c) use ($t, $m) {
                         $r = $t['cells'][$m->id.'-'.$c->id] ?? null;
 
                         return $r ? $r->completed_on?->format('d.m.Y').($r->refreshState() === 'expired' ? ' (Auffrischung überfällig)' : '') : '';

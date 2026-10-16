@@ -2,6 +2,7 @@
 
 namespace Modules\Finanzen\src\Services;
 
+use App\Support\Csv;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Modules\Finanzen\src\Models\Entry;
@@ -42,7 +43,7 @@ class FinanceExport
         $handle = fopen('php://temp', 'r+');
         fwrite($handle, "\u{FEFF}");
         foreach ($rows as $row) {
-            fputcsv($handle, $row, ';', '"', '');
+            Csv::put($handle, $row, ';', '"', '');
         }
         rewind($handle);
 

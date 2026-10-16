@@ -4,6 +4,7 @@ namespace Modules\Kalender\src\Services;
 
 use App\Models\Guardian;
 use App\Models\User;
+use App\Support\Csv;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Carbon;
@@ -289,9 +290,9 @@ class EventService
     {
         $out = fopen('php://temp', 'r+');
         fwrite($out, "\xEF\xBB\xBF");
-        fputcsv($out, ['Name', 'Abteilungen', 'Rückmeldung', 'Kommentar', 'Anwesend'], ';');
+        Csv::put($out, ['Name', 'Abteilungen', 'Rückmeldung', 'Kommentar', 'Anwesend'], ';');
         foreach ($this->participantRows($event) as $row) {
-            fputcsv($out, [$row['user']->name, $row['groups'], $row['status'], $row['comment'], $row['attended']], ';');
+            Csv::put($out, [$row['user']->name, $row['groups'], $row['status'], $row['comment'], $row['attended']], ';');
         }
         rewind($out);
 

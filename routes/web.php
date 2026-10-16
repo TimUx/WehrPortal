@@ -106,7 +106,7 @@ Route::middleware(['auth', 'active'])->group(function () {
 });
 
 // Universal scan redirect: /i/{code} → module-owned detail page (public; auth at destination)
-Route::get('/i/{code}', ScanController::class)->name('scan.code');
+Route::get('/i/{code}', ScanController::class)->middleware('throttle:60,1')->name('scan.code');
 
 // Organization logo (public, versioned for browser caching)
 // What a checker sees after scanning the QR code of the Digitale Nachweise: signed, valid for 10 minutes,

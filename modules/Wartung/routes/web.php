@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\FileResponse;
 use Illuminate\Support\Facades\Route;
 use Modules\Ausruestung\src\Models\Equipment;
 use Modules\Wartung\src\Models\Attachment;
@@ -20,12 +21,8 @@ Route::prefix('wartung')->name('wartung.')
             'Content-Disposition' => 'inline; filename="Pruefprotokoll-'.$protocol->code().'.pdf"',
         ]))->whereNumber('protocol')->name('protocol.pdf');
 
-        Route::get('/anhaenge/{attachment}', fn (Attachment $attachment) => response(base64_decode($attachment->data), 200, [
-            'Content-Type' => $attachment->mime,
-            'Content-Disposition' => 'inline; filename="'.addslashes($attachment->name).'"',
-            'Cache-Control' => 'private, max-age=3600',
-            'X-Content-Type-Options' => 'nosniff',
-        ]))->whereNumber('attachment')->name('attachment');
+        Route::get('/anhaenge/{attachment}', fn (Attachment $attachment) => FileResponse::make(base64_decode($attachment->data), $attachment->name))
+            ->whereNumber('attachment')->name('attachment');
 
         Route::get('/geraete/{equipment}', fn (Equipment $equipment) => view('wartung::pages.page', ['livewireComponent' => 'wartung.device-detail', 'title' => $equipment->name, 'params' => ['equipment' => $equipment]]))
             ->whereNumber('equipment')->name('device');

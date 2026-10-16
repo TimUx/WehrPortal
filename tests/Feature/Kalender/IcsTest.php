@@ -89,7 +89,7 @@ test('an external calendar is imported, updated and cleaned up', function () {
         ->and($source->events()->sole()->title)->toBe('Kreisfeuerwehrtag (neu)');
 
     expect(app(SourceSync::class)->sync($source))->toBe(-1)
-        ->and($source->refresh()->last_error)->toContain('500')
+        ->and($source->refresh()->last_error)->toContain('nicht abrufbar')
         ->and($source->events()->count())->toBe(1);
 });
 
@@ -117,4 +117,13 @@ test('the subscription link shows the own events and can be renewed', function (
     app(FeedService::class)->regenerate($member);
     $this->get($url)->assertNotFound();
     $this->get(route('kalender.feed', ['token' => str_repeat('a', 48)]))->assertNotFound();
+});
+
+test('external calendars can not reach internal addresses (SSRF)', function () {
+    Http::fake();
+    foreach (['http://localhost/k.ics', 'https://intern.example.com/k.ics', 'http://169.254.169.254/latest/meta-data', 'https://kfv.example.com:5432/x', 'ftp://kfv.example.com/k.ics'] as $url) {
+        $source = Source::create(['name' => 'Test', 'url' => $url, 'type' => 'veranstaltung']);
+        expect(app(SourceSync::class)->sync($source))->toBe(-1);
+    }
+    Http::assertNothingSent();
 });

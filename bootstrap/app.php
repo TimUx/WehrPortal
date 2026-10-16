@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureModuleAccess;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\NoIndex;
+use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\ServeLinkPreview;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
@@ -19,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: '*');
         // No search engine or AI crawler may take up anything of the app
         $middleware->append(NoIndex::class);
+        $middleware->append(SecurityHeaders::class);
         $middleware->redirectGuestsTo('/anmelden');
         // Before "auth" redirects a messenger's link preview to the login page
         $middleware->appendToGroup('web', ServeLinkPreview::class);

@@ -2,8 +2,8 @@
 
 namespace Modules\Kalender\src\Services;
 
+use App\Support\SafeUrl;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Modules\Kalender\src\Models\Event;
 use Modules\Kalender\src\Models\Source;
 use Throwable;
@@ -17,11 +17,11 @@ class SourceSync
     public function sync(Source $source): int
     {
         try {
-            $response = Http::timeout(20)->withHeaders(['Accept' => 'text/calendar'])
-                ->get(preg_replace('#^webcal://#i', 'https://', $source->url));
+            // Only public addresses: the server must not be steered to internal hosts (SSRF)
+            $response = SafeUrl::get(preg_replace('#^webcal://#i', 'https://', $source->url), ['Accept' => 'text/calendar']);
 
             if (! $response->successful()) {
-                throw new \RuntimeException('Der Kalender antwortet mit Fehler '.$response->status().'.');
+                throw new \RuntimeException('Der Kalender ist unter dieser Adresse nicht abrufbar.');
             }
 
             if (! str_contains($response->body(), 'BEGIN:VCALENDAR')) {
@@ -30,7 +30,8 @@ class SourceSync
 
             $events = $this->parser->parse($response->body(), now()->subDays(30), now()->addYear());
         } catch (Throwable $e) {
-            $source->update(['last_error' => mb_substr($e->getMessage(), 0, 500)]);
+            // Our own messages only; network details (refused, timeout …) would help probing the network
+            $source->update(['last_error' => $e instanceof \RuntimeException ? mb_substr($e->getMessage(), 0, 500) : 'Der Kalender ist unter dieser Adresse nicht abrufbar.']);
 
             return -1;
         }

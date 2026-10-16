@@ -52,6 +52,7 @@ class VehicleResource extends Resource
             Forms\Components\ColorPicker::make('color')
                 ->label('Farbe im Kalender')
                 ->required()
+                ->regex('/^#[0-9a-fA-F]{6}$/')
                 ->default('#3b82f6'),
 
             Forms\Components\Textarea::make('description')

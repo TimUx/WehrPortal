@@ -9,6 +9,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Services\ModuleRegistry;
 use App\Services\OrganizationSettings;
+use App\Support\Csv;
 use App\Support\FireRanks;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -405,10 +406,10 @@ class PersonnelService
         $fields = self::activeFields();
         $out = fopen('php://temp', 'r+');
         fwrite($out, "\xEF\xBB\xBF");
-        fputcsv($out, ['Name', 'E-Mail', 'Abteilungen', ...(in_array('address', $fields, true) ? ['Straße', 'PLZ', 'Ort'] : []),
+        Csv::put($out, ['Name', 'E-Mail', 'Abteilungen', ...(in_array('address', $fields, true) ? ['Straße', 'PLZ', 'Ort'] : []),
             ...(in_array('birth_date', $fields, true) ? ['Geburtsdatum'] : []), ...(in_array('phone', $fields, true) ? ['Mobilnummer'] : [])], ';');
         foreach (self::visibleMembers($manager)->where('status', 'active')->with('groups')->orderBy('name')->get() as $m) {
-            fputcsv($out, [$m->name, $m->email, $m->groups->pluck('name')->implode(', '),
+            Csv::put($out, [$m->name, $m->email, $m->groups->pluck('name')->implode(', '),
                 ...(in_array('address', $fields, true) ? [$m->street, $m->postal_code, $m->city] : []),
                 ...(in_array('birth_date', $fields, true) ? [$m->birth_date?->format('d.m.Y')] : []),
                 ...(in_array('phone', $fields, true) ? [$m->phone] : [])], ';');
@@ -858,10 +859,10 @@ class PersonnelService
     {
         $out = fopen('php://temp', 'r+');
         fwrite($out, "\xEF\xBB\xBF");
-        fputcsv($out, ['Name', 'Abteilungen', 'Dienste', 'Anwesend', 'Dienstbeteiligung %'], ';');
+        Csv::put($out, ['Name', 'Abteilungen', 'Dienste', 'Anwesend', 'Dienstbeteiligung %'], ';');
         foreach (self::visibleMembers($manager)->where('status', 'active')->with('groups')->orderBy('name')->get() as $member) {
             $a = $this->attendance($member, $year, $types);
-            fputcsv($out, [$member->name, $member->groups->pluck('name')->implode(', '), $a['total'], $a['attended'], $a['percent'] ?? ''], ';');
+            Csv::put($out, [$member->name, $member->groups->pluck('name')->implode(', '), $a['total'], $a['attended'], $a['percent'] ?? ''], ';');
         }
         rewind($out);
 

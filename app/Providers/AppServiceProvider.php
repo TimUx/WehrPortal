@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Http\Middleware\EnsureModuleAccess;
+use App\Http\Middleware\EnsureUserIsActive;
 use App\Models\User;
 use App\Services\ActivityRecorder;
 use App\Services\AnnualReportRegistry;
@@ -22,8 +24,10 @@ use Filament\View\PanelsRenderHook;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
 use Throwable;
 
 class AppServiceProvider extends ServiceProvider
@@ -48,6 +52,19 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Links in mails (magic links, Einladungen) take their host from APP_URL, never from a
+        // forwarded Host header – otherwise a spoofed X-Forwarded-Host could send a login link elsewhere
+        if (filled($url = config('app.url'))) {
+            URL::forceRootUrl($url);
+            if (str_starts_with($url, 'https://')) {
+                URL::forceScheme('https');
+            }
+        }
+
+        // Livewire actions (/livewire/update) run the same checks as the page: still active, module
+        // still on and still allowed – a Kamerad who left can't keep acting from an open tab
+        Livewire::addPersistentMiddleware([EnsureUserIsActive::class, EnsureModuleAccess::class]);
+
         // Every change of a record goes to the admin "Logs"
         foreach (['created', 'updated', 'deleted'] as $event) {
             Event::listen("eloquent.{$event}: *", fn (string $name, array $payload) => app(ActivityRecorder::class)->handle($name, $payload));

@@ -17,7 +17,7 @@
             </div>
             @if($canEdit && $member->is_active)
                 <span class="flex flex-wrap gap-2">
-                    <button type="button" wire:click="invite" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">Einladung (QR-Code)</button>
+                    @if($isAdmin || (! $member->is_admin && ! $member->last_login_at))<button type="button" wire:click="invite" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">Einladung (QR-Code)</button>@endif
                     <button type="button" wire:click="mailInvite" wire:confirm="Einladung an {{ $member->email }} schicken?" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">Einladung per Mail</button>
                 </span>
             @endif

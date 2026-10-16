@@ -5,9 +5,12 @@ namespace App\Listeners;
 use App\Models\MailLog;
 use App\Models\User;
 use App\Notifications\EmailChangeConfirmNotification;
+use App\Notifications\InvitationNotification;
 use App\Notifications\MagicLinkNotification;
 use App\Services\ActivityRecorder;
 use Illuminate\Mail\Events\MessageSent;
+use Modules\Fahrzeugbuchung\src\Notifications\BookingEndReminderNotification;
+use Modules\Kalender\src\Notifications\GuardianCopyNotification;
 use Symfony\Component\Mime\Address;
 use Throwable;
 
@@ -15,7 +18,9 @@ use Throwable;
 class LogSentMail
 {
     /** Mails with login or confirmation links: logged without content, never sent again */
-    public const SENSITIVE = [MagicLinkNotification::class, EmailChangeConfirmNotification::class];
+    // Mails with a link that logs in or acts without login: stored without their content
+    public const SENSITIVE = [MagicLinkNotification::class, EmailChangeConfirmNotification::class, InvitationNotification::class,
+        BookingEndReminderNotification::class, GuardianCopyNotification::class];
 
     public const RESEND_HEADER = 'X-Openwehr-Resend-Of';
 

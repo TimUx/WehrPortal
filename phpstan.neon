@@ -1,0 +1,39 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    # Findings that existed when the analysis was introduced; new code has to pass without them
+    - phpstan-baseline.neon
+
+parameters:
+    level: 5
+    paths:
+        - app
+        - modules
+    excludePaths:
+        - modules/*/database/*
+    tmpDir: storage/framework/phpstan
+    # The modules keep their migrations next to them; Larastan reads the columns from there
+    databaseMigrationsPath:
+        - database/migrations
+        - modules/Atemschutz/database/migrations
+        - modules/Ausruestung/database/migrations
+        - modules/Einsatzbericht/database/migrations
+        - modules/Expositionen/database/migrations
+        - modules/Fahrtenbuch/database/migrations
+        - modules/Fahrzeugbuchung/database/migrations
+        - modules/Fahrzeuge/database/migrations
+        - modules/Finanzen/database/migrations
+        - modules/Fuehrerscheine/database/migrations
+        - modules/Kalender/database/migrations
+        - modules/Kleiderkammer/database/migrations
+        - modules/Lehrgaenge/database/migrations
+        - modules/Maengelmanagement/database/migrations
+        - modules/Mitteilungen/database/migrations
+        - modules/Objektplaene/database/migrations
+        - modules/Personalverwaltung/database/migrations
+        - modules/Schichtplan/database/migrations
+        - modules/Schluessel/database/migrations
+        - modules/Uebungsdienste/database/migrations
+        - modules/Unterweisungen/database/migrations
+        - modules/Verbandbuch/database/migrations
+        - modules/Wartung/database/migrations
+        - modules/Wasserkarte/database/migrations

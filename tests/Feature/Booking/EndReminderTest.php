@@ -82,7 +82,7 @@ test('reminder mail uses the default text with booking details', function () {
         ->and($mail->greeting)->toBe('Hallo Bernd Blaulicht,')
         ->and($mail->introLines[0])->toContain('**MTW** („Zeltlager“) endet in 45 Minuten, um **14:00 Uhr**')
         ->and($mail->actionText)->toBe('Fahrzeug ist schon zurück')
-        ->and($mail->actionUrl)->toContain('/fahrzeugbuchung/buchungen/'.$this->booking->id.'/zurueckgeben?signature=');
+        ->and($mail->actionUrl)->toContain('/fahrzeugbuchung/buchungen/'.$this->booking->id.'/zurueckgeben?expires=');
 });
 
 test('reminder says one hour when sent on time', function () {

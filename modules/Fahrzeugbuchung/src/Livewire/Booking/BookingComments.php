@@ -2,6 +2,7 @@
 
 namespace Modules\Fahrzeugbuchung\src\Livewire\Booking;
 
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Modules\Fahrzeugbuchung\src\Models\Booking;
 use Modules\Fahrzeugbuchung\src\Models\BookingComment;
@@ -9,6 +10,7 @@ use Modules\Fahrzeugbuchung\src\Models\BookingComment;
 /** Conversation on a booking, shown in the booking detail */
 class BookingComments extends Component
 {
+    #[Locked]
     public int $bookingId;
 
     public string $body = '';
