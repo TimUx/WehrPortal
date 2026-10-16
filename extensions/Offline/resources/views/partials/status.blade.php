@@ -5,6 +5,7 @@
         <button type="button" data-offline-open-drafts hidden>Entwürfe <span data-offline-count>0</span></button>
         <button type="button" data-offline-sync>Jetzt synchronisieren</button>
         <p data-offline-message>Nur markierte Felder werden lokal gespeichert; Notizen und Fotos bleiben außen vor.</p>
+        <p data-offline-storage-error hidden role="alert">Lokale Entwürfe sind auf diesem Gerät nicht verfügbar.</p>
         <ul data-offline-drafts hidden></ul>
     </div>
 </div>

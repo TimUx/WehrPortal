@@ -53,6 +53,7 @@ test('the authenticated app exposes the German offline status and user-scoped dr
         ->assertOk()
         ->assertSee('data-offline-pwa', false)
         ->assertSee('data-user-id="'.$member->id.'"', false)
+        ->assertSee('data-offline-storage-error', false)
         ->assertSee('Offline-Modus', false)
         ->assertSee('Jetzt synchronisieren', false);
 });

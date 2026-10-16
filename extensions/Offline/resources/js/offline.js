@@ -91,6 +91,11 @@ function renderStatus(isOnline = navigator.onLine) {
     if (banner) banner.hidden = isOnline;
 }
 
+function showStorageError(show) {
+    const error = root?.querySelector('[data-offline-storage-error]');
+    if (error) error.hidden = !show;
+}
+
 async function listDrafts() {
     const all = await withStore('readonly', (store) => store.getAll());
     const ownDrafts = all.filter((draft) => draft.userId === userId);
@@ -179,24 +184,33 @@ async function initializeForm(form) {
         clearTimeout(timer);
         savedValues = JSON.stringify(valuesOf(form));
     });
-    const draft = await withStore('readonly', (store) => store.get(draftId(form))).catch(() => null);
+    const draft = await withStore('readonly', (store) => store.get(draftId(form))).catch(() => {
+        showStorageError(true);
+        return null;
+    });
     if (draft) controls.hidden = false;
 
     const storeDraft = async (values) => {
         const id = draftId(form);
-        if (!hasValues(values)) {
-            await withStore('readwrite', (store) => store.delete(id)).catch(() => {});
+        try {
+            if (!hasValues(values)) {
+                await withStore('readwrite', (store) => store.delete(id));
+                controls.hidden = true;
+            } else {
+                await withStore('readwrite', (store) => store.put({
+                    id,
+                    userId,
+                    url: `${location.pathname}${location.search}`,
+                    label: document.querySelector('h1')?.textContent?.trim() || 'Formularentwurf',
+                    values,
+                    savedAt: Date.now(),
+                }));
+                controls.hidden = false;
+            }
+            showStorageError(false);
+        } catch {
             controls.hidden = true;
-        } else {
-            await withStore('readwrite', (store) => store.put({
-                id,
-                userId,
-                url: `${location.pathname}${location.search}`,
-                label: document.querySelector('h1')?.textContent?.trim() || 'Formularentwurf',
-                values,
-                savedAt: Date.now(),
-            })).catch(() => {});
-            controls.hidden = false;
+            showStorageError(true);
         }
         await refreshDrafts();
     };
