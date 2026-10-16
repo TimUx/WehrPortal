@@ -33,7 +33,8 @@
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/",
-            "Modules\\": "modules/"
+            "Modules\\": "modules/",
+            "Extensions\\": "extensions/"
         }
     },
     "autoload-dev": {
@@ -80,6 +81,9 @@
     },
     "extra": {
         "laravel": {
+            "providers": [
+                "Extensions\\ExtensionsServiceProvider"
+            ],
             "dont-discover": []
         }
     },
