@@ -72,7 +72,7 @@ test('login links use APP_URL, not a forwarded host', function () {
     Notification::assertSentTo($user, MagicLinkNotification::class, function ($n) use ($user) {
         $url = $n->toMail($user)->actionUrl;
 
-        return str_starts_with($url, rtrim(config('app.url'), '/')) && ! str_contains($url, 'evil.example');
+        return parse_url($url, PHP_URL_HOST) === parse_url(config('app.url'), PHP_URL_HOST) && ! str_contains($url, 'evil.example');
     });
 });
 

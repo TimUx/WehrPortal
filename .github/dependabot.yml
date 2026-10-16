@@ -1,6 +1,8 @@
 # Keeps the dependencies current: one pull request per week and ecosystem with the patch and
-# minor updates grouped; security updates come at once (Dependabot security updates). Every pull
-# request runs the tests and the security checks of the "Build & Deploy" workflow.
+# minor updates grouped; security updates come at once (Dependabot security updates, also for
+# major versions). Major version jumps of the stack (Laravel, Filament, Vite, FullCalendar …) are
+# planned upgrades, not weekly pull requests. Every pull request runs the tests and the security
+# checks of the "Build & Deploy" workflow.
 version: 2
 updates:
   - package-ecosystem: composer
@@ -9,6 +11,9 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
     groups:
       composer-minor-and-patch:
         update-types: [minor, patch]
@@ -20,6 +25,9 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
     groups:
       npm-minor-and-patch:
         update-types: [minor, patch]
@@ -31,6 +39,9 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
     labels: [dependencies]
 
   - package-ecosystem: github-actions
