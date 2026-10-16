@@ -19,7 +19,7 @@ test('the contacts page can search all public contact fields', function () {
         ->get(route('contacts'))
         ->assertOk()
         ->assertSee('Ansprechpartner suchen')
-        ->assertSee('hanna hydrant jugendwart', false)
+        ->assertSee('jugendwart hanna hydrant', false)
         ->assertSee('tel:+49123456789');
 });
 
