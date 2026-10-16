@@ -7,6 +7,7 @@ use App\Models\Group;
 use App\Models\MemberFunction;
 use App\Models\Module;
 use App\Models\User;
+use App\Services\OrganizationSettings;
 use App\Support\FireRanks;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\DB;
@@ -170,10 +171,12 @@ test('mobile number, birth date and address are hidden; stored values stay', fun
         ->and($user->city)->toBe('Bad Bramstedt');
 });
 
-test('the app version in the admin sidebar is smaller than the navigation text', function () {
-    foreach (['sidebar-end'] as $view) {
-        expect(file_get_contents(resource_path("views/filament/{$view}.blade.php")))->toContain('font-size: 0.7rem');
-    }
+test('the app version sits small behind the admin title', function () {
+    expect(file_get_contents(resource_path('views/filament/brand.blade.php')))->toContain('font-size: .7rem');
+
+    $this->actingAs($this->admin)->get('/admin/kameraden')
+        ->assertOk()
+        ->assertSeeInOrder([app(OrganizationSettings::class)->shortName().' Admin', config('app.version')]);
 });
 
 test('the Kameraden list sorts by last login by default, most recent first, never-logged-in last', function () {

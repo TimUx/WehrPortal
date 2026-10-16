@@ -42,13 +42,15 @@ class AdminPanelProvider extends PanelProvider
                 'primary' => BrandColor::palette(),
             ])
             ->brandName(fn () => app(OrganizationSettings::class)->shortName().' Admin')
+            // The name in the top bar, with the app version behind it in small
+            ->brandLogo(fn () => view('filament.brand', ['name' => app(OrganizationSettings::class)->shortName().' Admin']))
+            ->brandLogoHeight('auto')
             ->navigationItems([
                 NavigationItem::make('Zur Übersicht')
                     ->url(fn () => route('home'))
                     ->icon('heroicon-o-arrow-left')
                     ->sort(-100),
             ])
-            ->renderHook(PanelsRenderHook::SIDEBAR_NAV_END, fn () => view('filament.sidebar-end'))
             // Under the name in the user menu: the e-mail address
             ->renderHook(PanelsRenderHook::USER_MENU_PROFILE_AFTER, fn () => view('filament.user-menu-email'))
             // The red Scan button for Kleiderwarte on the phone, on the pages of the Kleiderkammer
