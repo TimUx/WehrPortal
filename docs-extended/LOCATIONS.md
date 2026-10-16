@@ -1,0 +1,33 @@
+# Mehrere Standorte (Extension `Locations`)
+
+Für Gemeinden mit mehreren Feuerwehrhäusern. Code: `extensions/Locations/`, Abschaltung mit `LOCATIONS_ENABLED=false`.
+
+## Rollen
+
+| Rolle | Wie | Sieht / darf |
+|---|---|---|
+| Globaler Admin | `users.is_admin` (unverändert) | alles, alle Standorte, legt Standorte an |
+| Standort-Admin | `x_location_user.role = admin` | nur den eigenen Standort: Name, Mitglieder, Zuordnung von Fahrzeugen und Ausrüstung (Admin → Standorte) |
+| Mitglied | `x_location_user` oder `users.ext_location_id` | nur Daten des eigenen Standorts |
+
+Standort-Admins erreichen `/admin` über `MyLocationPage` (`ModuleArea`), `User::canAccessPanel` bleibt unverändert. Core-Ressourcen (`AdminOnly`) bleiben globalen Admins vorbehalten.
+
+## Datenmodell
+
+- `x_locations`, `x_location_user`; Spalte `ext_location_id` (nullable, FK, `nullOnDelete`) an `users`, `groups`, `member_functions`, `vehicles`, `ar_equipment`, `ar_categories`, `kk_items`, `eb_reports`, `mm_defects`, `kal_events` (Liste in `config/locations.php`).
+- Zeilen ohne Standort (`NULL`) gelten als gemeinsam und bleiben sichtbar.
+- Die Migration legt den Hauptstandort an und ordnet vorhandene Daten zu; `app:ensure-locations` (Entrypoint `61-ensure-locations.sh`) und `Location::default()` stellen sicher, dass immer einer existiert. Der Hauptstandort und der letzte Standort sind nicht löschbar.
+
+## Wirkung
+
+- `LocationScope` (globaler Scope) filtert die konfigurierten Modelle auf die Standorte des angemeldeten Nutzers. Ohne angemeldeten Nutzer (Konsole, Queue, Scheduler, Login, Magic Link) und für globale Admins ist er aus.
+- Neue Datensätze erhalten den aktuellen Standort (Umschalter im Benutzermenü, sonst eigener, sonst Hauptstandort); Schreiben in einen fremden Standort wirft `AuthorizationException`.
+- `PersonnelService::visibleMembers()` und alle Listen, die über Eloquent laufen, sind damit automatisch standortbezogen.
+
+## Grenzen / offen
+
+- `DB::table(...)`-Abfragen umgehen den Scope; bei Upstream-Syncs prüfen.
+- Eindeutige Schlüssel sind global (`eb_reports.number`, `ar_equipment.code`).
+- Standortfilter in den Upstream-Formularen und -Tabellen gibt es nicht; die Zuordnung läuft über Admin → Standorte.
+- Der Umschalter erscheint nur im Admin-Menü; für globale Admins steuert er nur, wo neue Datensätze landen.
+- Weitere Modelle (Verbandbuch, Mitteilungen …) lassen sich über `config/locations.php` ergänzen, sobald eine Migration die Spalte anlegt.
