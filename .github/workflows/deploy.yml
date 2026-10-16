@@ -1,16 +1,8 @@
 name: Build & Deploy
 
+# Disabled in the fork: see fork-deploy.yml (upstream's image, registry and deployment are not ours)
 on:
-  push:
-    branches: [main]
-    # The project page in docs/ (GitHub Pages) needs no tests and no new image
-    paths-ignore:
-      - 'docs/**'
-  # Pull requests (Dependabot, larger changes) run tests and security checks, but build nothing
-  pull_request:
-    branches: [main]
-    paths-ignore:
-      - 'docs/**'
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io

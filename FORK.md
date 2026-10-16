@@ -58,8 +58,10 @@ Empfehlung: Branch Protection auf `main` (PR + grüne Checks), damit Upstream-Me
 
 ## Fork-spezifische Punkte
 
-- **Container-Image/Release:** `deploy.yml`, `release.yml` und `security.yml` verweisen auf `ghcr.io/roberteinsle/openwehr` und das Coolify-Deployment des Originals. Im Fork gehört dort `IMAGE_NAME` auf das eigene (kleingeschriebene) Repository, z. B. `timux/openwehr-extended`. Diese Zeilen sind eine bewusste, dokumentierte Abweichung; bei Konflikten die eigene Variante behalten.
-- **Version:** `config/app.php` → `version` bei Releases des Forks mit Suffix führen (z. B. `V.0.5.8-x1`), damit Upstream- und Fork-Stand unterscheidbar sind.
+- **Workflows:** `fork-deploy.yml`, `fork-release.yml`, `fork-security.yml` ersetzen die Originale. Image: `ghcr.io/<owner>/<repo>` (automatisch aus `github.repository`). Die Original-Workflows `deploy.yml`, `release.yml`, `security.yml` sind deaktiviert (nur `workflow_dispatch`, nur der `on:`-Block geändert – bei Merge-Konflikten die eigene Variante behalten). Tests und Security-Checks laufen weiter bei Push/PR über `fork-deploy.yml`.
+- **Secrets/Variablen (optional):** `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN` (Pull-Limit), `COOLIFY_DEPLOY_ENABLED` (Variable) + `COOLIFY_DEPLOY_WEBHOOK`/`COOLIFY_WEBHOOK_TOKEN`. Ohne sie wird das Deployment übersprungen.
+- **Release-Tags:** Format `v<upstream-version>-x<n>` (z. B. `v0.5.8-x1`); `config/app.php` → `version` muss `V.0.5.8-x1` lauten, sonst bricht `fork-release.yml` ab.
+- **Version:** `config/app.php` → `version` bei Releases des Forks mit Suffix `-x<n>` führen, damit Upstream- und Fork-Stand unterscheidbar sind.
 - **Lizenz:** AGPL-3.0 gilt weiter; Änderungen bleiben unter derselben Lizenz und der Quellcode muss Nutzern zugänglich sein.
 - **Öffentliche Daten:** Die Regeln aus `CLAUDE.md` (keine echten Namen/Domains in Code, Tests, Docs) gelten auch hier.
 
@@ -68,3 +70,4 @@ Empfehlung: Branch Protection auf `main` (PR + grüne Checks), damit Upstream-Me
 | Datei | Grund |
 |---|---|
 | `composer.json`, `composer.lock` | Autoload und Provider-Discovery für `extensions/` |
+| `.github/workflows/{deploy,release,security}.yml` | deaktiviert (`on:` nur `workflow_dispatch`) |
