@@ -8,7 +8,7 @@ test('offline worker has a root scope and only caches the offline fallback and s
     $this->get('/sw.js')
         ->assertOk()
         ->assertHeader('Service-Worker-Allowed', '/')
-        ->assertHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+        ->assertHeader('Cache-Control', 'must-revalidate, no-cache, no-store, private')
         ->assertSee('request.mode === \'navigate\'', false)
         ->assertSee("'/anmelden'", false)
         ->assertSee("'/livewire/'", false)

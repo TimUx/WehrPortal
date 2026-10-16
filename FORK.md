@@ -40,7 +40,7 @@ class CoreServiceProvider extends ServiceProvider
 
 Einmalige Änderungen an Upstream-Dateien für diese Architektur (sehr klein):
 
-- `composer.json` / `composer.lock`: PSR-4 `Extensions\` → `extensions/` und `extra.laravel.providers`.
+- `composer.json` / `composer.lock`: PSR-4 `Extensions\` → `extensions/`. `extra.laravel.providers` allein reicht nicht (Laravel liest Provider des Root-Pakets nicht), deshalb steht `Extensions\ExtensionsServiceProvider` zusätzlich in `bootstrap/providers.php` (eine Zeile).
 
 ## Upstream-Updates übernehmen
 
@@ -59,6 +59,7 @@ Empfehlung: Branch Protection auf `main` (PR + grüne Checks), damit Upstream-Me
 ## Fork-spezifische Punkte
 
 - **Offline/PWA:** Die additive Erweiterung liegt unter `extensions/Offline/`; Details und Grenzen stehen in [`docs-extended/OFFLINE.md`](docs-extended/OFFLINE.md). Siehe dort auch die erforderlichen kleinen Eingriffe in Layout, Wasserkarte-Formular und Service-Worker-Einbindung.
+- **Single Sign-On (OIDC):** Die Erweiterung liegt unter `extensions/Oidc/`; Einrichtung, Keycloak, lokale Admins und Notfall-Wiederherstellung stehen in [`docs-extended/OIDC.md`](docs-extended/OIDC.md). Der Core-Hook (`AuthMethodRegistry`) ist generisch und kann als Pull Request an das Original vorgeschlagen werden (eigener Commit-Kandidat: `app/Services/AuthMethod*.php`, `User::isLocalAdmin()`, Login-Seite, `MagicLinkService`).
 - **Workflows:** `fork-deploy.yml`, `fork-release.yml`, `fork-security.yml` ersetzen die Originale. Image: `ghcr.io/<owner>/<repo>` (automatisch aus `github.repository`). Die Original-Workflows `deploy.yml`, `release.yml`, `security.yml` sind deaktiviert (nur `workflow_dispatch`, nur der `on:`-Block geändert – bei Merge-Konflikten die eigene Variante behalten). Tests und Security-Checks laufen weiter bei Push/PR über `fork-deploy.yml`.
 - **Secrets/Variablen (optional):** `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN` (Pull-Limit), `COOLIFY_DEPLOY_ENABLED` (Variable) + `COOLIFY_DEPLOY_WEBHOOK`/`COOLIFY_WEBHOOK_TOKEN`. Ohne sie wird das Deployment übersprungen.
 - **Release-Tags:** Format `v<upstream-version>-x<n>` (z. B. `v0.5.8-x1`); `config/app.php` → `version` muss `V.0.5.8-x1` lauten, sonst bricht `fork-release.yml` ab.
@@ -71,6 +72,12 @@ Empfehlung: Branch Protection auf `main` (PR + grüne Checks), damit Upstream-Me
 | Datei | Grund |
 |---|---|
 | `composer.json`, `composer.lock` | Autoload und Provider-Discovery für `extensions/` |
+| `bootstrap/providers.php` | `Extensions\ExtensionsServiceProvider` (Root-`extra.laravel.providers` wird von Laravel nicht entdeckt) – ohne diese Zeile lädt keine Erweiterung |
+| `app/Models/User.php` | OIDC: `isLocalAdmin()` (+ `use`) – lokaler System-Admin als Core-Konzept |
+| `app/Services/MagicLinkService.php` | OIDC: Magic-Link nur für erlaubte Benutzer (`AuthMethodRegistry::allowsMagicLink`) beim Anfordern und Einlösen; `@var`-Hinweis für PHPStan |
+| `resources/views/auth/login.blade.php` | OIDC: Liste der Login-Methoden, Fehlermeldung `auth`, Magic-Link-Formular bei „nur IdP“ ausblenden |
+| `phpstan-baseline.neon` | 6 Einträge zu `MagicLinkService` entfernt (durch den `@var`-Hinweis behoben) |
+| `tests/Feature/Extensions/OfflineTest.php`, `tests/Feature/Notifications/PushTest.php` | erwarteten `Cache-Control`-Header des `/sw.js` an Laravels normalisierte Form angepasst (Tests schlugen fehl, sobald die Erweiterungen tatsächlich geladen werden) |
 | `.github/workflows/{deploy,release,security}.yml` | deaktiviert (`on:` nur `workflow_dispatch`) |
 | `resources/views/components/layouts/app.blade.php` | Offline-Statusbereich für angemeldete App-Seiten |
 | `modules/Wasserkarte/resources/views/livewire/source-form.blade.php` | explizite Offline-Entwurf-Markierungen der Formularfelder |

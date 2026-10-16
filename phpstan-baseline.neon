@@ -463,42 +463,6 @@ parameters:
 			path: app/Services/InventoryRegistry.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Services/MagicLinkService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$is_active\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/MagicLinkService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$last_login_at\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/MagicLinkService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/MagicLinkService.php
-
-		-
-			message: '#^Method App\\Services\\MagicLinkService\:\:consumeToken\(\) should return App\\Models\\User but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Services/MagicLinkService.php
-
-		-
-			message: '#^Parameter \#1 \$user of static method Illuminate\\Support\\Facades\\Auth\:\:login\(\) expects Illuminate\\Contracts\\Auth\\Authenticatable, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Services/MagicLinkService.php
-
-		-
 			message: '#^Method App\\Services\\MemberRemoval\:\:references\(\) should return Illuminate\\Support\\Collection\<int, array\{table\: string, column\: string\}\> but returns Illuminate\\Support\\Collection\<\(int\|string\), array\{table\: mixed, column\: mixed\}\>\.$#'
 			identifier: return.type
 			count: 1

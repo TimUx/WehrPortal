@@ -2,6 +2,7 @@
 
 use App\Providers\AppServiceProvider;
 use App\Providers\Filament\AdminPanelProvider;
+use Extensions\ExtensionsServiceProvider;
 use Modules\Atemschutz\AtemschutzServiceProvider;
 use Modules\Ausruestung\AusruestungServiceProvider;
 use Modules\Einsatzbericht\EinsatzberichtServiceProvider;
@@ -27,6 +28,8 @@ use Modules\Wartung\WartungServiceProvider;
 use Modules\Wasserkarte\WasserkarteServiceProvider;
 
 return [
+    // Fork: loads extensions/* (see FORK.md)
+    ExtensionsServiceProvider::class,
     AppServiceProvider::class,
     AdminPanelProvider::class,
     FahrzeugbuchungServiceProvider::class,

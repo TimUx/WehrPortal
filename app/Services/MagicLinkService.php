@@ -21,7 +21,7 @@ class MagicLinkService
 
         // Always show the same response regardless of whether the email exists
         // (prevents user enumeration)
-        if (! $user) {
+        if (! $user || ! app(AuthMethodRegistry::class)->allowsMagicLink($user)) {
             return;
         }
 
@@ -70,11 +70,18 @@ class MagicLinkService
             ]);
         }
 
+        /** @var User $user */
         $user = $loginToken->user;
 
         if (! $user->is_active) {
             throw ValidationException::withMessages([
                 'token' => ['Dein Konto wurde deaktiviert. Bitte wende dich an den Administrator.'],
+            ]);
+        }
+
+        if (! app(AuthMethodRegistry::class)->allowsMagicLink($user)) {
+            throw ValidationException::withMessages([
+                'token' => ['Für dein Konto ist die Anmeldung per Link nicht freigegeben.'],
             ]);
         }
 
