@@ -14,6 +14,8 @@ openwehr ist eine Web-App für Freiwillige Feuerwehren: ein gemeinsamer Kern (An
 | [Lehrgänge & Qualifikationen](#lehrgänge--qualifikationen) | Interesse an Lehrgängen des Kreises melden (fox112), Anmeldung über die Ausbildungsleitung, Lehrgangsplan, absolvierte Lehrgänge mit Nachtragen, Personalakte | Ausbildungsleiter, Wehrführung |
 | [Übungsdienstplaner](#übungsdienstplaner) | Wer welchen Übungsdienst mit welchem Thema übernimmt – nur für den Vorstand; jeder Dienst steht ohne Thema mit Ort, Kleidung und Zielgruppe im Kalender der Kameraden | – |
 | [Einsatzbericht](#einsatzbericht) | Einsätze digital erfassen und freigeben, Besatzung und Stärke, DIVERA-24/7-Anbindung, Lagemeldungen, Jahresstatistik, Jahresbericht | Einsatzleiter, Wehrführung |
+| [Gefahrenmatrix](#gefahrenmatrix) | Gefahren an der Einsatzstelle als nicht gespeicherte Merkstütze auswählen | – |
+| [Gefahrstoffdatenbank](#gefahrstoffdatenbank) | Eigene, nachvollziehbar importierte UN-/Gefahrstoffdaten durchsuchen | Gefahrstoffbeauftragter |
 | [Kalender & Termine](#kalender--termine) | Übungen, Dienste und Veranstaltungen mit Zielgruppe, Ort mit Navigation, Kleidung und Rückmeldung, Terminabfragen, Abo für den eigenen Kalender | Terminverwalter |
 | [Ausrüstungsverwaltung](#ausrüstungsverwaltung) | Geräte, Prüffristen, Ausleihe, Rückrufe und Beladeplan; Geräteinfo per QR-Code auch ohne Login (zuschaltbar) | Gerätewart |
 | [Budget & Finanzen](#budget--finanzen) | Budgets je Kostenstelle, Ausgaben mit Beleg und Genehmigung, Jahresabschluss und Export | Kassenwart, Wehrführung |
@@ -31,6 +33,18 @@ openwehr ist eine Web-App für Freiwillige Feuerwehren: ein gemeinsamer Kern (An
 | [Schlüsselverwaltung](#schlüsselverwaltung) | Schlüssel, Transponder und Karten mit dem, was sie schließen (Ort, Fahrzeug, Objekt), Ausgabe mit unterschriebener Schlüsselquittung, Rückgabefristen, Verlust, QR-Etikett | Schlüsselwart |
 
 Jedes Modul ist nach der Installation **ausgeschaltet**. Ein Admin schaltet es unter Admin → Module ein und gibt es einzelnen Kameraden oder allen frei; die Rollen vergibt er dort ebenfalls. Admins dürfen in jedem Modul alles. Die Details zu Kern und Modulen stehen unten, die Einrichtung unter [Installation](#installation).
+
+### Gefahrenmatrix
+
+Die Gefahrenmatrix bietet eine interaktive Auswahl von Gefahren aus den Gruppen AAAA, CCCC, EEEE und „Weitere“. Sie fasst die Auswahl zusammen, speichert sie aber nicht. Sie leitet weder betroffene Schutzgüter noch Maßnahmen ab und ersetzt keine fachliche Lagebeurteilung. Das Modul ist standardmäßig ausgeschaltet.
+
+### Gefahrstoffdatenbank
+
+Die Gefahrstoffdatenbank enthält keine vorinstallierten Stoffdaten. Ein Gefahrstoffbeauftragter kann eigene CSV- oder JSON-Datenbestände mit UN-Nummer, Name und optionalen Angaben zu ADR, GHS, Gefahren und Maßnahmen importieren. Vor der Übernahme werden alle Zeilen geprüft; fehlerhafte oder doppelte UN-Nummern verhindern den gesamten Import. Bestehende UN-Nummern werden aktualisiert, nicht enthaltene Datensätze bleiben unverändert. Quelle und Datenstand werden bei jedem Datensatz gespeichert und in der Suche angezeigt.
+
+Importiert werden dürfen nur Daten, für die die Wehr die nötigen Speicher- und Nutzungsrechte hat. Die Importfunktion bezieht selbst keine Daten von BAM, DGUV oder anderen Anbietern. Das Modul Expositionen dokumentiert tatsächliche Expositionen und ist keine Referenzdatenbank.
+
+Die Gefahrenmatrix arbeitet mit lokaler Bedienung ohne Speicherung. In der Gefahrenmatrix und Gefahrstoffdatenbank kann **„Für offline speichern“** gewählt werden. Die Matrix ist anschließend offline nutzbar; für die Stoffsuche wird der zuletzt geladene Datenbestand auf diesem Gerät zwischengespeichert. Nach einem Datenimport muss die Offline-Kopie auf dem Gerät erneut gespeichert werden. Es werden keine personenbezogenen Einsatzdaten für diese Funktion lokal zwischengespeichert.
 
 ## Startseite und Navigation
 

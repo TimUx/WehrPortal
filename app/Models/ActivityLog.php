@@ -25,6 +25,7 @@ class ActivityLog extends Model
         'login' => 'Anmeldung',
         'impersonate' => 'Als Kamerad angesehen',
         'mail' => 'E-Mail',
+        'imported' => 'Importiert',
     ];
 
     /** German names of the models; unknown ones show their class name */
