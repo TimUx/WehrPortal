@@ -3,7 +3,6 @@
 use App\Models\Module;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Modules\Gefahrstoffe\src\Livewire\ImportCatalog;
 use Modules\Gefahrstoffe\src\Models\Material;

@@ -2,11 +2,13 @@
     <div>
         <h1 class="text-xl font-bold text-gray-900">Gefahrenmatrix</h1>
         <p class="mt-1 text-sm text-gray-600">AAAA – CCCC – EEEE: Gefahren an der Einsatzstelle als Merkstütze erfassen.</p>
-        <button type="button" x-data="referenceOffline" x-on:click="save()" :disabled="saving"
-            class="mt-3 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-fw-navy disabled:opacity-50">
-            <span x-text="saving ? 'Wird gespeichert …' : 'Für offline speichern'"></span>
-            <span class="sr-only" role="status" x-text="message"></span>
-        </button>
+        <div x-data="referenceOffline">
+            <button type="button" x-on:click="save()" :disabled="saving"
+                class="mt-3 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-fw-navy disabled:opacity-50">
+                <span x-text="saving ? 'Wird gespeichert …' : 'Für offline speichern'"></span>
+            </button>
+            <p role="status" x-text="message" class="mt-2 text-sm text-gray-600"></p>
+        </div>
     </div>
 
     <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950" role="note">

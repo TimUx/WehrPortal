@@ -12,8 +12,8 @@ class MaterialImport
     private const MAX_ROWS = 10000;
 
     private const FIELDS = [
-        'un_number' => ['un', 'un-nummer', 'un-nummer (un no)', 'un number', 'un_number'],
-        'name' => ['name', 'stoff', 'stoffname', 'proper shipping name', 'bezeichnung'],
+        'un_number' => ['un', 'un-nr', 'un-nr.', 'un nr', 'un-nummer', 'un-nummer (un no)', 'un number', 'un_number'],
+        'name' => ['name', 'stoff', 'stoffname', 'stoffbezeichnung', 'gefahrstoffbezeichnung', 'offizielle bezeichnung', 'proper shipping name', 'bezeichnung'],
         'synonyms' => ['synonyme', 'synonyms', 'alias'],
         'description' => ['beschreibung', 'description'],
         'adr_class' => ['adr-klasse', 'adr klasse', 'klasse', 'class', 'adr_class'],
@@ -54,7 +54,9 @@ class MaterialImport
                 'packing_group' => ['nullable', 'string', 'max:20'],
                 'hazard_number' => ['nullable', 'string', 'max:20'],
                 'hazard_labels' => ['array'],
+                'hazard_labels.*' => ['string', 'max:100'],
                 'ghs_pictograms' => ['array'],
+                'ghs_pictograms.*' => ['string', 'max:100'],
                 'dangers' => ['nullable', 'string', 'max:10000'],
                 'first_aid' => ['nullable', 'string', 'max:10000'],
                 'firefighting' => ['nullable', 'string', 'max:10000'],
@@ -147,7 +149,7 @@ class MaterialImport
                 throw ValidationException::withMessages(['import' => 'JSON muss ein Array von Gefahrstoff-Datensätzen enthalten.']);
             }
 
-            return array_map(fn ($row) => is_array($row) ? $this->normalize($row) : [], $decoded);
+            return array_map(fn ($row) => $this->complete(is_array($row) ? $this->normalize($row) : []), $decoded);
         }
 
         $firstLine = strtok($contents, "\r\n") ?: '';
@@ -188,7 +190,7 @@ class MaterialImport
         }
         fclose($stream);
 
-        return $rows;
+        return array_map(fn (array $row) => $this->complete($row), $rows);
     }
 
     /** @param array<string, mixed> $row
@@ -214,6 +216,10 @@ class MaterialImport
     {
         if (in_array($field, ['hazard_labels', 'ghs_pictograms'], true)) {
             if (is_array($value)) {
+                if (! array_is_list($value) || collect($value)->contains(fn ($item) => ! is_scalar($item))) {
+                    throw ValidationException::withMessages(['import' => 'Listenwerte müssen einfache Textwerte enthalten.']);
+                }
+
                 return array_values(array_filter(array_map(fn ($item) => trim((string) $item), $value)));
             }
             $text = trim((string) $value);
@@ -222,14 +228,47 @@ class MaterialImport
             }
             $decoded = json_decode($text, true);
 
-            return is_array($decoded) ? array_values(array_filter(array_map(fn ($item) => trim((string) $item), $decoded))) : array_values(array_filter(array_map('trim', preg_split('/[|;]/', $text) ?: [])));
+            if (is_array($decoded)) {
+                if (! array_is_list($decoded) || collect($decoded)->contains(fn ($item) => ! is_scalar($item))) {
+                    throw ValidationException::withMessages(['import' => 'Listenwerte müssen einfache Textwerte enthalten.']);
+                }
+
+                return array_values(array_filter(array_map(fn ($item) => trim((string) $item), $decoded)));
+            }
+
+            return array_values(array_filter(array_map('trim', preg_split('/[|;]/', $text) ?: [])));
         }
         if (is_array($value)) {
+            if (collect($value)->contains(fn ($item) => ! is_scalar($item))) {
+                throw ValidationException::withMessages(['import' => 'Textfelder dürfen keine verschachtelten Werte enthalten.']);
+            }
             $value = implode(' | ', array_map(fn ($item) => trim((string) $item), $value));
         }
 
         $text = trim((string) ($value ?? ''));
 
         return $text === '' ? null : $text;
+    }
+
+    /** @param array<string, mixed> $row
+     *  @return array<string, mixed>
+     */
+    private function complete(array $row): array
+    {
+        return array_replace([
+            'un_number' => null,
+            'name' => null,
+            'synonyms' => null,
+            'description' => null,
+            'adr_class' => null,
+            'packing_group' => null,
+            'hazard_number' => null,
+            'hazard_labels' => [],
+            'ghs_pictograms' => [],
+            'dangers' => null,
+            'first_aid' => null,
+            'firefighting' => null,
+            'spillage' => null,
+        ], $row);
     }
 }
