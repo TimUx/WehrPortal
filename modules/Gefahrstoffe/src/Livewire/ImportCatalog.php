@@ -47,7 +47,7 @@ class ImportCatalog extends Component
             if ($contents === false) {
                 throw ValidationException::withMessages(['file' => 'Die Datei konnte nicht gelesen werden.']);
             }
-            $this->result = $importer->apply($contents, $this->sourceName, $this->sourceVersion, $this->sourceReference, auth()->id());
+            $this->result = $importer->apply($contents, $this->sourceName, $this->sourceVersion, $this->sourceReference, (int) auth()->id());
         } catch (ValidationException $e) {
             $this->addError('import', collect($e->errors())->flatten()->first());
 

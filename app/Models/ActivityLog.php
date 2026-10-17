@@ -25,6 +25,7 @@ class ActivityLog extends Model
         'login' => 'Anmeldung',
         'impersonate' => 'Als Kamerad angesehen',
         'mail' => 'E-Mail',
+        'imported' => 'Importiert',
     ];
 
     /** German names of the models; unknown ones show their class name */
@@ -37,7 +38,7 @@ class ActivityLog extends Model
         'Event' => 'Termin', 'Response' => 'Rückmeldung', 'Source' => 'Externer Kalender',
         'Defect' => 'Mangel', 'DefectPhoto' => 'Foto', 'Device' => 'Gerät', 'Equipment' => 'Gerät', 'Loan' => 'Ausleihe', 'Damage' => 'Schaden', 'Recall' => 'Rückruf',
         'Location' => 'Standort', 'Inspection' => 'Prüfung', 'Category' => 'Kategorie', 'Compartment' => 'Fach', 'LoadPlanItem' => 'Beladung',
-        'Item' => 'Einzelteil', 'ItemType' => 'Artikeltyp', 'ItemCategory' => 'Kategorie', 'ItemGroup' => 'Artikelgruppe', 'ItemTreatment' => 'Behandlung',
+        'Item' => 'Einzelteil', 'ItemType' => 'Artikeltyp', 'ItemCategory' => 'Kategorie', 'ItemGroup' => 'Artikelgruppe', 'ItemTreatment' => 'Behandlung', 'Material' => 'Gefahrstoff',
         'Report' => 'Bericht', 'ReportVehicle' => 'Fahrzeug', 'CrewMember' => 'Besatzung',
         'Entry' => 'Finanzbuchung', 'Budget' => 'Budget', 'CostCenter' => 'Kostenstelle', 'Receipt' => 'Beleg',
         'IssuedItem' => 'Ausgabe', 'Stock' => 'Bestand', 'Size' => 'Größe', 'MemberSize' => 'Größe', 'EquipmentMessage' => 'Nachricht',

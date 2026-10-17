@@ -2,6 +2,7 @@
 
 namespace Modules\Gefahrstoffe\src\Services;
 
+use App\Services\ActivityRecorder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -127,7 +128,16 @@ class MaterialImport
             }
         });
 
-        return ['created' => count($payload) - $existingCount, 'updated' => $existingCount];
+        $result = ['created' => count($payload) - $existingCount, 'updated' => $existingCount];
+        app(ActivityRecorder::class)->record(
+            'imported',
+            Material::class,
+            label: 'Import · '.trim($sourceName),
+            changes: ['neu' => [null, $result['created']], 'aktualisiert' => [null, $result['updated']]],
+            userId: $userId,
+        );
+
+        return $result;
     }
 
     /** @return list<array<string, mixed>> */
@@ -142,7 +152,7 @@ class MaterialImport
             if (json_last_error() !== JSON_ERROR_NONE) {
                 throw ValidationException::withMessages(['import' => 'Die JSON-Datei ist ungültig: '.json_last_error_msg()]);
             }
-            if (isset($decoded['materials']) && is_array($decoded['materials'])) {
+            if (is_array($decoded) && isset($decoded['materials']) && is_array($decoded['materials'])) {
                 $decoded = $decoded['materials'];
             }
             if (! is_array($decoded) || ! array_is_list($decoded)) {

@@ -20,6 +20,7 @@ class Material extends Model
         return [
             'hazard_labels' => 'array',
             'ghs_pictograms' => 'array',
+            'imported_by' => 'integer',
             'imported_at' => 'datetime',
         ];
     }
