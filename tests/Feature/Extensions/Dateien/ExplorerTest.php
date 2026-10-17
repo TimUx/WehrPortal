@@ -75,6 +75,27 @@ it('authorizes every download and binds each revision to its actual file', funct
     $this->actingAs($this->member)->get($url)->assertForbidden();
 });
 
+it('downloads percent and Unicode filenames with a safe encoded disposition', function (string $name) {
+    $node = $this->files->upload($this->admin, $this->space, null, filesUpload(name: $name));
+    $response = $this->actingAs($this->admin)->get(route('dateien.download', [
+        'node' => $node->id, 'version' => $node->versions()->sole()->id,
+    ]))->assertOk()->assertContent('Erste Fassung')
+        ->assertHeader('content-type', 'text/plain; charset=utf-8')
+        ->assertHeader('x-content-type-options', 'nosniff');
+
+    expect($response->headers->get('Content-Disposition'))->toStartWith('attachment;')
+        ->toContain("filename*=utf-8''".rawurlencode($name))
+        ->and($response->headers->get('Cache-Control'))->toContain('no-store', 'private');
+})->with(['Fortschritt 100%.txt', 'Übung 100%.txt']);
+
+it('returns not found rather than an error when the private blob is missing', function () {
+    Storage::disk('dateien')->delete($this->version->storage_key);
+
+    $this->actingAs($this->admin)->get(route('dateien.download', [
+        'node' => $this->node->id, 'version' => $this->version->id,
+    ]))->assertNotFound();
+});
+
 it('rejects corrupted stored bytes rather than serving an unverified file', function () {
     Storage::disk('dateien')->put($this->version->storage_key, 'Beschädigt');
     $this->actingAs($this->admin)->getJson(route('dateien.download', [
@@ -106,16 +127,35 @@ it('shows a direct share without revealing its inaccessible space or ancestors',
         ->assertDontSee('Vertraulicher Elternordner');
 });
 
+it('displays the effective permission of a selected share', function (string $level, string $label) {
+    $this->files->setPermission($this->admin, $this->node, 'user', $this->member->id, $level);
+
+    Livewire::actingAs($this->member)->test(Explorer::class, ['view' => 'shared'])
+        ->call('select', $this->node->id)->assertSee('Ihr Recht: '.$label);
+})->with([
+    'reader' => ['read', 'Lesen'],
+    'editor' => ['edit', 'Bearbeiten'],
+    'manager' => ['manage', 'Verwalten'],
+]);
+
 it('opens a shared folder without exposing inaccessible breadcrumb ancestors', function () {
     $shared = $this->files->createFolder($this->admin, $this->space, $this->folder, 'Freigegebene Ausbildung');
+    $child = $this->files->createFolder($this->admin, $this->space, $shared, 'Unterricht');
     $this->files->upload($this->admin, $this->space, $shared, filesUpload());
     $this->files->setPermission($this->admin, $shared, 'user', $this->member->id, 'read');
 
     Livewire::actingAs($this->member)->test(Explorer::class, ['view' => 'shared'])
         ->assertSee('Freigegebene Ausbildung')
         ->call('navigate', null, $shared->id)
+        ->assertSet('space', null)
         ->assertSee('dienstplan.txt')
         ->assertSee('Freigegebene Ausbildung')
+        ->assertDontSee('Vertraulicher Bereich')
+        ->assertDontSee('Vertraulicher Elternordner')
+        ->call('navigate', null, $child->id)
+        ->assertSet('space', null)
+        ->assertSee('Freigegebene Ausbildung')
+        ->assertSee('Unterricht')
         ->assertDontSee('Vertraulicher Bereich')
         ->assertDontSee('Vertraulicher Elternordner');
 });

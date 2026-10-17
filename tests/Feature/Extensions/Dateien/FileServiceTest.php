@@ -91,6 +91,19 @@ it('uses the strongest applicable grant without allowing a group manager to bypa
     expect($this->access->level($this->member, $this->space))->toBe('read');
 });
 
+it('ignores stale group grants after the group moves to a foreign Standort', function () {
+    $north = Location::create(['name' => 'Wache Nord', 'slug' => 'dateien-gruppenrechte-nord']);
+    $group = FileGroup::create(['name' => 'Ausbildung', 'ext_location_id' => Location::default()->id]);
+    $group->members()->attach($this->member->id, ['is_manager' => false]);
+    $this->files->setPermission($this->admin, $this->space, 'group', $group->id, 'read');
+    expect($this->access->can($this->member, $this->space, 'read'))->toBeTrue();
+    $group->update(['ext_location_id' => $north->id]);
+    $this->actingAs($this->admin);
+
+    expect($this->access->can($this->member, $this->space, 'read'))->toBeFalse();
+    expect(fn () => $this->files->children($this->member, $this->space, null))->toThrow(AuthorizationException::class);
+});
+
 it('does not let readers write or editors administer access', function () {
     $node = $this->files->upload($this->admin, $this->space, null, filesUpload());
     $this->files->setPermission($this->admin, $this->space, 'user', $this->member->id, 'read');
@@ -339,6 +352,21 @@ it('removes newly written blobs when the database transaction fails after storag
         ->and(Storage::disk('dateien')->allFiles())->toBeEmpty();
 });
 
+it('cleans new blobs when a caller rolls back after nested file operations committed', function () {
+    $node = $this->files->upload($this->admin, $this->space, null, filesUpload());
+    $blobs = Storage::disk('dateien')->allFiles();
+
+    expect(fn () => DB::transaction(function () use ($node) {
+        $this->files->addVersion($this->admin, $node, filesUpload('Nicht gespeicherte Änderung'), 1);
+        $this->files->upload($this->admin, $this->space, null, filesUpload('Nicht gespeichert', 'neu.txt'));
+        throw new RuntimeException('Invented outer transaction failure');
+    }))->toThrow(RuntimeException::class);
+
+    expect(Node::count())->toBe(1)
+        ->and(Version::count())->toBe(1)
+        ->and(Storage::disk('dateien')->allFiles())->toEqualCanonicalizing($blobs);
+});
+
 it('permanently purges a trashed subtree including versions permissions and private blobs', function () {
     $folder = $this->files->createFolder($this->admin, $this->space, null, 'Ausbildung');
     $node = $this->files->upload($this->admin, $this->space, $folder, filesUpload());
@@ -355,4 +383,23 @@ it('permanently purges a trashed subtree including versions permissions and priv
         ->and(Version::count())->toBe(0)
         ->and(Permission::where('target_type', 'node')->count())->toBe(0)
         ->and(Storage::disk('dateien')->allFiles())->toBeEmpty();
+});
+
+it('does not delete retained blobs when an outer purge transaction rolls back', function () {
+    $node = $this->files->upload($this->admin, $this->space, null, filesUpload());
+    $version = $node->versions()->sole();
+    $this->files->trash($this->admin, $node);
+    $this->travel(31)->days();
+
+    expect(fn () => DB::transaction(function () use ($node, $version) {
+        $this->files->purge($this->admin, $node);
+        $this->files->retryPendingDeletions($this->admin);
+        Storage::disk('dateien')->assertExists($version->storage_key);
+        throw new RuntimeException('Invented purge rollback');
+    }))->toThrow(RuntimeException::class);
+
+    expect(Node::withTrashed()->findOrFail($node->id)->trashed())->toBeTrue()
+        ->and(Version::count())->toBe(1)
+        ->and(DB::table('x_files_pending_deletions')->count())->toBe(0);
+    Storage::disk('dateien')->assertExists($version->storage_key);
 });
