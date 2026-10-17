@@ -37,7 +37,7 @@ test('CSV preview validates all rows and import records provenance', function ()
         ->and($material->source_version)->toBe('2026-01')
         ->and($material->source_reference)->toBe('Dokument A')
         ->and($material->imported_by)->toBe($this->manager->id);
-    expect(ActivityLog::query()->where('event', 'imported')->where('subject_type', Material::class)->where('user_id', $this->manager->id)->exists())->toBeTrue();
+    expect(ActivityLog::query()->where('event', 'imported')->where('subject_type', 'Gefahrstoffdatenbank')->where('user_id', $this->manager->id)->exists())->toBeTrue();
 });
 
 test('JSON imports update matching UN numbers and preserve records omitted from later imports', function () {

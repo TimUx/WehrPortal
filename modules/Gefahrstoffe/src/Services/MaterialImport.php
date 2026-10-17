@@ -131,7 +131,7 @@ class MaterialImport
         $result = ['created' => count($payload) - $existingCount, 'updated' => $existingCount];
         app(ActivityRecorder::class)->record(
             'imported',
-            Material::class,
+            'Gefahrstoffdatenbank',
             label: 'Import · '.trim($sourceName),
             changes: ['neu' => [null, $result['created']], 'aktualisiert' => [null, $result['updated']]],
             userId: $userId,
