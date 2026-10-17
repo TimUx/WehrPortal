@@ -80,16 +80,16 @@ class GroupService
             $group = FileGroup::query()->lockForUpdate()->findOrFail($group->id);
             $user = $this->actor($user);
             abort_unless($this->visible($user, $group), 403);
-            $member = User::withoutGlobalScopes()->findOrFail($memberId);
             if ($manager !== null) {
+                $member = User::withoutGlobalScopes()->findOrFail($memberId);
                 app(FileAccess::class)->member($member);
-            }
-            if (config('locations.enabled') && ! $user->is_admin) {
-                $access = new LocationAccess;
-                abort_unless(array_intersect($access->visibleLocationIds($user), $access->visibleLocationIds($member)) !== [], 403);
-            }
-            if (config('locations.enabled') && $group->ext_location_id !== null && ! $member->is_admin) {
-                abort_unless((new LocationAccess)->canSee($member, (int) $group->ext_location_id), 403);
+                if (config('locations.enabled') && ! $user->is_admin) {
+                    $access = new LocationAccess;
+                    abort_unless(array_intersect($access->visibleLocationIds($user), $access->visibleLocationIds($member)) !== [], 403);
+                }
+                if (config('locations.enabled') && $group->ext_location_id !== null && ! $member->is_admin) {
+                    abort_unless((new LocationAccess)->canSee($member, (int) $group->ext_location_id), 403);
+                }
             }
             if ($manager === null) {
                 $group->members()->detach($memberId);

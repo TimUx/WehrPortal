@@ -9,7 +9,6 @@ use Extensions\Dateien\Services\FileAccess;
 use Extensions\Dateien\Services\FileService;
 use Extensions\Locations\Models\Location;
 use Illuminate\Auth\Access\AuthorizationException;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -168,7 +167,7 @@ it('rejects stale revisions without changing either metadata or stored files', f
 it('rejects a version belonging to a different file', function () {
     $first = $this->files->upload($this->admin, $this->space, null, filesUpload());
     $other = $this->files->upload($this->admin, $this->space, null, filesUpload('Fremd', 'fremd.txt'));
-    expect(fn () => $this->files->restoreVersion($this->admin, $first, $other->versions()->sole(), 1))->toThrow(ModelNotFoundException::class);
+    expect(fn () => $this->files->restoreVersion($this->admin, $first, $other->versions()->sole(), 1))->toThrow(ValidationException::class);
     expect($first->versions()->count())->toBe(1);
 });
 
@@ -347,6 +346,9 @@ it('permanently purges a trashed subtree including versions permissions and priv
     $this->files->setPermission($this->admin, $node, 'user', $this->member->id, 'read');
     expect(fn () => $this->files->purge($this->admin, $folder))->toThrow(ValidationException::class);
     $this->files->trash($this->admin, $folder);
+    expect(fn () => $this->files->purge($this->admin, $folder))->toThrow(ValidationException::class);
+    expect(Version::count())->toBe(2);
+    $this->travel(31)->days();
     $this->files->purge($this->admin, $folder);
 
     expect(Node::withTrashed()->count())->toBe(0)

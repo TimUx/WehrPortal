@@ -5,10 +5,12 @@ use App\Models\Setting;
 use Extensions\Dateien\Filament\DateienPage;
 use Extensions\Dateien\Models\FileGroup;
 use Extensions\Dateien\Models\Space;
+use Extensions\Dateien\Services\GroupService;
 use Extensions\Locations\Models\Location;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Livewire;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 
 require_once __DIR__.'/helpers.php';
 
@@ -69,4 +71,28 @@ it('rechecks management authority after the page has been opened', function () {
     $this->manager->moduleAccess()->where('module', 'dateien')->update(['role' => null]);
     $component->set('groupName', 'Nicht erlaubt')->call('saveGroup')->assertForbidden();
     expect(FileGroup::count())->toBe(0);
+});
+
+it('locks the selected administration group against client tampering', function () {
+    $group = app(GroupService::class)->save($this->admin, null, 'Ausbildung', Location::default()->id);
+
+    expect(fn () => Livewire::actingAs($this->admin)->test(DateienPage::class)
+        ->call('editGroup', $group->id)->set('groupId', 999999))
+        ->toThrow(CannotUpdateLockedPropertyException::class);
+});
+
+it('rejects foreign Standort group IDs and membership targets through administration actions', function () {
+    $north = Location::create(['name' => 'Wache Nord', 'slug' => 'dateien-admin-nord']);
+    $foreign = filesMember('Nora Nord', $north);
+    $groups = app(GroupService::class);
+    $localGroup = $groups->save($this->admin, null, 'Ausbildung', Location::default()->id);
+    $foreignGroup = $groups->save($this->admin, null, 'Fahrzeugwarte', $north->id);
+
+    Livewire::actingAs($this->manager)->test(DateienPage::class)
+        ->assertSee('Ausbildung')->assertDontSee('Fahrzeugwarte')->assertDontSee('Nora Nord')
+        ->call('editGroup', $foreignGroup->id)->assertForbidden();
+    Livewire::actingAs($this->manager)->test(DateienPage::class)
+        ->call('editGroup', $localGroup->id)
+        ->set('memberId', $foreign->id)->call('saveMember')->assertForbidden();
+    expect($localGroup->members()->count())->toBe(0);
 });

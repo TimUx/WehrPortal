@@ -4,6 +4,7 @@ use App\Models\Module;
 use App\Models\User;
 use Extensions\Dateien\Livewire\Explorer;
 use Extensions\Dateien\Models\Node;
+use Extensions\Dateien\Models\Permission;
 use Extensions\Dateien\Services\FileAccess;
 use Extensions\Dateien\Services\FileService;
 use Extensions\Locations\Models\Location;
@@ -76,9 +77,9 @@ it('authorizes every download and binds each revision to its actual file', funct
 
 it('rejects corrupted stored bytes rather than serving an unverified file', function () {
     Storage::disk('dateien')->put($this->version->storage_key, 'Beschädigt');
-    $this->actingAs($this->admin)->get(route('dateien.download', [
+    $this->actingAs($this->admin)->getJson(route('dateien.download', [
         'node' => $this->node->id, 'version' => $this->version->id,
-    ]))->assertStatus(409);
+    ]))->assertUnprocessable()->assertJsonValidationErrors('file');
 });
 
 it('does not serve descendants of a trashed folder even through an old download link', function () {
@@ -92,6 +93,9 @@ it('does not serve descendants of a trashed folder even through an old download 
 it('shows a direct share without revealing its inaccessible space or ancestors', function () {
     $this->files->setPermission($this->admin, $this->node, 'user', $this->member->id, 'read');
     expect($this->files->shared($this->member)->pluck('id')->all())->toContain($this->node->id);
+    $this->actingAs($this->member)->get(route('dateien.index', ['node' => $this->node->id]))
+        ->assertOk()->assertSee('dienstplan.txt')
+        ->assertDontSee('Vertraulicher Bereich')->assertDontSee('Vertraulicher Elternordner');
     Livewire::actingAs($this->member)->test(Explorer::class, ['view' => 'shared'])
         ->assertSee('dienstplan.txt')
         ->assertDontSee('Vertraulicher Bereich')
@@ -166,3 +170,49 @@ it('rechecks rights after a file has already been selected', function (string $a
     $component->call($action)->assertForbidden();
     expect(Node::find($this->node->id))->not->toBeNull();
 })->with(['trash', 'move', 'rename']);
+
+it('saves and revokes direct permissions and inheritance from the explorer', function () {
+    $component = Livewire::actingAs($this->admin)->test(Explorer::class, ['space' => $this->space->id])
+        ->call('select', $this->node->id)
+        ->set('subjectId', (string) $this->member->id)
+        ->set('permissionLevel', 'read')->call('savePermission')->assertHasNoErrors()
+        ->set('inheritPermissions', false)->call('saveInheritance')->assertHasNoErrors();
+
+    expect($this->node->fresh()->inherit_permissions)->toBeFalse()
+        ->and(app(FileAccess::class)->can($this->member, $this->node, 'read'))->toBeTrue();
+    $permission = Permission::where('target_type', 'node')->where('target_id', $this->node->id)->sole();
+    $component->call('revokePermission', $permission->id)->assertHasNoErrors();
+    expect(app(FileAccess::class)->can($this->member, $this->node, 'read'))->toBeFalse();
+});
+
+it('binds permission revocation to the selected target and refuses reader privilege escalation', function () {
+    $other = $this->files->upload($this->admin, $this->space, null, filesUpload('Fremd', 'fremd.txt'));
+    $this->files->setPermission($this->admin, $other, 'user', $this->member->id, 'read');
+    $permission = Permission::where('target_type', 'node')->where('target_id', $other->id)->sole();
+    Livewire::actingAs($this->admin)->test(Explorer::class)
+        ->call('select', $this->node->id)->call('revokePermission', $permission->id)->assertNotFound();
+    expect($permission->fresh())->not->toBeNull();
+
+    $this->files->setPermission($this->admin, $this->node, 'user', $this->member->id, 'read');
+    Livewire::actingAs($this->member)->test(Explorer::class, ['view' => 'shared'])
+        ->call('select', $this->node->id)
+        ->set('subjectId', (string) $this->member->id)
+        ->set('permissionLevel', 'manage')->call('savePermission')->assertForbidden();
+    expect(app(FileAccess::class)->level($this->member, $this->node))->toBe('read');
+});
+
+it('renders trash restores folders and purges files only after the retention period', function () {
+    $component = Livewire::actingAs($this->admin)->test(Explorer::class)
+        ->call('select', $this->folder->id)->call('trash')->assertHasNoErrors()
+        ->call('navigate', null, null, 'trash')->assertSee('Vertraulicher Elternordner')
+        ->call('select', $this->folder->id)->call('restore')->assertHasNoErrors();
+    expect($this->folder->fresh()->trashed())->toBeFalse();
+    $component->call('navigate')
+        ->call('select', $this->node->id)->call('trash')->assertHasNoErrors()
+        ->call('navigate', null, null, 'trash')->call('select', $this->node->id)
+        ->call('purge')->assertHasErrors();
+    $this->travel(31)->days();
+    $component->call('purge')->assertHasNoErrors();
+    expect(Node::withTrashed()->find($this->node->id))->toBeNull();
+    Storage::disk('dateien')->assertMissing($this->version->storage_key);
+});

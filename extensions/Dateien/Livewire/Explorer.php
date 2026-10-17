@@ -77,7 +77,8 @@ class Explorer extends Component
             $folder = Node::query()->findOrFail($node);
             $this->access()->authorize($this->user(), $folder, 'read');
             abort_unless($folder->kind === 'folder', 404);
-            $space = (int) $folder->space_id;
+            $folderSpace = Space::query()->findOrFail($folder->space_id);
+            $space = $this->access()->can($this->user(), $folderSpace, 'read') ? (int) $folderSpace->id : null;
         } elseif ($space !== null) {
             $this->access()->authorize($this->user(), Space::query()->findOrFail($space), 'read');
         }

@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use League\Flysystem\FilesystemException;
+use Symfony\Component\HttpFoundation\HeaderUtils;
 use Throwable;
 
 class FileService
@@ -369,8 +370,15 @@ class FileService
             }
             $this->audit($user, 'version.downloaded', $space, $node, ['version_id' => $version->id]);
             $name = pathinfo($node->name, PATHINFO_FILENAME).'.'.$version->extension;
+            $fallback = str_replace(['%', '/', '\\'], '_', preg_replace('/[^\x20-\x7e]/', '_', Str::ascii($name))) ?: 'datei.'.$version->extension;
+            $response = FileResponse::make($bytes, $fallback, 'private, no-store');
+            $response->headers->set('Content-Disposition', HeaderUtils::makeDisposition(
+                isset(FileResponse::INLINE[$version->extension]) ? 'inline' : 'attachment',
+                $name,
+                $fallback,
+            ));
 
-            return FileResponse::make($bytes, $name, 'private, no-store');
+            return $response;
         });
     }
 
@@ -391,7 +399,7 @@ class FileService
                 // An already trashed ancestor owns the subtree and will purge it as one unit.
             }
         }
-        $this->drainDeletions();
+        $this->retryPendingDeletions($user);
 
         return $count;
     }
@@ -401,7 +409,11 @@ class FileService
         if (! $this->access->member($user)->is_admin) {
             throw new AuthorizationException;
         }
-        $this->drainDeletions();
+        if (DB::transactionLevel() > 0) {
+            DB::afterCommit(fn () => $this->drainDeletions());
+        } else {
+            $this->drainDeletions();
+        }
     }
 
     private function mutate(User $user, Space $space, callable $callback): mixed
