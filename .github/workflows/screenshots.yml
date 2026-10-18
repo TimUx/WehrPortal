@@ -1,0 +1,120 @@
+name: E2E Screenshots
+
+# Fork: a full test installation with example data (Database\Seeders\ScreenshotSeeder), browser
+# login via magic link and screenshots of the core and several modules (tests/e2e, Playwright).
+# Doubles as a smoke test before releases: call it with `uses: ./.github/workflows/screenshots.yml`.
+# See docs-extended/SCREENSHOTS.md.
+on:
+  workflow_dispatch:
+  workflow_call:
+  push:
+    branches: [extended]
+    paths-ignore:
+      - 'docs/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  screenshots:
+    name: E2E Screenshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: openwehr_e2e
+          POSTGRES_USER: openwehr
+          POSTGRES_PASSWORD: secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      TZ: Europe/Berlin
+      E2E_BASE_URL: http://127.0.0.1:8000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: pdo_pgsql, intl, mbstring, openssl, bcmath, gd, exif, zip
+          coverage: none
+
+      - name: Install Composer Dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            tests/e2e/package-lock.json
+
+      - name: Build Assets
+        run: npm ci --no-audit --no-fund && npm run build
+
+      - name: Prepare Environment
+        run: cp tests/e2e/.env.e2e .env && php artisan key:generate --force
+
+      - name: Create Test Installation (migrations + example data)
+        run: php artisan migrate:fresh --seed --seeder="Database\\Seeders\\ScreenshotSeeder" --force --no-interaction
+
+      - name: Start Application
+        run: |
+          PHP_CLI_SERVER_WORKERS=4 nohup php artisan serve --host=127.0.0.1 --port=8000 > storage/logs/serve.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS -o /dev/null "$E2E_BASE_URL/anmelden"; then
+              echo "App is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error title=E2E::App did not start"
+          cat storage/logs/serve.log
+          exit 1
+
+      - name: Install Playwright
+        working-directory: tests/e2e
+        run: npm ci --no-audit --no-fund && npx playwright install --with-deps chromium
+
+      - name: Run E2E Screenshot Tests
+        working-directory: tests/e2e
+        run: npx playwright test
+
+      - name: Upload Screenshots
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: tests/e2e/screenshots/
+          if-no-files-found: warn
+          retention-days: 30
+
+      # Traces, failure screenshots and the server logs of the throwaway installation
+      - name: Upload Test Report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: |
+            tests/e2e/playwright-report/
+            tests/e2e/test-results/
+            storage/logs/
+          retention-days: 7

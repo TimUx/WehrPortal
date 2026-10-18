@@ -139,4 +139,5 @@ Der PDF-Export verwendet die bereits vorhandene Dompdf-Bibliothek und benötigt 
 - Die Standortbegrenzung umfasst nur die konfigurierten Modelle und schützt nicht automatisch jede SQL-Abfrage. Zu den Grenzen siehe [Locations](LOCATIONS.md).
 - Offline-Entwürfe bleiben lokal im Browser, laufen ab und müssen von der Person geprüft und regulär abgesendet werden. Es gibt keine automatische Formularsynchronisierung; siehe [Offline/PWA](OFFLINE.md).
 - Die Dateien-Roadmap trennt umgesetzte Meilensteine von offenem Ausbau; geplante Punkte sind keine verfügbaren Funktionen: [Dateien-Roadmap](DATEIEN-ROADMAP.md).
+- Eine Testinstallation mit Beispieldaten, Browser-Smoke-Test und aktuelle Screenshots erzeugt der Workflow **E2E Screenshots**; siehe [E2E-Test und Screenshots](SCREENSHOTS.md).
 - Für Fork-Updates, Image-Veröffentlichungen und die dokumentierten Eingriffe in Upstream-Dateien siehe den [Fork-Leitfaden](../FORK.md).
