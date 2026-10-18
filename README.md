@@ -1,6 +1,92 @@
 # openwehr
 
+[![Lizenz: AGPL-3.0](https://img.shields.io/badge/Lizenz-AGPL--3.0-3da639)](LICENSE)
+[![PHP-Anforderung: ^8.2](https://img.shields.io/badge/PHP-%5E8.2-777bb4)](composer.json)
+[![Blade: Laravel](https://img.shields.io/badge/Blade-Laravel-f05340)](composer.json)
+[![JavaScript](https://img.shields.io/badge/JavaScript-ESM-f7df1e)](package.json)
+[![Laravel: 12](https://img.shields.io/badge/Laravel-12-f05340)](composer.json)
+[![Livewire: 4](https://img.shields.io/badge/Livewire-4-fb70a9)](composer.json)
+[![Filament: 5](https://img.shields.io/badge/Filament-5-fbbf24)](composer.json)
+[![Tailwind CSS: 4](https://img.shields.io/badge/Tailwind_CSS-4-06b6d4)](package.json)
+[![PostgreSQL: CI 18](https://img.shields.io/badge/PostgreSQL-CI%2018-4169e1)](.github/workflows/fork-deploy.yml)
+[![Docker](https://img.shields.io/badge/Docker-Image-2496ed)](Dockerfile)
+
 openwehr ist eine Web-App für Freiwillige Feuerwehren: ein gemeinsamer Kern (Anmeldung, Kameraden, Startseite, Benachrichtigungen, Admin-Bereich) und Module, die jede Wehr einzeln einschaltet. Die Bedienung ist für das Handy gemacht, die Anmeldung läuft ohne Passwort über einen Link per E-Mail. Oberfläche und E-Mails sind deutsch.
+
+Dieses Repository enthält **openwehr-extended**, einen Fork von [roberteinsle/openwehr](https://github.com/roberteinsle/openwehr). Die Erweiterungen liegen überwiegend unter `extensions/`; die ausführlichen Fork- und Update-Regeln stehen im [Fork-Leitfaden](FORK.md). Die folgenden Installationsbeispiele nennen an den betreffenden Stellen ausdrücklich, ob sie für Upstream oder den Fork gelten.
+
+## Inhaltsverzeichnis
+
+- [Schnellzugriff](#schnellzugriff)
+- [Module im Überblick](#module-im-überblick)
+  - [Erweiterungen von openwehr-extended](#erweiterungen-von-openwehr-extended)
+  - [Gefahrenmatrix](#gefahrenmatrix)
+  - [Gefahrstoffdatenbank](#gefahrstoffdatenbank)
+- [Kernfunktionen](#kernfunktionen)
+  - [Startseite und Navigation](#startseite-und-navigation)
+  - [Fahrzeugbuchung](#fahrzeugbuchung)
+  - [Rollen, Buchungen und Verwaltung](#rollen-buchungen-und-verwaltung)
+    - [Rollen](#rollen)
+    - [Anmeldung](#anmeldung)
+    - [Kalender](#kalender)
+    - [Buchen](#buchen)
+    - [Nachrichten zur Buchung](#nachrichten-zur-buchung)
+    - [Konflikte und Entscheidungen](#konflikte-und-entscheidungen)
+    - [Profil](#profil)
+    - [Feedback](#feedback)
+    - [Admin-Bereich](#admin-bereich-admin)
+    - [Wachen-Monitor](#wachen-monitor)
+    - [E-Mails](#e-mails)
+- [Module im Detail](#module-im-detail)
+  - [Kleiderkammer](#kleiderkammer)
+  - [Mängelmanagement](#mängelmanagement)
+  - [Schichtplan](#schichtplan)
+  - [Mitteilungen](#mitteilungen)
+  - [Lehrgänge und Qualifikationen](#lehrgänge--qualifikationen)
+  - [Übungsdienstplaner](#übungsdienstplaner)
+  - [Einsatzbericht](#einsatzbericht)
+    - [EinsatzberichtPlus](#ergänzung-durch-einsatzberichtplus)
+  - [Kalender und Termine](#kalender--termine)
+  - [Bestand](#bestand)
+  - [Ausrüstungsverwaltung](#ausrüstungsverwaltung)
+  - [Budget und Finanzen](#budget--finanzen)
+  - [Verbandbuch und Vorfälle](#verbandbuch--vorfälle)
+  - [Expositionen](#expositionen-gefahrstoffe)
+  - [Führerscheine](#führerscheine)
+  - [Unterweisungen](#unterweisungen)
+  - [Wartungsmanagement](#wartungsmanagement)
+  - [Atemschutzüberwachung](#atemschutzüberwachung)
+  - [Fahrzeugverwaltung und Flotte](#fahrzeugverwaltung--flotte)
+  - [Fahrtenbuch](#fahrtenbuch)
+  - [Wasserkarte und Hydranten](#wasserkarte--hydranten)
+  - [Objektpläne und Brandschutzunterlagen](#objektpläne--brandschutzunterlagen)
+  - [Personalverwaltung](#personalverwaltung)
+  - [Schlüsselverwaltung](#schlüsselverwaltung)
+- [Erweiterungen im Detail](#erweiterungen-im-detail)
+  - [Anwesenheit](#anwesenheit-im-detail)
+  - [Dateien](#dateien-im-detail)
+  - [Locations](#locations-im-detail)
+  - [Offline und PWA](#offline-und-pwa-im-detail)
+  - [OIDC / Single Sign-On](#oidc--single-sign-on-im-detail)
+- [Betrieb und Entwicklung](#betrieb-und-entwicklung)
+  - [Tech-Stack](#tech-stack)
+  - [Installation](#installation)
+  - [Konfiguration](#konfiguration)
+  - [Sicherheit](#sicherheit)
+  - [Lizenz](#lizenz)
+- [Erweiterungsdokumentation](docs-extended/README.md)
+- [Fork-Leitfaden](FORK.md)
+
+## Schnellzugriff
+
+| Wenn du … | Einstieg |
+|---|---|
+| als Kamerad die App nutzen möchtest | [Startseite, Personalakte und Navigation](#startseite-und-navigation) |
+| Fahrzeuge buchen oder Entscheidungen treffen möchtest | [Fahrzeugbuchung](#fahrzeugbuchung) |
+| ein bestimmtes Modul suchst | [Modulübersicht](#module-im-überblick) oder [Moduldetails](#module-im-detail) |
+| die Installation oder Updates vorbereitest | [Installation](#installation) und [Fork-Leitfaden](FORK.md) |
+| eine Erweiterung einrichtest | [Erweiterungsdokumentation](docs-extended/README.md) |
+| am Fork mitarbeitest oder Upstream-Änderungen übernimmst | [Fork-Leitfaden](FORK.md) |
 
 ## Module im Überblick
 
@@ -34,6 +120,19 @@ openwehr ist eine Web-App für Freiwillige Feuerwehren: ein gemeinsamer Kern (An
 
 Jedes Modul ist nach der Installation **ausgeschaltet**. Ein Admin schaltet es unter Admin → Module ein und gibt es einzelnen Kameraden oder allen frei; die Rollen vergibt er dort ebenfalls. Admins dürfen in jedem Modul alles. Die Details zu Kern und Modulen stehen unten, die Einrichtung unter [Installation](#installation).
 
+### Erweiterungen von openwehr-extended
+
+Die folgenden Erweiterungen sind zusätzlich zu den 25 Modulen des Upstreams vorhanden. Erweiterungen mit einem `*_ENABLED`-Schalter lassen sich unabhängig von der Freischaltung eines Moduls laden oder abschalten; ein ausgeschaltetes Modul erscheint nicht für Kameraden.
+
+| Erweiterung | Funktionen und Zugriff | Aktivierung, Abhängigkeiten und Grenzen |
+|---|---|---|
+| [Anwesenheit](#anwesenheit-im-detail) ([Einrichtungsdetails](docs-extended/ANWESENHEIT.md)) | Eigenständige Anwesenheitslisten mit Entwurf/Abgabe, Vorlagen, PDF und E-Mail; Kameraden sehen ihre Listen, `verwalter` und Standort-Admins verwalten den eigenen Standort, globale Admins alle. | Unter Admin → Module freischalten; nach der Migration zunächst inaktiv. `ANWESENHEIT_ENABLED=false` lädt die Erweiterung nicht. Kalendertermine sind nur eine optionale Vorbelegung; Locations begrenzt Listen und Teilnehmende auf Standorte. Offline-Entwürfe speichern ausdrücklich markierte Formularfelder und Teilnehmendenauswahl, aber keine Anhänge, Notizen, Empfänger oder Standortwahl. |
+| [Dateien](#dateien-im-detail) ([Einrichtungsdetails](docs-extended/DATEIEN.md)) | Interne Dateiablagen mit Benutzer-/Gruppenrechten, Versionen, Papierkorb, Favoriten, Suche, Vorschau, ZIP und Zusammenarbeit. `gruppenverwalter` verwalten Gruppen, erhalten dadurch aber keinen Dateizugriff; Rechte an Dateien oder Ablagen werden ausdrücklich vergeben. | Unter Admin → Module freischalten und Ablagen samt Rechten einrichten. Die Erweiterung hat keinen eigenen `DATEIEN_ENABLED`-Schalter. Online-Office benötigt einen separat betriebenen ONLYOFFICE- oder Collabora-Server. Öffentliche, lesende Links sind standardmäßig aus und müssen global und je Ablage erlaubt werden; Datenbank und privates Dateiverzeichnis gemeinsam sichern. |
+| [EinsatzberichtPlus](#ergänzung-durch-einsatzberichtplus) ([Hintergrund](docs-extended/EINSATZBERICHT.md)) | Ergänzt den Einsatzbericht um Kostenpflicht, strukturierte beteiligte Personen, Verdienstausfall und externe Fahrzeuge; Hinweise vergleichen die Besatzung mit der Sollbesatzung. | Wird automatisch mit dem Einsatzbericht angeboten; `EINSATZBERICHT_PLUS_ENABLED=false` schaltet die Erweiterung ab. Es gelten die Rollen des Einsatzberichts (Einsatzleitung, Wehrführung, Admins), einschließlich Standortgrenzen. Die Zusatzangaben erscheinen derzeit weder im Druck noch in Statistiken; der Sollbesatzungshinweis blockiert nichts. |
+| [Locations](#locations-im-detail) ([Einrichtungsdetails](docs-extended/LOCATIONS.md)) | Ordnet Mitglieder und ausgewählte Datensätze Standorten zu. Standort-Admins verwalten ihren Standort; globale Admins sehen alle. `NULL`-Standortdaten bleiben gemeinsam sichtbar. | `LOCATIONS_ENABLED=false` schaltet die Standortbegrenzung ab. Der Scope gilt nur für die in der Konfiguration aufgeführten Modelle; Datenbankabfragen über `DB::table()` umgehen ihn. Das ist keine vollständige Mandantentrennung. |
+| [Offline/PWA](#offline-und-pwa-im-detail) ([Einrichtungsdetails](docs-extended/OFFLINE.md)) | Zeigt bei fehlender Verbindung eine Offline-Seite und speichert ausdrücklich markierte Formulareingaben für Wasserquellen und Anwesenheitslisten lokal zur manuellen Wiederherstellung. | `OFFLINE_ENABLED=false` schaltet Statusanzeige und Entwürfe ab, nicht Manifest, Service Worker oder Offline-Seite. Angemeldete Seiten und Formulardaten werden nicht automatisch synchronisiert; Objektpläne haben einen separaten Offline-Speicher. |
+| [OIDC/Single Sign-On](#oidc--single-sign-on-im-detail) ([Einrichtungsdetails](docs-extended/OIDC.md)) | Anmeldung über einen externen OIDC-Identitätsanbieter; standardmäßig werden bestehende aktive Konten mit bestätigter E-Mail verknüpft, JIT-Anlage ist optional. Rollen und Adminrechte aus Claims werden nicht übernommen. | `OIDC_ENABLED=false` entfernt OIDC-Routen und Einstellungen. Der IdP muss über eine öffentliche HTTPS-Adresse erreichbar sein. Bei „Nur Single Sign-On“ behalten lokale System-Admins den E-Mail-Login; `OIDC_FORCE_DISABLED=true` stellt im Notfall den Link-Login für alle wieder her. |
+
 ### Gefahrenmatrix
 
 Die Gefahrenmatrix bietet eine interaktive Auswahl von Gefahren aus den Gruppen AAAA, CCCC, EEEE und „Weitere“. Sie fasst die Auswahl zusammen, speichert sie aber nicht. Sie leitet weder betroffene Schutzgüter noch Maßnahmen ab und ersetzt keine fachliche Lagebeurteilung. Das Modul ist standardmäßig ausgeschaltet.
@@ -46,7 +145,9 @@ Importiert werden dürfen nur Daten, für die die Wehr die nötigen Speicher- un
 
 Die Gefahrenmatrix arbeitet mit lokaler Bedienung ohne Speicherung. In der Gefahrenmatrix und Gefahrstoffdatenbank kann **„Für offline speichern“** gewählt werden. Die Matrix ist anschließend offline nutzbar; für die Stoffsuche wird der zuletzt geladene Datenbestand auf diesem Gerät zwischengespeichert. Nach einem Datenimport muss die Offline-Kopie auf dem Gerät erneut gespeichert werden. Es werden keine personenbezogenen Einsatzdaten für diese Funktion lokal zwischengespeichert.
 
-## Startseite und Navigation
+## Kernfunktionen
+
+### Startseite und Navigation
 
 - **Personalakte** (`/personalakte`, bisher Profil): eigene Daten und – je nach Modul – weitere Menüpunkte wie „Einsätze“.
 - **Digitale Nachweise** (`/personalakte/nachweise`, Menüpunkt „Nachweise“ in der Personalakte, sobald es einen gibt): der **Atemschutzpass** (Atemschutzüberwachung, für alle im Pool), die **Fahrerlaubnis** (Führerscheine) auf dem Handy, dazu ein **QR-Code zum Prüfen**. Der **digitale Dienstausweis** hat seine eigene Seite (`/dienstausweis`): das Ausweis-Symbol oben rechts neben Glocke und Profilbild, für jedes aktive Mitglied, sobald die Personalverwaltung ihn eingeschaltet hat – ohne Zugang zum Modul; der Prüf-QR-Code dort zeigt dieselbe Prüfseite. Wer ihn scannt, sieht ohne Anmeldung den Stand von jetzt (`/nachweis/{id}`): Foto, Name, „Aktives Mitglied“, Dienstgrad, Abteilung, Ausweisnummer und Gültigkeit, Einsatzbereitschaft unter Atemschutz mit allen Fristen – keine Befunde, keine Kontaktdaten. Der Code ist signiert und gilt nur 10 Minuten (die Seite erneuert ihn von selbst), ein Foto des Codes taugt also nicht als Dauerausweis; ist der Kamerad ausgetreten, zeigt die Prüfseite „Kein aktives Mitglied“.
@@ -71,13 +172,15 @@ Die Gefahrenmatrix arbeitet mit lokaler Bedienung ohne Speicherung. In der Gefah
 - **Ansprechpartner** (`/ansprechpartner`, im 3×3-Menü, sobald welche eingetragen sind): die wichtigen Kontakte der Wehr – Aufgabe (z. B. Wehrführer, Jugendwartin), Name, Hinweis, E-Mail und Telefon als großer Knopf zum direkten Anrufen, gruppiert nach Abteilung. Admins pflegen sie unter Admin → Kameraden → **Ansprechpartner** (Reihenfolge per Drag & Drop). Die Telefonnummern sind die, die dort eingetragen werden, nicht die privaten Nummern aus den Mitgliedsdaten.
 - **Erziehungsberechtigte** (z. B. für die Jugendfeuerwehr): Je Kamerad lassen sich bis zu vier Erziehungsberechtigte mit Name, E-Mail und Telefon eintragen – unter Admin → Kameraden (Abschnitt „Erziehungsberechtigte“) oder von Personalverwaltern in der Personalakte. Sie haben **kein eigenes Konto**: Sie bekommen eine Kopie jeder Kalender-Mail des Kindes (neuer, geänderter, abgesagter Termin, Erinnerung an die Rückmeldung) mit dem Knopf **„Rückmeldung für …“**. Der Link ist signiert und gilt bis zum Beginn des Termins; die Seite zeigt den Termin und die bisherige Rückmeldung, Zusage/Vielleicht/Absage mit Bemerkung wird erst mit dem Knopf gespeichert (nicht schon beim Öffnen des Links). Die Rückmeldung steht beim Kind mit „(Rückmeldung von …)“. Im Log sind E-Mail und Telefon verborgen.
 
-## Fahrzeugbuchung
+### Fahrzeugbuchung
 
 Reservierung der Fahrzeuge der Wehr – z. B. MTW oder Anhänger der Jugendfeuerwehr. Mitglieder sehen in einem gemeinsamen Kalender, wann welches Fahrzeug belegt ist, und buchen freie Zeiträume selbst. Die Anmeldung läuft ohne Passwort über einen Magic Link per E-Mail.
 
-## Funktionen
+### Rollen, Buchungen und Verwaltung
 
-### Rollen
+<a id="funktionen"></a>
+
+#### Rollen
 
 | Rolle          | Darf                                                                                           |
 |----------------|------------------------------------------------------------------------------------------------|
@@ -87,14 +190,14 @@ Reservierung der Fahrzeuge der Wehr – z. B. MTW oder Anhänger der Jugendfeuer
 
 Entscheider und Administratoren werden im Admin-Bereich pro Benutzer per Häkchen festgelegt. Gibt es keinen aktiven Entscheider, übernehmen die Administratoren diese Rolle.
 
-### Anmeldung
+#### Anmeldung
 
 - **Passwortloser Login per Magic Link:** E-Mail-Adresse eingeben, Link aus der Mail öffnen und auf „Anmelden“ klicken. Erst dieser Klick löst den Link ein, damit E-Mail-Scanner ihn nicht vorzeitig verbrauchen.
 - Links gelten 15 Minuten und nur einmal. Anfragen sind pro Adresse und IP begrenzt. Für unbekannte Adressen erscheint dieselbe Meldung, damit sich nicht ausprobieren lässt, wer registriert ist.
 - Die Sitzung bleibt 90 Tage bestehen.
 - **Admin-Konten ohne Terminal:** Die Adressen aus `ADMIN_EMAILS` werden bei jedem Container-Start als aktive Admins angelegt.
 
-### Kalender
+#### Kalender
 
 - **Ansichten:** Woche (Standard), Monat und Liste, farbig nach Fahrzeug. Die bevorzugte Standardansicht stellt jeder unter „Profil → Einstellungen“ ein.
 - **Filter:** Über die Fahrzeug-Chips oben lassen sich Fahrzeuge ein- und ausblenden.
@@ -104,7 +207,7 @@ Entscheider und Administratoren werden im Admin-Bereich pro Benutzer per Häkche
 - **Offene Konfliktanfragen** sind gestreift und mit „Angefragt“ markiert.
 - **Zeitzone:** Alle Zeiten werden in Europe/Berlin angezeigt, inklusive Sommer- und Winterzeit.
 
-### Buchen
+#### Buchen
 
 1. Über den Plus-Button oder einen Klick auf einen Tag öffnet sich das Buchungsformular mit Fahrzeug, Von/Bis (Standard: 08:00 Uhr am gewählten Tag, 3 Stunden lang), Zweck, Ziel, Abteilung und Notizen. Verschiebt man den Start, wandert das Ende mit, die Dauer bleibt gleich. Als Gruppe stehen alle Gruppen zur Wahl, nicht nur die eigenen.
 2. Beim Ändern von Fahrzeug oder Zeitraum prüft die App sofort die Verfügbarkeit. Ist das Fahrzeug belegt, zeigt sie die kollidierende Buchung und freie Alternativfahrzeuge.
@@ -120,7 +223,7 @@ Mitglieder bearbeiten und stornieren nur ihre eigenen Buchungen, und nur solange
 
 **Erinnerung vor Buchungsende:** Eine Stunde vor dem Ende bekommt die buchende Person eine Mail. Darin steht, dass die Reservierung bald endet und das Fahrzeug rechtzeitig zurück sein soll. Über den Button „Fahrzeug ist schon zurück“ lässt sich das Fahrzeug direkt aus der Mail zurückmelden, ohne Anmeldung. Der Link öffnet eine Seite mit Bestätigungsbutton, damit E-Mail-Scanner die Buchung nicht versehentlich beenden. Buchungen, die eine Stunde oder kürzer dauern, bekommen keine Erinnerung. Wird das Ende einer Buchung geändert, kommt die Erinnerung passend zur neuen Endzeit.
 
-### Nachrichten zur Buchung
+#### Nachrichten zur Buchung
 
 In den Buchungsdetails (Buchung im Kalender antippen) gibt es unter „Nachrichten“ einen Chat zu jeder Buchung, z. B. für Absprachen zur Übergabe oder zum Mitfahren.
 
@@ -128,7 +231,7 @@ In den Buchungsdetails (Buchung im Kalender antippen) gibt es unter „Nachricht
 - Eigene Nachrichten lassen sich bearbeiten und löschen. Bearbeitete Nachrichten sind für alle mit „bearbeitet“ markiert, gelöschte verschwinden für Mitglieder.
 - **Entscheider und Admins** sehen zusätzlich gelöschte Nachrichten (durchgestrichen, mit Zeitpunkt) und unter „Frühere Fassungen“ den bisherigen Text bearbeiteter Nachrichten.
 
-### Konflikte und Entscheidungen
+#### Konflikte und Entscheidungen
 
 Ist ein Fahrzeug bereits gebucht, kann man trotzdem eine **Entscheidung anfragen**.
 
@@ -144,19 +247,19 @@ Ist ein Fahrzeug bereits gebucht, kann man trotzdem eine **Entscheidung anfragen
 7. **Zurückziehen:** Wer die eigene offene Anfrage storniert, zieht sie zurück. Die Entscheider werden informiert.
 8. **Dokumentation:** Jede Entscheidung hat einen Verlauf mit Anfrage, Entscheidung, Änderungen und automatischen Reaktivierungen, jeweils mit Person, Zeitpunkt und Anmerkung. Unter „Entscheidungen“ stehen offene und erledigte Fälle.
 
-### Profil
+#### Profil
 
 - **Profilbild:** hochladen, ändern oder entfernen. Das Bild wird mittig quadratisch zugeschnitten, auf 256 px verkleinert und als WebP in der Datenbank gespeichert. Ein eigener Dateispeicher ist deshalb nicht nötig. Ohne Bild erscheinen die Initialen. Angezeigt wird es im Profil, in der Kopfzeile und in den Buchungsdetails.
 - **E-Mail:** Kameraden ändern sie selbst im Profil. **Mobiltelefon, Geburtsdatum und Anschrift** werden vorerst nicht gebraucht und sind abgeschaltet (`App\Support\MemberFields`); unter der E-Mail steht im Profil der Hinweis, dass die Kommunikation seit Anfang 2025 vollständig per E-Mail läuft und keine Postadresse gebraucht wird: Sie stehen weder im Profil noch unter Admin → Kameraden, die Mobilnummer erscheint nicht bei Buchungskonflikten, und die Geburtstagskarten (Startseite und Admin-Dashboard) sind aus. Die Spalten bleiben in der Datenbank, gespeicherte Werte bleiben erhalten und werden beim Speichern nicht überschrieben. Wird ein Schalter in `MemberFields` wieder auf `true` gesetzt, kommt alles zurück (die Adressfelder im Profil müssten neu eingefügt werden). Eine **neue E-Mail-Adresse** gilt erst nach **Double-Opt-in**: Das Profil schickt einen Bestätigungslink an die *neue* Adresse (24 Stunden gültig, höchstens 5 Anfragen pro Stunde); bis dahin gilt die bisherige Adresse weiter, und Login-Links (Magic Link) gehen dorthin. Wie beim Login zeigt der Link nur einen Button, erst der Klick bestätigt, damit Mail-Scanner es nicht auslösen. Nach der Bestätigung ist die neue Adresse der Login; noch ungenutzte Login-Links der alten Adresse verfallen, und die alte Adresse bekommt eine Info-Mail. Im Profil lässt sich die Mail erneut senden oder die Änderung abbrechen. Wird in der Zwischenzeit dieselbe Adresse vergeben oder von einem Admin geändert, ist die Anfrage hinfällig. **Admins** ändern die E-Mail-Adresse unter „Kameraden“ sofort und ohne Bestätigung. Name und Rolle ändern nur Admins; die Mobilnummer ist optional und lässt sich löschen (sie ist für spätere SMS-Benachrichtigungen vorgesehen), sie erscheint bei Buchungskonflikten für andere Kameraden.
 - **Einstellungen:** Standardansicht des Kalenders.
 
-### Feedback
+#### Feedback
 
 - **Mitglieder** senden unter „Profil → Feedback an die Admins“ Nachrichten mit Betreff. Die Gespräche lassen sich im Chat-Stil nachlesen und beantworten. Neue Admin-Antworten erscheinen als roter Punkt am Menüpunkt „Profil“.
 - **Admins** finden alle Gespräche im Admin-Bereich unter „Feedback“, mit Zähler für ungelesene. Dort können sie antworten und Gespräche als erledigt markieren oder wieder öffnen.
 - Jede Nachricht wird per Mail an die Gegenseite geschickt, mit direktem Link zum Gespräch.
 
-### Admin-Bereich (`/admin`)
+#### Admin-Bereich (`/admin`)
 
 Es gibt **einen** Admin-Bereich für alle. Was man darin sieht, hängt von der Rolle ab: Admins sehen alles – oben den Kern (Kameraden, Abteilungen, Funktionen, Module, Einstellungen, Feedback, Logs), darunter je Modul eine aufklappbare Gruppe **Fahrzeugbuchung**, **Kleiderkammer**, **Ausrüstung** und **Mängelmanagement** mit eigener „Übersicht“, dazu **Einsatzbericht** und **Personalverwaltung** mit ihren Einstellungen (`/admin/fahrzeugbuchung`, `/admin/kleiderkammer`, `/admin/ausruestung`, `/admin/maengelmanagement`). Kleiderwarte, Gerätewarte, Verantwortliche im Mängelmanagement, die Wehrführung (Einsatzbericht → Einstellungen) und Personalverwalter (Personalverwaltung → Einstellungen) sehen nur die Gruppe ihres Moduls (wer mehrere Rollen hat, mehrere Gruppen); `/admin` führt sie direkt zur Übersicht ihres Moduls, Kern-Seiten wie Kameraden oder Logs geben 403. Die Fahrzeugbuchung verwalten nur Admins. „Verwaltung“ in der Modulleiste führt zur Übersicht des jeweiligen Moduls; die Adressen der Modul-Seiten sind dieselben wie vorher.
 
@@ -185,7 +288,7 @@ Es gibt **einen** Admin-Bereich für alle. Was man darin sieht, hängt von der R
 - **Admin-Dashboard** (`/admin`): **Letzte Anmeldungen** (die fünf jüngsten Logins mit Name und Uhrzeit, neueste oben; „Alle Logs“), **Letztes Feedback** (die fünf Gespräche mit der jüngsten Nachricht, ungelesene mit rotem Punkt, ein Klick öffnet das Gespräch) und **Verbindungen**: ob der E-Mail-Versand (SMTP: Verbindung und Anmeldung am Server, ohne eine Mail zu schicken; Amazon SES: Abfrage des Sendekontingents; `MAIL_MAILER=log` gilt als Warnung, weil dann keine Mails rausgehen), die Google API und OpenRouter funktionieren. Ohne hinterlegten Schlüssel steht „Nicht eingerichtet“. Geprüft wird höchstens alle 15 Minuten (`App\Services\ServiceHealth`), „Jetzt prüfen“ prüft sofort.
 - **Übersicht:** oben nebeneinander (auf dem Handy untereinander) die Top 5 der Mitglieder mit den meisten Buchungen und die kommenden Buchungen der nächsten 7 Tage, darunter über die ganze Breite die Fahrzeuge sortiert nach Anzahl Buchungen, ganz unten der Link zum Wachen-Monitor. Über „Zur App“ geht es zurück zum Kalender.
 
-### Wachen-Monitor
+#### Wachen-Monitor
 
 Nur-Lese-Ansicht für den Bildschirm in der Wache im Stil von Divera. Sie aktualisiert sich jede Minute von selbst und lädt alle 6 Stunden komplett neu.
 
@@ -195,7 +298,7 @@ Nur-Lese-Ansicht für den Bildschirm in der Wache im Stil von Divera. Sie aktual
 - **Datenschutz:** Namen werden verkürzt angezeigt („Hanna H.“). Es gibt keinerlei Bearbeitungsfunktionen, und die Seite ist keinem Benutzer zugeordnet.
 - **Zugriff:** Der Wachen-PC öffnet `/monitor/<DISPLAY_TOKEN>` ohne Login. Ohne oder mit falschem Schlüssel antwortet die Seite mit 404. Admins öffnen `/monitor` direkt. Den fertigen Link zeigt das Admin-Dashboard. Wird `DISPLAY_TOKEN` in Coolify geändert, ist der alte Link ungültig.
 
-### E-Mails
+#### E-Mails
 
 Alle Mails sind auf Deutsch und werden sofort verschickt, ein Queue-Worker ist nicht nötig. Kann eine Mail nicht zugestellt werden, landet der Fehler im Log. Die eigentliche Aktion, etwa eine Entscheidung, bleibt trotzdem gespeichert.
 
@@ -212,9 +315,11 @@ Alle Mails sind auf Deutsch und werden sofort verschickt, ein Queue-Worker ist n
 | Neues Feedback / Antwort vom Mitglied | alle Admins                                         |
 | Antwort vom Admin                | das Mitglied                                             |
 
-## Kleiderkammer
+## Module im Detail
 
-### Meine Ausrüstung (`/kleiderkammer`)
+### Kleiderkammer
+
+#### Meine Ausrüstung (`/kleiderkammer`)
 
 Die Kachel „Kleiderkammer“ auf der Startseite führt zu „Meine Ausrüstung“. Dort sieht jedes Mitglied mit Modulzugang die Teile, die ihm aktuell ausgegeben sind: Artikel, Größe, Artikelcode und seit wann. Zurückgegebene Teile erscheinen nicht.
 
@@ -223,7 +328,7 @@ Die Kachel „Kleiderkammer“ auf der Startseite führt zu „Meine Ausrüstung
 - **Scannen (Handy):** Kleiderwarte und Admins haben auf dem Handy auf jeder Seite der Kleiderkammer – in der App und im Verwaltungsbereich – unten über die ganze Breite einen roten Knopf **„Scannen“**, der zur Scan-Seite führt (nicht auf der Scan-Seite selbst).
 - **Rollen:** Admins und Kameraden mit der Rolle „Kleiderwart“ sehen zusätzlich „Verwaltung“ (Zahnrad) in der Modulleiste. Nur sie kommen in den Verwaltungsbereich `/admin/kleiderkammer`; normale Mitglieder bekommen dort 403.
 
-### Verwaltung (`/admin/kleiderkammer`)
+#### Verwaltung (`/admin/kleiderkammer`)
 
 - **Mitglieder:** Liste aller Kameraden mit Abteilungen, Dienstgrad, Status, Notizen und Anzahl ausgeliehener Teile, Filter nach Abteilung, Status und „Mit Ausrüstung“. „Alle zurückfordern“ bucht alles zurück. Ein Klick auf die Zeile öffnet das **Kleiderkammerprofil**:
   - Name, Abteilungen, Funktionen, Dienstgrad und Status zur Info (pflegen Admins unter `/admin/kameraden`), dazu die Notizen, die Kleiderwarte hier bearbeiten.
@@ -237,7 +342,7 @@ Die Kachel „Kleiderkammer“ auf der Startseite führt zu „Meine Ausrüstung
 - **Einzelteile:** Zur Auswahl stehen nur Artikeltypen mit „Einzeln erfasst“; Massenbestand läuft über „Bestand“. Gibt es noch keinen solchen Artikeltyp, weist das Formular darauf hin.
 - **Scanner:** „Kamera starten“ fragt die Kamera-Berechtigung an und scannt QR-Codes und Strichcodes; ein bekannter Code öffnet das Teil. Ist der Code unbekannt, öffnet sich für Admins und Kleiderwarte „Einzelteil anlegen“ mit dem Code vorausgefüllt; der Artikeltyp wird aus dem Code erraten (Wehr-Präfix + Code-Präfix des Artikeltyps, z. B. `WEHREJA0007` → Einsatzjacke; das Wehr-Präfix stellt der Admin unter Einstellungen ein, Standard `WEHR`). Über „Ausgeben an“ lässt sich das neue Teil direkt einem Mitglied ausgeben. Für alle anderen bleibt ein unbekannter Code ein 404. Wird der Zugriff verweigert oder fehlt eine Kamera, steht der Grund unter dem Kamerabild. Alternativ lässt sich der Code von Hand eingeben.
 
-## Mängelmanagement
+### Mängelmanagement
 
 Mängel erfassen und bis zur Erledigung verfolgen. Das Modul ist nach der Installation ausgeschaltet; ein Admin aktiviert es unter Admin → Module und vergibt den Modulzugang. Die Kachel „Mängelmanagement“ führt zur Mängelliste (`/maengelmanagement`).
 
@@ -254,7 +359,7 @@ Mängel erfassen und bis zur Erledigung verfolgen. Das Modul ist nach der Instal
 - **Benachrichtigung:** Ein neuer Mangel geht per Mail an alle Verantwortlichen, gibt es keinen, an die Admins (kritische mit „DRINGEND“ im Betreff). Melder und Zuständige bekommen eine Mail, wenn jemand anderes den Status ändert, kommentiert oder zuweist. Ein Mailfehler verhindert die Änderung nicht.
 - **Löschen:** Kameraden, die Mängel gemeldet haben, lassen sich nicht einfach löschen; setze sie auf „Ausgetreten“ oder nutze „Löschen mit Übertragung“.
 
-## Schichtplan
+### Schichtplan
 
 Schichten für Arbeitsdienste, Feste und Stände planen, etwa den Pommesstand der Jugendfeuerwehr auf dem Dorffest, den Grillstand des aktiven Dienstes oder den Arbeitsdienst am Gerätehaus – vom Planer automatisch gerecht verteilt oder von den Mitgliedern selbst eingetragen. Das Modul ist nach der Installation ausgeschaltet; ein Admin aktiviert es unter Admin → Module und vergibt den Modulzugang. Wer Pläne anlegt, bekommt die Rolle „Planer“ (Admins dürfen es immer).
 
@@ -277,7 +382,7 @@ Schichten für Arbeitsdienste, Feste und Stände planen, etwa den Pommesstand de
 - **Im Kalender** (wenn „Kalender & Termine“ eingeschaltet ist): Beim Veröffentlichen legt der Plan einen Kalendertermin (Art „Veranstaltung“) an – bei Selbst-Eintragung für die Zielgruppe, sonst für Teilnehmer, Stationsverantwortliche und den Planer. Titel, Ort, Zeit und Zielgruppe folgen späteren Änderungen am Plan; die Art kann der Terminverwalter ändern. Der Termin zeigt den Plan mit „Helfer eintragen“, der Plan verlinkt „Im Kalender ansehen“. Wird der Plan gelöscht, verschwindet auch sein Termin; löscht der Terminverwalter den Termin, legt der Plan ihn nicht neu an. Umgekehrt bietet jeder Kalendertermin Planern „Schichtplan anlegen“: Titel, Ort, Datum, Uhrzeit und Zielgruppe werden übernommen und der Plan hängt am Termin, ohne ihn zu verändern.
 - **Für Teilnehmer** (`/schichtplan`): „Meine Schichten“ zeigt die anstehenden veröffentlichten Pläne mit den eigenen Schichten und einer Stationsverantwortung. Der Plan zeigt oben „Deine Schichten“ (Zeit, Station, mit wem man dort steht und wer verantwortlich ist) und die eigene Stationsverantwortung, darunter den **gesamten Schichtplan**: eigene Plätze rot umrandet und fett, die Zeilen der eigenen Schichten hinterlegt, die Verantwortlichen unter den Stationsnamen. Pläne, in denen man weder steht noch verantwortlich ist, und Entwürfe bleiben unsichtbar. Auf dem Handy steht der gesamte Schichtplan Station für Station untereinander (je Station die Zeitblöcke mit Namen), auf größeren Bildschirmen als Tabelle.
 
-## Mitteilungen
+### Mitteilungen
 
 Nachrichten der Wehrführung oder der Admins an die Kameraden. Das Modul ist nach dem Update eingeschaltet und auf „Neue Kameraden automatisch freischalten“ gestellt, sodass alle aktiven Kameraden es sehen. Wer schreiben darf, bekommt die Modulrolle „Redakteur“ (Admins dürfen es immer); beim Umstieg wurde das frühere Häkchen „Darf Mitteilungen veröffentlichen“ in diese Rolle übernommen.
 
@@ -288,7 +393,7 @@ Nachrichten der Wehrführung oder der Admins an die Kameraden. Das Modul ist nac
 - **Lesebestätigung** (Häkchen beim Schreiben): Jeder Empfänger bestätigt mit **„Gelesen und verstanden“** – auf der Startseite und unter Mitteilungen; bis dahin lässt sich die Mitteilung auf der Startseite nicht ausblenden. Unter „Verwalten“ zeigt **„Lesebestätigungen“** je Mitteilung „x von y gelesen, z bestätigt“ und wer noch fehlt; **„Erinnern“** schickt genau diesen Kameraden die Mitteilung noch einmal („Bitte bestätigen: …“, Glocke, Push, Mail). Auch ohne Lesebestätigung sieht man, wer sie gelesen hat (Öffnen der Mitteilungen oder eines Anhangs) – anders als im Messenger nachvollziehbar und DSGVO-konform auf dem eigenen Server.
 
 
-## Lehrgänge & Qualifikationen
+### Lehrgänge & Qualifikationen
 
 Kameraden melden ihr **Interesse** an Lehrgängen des Kreises, die Ausbildungsleitung meldet in fox112 Bedarf an und trägt die bestätigten Termine ein. Das Modul ist nach der Installation ausgeschaltet; ein Admin aktiviert es unter Admin → Module und vergibt den Modulzugang. Rollen: „Ausbildungsleiter“ bearbeitet die Anmeldungen (Admins dürfen es immer), „Wehrführung“ sieht, welche Lehrgänge die Kameraden absolviert haben. **Wer benachrichtigt wird:** Mails und Glocke zu neuem Interesse und zu Absagen gehen nur an die aktiven Kameraden mit der Rolle **Ausbildungsleiter** – Admins ohne diese Rolle bekommen nichts, dürfen die Anmeldungen aber weiter bearbeiten. Nur wenn es keinen aktiven Ausbildungsleiter gibt, gehen sie ersatzweise an die Admins, damit nichts verloren geht. Dasselbe gilt für die Karte auf der Startseite („x Absagen in den letzten 7 Tagen“, „x Kameraden mit Interesse“): Sie erscheint genau bei denen, die auch benachrichtigt werden – ein Admin ohne die Rolle sieht sie nicht, solange es einen Ausbildungsleiter gibt. Soll z. B. der Wehrführer mitbenachrichtigt werden, bekommt er die Rolle Ausbildungsleiter (sie umfasst alles, was die Rolle Wehrführung sieht; je Modul hat ein Kamerad eine Rolle). Vergeben wird die Rolle unter Admin → Kameraden beim Modul-Zugriff oder unter Admin → Module.
 
@@ -329,7 +434,7 @@ Kameraden melden ihr **Interesse** an Lehrgängen des Kreises, die Ausbildungsle
 
 **Landesfeuerwehrschule:** Eine direkte Schnittstelle gibt es nicht, weil die Schulen keine offene Schnittstelle anbieten. Das Angebot des Kreises kommt aus fox112 (siehe oben); Ergebnisse von der Landesfeuerwehrschule werden nachgetragen.
 
-## Übungsdienstplaner
+### Übungsdienstplaner
 
 Wer im Jahr welchen Übungsdienst mit welchem Thema übernimmt – bisher eine Liste im Protokoll der Vorstandssitzung. Das Modul ist **nur für den Vorstand und die Admins**. Zum Vorstand gehört, wer die Funktion „Vorstand“ (Admin → Kameraden → Funktionen, Name genau so) oder eine ihrer Unterfunktionen hat. Wer jemand anderen freischaltet, bekommt einen Hinweis und muss bestätigen: Unter „x Kameraden“ ist der Schalter bei Nicht-Vorstandsmitgliedern gesperrt („Nicht im Vorstand“), dort gibt es „Trotzdem freischalten“ mit Rückfrage; beim Sammel-Freischalten werden sie nur mit dem Haken „Auch Kameraden freischalten, die nicht im Vorstand sind“ freigeschaltet; unter „Kamerad bearbeiten“ muss „Trotzdem freischalten: nicht im Vorstand“ angehakt werden. Bereits freigeschaltete Nicht-Vorstandsmitglieder sind in der Liste markiert. Ist „Neue Kameraden automatisch freischalten“ an, gilt das nur für den Vorstand. Außerdem: Es ist nach der Installation ausgeschaltet und wird nicht automatisch freigeschaltet; ein Admin aktiviert es unter Admin → Module und schaltet über „x Kameraden“ die Vorstandsmitglieder frei. So kommt niemand nur zu den „spannenden“ Diensten.
 
@@ -341,7 +446,7 @@ Wer im Jahr welchen Übungsdienst mit welchem Thema übernimmt – bisher eine L
 - **Im Kalender der Kameraden** (wenn „Kalender & Termine“ eingeschaltet ist): Jeder Dienst steht als Termin **„Übungsdienst“** (Art Übung) im Kalender – mit Zeit (Beginn bis Ende, ohne Ende zwei Stunden, ohne Beginn ganztägig), **Ort** mit Adresse und Navigation, **Kleidung** und nur für die gewählte **Zielgruppe** (Abteilungen und/oder Funktionen; leer = alle). **Thema und Verantwortliche erscheinen dort nie** – auch nicht im Kalender-Abo, auf der Startseite oder in Mails; sie bleiben im Plan des Vorstands. Ändern oder Löschen des Dienstes ändert bzw. löscht den Termin (wer zu- oder vielleicht zugesagt hat, erfährt eine neue Zeit oder einen neuen Ort); im Kalender steht „Kommt aus dem Übungsdienstplaner“. Dienste, die noch nicht im Kalender sind (z. B. weil der Kalender später eingeschaltet wurde, letzte zwölf Monate und kommende), übernimmt `uebungsdienste:sync-calendar` stündlich; einen im Kalender gelöschten Termin legt er nicht wieder an. Auf der Startseite der Kameraden erscheint der Dienst als „Nächster Termin“, und die im Kalender erfasste Anwesenheit zählt in der Personalverwaltung zur Dienstbeteiligung.
 - **Orte & Kleidung** (`/uebungsdienste/orte-kleidung`, nur Admins): dieselben Listen wie im Kalender (siehe „Orte & Kleidung“ unter Kalender & Termine).
 
-## Einsatzbericht
+### Einsatzbericht
 
 Ersetzt den Papier-Einsatzbericht: Der Einsatzleiter erfasst jeden Einsatz einmal digital, die Wehrführung gibt ihn frei. Aus denselben Daten entstehen die Jahresstatistik und die Einsätze in der Personalakte. Alarmierung und Rückmeldung bleiben in DIVERA 24/7. Das Modul ist nach der Installation ausgeschaltet; ein Admin aktiviert es unter Admin → Module und schaltet über „x Kameraden“ frei. Rollen: **Einsatzleiter** (auch Gruppenführer) legen Einsätze an, bearbeiten und schließen sie ab; **Wehrführung** gibt frei, korrigiert, wertet aus und legt die Pflichtfelder fest (Admins dürfen alles). Kameraden ohne Rolle sehen nur ihre eigenen Einsätze. Berichte werden dauerhaft aufbewahrt.
 
@@ -372,6 +477,7 @@ Ersetzt den Papier-Einsatzbericht: Der Einsatzleiter erfasst jeden Einsatz einma
   - **Duplikate:** Eine Nachalarmierung mit derselben Alarm-Kennung erzeugt keinen zweiten Einsatz, sondern hängt am bestehenden; ohne Kennung gelten gleiches Stichwort und gleiche Adresse innerhalb von 2 Stunden als derselbe Einsatz.
   - **Filter:** Requests mit dem Kennzeichen Probealarm und solche, deren Stichwort oder Meldung eines der eingestellten Wörter enthält (Vorgabe: Probealarm, Testalarm), erzeugen keinen Einsatz.
   - **Robustheit:** Der Endpunkt antwortet sofort mit 200 und legt den Einsatz erst danach an; höchstens 30 Requests pro Minute je Adresse. Schlägt die Verarbeitung fehl, steht der Fehler im Protokoll, und der Einsatz lässt sich wie immer von Hand anlegen.
+
 - **Adressvorschläge und Geocoding:** Ist unter Admin → Einstellungen → Dienste ein Google-Maps-Schlüssel hinterlegt, schlägt das Adressfeld beim Tippen (ab 3 Zeichen) passende Adressen und Orte vor – **Google Places API (New)**, Autocomplete, nur Deutschland, bevorzugt im Umkreis der bisherigen Einsätze. Ein Tipp auf einen Vorschlag übernimmt die richtig geschriebene Adresse und setzt den Punkt auf der Karte; bei einem Ort (z. B. Schule, Firma) kommt sein Name ins Feld „Objekt“, wenn es leer ist. Der Schlüssel bleibt auf dem Server, der Browser fragt nur die App. In der Google Cloud Console muss dafür die **Places API (New)** aktiviert sein (zusätzlich zur Geocoding API). Wird die Adresse von Hand getippt, ermittelt die App wie bisher die Koordinaten (Geocoding), ebenso beim DIVERA-Einsatz ohne Koordinaten. Ohne Schlüssel ist das Adressfeld ein normales Textfeld; die Navigation funktioniert trotzdem.
 - **Lagemeldungen (Einsatztagebuch):** Kurze Situationsberichte mit Text, bis zu 3 Fotos (direkt mit der Handykamera; der Server verkleinert auf 1600 px und speichert WebP in der Datenbank), Zeit und Absender. **Wichtig** markierte stehen oben und sind rot hervorgehoben; markieren kann der Absender beim Senden, umschalten Einsatzleiter und Wehrführung. Solange ein Einsatz **läuft** (aktuell, ohne Einsatzende), sehen alle Kameraden mit Modulzugang ihn unter „Einsätze“ (`/einsatzbericht`) als „Laufende Einsätze“ und schreiben über `/einsatzbericht/{id}/lage` – ohne den vollen Bericht zu sehen; die Seite aktualisiert sich alle 15 Sekunden. Danach sehen und schreiben nur Einsatzleiter und Wehrführung. Eigene Meldungen lassen sich löschen, solange der Einsatz läuft, Einsatzleiter und Wehrführung löschen jede. Die Meldungen stehen am Bericht und mit Fotos im Druck.
 - **Verbrauchsmaterial:** Im Bericht Material aus dem **Katalog** wählen und die Menge eintragen (auch mit Komma) oder mit „Nicht im Katalog“ frei eingeben (Bezeichnung, Kategorie, Einheit); Mengen lassen sich ändern. Name, Kategorie und Einheit werden in den Bericht übernommen, eine spätere Katalogänderung ändert alte Berichte nicht. Der **Katalog** (`/einsatzbericht/material`, nur Admins) führt Bezeichnung, Kategorie (Löschmittel, Bindemittel, Sanitätsmaterial, Betriebsstoffe, Sonstiges) und feste Einheit (Liter, Kilogramm, Sack, Stück, Meter); vorbelegt mit gängigem Material. Benutztes Material wird beim Löschen nur deaktiviert. Gezählt wird nur der Verbrauch, kein Bestand. Die **Jahresstatistik** zeigt den Verbrauch je Kategorie und Material mit Zahl der Einsätze; der Druck enthält das Material des Einsatzes.
@@ -380,7 +486,19 @@ Ersetzt den Papier-Einsatzbericht: Der Einsatzleiter erfasst jeden Einsatz einma
   - **Intern:** Die angemeldeten Wehren stehen im Bericht mit letztem Status und Verlauf, ihre Lagemeldungen im Einsatztagebuch als „Extern: Wehr · Fahrzeug · Stärke“; beides auch im Druck.
   - **Grenzen:** Der Code gilt nur, solange der Einsatz läuft (aktuell, ohne Einsatzende), lässt sich sofort **sperren** oder durch einen **neuen Code** ersetzen (der alte gilt dann nicht mehr). Externe sehen nur ihre eigenen Meldungen, keine Personal- und keine Berichtsdaten (kein Stichwort, keine Adresse). Je Handy höchstens 30 Lagemeldungen und 60 Status, 10 pro Minute; je Einsatz höchstens 50 Wehren; die Seite ist nicht für Suchmaschinen. Der Schlüssel wird verschlüsselt gespeichert und nie ins Log geschrieben.
 
-## Kalender & Termine
+#### Ergänzung durch EinsatzberichtPlus
+
+Mit `EINSATZBERICHT_PLUS_ENABLED` (Standard: an) erscheint im Berichtseditor ein Zusatzbereich. Er wird zusammen mit dem Einsatzbericht geladen und hat keinen eigenen Modulschalter; zum Bearbeiten braucht man dieselben Rechte wie für den Bericht.
+
+- **Kostenpflicht:** Für den gesamten Einsatz lässt sich markieren, dass Kostenersatz zu prüfen ist; Kostenträger und Bemerkung können ergänzt werden. Das Kennzeichen ist nicht auf Fehlalarme beschränkt.
+- **Beteiligte Personen:** Personen außerhalb der Besatzung lassen sich strukturiert mit Rolle und Kontakt erfassen, statt sie nur in ein Freitextfeld zu schreiben. Personenbezogene Zusatzangaben werden verschlüsselt gespeichert.
+- **Verdienstausfall:** Für Einsatzkräfte der Besatzung können Arbeitgeber, Stunden und Bearbeitungsstand festgehalten werden. Wird ein Kamerad gelöscht, entfallen seine zugehörigen Verdienstausfall-Einträge.
+- **Externes Fahrzeug:** Ein Fahrzeug, das nicht in der gemeinsamen Fahrzeugliste steht, kann als Freitext angegeben werden; reguläre Fahrzeuge werden weiterhin wie bisher aus der Liste ausgewählt.
+- **Sollbesatzung:** Ist das Modul Fahrzeuge aktiv und im Fahrzeugprofil eine Sollbesatzung hinterlegt, weist der Bericht auf Unter- oder Überbesetzung hin. Das ist ein Hinweis, keine Pflicht und keine Sperre. Ohne Sollbesatzung erscheint kein Hinweis.
+
+Die Zusatzangaben sind derzeit nicht im Berichtsdruck oder in Statistiken enthalten. Die Erweiterung nutzt eigene Tabellen und ändert keine Upstream-Tabellen. Weitere technische Hintergründe und Grenzen: [EinsatzberichtPlus](docs-extended/EINSATZBERICHT.md).
+
+### Kalender & Termine
 
 Zentraler Kalender für Übungen, Dienste, Arbeitsdienste, Veranstaltungen und Wartungen. Das Modul ist nach der Installation ausgeschaltet; ein Admin aktiviert es unter Admin → Module und vergibt den Modulzugang. Wer Termine anlegt und externe Kalender einbindet, bekommt die Rolle „Terminverwalter“ (Admins dürfen es immer).
 
@@ -403,18 +521,18 @@ Zentraler Kalender für Übungen, Dienste, Arbeitsdienste, Veranstaltungen und W
 - **Erziehungsberechtigte:** Hat ein Kamerad Erziehungsberechtigte eingetragen (siehe Startseite und Navigation), bekommen sie dieselben Termin-Mails mit einem Link, über den sie für das Kind zu- oder absagen – ohne eigenes Konto. Terminverwalter sehen die Rückmeldung in der Teilnehmerliste mit „(Rückmeldung von …)“.
 - **Startseite:** Die Karte „Nächster Termin“ (nur Termine der eigenen Zielgruppe, auch Übungsdienste) zeigt den nächsten Termin mit Ort, Navigation, Kleidung, der eigenen Rückmeldung oder dem Hinweis „Bitte Rückmeldung geben“. Sie steht bei **jedem aktiven Kameraden**, auch ohne Zugang zum Kalender – dann ohne Link und ohne Rückmeldung.
 
-## Bestand
+### Bestand
 
 Alles, was die Wehr hat, an einem Ort (`/bestand`, im Menü der Ausrüstung und in der Fahrzeugübersicht verlinkt) – über die Module hinweg, ohne doppelte Listen: **Fahrzeuge** (Fahrzeugverwaltung), **Geräte** (Ausrüstungsverwaltung), **Kleiderkammer**, **Schlüssel** und die Objekte des **Mängelmanagements**. Jeder sieht nur, was er im jeweiligen Modul sehen darf (Kleidung nur Kleiderwarte, Schlüssel nur Schlüsselwarte); ausgeschaltete Module fehlen.
 
 - **Suchen & Scannen:** ein Feld für Name, Inventarnummer, Seriennummer, Kennzeichen, Funkrufname, FIN, Code. Die Treffer stehen nach Modul mit Ort und Zustand (einsatzbereit, ausgeliehen, defekt, Prüfung überfällig, offene Mängel …). Barcode- und RFID-Lesegeräte tippen den Code in das Feld; ein Code, den ein Modul kennt, öffnet das Objekt direkt (wie der Scan `/i/{code}`, aber ohne dass die Kleiderkammer unbekannte Codes als neues Teil anbietet). Am Android-Handy liest **„NFC-Tag lesen“** die Kennung eines NFC-Tags.
 - **Ersatzbeschaffung** (Gerätewarte und Fahrzeugwarte): was in den nächsten 3 bis 20 Jahren ersetzt werden muss, nach Jahr mit Summe – Geräte, deren **Lebensdauer** endet (geschätzt mit dem Kaufpreis), und Fahrzeuge mit **geplanter Ersatzbeschaffung** (Jahr und geschätzte Kosten in den Stammdaten des Fahrzeugs); schon Fälliges steht oben. Druckbar, als Grundlage für Haushalt und Investitionsplanung.
 
-## Ausrüstungsverwaltung
+### Ausrüstungsverwaltung
 
 Das gesamte Material der Wehr: Geräte mit Standort, Prüffristen, Lebensdauer und Verfügbarkeit, interne Ausleihe, Schäden, Hersteller-Rückrufe und Beladeplan. Das Modul ist nach der Installation ausgeschaltet; ein Admin aktiviert es unter Admin → Module und vergibt den Modulzugang und die Rolle „Gerätewart“.
 
-### Für alle Kameraden (`/ausruestung`)
+#### Für alle Kameraden (`/ausruestung`)
 
 - **Meine Ausleihen:** was man gerade hat und bis wann (überfällige rot), dazu eigene Reservierungen zum Stornieren.
 - **Geräte:** alle Geräte im Dienst mit Status, Standort und nächster Prüfung; Suche nach Name, Code, Seriennummer, Hersteller, Modell; Filter nach Kategorie und Status. Hinweise „Prüfung überfällig“ und „Lebensdauer abgelaufen“ stehen am Gerät.
@@ -422,7 +540,7 @@ Das gesamte Material der Wehr: Geräte mit Standort, Prüffristen, Lebensdauer u
 - **QR-Code, Barcode, RFID/NFC:** Der Scan des Etiketts (`/i/AR-0001`), des Hersteller-Barcodes oder des **RFID-/NFC-Tags** öffnet die Geräteseite, für Gerätewarte direkt die Verwaltung. Tags eignen sich für Geräte ohne Platz für ein Etikett; ihre Kennung wird ohne Trennzeichen in Großbuchstaben gespeichert (`04:a2:3b` = `04A23B`).
 - **Geräteinfo ohne Login** (zuschaltbar): Für den schnellen Blick direkt am Fahrzeug oder Gerät schalten Gerätewarte unter `/admin/ausruestung/geraeteinfo` („Geräteinfo per QR-Code“) ein, dass ein Scan **ohne Anmeldung** eine kurze Seite zeigt (`/geraeteinfo/{code}`): Name, Code, Kategorie, ob das Gerät einsatzbereit ist (sonst defekt, gesperrt, in Reparatur …) mit Hinweisen wie „Prüfung überfällig“, die nächste Prüfung und wohin es gehört (Standort, Fahrzeug, Geräteraum). Seriennummer, Kaufdaten, Ausleihen, Schäden und Namen erscheinen dort nicht; die Seite ist für Suchmaschinen gesperrt. Angemeldete kommen wie bisher zur Geräteseite. Standard: aus – dann führt der Scan ohne Login zur Anmeldung.
 
-### Für Gerätewarte (`/admin/ausruestung`)
+#### Für Gerätewarte (`/admin/ausruestung`)
 
 - **Übersicht:** Geräte im Bestand und einsatzbereit, Prüfungen in 30 Tagen und überfällig, abgelaufene Lebensdauer, gesperrte Geräte und offene Schäden, überfällige Ausleihen.
 - **Geräte:** Code (automatisch `AR-0001` …, oder eigener), Kategorie, Hersteller, Modell, Seriennummer, Charge, Hersteller-Barcode, Herstellungs-, Inbetriebnahme- und Kaufdatum, Kaufpreis, Standort und Geräteraum. Lebensdauer und Prüfintervall kommen aus der Kategorie, jedes Gerät kann eigene Werte haben. Filter nach Kategorie, Standort, Status, „Prüfung in 30 Tagen fällig“ und „Lebensdauer abgelaufen“. Sammelaktionen: Prüfung eintragen, Standort ändern. Auf der Geräteseite stehen Verlauf, Prüfungen, Ausleihe, Schäden und Rückrufe.
@@ -440,7 +558,7 @@ Das gesamte Material der Wehr: Geräte mit Standort, Prüffristen, Lebensdauer u
 - **Erinnerungen:** `ausruestung:send-reminders` läuft täglich um 7 Uhr. Die Gerätewarte (ohne Gerätewart die Admins) bekommen eine Übersicht: Prüfungen in den nächsten 30 Tagen oder überfällig, Lebensdauer endet in 90 Tagen oder ist abgelaufen, gesperrte Geräte, offene Schäden, überfällige Ausleihen – nur wenn etwas ansteht, und höchstens einmal am Tag. Wer ein Gerät nach der Frist noch hat, bekommt einmal eine Erinnerung.
 - Kameraden mit Ausleihen lassen sich nicht einfach löschen; setze sie auf „Ausgetreten“ oder nutze „Löschen mit Übertragung“.
 
-## Budget & Finanzen
+### Budget & Finanzen
 
 Transparente Finanzverwaltung: Budgets je Kostenstelle planen, Ausgaben mit Beleg einreichen und genehmigen, Einnahmen buchen, Jahresabschluss und Export für Steuerberater und Behörden. Das Modul ist nach der Installation ausgeschaltet; ein Admin aktiviert es unter Admin → Module und schaltet über „x Kameraden“ frei (oder „automatisch freischalten“ für alle). Rollen: **Kassenwart** (Kostenstellen, Budget, direkt buchen, bezahlen, Jahresabschluss) und **Wehrführung** (genehmigen, alle Buchungen mit Belegen, Auswertung und Export); Admins dürfen alles. Alle anderen mit Zugang sehen den Budgetstand und reichen eigene Ausgaben ein. Beträge werden in Cent gespeichert und deutsch geschrieben („1.234,56“).
 
@@ -451,7 +569,7 @@ Transparente Finanzverwaltung: Budgets je Kostenstelle planen, Ausgaben mit Bele
 - **Buchungen** (`/finanzen/buchungen`, Kassenwart und Wehrführung): alle Buchungen mit Filtern (Jahr, Status, Art, Kostenstelle, Suche), „Zu genehmigen“ über alle Jahre, Summen von Ausgaben, Einnahmen und Saldo. **Buchung erfassen** (`/finanzen/buchen`, Kassenwart): Einnahmen (z. B. Spenden, Zuschüsse) und bereits bezahlte Ausgaben ohne Genehmigung.
 - **Jahresabschluss** (`/finanzen/jahresabschluss`): Budget und Ist je Kostenstelle mit Summen und Saldo; **Drucken / PDF** (A4 mit Buchungsliste und Unterschriftszeilen für Kassenwart, Kassenprüfer und Wehrführung), **Buchungen als CSV** (Excel: Semikolon, Dezimalkomma, UTF-8; Belegnummer, Datum, Art, Kostenstelle, Bezeichnung, Händler, Betrag, Status, Genehmigt von/am, Bezahlt am) und **Belege als ZIP** (Dateien nach Belegnummer benannt, CSV dabei). Exportiert werden genehmigte und bezahlte Buchungen. „Jahr abschließen“ (Kassenwart) geht erst, wenn keine Ausgabe des Jahres mehr offen ist; danach sind Buchungen und Budgets des Jahres gesperrt. Wieder öffnen können nur Admins.
 
-## Verbandbuch & Vorfälle
+### Verbandbuch & Vorfälle
 
 Verbandbuch nach DGUV rechtssicher digital führen – Verletzungen und Vorfälle mit Unterschrift dokumentieren. Jede Verletzung im Dienst gehört ins Verbandbuch, auch die kleine: Treten später Beschwerden auf, belegt der Eintrag den Unfall gegenüber der Unfallkasse. Die Einträge enthalten alle Angaben der DGUV Information 204-021 („Dokumentation der Erste-Hilfe-Leistungen“). Das Modul ist nach der Installation ausgeschaltet; ein Admin aktiviert es unter Admin → Module und schaltet es frei (sinnvoll: „automatisch freischalten“, damit jeder Kamerad einen Eintrag schreiben kann). Rollen: **Sicherheitsbeauftragter** und **Wehrführung** (beide sehen alle Einträge, vermerken die Unfallanzeige, stornieren und drucken das Verbandbuch); Admins dürfen alles. Alle anderen mit Zugang schreiben Einträge und sehen nur die, in denen sie als verletzte Person, Ersthelfer oder Erfasser stehen.
 
@@ -464,7 +582,7 @@ Verbandbuch nach DGUV rechtssicher digital führen – Verletzungen und Vorfäll
 - **Datenschutz:** Hergang, Verletzung, Zeugen, Erste-Hilfe-Maßnahmen und Nachträge sind in der Datenbank mit dem `APP_KEY` verschlüsselt (wer den Schlüssel wechselt, muss den alten in `APP_PREVIOUS_KEYS` behalten). Die Einträge stehen nicht im allgemeinen Admin-Log; stattdessen hat jeder Eintrag ein eigenes **Zugriffsprotokoll** (angelegt, angesehen, gedruckt, Nachtrag, Unfallanzeige, storniert), das die Verantwortlichen unter dem Eintrag sehen. Kameraden, die in Einträgen stehen, lassen sich nicht löschen (Status „Ausgetreten“ setzen).
 - **Löschfrist:** Die Dokumentation ist fünf Jahre aufzubewahren (DGUV Vorschrift 1 § 24 Abs. 6). Jeder Eintrag wird am Ende des fünften Jahres nach dem Jahr, in dem er geschrieben wurde, mit Unterschriften, Nachträgen und Protokoll automatisch gelöscht (täglich, `model:prune`). Vorher lässt er sich nicht löschen, auch nicht direkt in der Datenbank. Mit „Länger aufbewahren“ bleibt ein Eintrag über die Frist hinaus erhalten (z. B. solange die Unfallkasse noch Fragen hat), bis die Verantwortlichen das wieder aufheben.
 
-## Expositionen (Gefahrstoffe)
+### Expositionen (Gefahrstoffe)
 
 Wer bei Einsatz oder Übung krebserzeugenden, keimzellmutagenen oder reproduktionstoxischen Gefahrstoffen ausgesetzt war – Brandrauch mit PAK und Ruß, Asbest, Benzol und Co. –, muss das nach § 14 Gefahrstoffverordnung dokumentiert bekommen: 40 Jahre aufbewahrt und an die **Zentrale Expositionsdatenbank (ZED)** der DGUV gemeldet. Das Modul ist nach der Installation ausgeschaltet; ein Admin aktiviert es unter Admin → Module (sinnvoll: „automatisch freischalten“, damit jede Einsatzkraft ihre eigenen erfassen kann). Rolle: **Expositionsbeauftragter** (Meldeliste, für andere erfassen; muss kein Admin sein – die Meldeliste ist ein Reiter der Modulleiste); ohne einen bekommen die Admins die Hinweise.
 
@@ -477,7 +595,7 @@ Wer bei Einsatz oder Übung krebserzeugenden, keimzellmutagenen oder reproduktio
 - **Datenschutz und Aufbewahrung:** Tätigkeit, Gefahrstoffe und Bemerkung sind **verschlüsselt** gespeichert; das allgemeine Admin-Log enthält keine Inhalte, Mails nur den Anlass. Eine erfasste Exposition ist **40 Jahre** ab dem Tag geschützt – die Datenbank verweigert vorher das Löschen, auch für Admins; danach löscht `model:prune` sie täglich. Nur ein nie bestätigter Vorschlag lässt sich verwerfen. Wird ein Kamerad mit „Löschen mit Übertragung“ entfernt, bleiben seine Expositionen mit seinem Namen erhalten und gehen nie auf einen anderen über.
 - **Jahresbericht:** Abschnitt „Gefahrstoff-Expositionen“ mit Zahl der Expositionen, betroffenen Einsatzkräften und den an die ZED gemeldeten.
 
-## Führerscheine
+### Führerscheine
 
 Führerscheinkontrolle ohne Kontrolltermin in der Wache: Die Kameraden reichen ihren Führerschein einmal per Foto ein, der **Führerscheinprüfer** gleicht ab, die App behält die Fristen im Blick und sagt, wer welches Fahrzeug fahren darf. Das Modul ist nach der Installation ausgeschaltet; ein Admin aktiviert es unter Admin → Module (sinnvoll: „automatisch freischalten“). Der Führerscheinprüfer muss kein Admin sein – „Prüfen“ ist ein Reiter der Modulleiste; ohne Prüfer übernehmen die Admins.
 
@@ -488,7 +606,7 @@ Führerscheinkontrolle ohne Kontrolltermin in der Wache: Die Kameraden reichen i
 - **Wer darf fahren?** Mit der **Fahrzeugverwaltung** ergibt sich aus der Führerscheinklasse des Fahrzeugs (oder sonst aus der zulässigen Gesamtmasse: bis 3,5 t B, bis 4,75 t C1 oder Feuerwehr-Fahrberechtigung, bis 7,5 t C1 oder Fahrberechtigung 7,5 t, darüber C), wer es fahren darf – das Fahrzeugprofil listet sie. Im **Fahrtenbuch** erscheint beim Eintragen einer Fahrt ein Hinweis, wenn der Fahrer keinen geprüften Führerschein, keine gültige passende Klasse oder eine fällige Prüfung hat (es sperrt nicht).
 - **Nachweise und Personalverwaltung:** Ein geprüfter Führerschein steht unter Personalakte → Nachweise als Karte „Fahrerlaubnis“ mit dem Prüf-QR-Code; die Akte in der Personalverwaltung zeigt Status und Klassen.
 
-## Unterweisungen
+### Unterweisungen
 
 Unterweisungen (z. B. die jährliche Unterweisung nach DGUV Vorschrift 49, Einsatzstellenhygiene, Absturzsicherung) und Einweisungen (auf ein Fahrzeug oder Gerät, z. B. Motorkettensäge) – mit Fristen und dem Nachweis, den die Unfallkasse sehen will. Das Modul ist nach der Installation ausgeschaltet; ein Admin aktiviert es unter Admin → Module (sinnvoll: „automatisch freischalten“). Rolle: **Unterweisungsbeauftragter** (muss kein Admin sein – Übersicht und Arten sind Reiter der Modulleiste, „Durchführen“ ist die Hauptaktion); ohne einen übernehmen die Admins.
 
@@ -499,7 +617,7 @@ Unterweisungen (z. B. die jährliche Unterweisung nach DGUV Vorschrift 49, Einsa
 - **Zusammenarbeit:** Eine Art „zählt als Atemschutz-Unterweisung“ wird in der **Atemschutzüberwachung** als Unterweisung gewertet. Eine **Einweisung auf ein Fahrzeug** führt im **Fahrtenbuch** zu einem Hinweis, wenn der Fahrer nicht (mehr) eingewiesen ist. Die **Personalverwaltung** zeigt die Unterweisungen in der Akte; der **Jahresbericht** hat den Abschnitt „Unterweisungen“.
 - **Qualifikations-Kürzel:** In der Kameraden-Liste der Personalverwaltung steht bei jedem, was gerade gilt – Kürzel der gültigen Unterweisungen, **AGT**/**CSA** (einsatzbereit, Atemschutz), Führerscheinklassen ab C1 und Feuerwehr-Fahrberechtigung (Führerscheine) und absolvierte Lehrgänge mit Kürzel (in der Lehrgangsliste je Lehrgang einzutragen, z. B. „TF“, „Ma“).
 
-## Wartungsmanagement
+### Wartungsmanagement
 
 Digitale Prüf- und Wartungsverwaltung mit Unterschrift für alle Feuerwehrgeräte und Fristen. Das Modul arbeitet mit den **Geräten der Ausrüstungsverwaltung** (Kategorien, Lebensdauer, Prüffristen); diese muss ebenfalls eingeschaltet sein, sonst zeigt das Modul nur einen Hinweis. Nach der Installation ist es ausgeschaltet; ein Admin aktiviert es unter Admin → Module. Rollen: **Gerätewart** (Vorlagen, Fachfirmen, Prüfer und Qualifikationen, Ad-hoc-Wartungen planen, Protokolle stornieren, Stundensatz) und **Prüfer** (Wartungen durchführen und unterschreiben); Admins dürfen alles. Alle anderen mit Zugang sehen fällige Wartungen, Geräte und Protokolle.
 
@@ -513,7 +631,7 @@ Digitale Prüf- und Wartungsverwaltung mit Unterschrift für alle Feuerwehrgerä
 - **Prüfer & Qualifikationen** (`/wartung/pruefer`): je Kamerad Qualifikationen (z. B. Gerätewart Atemschutz, Sachkundiger PSAgA, Elektrofachkraft) mit **Prüfer-ID**, „gültig bis“ und Nachweis; abgelaufene stehen rot und sind beim Prüfen nicht mehr wählbar. Ins Protokoll kommen Name, Qualifikation und Prüfer-ID als fester Text – der **Qualifikationsnachweis** bleibt, auch wenn die Qualifikation später geändert wird. Je Prüfer: Zahl der Protokolle und letztes Datum.
 - **Gerät** (`/wartung/geraete/{id}`): Prüffrist, **DGUV-Lebensdauer** (Jahre, Ende, Grundlage der Kategorie), die geltenden Vorlagen mit nächstem Termin, offene Wartungen, alle Protokolle; „Ad-hoc-Wartung planen“ (Gerätewart) und „Durchführen“. Lebensdauer und Prüfintervall werden in der Ausrüstungsverwaltung am Gerät bzw. an der Kategorie gepflegt; das Modul ergänzt dort die Kategorien Feuerwehrschutzkleidung, Schutzhandschuhe, Sicherheitsschuhe und Sprungpolster (Startwerte, mit Herstellerangaben abgleichen).
 
-## Atemschutzüberwachung
+### Atemschutzüberwachung
 
 Digitale Atemschutzüberwachung: die Überwachung der Trupps im Einsatz (Uhr, Drücke, Rückweg, Warnungen) und die Verwaltung der Atemschutzgeräteträger (G26.3, Unterweisung, Belastungsübung) in einem Modul. Nach der Installation ist es ausgeschaltet; ein Admin aktiviert es unter Admin → Module. Rollen: **Atemschutzwart** (Leiter Atemschutz: Pool, Fristen, Chips, Berechnungsgrundlagen, Überwachung) und **Überwacher** (Atemschutzüberwacher: Überwachungen führen); Admins dürfen alles. Alle anderen mit Zugang sehen die Zahlen des Pools und unter **Personalakte → Atemschutz** (`/personalakte/atemschutz`) den eigenen Stand. Wer im Pool ist, hat außerdem den **Atemschutzpass** auf dem Handy (Personalakte → Nachweise): Einsatzbereitschaft, AGT-Lehrgang, G26.3, Belastungsübung, Unterweisung, Einsatz/Übung unter Atemschutz, bei CSA-Trägern die CSA-Bereitschaft und die **Tragezeit** des Jahres nach Einsatz, Übung, Belastungsübung und CSA – mit QR-Code, über den z. B. die Atemschutzwerkstatt oder eine Nachbarwehr den Stand prüft.
 
@@ -533,7 +651,7 @@ Digitale Atemschutzüberwachung: die Überwachung der Trupps im Einsatz (Uhr, Dr
 - **Startseite:** Atemschutzwarte und Überwacher sehen „x einsatzbereit / x läuft bald ab / x nicht einsatzbereit“, Geräteträger ihren eigenen Stand.
 - **Erinnerungen:** `atemschutz:remind` läuft täglich um 7:15 Uhr. Jeder Geräteträger bekommt pro Frist (G26.3, Belastungsübung, Unterweisung), die in 30 Tagen endet oder abgelaufen ist, eine Mail – je Frist einmal –, die Atemschutzwarte (ohne Atemschutzwart die Admins) eine Übersicht.
 
-## Fahrzeugverwaltung & Flotte
+### Fahrzeugverwaltung & Flotte
 
 Zentrale Verwaltung aller Fahrzeuge mit Stammdaten, Status und Einsatzhistorie. Das Modul arbeitet mit **derselben Fahrzeugliste** wie Fahrzeugbuchung und Einsatzbericht – ein hier angelegtes Fahrzeug ist dort sofort wählbar, Name, Kurzname und Farbe gelten überall. Nach der Installation ist es ausgeschaltet; ein Admin aktiviert es unter Admin → Module. Rolle: **Fahrzeugwart** (Fahrzeuge anlegen und bearbeiten, Status, Werkstattzeiten, Fristen und Dokumentation); Admins dürfen alles. Alle anderen mit Zugang sehen Übersicht und Fahrzeugprofile. Das [Fahrtenbuch](#fahrtenbuch) nutzt dieselben Fahrzeuge und hält den Kilometerstand hier aktuell; ist es eingeschaltet, zeigt das Fahrzeugprofil die Fahrten und den Verbrauch des Jahres.
 
@@ -551,7 +669,7 @@ Zentrale Verwaltung aller Fahrzeuge mit Stammdaten, Status und Einsatzhistorie. 
 - **Jahresbericht:** Abschnitt „Fahrzeuge: Prüfungen, Wartungen & Reparaturen“ – je Fahrzeug Prüfungen (davon mit Mängeln), Wartungen, Reparaturen und Kosten.
 - **Erinnerungen:** `fahrzeuge:remind` läuft täglich um 6:50 Uhr; die Fahrzeugwarte (ohne Fahrzeugwart die Admins) bekommen eine Mail mit Fristen, die in die Vorwarnung kommen oder überfällig werden – jede nur einmal, nach „erledigt“ wieder neu. Die Startseite zeigt allen „x von y einsatzbereit“ und Fahrzeugwarten überfällige Fristen.
 
-## Fahrtenbuch
+### Fahrtenbuch
 
 Elektronisches Fahrtenbuch für alle Feuerwehrfahrzeuge – ersetzt die Papierversion. Die Fahrzeuge sind **dieselben wie in Fahrzeugbuchung und Fahrzeugverwaltung** (aktive Fahrzeuge). Nach der Installation ist es ausgeschaltet; ein Admin aktiviert es unter Admin → Module (sinnvoll: „automatisch freischalten“, damit alle Fahrer eintragen können). Rolle: **Fahrtenbuchwart** (Korrekturen, Stornierungen, Auswertung, Export); Admins dürfen alles. Alle mit Zugang beginnen und beenden Fahrten, tragen nach, tanken und lesen das Fahrtenbuch jedes Fahrzeugs.
 
@@ -566,7 +684,7 @@ Elektronisches Fahrtenbuch für alle Feuerwehrfahrzeuge – ersetzt die Papierve
 - **Export für Steuer und Versicherung** (Fahrtenbuchwart, im Fahrtenbuch des Fahrzeugs): **Fahrten als CSV** (Excel: Semikolon, UTF-8; Datum, Beginn, Ende, Kilometerstände, Strecke, Start, Ziel, Zweck, Anlass, Einsatz, Fahrer, Mitfahrer, Bemerkung, Storno), **Tanken als CSV** und **Drucken / PDF** (A4 quer mit allen Fahrten und Verbrauch).
 - **Verknüpfungen:** Der Einsatzbericht zeigt die Fahrten seines Einsatzes, das Fahrzeugprofil der Fahrzeugverwaltung die Fahrten und den Verbrauch des Jahres.
 
-## Wasserkarte & Hydranten
+### Wasserkarte & Hydranten
 
 Digitale Hydrantenkarte: alle Löschwasserquellen mit Status, Leistungsdaten und Prüfdatum, im Einsatz automatisch die nächsten zur Einsatzstelle. Nach der Installation ist das Modul ausgeschaltet; ein Admin aktiviert es unter Admin → Module (sinnvoll: „automatisch freischalten“). Rolle: **Hydrantenwart** (Quellen anlegen und bearbeiten, Status, Prüfungen, Mängel beheben, Import); Admins dürfen alles. Alle mit Zugang sehen Karte und Daten und melden Mängel. Die Karte nutzt OpenStreetMap (Leaflet), kein API-Schlüssel nötig.
 
@@ -582,7 +700,7 @@ Digitale Hydrantenkarte: alle Löschwasserquellen mit Status, Leistungsdaten und
 - **Vor Ort per QR-Code:** Auf jeder Quelle druckt der Hydrantenwart mit **„QR-Etikett drucken“** ein Etikett (Nummer, Art, Lage, Code `WK-…`) für die Saugstelle oder das Hinweisschild. Wer es mit dem Handy scannt (`/i/WK-…`), landet nach der Anmeldung direkt bei der Quelle – Mangel melden oder Prüfung eintragen, mit „Mein Standort“ auf der Karte.
 - **Im Einsatz:** Hat ein Einsatz Koordinaten (Adressvorschlag, Geocoding, DIVERA oder Punkt auf der Karte), zeigen der **Einsatzbericht** und die **Lagemeldungen** (Lagemonitor für alle Kameraden, solange der Einsatz läuft) „Löschwasser in der Nähe“: Karte mit Einsatzstelle und den nächsten Quellen im Umkreis von 1,5 km, verfügbare zuerst und hervorgehoben, defekte und gesperrte durchgestrichen mit Grund, jeweils mit Entfernung. „Wasserkarte öffnen“ zeigt die ganze Karte um die Einsatzstelle.
 
-## Objektpläne & Brandschutzunterlagen
+### Objektpläne & Brandschutzunterlagen
 
 Digitale Objektpläne, Feuerwehrpläne und Brandschutzunterlagen – sofort verfügbar bei Alarm. Das Modul ist nach der Installation ausgeschaltet; ein Admin aktiviert es unter Admin → Module und vergibt den Zugang. Lesen dürfen alle mit Modulzugang, die Unterlagen pflegt die Rolle **Planverwalter** (Admins dürfen es immer).
 
@@ -594,7 +712,7 @@ Digitale Objektpläne, Feuerwehrpläne und Brandschutzunterlagen – sofort verf
 - **Bei Alarm (GPS-Vorschläge):** Hat ein laufender Einsatz im Einsatzbericht Koordinaten (Adressvorschlag, Geocoding, DIVERA oder Karte), werden die Objekte vorgeschlagen, in deren Umkreis (plus 100 m Toleranz) die Einsatzstelle liegt – mit Entfernung, Gefährdung, Merkmalen und den Plänen als Knöpfe: im **Einsatzbericht**, in den **Lagemeldungen** (Lagemonitor), oben auf der **Startseite** aller Kameraden mit Modulzugang und oben in der Bibliothek.
 - **Offline:** „Für offline speichern“ (Kasten „Offline“ am Ende der Bibliothek; „Neues Objekt“ steht am Titel) legt die Bibliothek, alle Objektseiten und die aktuellen Pläne im Browser ab (Service Worker, Bereich `/objektplaene`). Ohne Netz öffnen sich diese Seiten und Pläne aus dem Speicher; online wird immer der neueste Stand geladen und dabei gleich mitgespeichert. Neue Versionen kommen offline erst nach erneutem Speichern an. Der Stand („Offline gespeichert: …“) steht auf dem Gerät; „Offline-Daten löschen“ entfernt alles wieder – wichtig auf fremden oder gemeinsam genutzten Geräten, denn die Daten bleiben auch nach dem Abmelden im Browser.
 
-## Personalverwaltung
+### Personalverwaltung
 
 Die Personalakte der Wehr: was ein Kamerad wann war, welche Ehrungen er hat und wie oft er zum Dienst kommt. Die aktuellen Mitgliedsdaten (Dienstgrad, Abteilungen, Funktionen, Status, Eintritt) bleiben wie bisher unter Admin → Kameraden; das Modul baut darauf auf. Es ist nach der Installation ausgeschaltet; ein Admin aktiviert es unter Admin → Module. Die Rolle **Personalverwalter** sieht und pflegt die Akten (Admins dürfen es immer), alle anderen mit Modulzugang sehen nur ihre eigene. Personalverwalter müssen keine Admins sein: Das Modul hat seinen eigenen Verwaltungsbereich – Neue Mitglieder, Änderungswünsche, Ehrungen, Einstellungen sind Reiter der Modulleiste. Admin → Kameraden bleibt davon unberührt.
 
@@ -623,7 +741,7 @@ Die Personalakte der Wehr: was ein Kamerad wann war, welche Ehrungen er hat und 
 
 Für die übrige App (Profil, Admin → Kameraden, Buchungskonflikte, Geburtstagskarten) bleiben Anschrift, Geburtsdatum und Mobilnummer wie unter „Profil“ beschrieben abgeschaltet (`App\Support\MemberFields`); die Personalverwaltung schaltet sie nur für sich ein.
 
-## Schlüsselverwaltung
+### Schlüsselverwaltung
 
 Wer welchen Schlüssel der Wehr hat – statt Liste im Schlüsselkasten. Das Modul ist nach der Installation ausgeschaltet; ein Admin aktiviert es unter Admin → Module. Die Rolle **Schlüsselwart** pflegt die Schlüssel (Admins dürfen es immer; ein Schlüsselwart muss kein Admin sein). Das Modul selbst (`/schluessel`) ist die Liste aller Schlüssel für den Schlüsselwart mit „Neuer Schlüssel“ am Titel; alle anderen mit Modulzugang sehen ihre eigenen auf dem Profil.
 
@@ -635,24 +753,116 @@ Wer welchen Schlüssel der Wehr hat – statt Liste im Schlüsselkasten. Das Mod
 - **QR-Etikett:** Die Schlüsselseite zeigt den QR-Code des Schlüssels; der Scan (`/i/SL-0001`) öffnet für den Schlüsselwart den Schlüssel, für alle anderen „Meine Schlüssel“ auf dem Profil.
 - **Mit den anderen Modulen:** Die Seite eines **Objekts** (Objektpläne) und eines **Fahrzeugs** (Fahrzeugverwaltung) zeigt seine Schlüssel mit Aufbewahrung oder „ausgegeben“ (wer ihn hat, sieht nur der Schlüsselwart); die Akte in der **Personalverwaltung** zeigt die Schlüssel des Kameraden. „Löschen mit Übertragung“ überträgt die Ausgaben.
 
-## Tech-Stack
+## Erweiterungen im Detail
+
+Die folgenden Anleitungen ergänzen die [Kurzüberblick-Tabelle](#erweiterungen-von-openwehr-extended). Die Erweiterungen werden technisch geladen, ihre Module beziehungsweise Funktionen haben aber eigene Freischaltungen und Rechte. Verlinkte Detaildokumente beschreiben zusätzliche Betriebs- und Implementierungsgrenzen.
+
+### Anwesenheit im Detail
+
+Das Modul „Anwesenheit“ führt eigenständige Listen für Übungen, Dienste und Besprechungen. Ein Kalendertermin ist dafür nicht erforderlich. Nach der Migration ist das Modul zunächst inaktiv. Ein Admin schaltet es unter **Admin → Module** ein und gibt es den Kameraden frei; `ANWESENHEIT_ENABLED=false` deaktiviert die Erweiterung vollständig.
+
+- **Liste anlegen** (`/anwesenheit`): „Neue Liste“ öffnen und Titel, Art, Beginn, Ende, Übungsleiter und Teilnehmende festlegen. Beginn und Ende bestimmen automatisch Dauer und Teilnehmerzahl. Listen und Vorlagen stehen für den Standort der Liste zur Verfügung. Wenn das Kalender-Modul aktiv ist, kann ein Termin als Vorbelegung für Titel, Art, Ort und Zeiten verwendet werden; danach ist die Anwesenheitsliste ein eigener Datensatz.
+- **Entwurf und Abgabe:** Eine Liste lässt sich zunächst als Entwurf speichern und später vervollständigen. Der Ersteller kann eigene Entwürfe bearbeiten. Mit „Abgeben“ wird die Liste abgeschlossen; danach können Modulverwalter sie weiterhin bearbeiten. Abgegebene Listen zählen im Stundennachweis und Jahresbericht, Entwürfe nicht.
+- **Teilnehmende und Anhänge:** Die Teilnehmendenauswahl enthält Kameraden des Standorts der Liste. Bei Bedarf lassen sich Dateien anhängen (höchstens fünf Dateien zu je 5 MB). Beim Löschen einer Liste werden auch ihre Anhänge entfernt.
+- **PDF und E-Mail:** Eine Liste kann als PDF geöffnet und per E-Mail versendet werden. Als Empfänger gelten die unter **Admin → Anwesenheit → Einstellungen** hinterlegten Standardadressen sowie zusätzliche Adressen der einzelnen Liste. Ein Versandfehler verhindert nicht, dass die Liste gespeichert bleibt.
+- **Vorlagen:** Unter **Admin → Anwesenheit → Vorlagen** (`/admin/anwesenheit/vorlagen`) können Verwalter Vorlagen anlegen und bearbeiten. Eine Vorlage übernimmt Angaben als Startwerte für neue Listen; spätere Änderungen an der Vorlage ändern keine bereits angelegten Listen.
+- **Zugriff:** Kameraden mit Modulzugang erstellen eigene Listen und bearbeiten ihre Entwürfe. Die Modulrolle `verwalter` und Standort-Admins verwalten Listen, Vorlagen und Einstellungen ihres Standorts; globale Admins sehen alle Standorte. Wenn Locations aktiv ist, begrenzt sie Listen, Leitung und Teilnehmende auf den Standort.
+- **Offline:** Bei aktivierter Offline-Erweiterung können Titel, Art, Zeiten, Leitung, Gästezahl und Teilnehmendenauswahl als lokaler Entwurf wiederhergestellt werden. Standortwahl, Notizen, Empfänger und Anhänge werden nicht gespeichert. Der Entwurf muss nach dem Wiederherstellen geprüft und regulär abgesendet werden; er wird nicht automatisch synchronisiert. Siehe [Offline und PWA](#offline-und-pwa-im-detail).
+
+Ausführliche technische Angaben zu Rechtevergabe, Standortbezug und Datenspeicherung stehen in der [Dokumentation Anwesenheit](docs-extended/ANWESENHEIT.md).
+
+### Dateien im Detail
+
+„Dateien“ ist ein internes Modul für Dateiablagen und benötigt keinen eigenen `DATEIEN_ENABLED`-Schalter. Ein Admin schaltet es unter **Admin → Module** frei. Die Freigabe des Moduls gibt jedoch noch keinen Zugriff auf Dateien; Ablagen und Einträge erhalten eigene Rechte.
+
+- **Ablage einrichten (globaler Admin):** Unter **Admin → Dateien** (`/admin/dateien`) eine Ablage anlegen. Optional einen Standort und ein Speicher-Kontingent in MiB angeben. Ablagen ohne Standort sind gemeinsam standortübergreifend sichtbar. Das Kontingent berücksichtigt alle Versionen und den Papierkorb, nicht nur aktuelle Dateien.
+- **Dateigruppen:** Unter **Admin → Dateien** Dateigruppen erstellen und bestehende Mitglieder zuordnen. Sie sind unabhängig von Abteilungen und Funktionen. `gruppenverwalter` dürfen Gruppen und deren Mitglieder verwalten, erhalten dadurch aber kein Leserecht auf Dateien.
+- **Zugriff vergeben:** Im Explorer (`/dateien`) eine Ablage öffnen und über „Rechte“ Benutzer oder Dateigruppen mit **Lesen**, **Bearbeiten** oder **Verwalten** freigeben. Ohne explizite passende Freigabe haben Mitglieder keinen Zugriff. Das höchste zutreffende Benutzer- oder Gruppenrecht gilt:
+
+  | Recht | Was damit möglich ist |
+  |---|---|
+  | Lesen | Auflisten, ansehen, herunterladen und Versionsverlauf lesen |
+  | Bearbeiten | Zusätzlich hochladen, Ordner erstellen, umbenennen sowie neue Versionen und Wiederherstellungen anlegen |
+  | Verwalten | Zusätzlich Rechte und Vererbung ändern, verschieben, Papierkorb verwalten und endgültig löschen |
+
+- **Ordner und Dateien:** Im Explorer Ordner anlegen, Dateien einzeln oder mehrfach hochladen, suchen, als Favorit markieren oder zuletzt verwendete Einträge öffnen. Es gibt eine Bildvorschau, Kommentare und ZIP-Download. „Mit mir geteilt“ zeigt direkte Freigaben auch dann, wenn der übergeordnete Ordner nicht lesbar ist. Die Suche berücksichtigt Namen und Beschreibungen, nicht Dateiinhalte.
+- **Rechtevererbung:** Neue Einträge erben die Rechte des Elternordners beziehungsweise der Ablage. Wird die Vererbung unterbrochen, gelten an diesem Eintrag nur seine eigenen Rechte und unterhalb davon die dort neu gesetzten Rechte. Eine Direktfreigabe zeigt keine gesperrten Eltern oder Geschwister. Verschieben benötigt „Verwalten“ sowohl am Ausgangs- als auch am Zielort; Verschieben zwischen Ablagen ist nicht verfügbar.
+- **Versionen und Papierkorb:** Für Inhaltsänderungen „Neue Version“ verwenden; der Explorer überschreibt nicht stillschweigend bei Namenskonflikten. Eine ältere Version wiederherzustellen erzeugt eine neue aktuelle Version und erhält den bisherigen Verlauf. „Löschen“ verschiebt in den Papierkorb. Eine Wiederherstellung setzt voraus, dass der Elternordner verfügbar und der Name frei ist. Endgültiges Löschen erfordert „Verwalten“, eine Bestätigung und das Ende der Mindestaufbewahrung (Standard 30 Tage); Dateien werden nicht automatisch endgültig gelöscht.
+- **Standortzugriff:** Ist Locations aktiv, begrenzt die Ablagenberechtigung zusätzlich auf deren Standort. Benutzer- und Gruppenfreigaben heben diese Grenze nicht auf. Standortlose Ablagen und Gruppen gelten als gemeinsam. Einzelheiten und Grenzen stehen unter [Locations](#locations-im-detail).
+- **Öffentliche Lesefreigaben:** Sie sind standardmäßig deaktiviert. Ein Admin muss sie global und zusätzlich für die jeweilige Ablage erlauben. Danach können Personen mit „Verwalten“ für eine Datei oder einen Ordner einen zeitlich befristeten, nur lesenden Download-Link erzeugen; optional mit Passwort oder Download-Limit. Das Token wird nur einmal angezeigt. Externe können weder hochladen noch bearbeiten, ältere Versionen sehen oder Office nutzen. Einen weitergeleiteten Link kann jeder verwenden, der ihn kennt; deshalb Laufzeit kurz halten und ein Passwort über einen anderen Kanal übermitteln. Admins können Freigaben widerrufen.
+- **Online-Office:** Optional lässt sich genau ein separat betriebener ONLYOFFICE- oder Collabora-Server konfigurieren. Die Admin-Einstellungen müssen Browser-Adresse, Rückruf und gegebenenfalls interne Serveradresse enthalten; ONLYOFFICE benötigt ein JWT-Secret. Im Explorer wird „Im Office bearbeiten“ nur mit Bearbeitungsrecht und unterstütztem Format angeboten. PDF und alte Binärformate lassen sich nicht bearbeiten. Sitzungen und Dateiänderungen werden weiterhin auf aktuelle Zugriffsrechte geprüft.
+- **Betrieb:** Datei-Inhalte liegen privat unter `storage/app/private/dateien`, nicht im öffentlichen Webverzeichnis. Dieser Speicher muss persistent und schreibbar sein. Datenbank und Dateien immer gemeinsam und konsistent sichern und wiederherstellen; Virenscan ist nicht integriert. Standard-Uploadlimit: 20 MiB; Admins können es bis 50 MiB erhöhen, sofern PHP, Livewire und Reverse-Proxy das Limit ebenfalls erlauben.
+
+Nicht verfügbar sind WebDAV, Desktop-Synchronisierung, Offline-Bearbeitung und PDF-/Office-Vorschau. Die [Dateien-Dokumentation](docs-extended/DATEIEN.md) beschreibt unter anderem die Admin-Einstellungen, Protokolle, Wartungskommandos, Office- und Freigabeoptionen ausführlicher; die [Roadmap](docs-extended/DATEIEN-ROADMAP.md) trennt geplante von umgesetzten Funktionen.
+
+### Locations im Detail
+
+Die Locations-Erweiterung ergänzt ausgewählte Datensätze um einen Standort. Sie ist standardmäßig aktiv; `LOCATIONS_ENABLED=false` schaltet Standortverwaltung und Standortbegrenzung ab. Standorte sind eine organisatorische Abgrenzung, keine vollständige Mandantentrennung.
+
+- **Standorte anlegen:** Der globale Admin öffnet **Admin → Standorte** und legt die benötigten Standorte an. Die Migration erzeugt bereits einen Hauptstandort; mindestens ein Standort muss bestehen bleiben. Vorhandene Datensätze werden bei der Migration diesem Standort zugeordnet.
+- **Mitglieder und Zuständigkeiten:** Auf der Standortseite Mitglieder zuordnen und bei Bedarf Standort-Admins festlegen. Ein Mitglied kann einem oder mehreren Standorten zugeordnet werden. Ein Standort-Admin darf nur den eigenen Standort verwalten; globale Admins können alle Standorte einsehen und ändern.
+- **Fahrzeuge und Ausrüstung:** Auf der Standortseite Fahrzeuge und Ausrüstung dem Standort zuweisen. Für die von der Erweiterung unterstützten Datensätze filtern Listen und Abfragen automatisch auf die Standorte, zu denen das angemeldete Mitglied gehört.
+- **Standort auswählen:** Für globale Admins erscheint der Standort-Umschalter im Admin-Menü. Er bestimmt, welchem Standort neue Datensätze zugeordnet werden, er begrenzt aber nicht die Sicht eines globalen Admins. Bei anderen Nutzern wird ein neuer Datensatz dem aktuell gewählten, sonst dem eigenen oder ersatzweise dem Hauptstandort zugeordnet.
+- **Standort-Admin im Admin-Bereich:** Standort-Admins gelangen in ihren begrenzten Verwaltungsbereich. Sie können dort Standortname, Mitglieder und zugehörige Fahrzeuge/Ausrüstung pflegen. Globale Core-Adminseiten bleiben globalen Admins vorbehalten.
+- **Gemeinsame Datensätze:** Ein Datensatz ohne Standort (`NULL`) gilt als gemeinsam und ist standortübergreifend sichtbar. Für vertrauliche Daten einen Standort zuweisen, statt sie standortlos abzulegen.
+- **Grenzen:** Die Abgrenzung gilt für die konfigurierten Modelle, darunter Mitglieder, Gruppen, Fahrzeuge, Ausrüstung, Kleiderkammerartikel, Einsatzberichte, Mängel und Kalendertermine. Direkte `DB::table()`-Abfragen umgehen den Eloquent-Scope; eindeutige Kennungen bleiben global. Nicht jedes Upstream-Formular bietet eine Standortauswahl. Deshalb ist Locations kein Ersatz für eine vollständige Mandantentrennung oder zusätzliche Datenschutzprüfung.
+
+Die Liste der begrenzten Modelle und weitere Hinweise zu Migration und Upstream-Synchronisierung stehen in der [Locations-Dokumentation](docs-extended/LOCATIONS.md).
+
+### Offline und PWA im Detail
+
+openwehr ist installierbar und zeigt bei fehlender Verbindung eine Offline-Seite. Die Offline-Erweiterung ergänzt dies um lokale Entwürfe für ausdrücklich gekennzeichnete Formulare. `OFFLINE_ENABLED=false` deaktiviert die Offline-Statusanzeige und Entwürfe, nicht aber das Manifest, den Root-Service-Worker oder die Offline-Fallback-Seite.
+
+- **Offline-Status:** Der Statusbereich zeigt, ob das Gerät verbunden ist und wie viele lokale Entwürfe gespeichert sind. „Jetzt synchronisieren“ aktualisiert den Service Worker und den Entwurfsstatus; die Eingaben werden dabei nicht an den Server gesendet.
+- **Wasserkarte:** Im Formular einer Löschwasserquelle werden ausdrücklich markierte Felder – darunter Art, Nummer, Lage, Koordinaten, Durchfluss, Druck, Nennweite, Inhalt, Saughöhe, Betreiber, Prüfintervall und Kartenstatus – lokal gesichert. Notizen, Dateien und nicht markierte Felder sind nicht Teil des Entwurfs.
+- **Anwesenheit:** Titel, Art, Zeiten, Leitung, Gästezahl und Teilnehmendenauswahl können lokal gespeichert werden. Standortwahl, Notizen, Empfänger und Dateien bleiben außen vor.
+- **Entwurf wiederherstellen:** Nach erneuter Verbindung das betreffende Formular öffnen und den vorhandenen Entwurf wiederherstellen. Eingaben vor dem normalen Absenden prüfen oder den Entwurf verwerfen. Es gibt keine automatische Übermittlung und kein Wiederholen zwischengespeicherter Livewire-Anfragen; Anmeldung, Validierung und Geschäftsregeln laufen beim regulären Absenden weiter.
+- **Lokale Daten:** Entwürfe werden je Benutzer und Formularseite im Browser abgelegt, verfallen nach 30 Tagen und werden beim Abmelden gelöscht. Auf gemeinsam genutzten Geräten können sie bis dahin lokale Angaben enthalten.
+- **Was der Service Worker speichert:** Der Root-Service-Worker cached die Offline-Seite und öffentliche, versionierte statische Assets, aber keine Navigationen, angemeldeten Seiten, Login-, Admin- oder Livewire-Anfragen. Objektpläne verwenden bewusst einen eigenen Offline-Speicher für die Bibliothek, Objektseiten und aktuelle Pläne; neue Planversionen müssen für Offline-Nutzung erneut gespeichert werden.
+
+Es gibt keine allgemeine Offline-Synchronisierung, keinen automatischen Versand von Formularen und keine Offline-Bearbeitung der Dateien. Details zu den unterstützten Feldern und den Speichergrenzen: [Offline-Dokumentation](docs-extended/OFFLINE.md).
+
+### OIDC / Single Sign-On im Detail
+
+Die OIDC-Erweiterung ergänzt den bisherigen Login per E-Mail-Link um die Anmeldung an einem externen Identitätsanbieter (z. B. Keycloak). Sie nutzt Authorization Code mit PKCE. Der Anbieter muss öffentlich über HTTPS erreichbar sein. `OIDC_ENABLED=false` entfernt OIDC-Routen und Einstellungen; `OIDC_FORCE_DISABLED=true` schaltet den IdP-Login im Notfall ab und gibt den Link-Login wieder für alle frei.
+
+1. **Identitätsanbieter vorbereiten:** In Keycloak einen OpenID-Connect-Client anlegen, Client Authentication einschalten und nur den Standard Flow aktivieren. In openwehr unter **Admin → Single Sign-On (OIDC)** die exakte Redirect-URI ablesen und beim Client eintragen (zum Beispiel `https://openwehr.example.com/auth/oidc/callback`, ohne Wildcards). Client-ID und Client-Secret bereithalten.
+2. **Benutzer im IdP vorbereiten:** Die Scopes `openid email profile` verwenden und sicherstellen, dass Benutzer eine bestätigte E-Mail (`email_verified`) haben. Der IdP muss Discovery-, Schlüssel- und Token-Endpunkte über eine öffentliche HTTPS-Adresse bereitstellen.
+3. **Verbindung in openwehr konfigurieren:** Unter **Admin → Single Sign-On (OIDC)** Issuer-URL, Client-ID, Client-Secret, Scopes und gewünschten Button-Text eintragen. Mit „Verbindung testen“ Konfiguration und Schlüsselabruf prüfen; danach „Single Sign-On aktiv“ einschalten. Das Secret wird mit `APP_KEY` verschlüsselt gespeichert, nicht wieder angezeigt und beim Leer-Lassen beibehalten.
+4. **Ersten Login testen:** Standardmäßig wird ein bereits vorhandenes, aktives openwehr-Konto nur mit einer bestätigten, übereinstimmenden E-Mail verknüpft. Inaktive Konten werden abgelehnt. Optional kann die automatische Kontoanlage (JIT) eingeschaltet werden; neu angelegte Konten erhalten dadurch weder Adminrechte noch Modulzugänge und müssen anschließend regulär freigeschaltet werden.
+5. **Weitere Logins:** Nach der ersten Verknüpfung identifiziert die Kombination aus Issuer und `sub` das Konto. Eine bestehende Verknüpfung wird nicht allein wegen einer später übereinstimmenden E-Mail auf eine andere IdP-Identität übertragen. Gruppen- und Rollen-Claims werden nicht ausgewertet; Adminrechte und Modulzugänge bleiben von der Personalverwaltung in openwehr abhängig.
+- **Nur Single Sign-On:** Diese Einstellung blendet den Link-Login für normale Nutzer aus. Lokale System-Admins behalten ihn und melden sich unter `/anmelden/lokal` an. Mindestens ein aktiver lokaler Admin muss bestehen bleiben; der letzte lässt sich nicht entfernen oder deaktivieren, solange „Nur Single Sign-On“ aktiv ist. Vor dem Einschalten einen funktionierenden lokalen Notfallzugang testen.
+- **Notfall-Wiederherstellung:** Bei Serverzugriff kann der IdP-Login deaktiviert und ein lokaler Admin eingerichtet werden:
+
+  ```bash
+  php artisan oidc:disable
+  php artisan oidc:make-local-admin hanna@example.com [--grant-admin]
+  ```
+
+  Alternativ `OIDC_FORCE_DISABLED=true` setzen und den Container neu starten. Die Wiederherstellung des Link-Logins ist damit auch möglich, wenn die Admin-Oberfläche nicht erreichbar ist.
+
+Nicht umgesetzt sind RP-initiated Logout und die Zuordnung von IdP-Gruppen oder -Rollen zu openwehr-Rechten. Eine ausführlichere Keycloak-Anleitung, Claim-Prüfungen und Fehlersuche enthält die [OIDC-Dokumentation](docs-extended/OIDC.md).
+
+## Betrieb und Entwicklung
+
+### Tech-Stack
 
 | Bereich    | Technologie                                          |
 |------------|------------------------------------------------------|
-| Backend    | PHP 8.4, Laravel 12, Livewire 4                      |
+| Backend    | PHP ^8.2 (Docker und CI: PHP 8.4), Laravel 12, Livewire 4 |
 | Admin      | Filament 5                                           |
 | Frontend   | Tailwind CSS 4, Alpine.js, FullCalendar 6, Vite      |
-| Datenbank  | PostgreSQL 18 (mit `btree_gist`-Extension)           |
+| Datenbank  | PostgreSQL (CI: 18, Docker Compose: 16, Installationsbeispiel: 18; mit `btree_gist`) |
 | Tests      | Pest 3                                               |
 | Deployment | Docker (serversideup/php), GitHub Actions, Coolify   |
 
-## Installation
+### Installation
 
 Diese Anleitung bringt openwehr auf einen eigenen Server: eine virtuelle Maschine bei **UpCloud**, darauf **Coolify** als Verwaltungsoberfläche, darin eine **PostgreSQL-Datenbank** und die App mit eigener Domain und HTTPS. Programmieren muss dafür niemand; gebraucht werden ein UpCloud-Konto, eine Domain (bzw. Zugriff auf die DNS-Einträge der Wehr-Domain), ein Postfach zum Versenden der Mails und etwa eine Stunde Zeit.
 
 Die Beispiele verwenden die Wehr „FF Musterstadt“ mit der Domain `ff-musterstadt.de`. Die App soll unter `openwehr.ff-musterstadt.de` laufen, Coolify unter `coolify.ff-musterstadt.de`.
 
-### 1. UpCloud-Konto anlegen
+#### 1. UpCloud-Konto anlegen
 
 UpCloud ist ein europäischer Cloud-Anbieter mit Rechenzentrum in Frankfurt; abgerechnet wird stundengenau.
 
@@ -663,7 +873,7 @@ UpCloud ist ein europäischer Cloud-Anbieter mit Rechenzentrum in Frankfurt; abg
 
 Nach der Anmeldung im UpCloud-Hub die Zahlungsdaten hinterlegen und unter **Account → SSH keys** deinen öffentlichen SSH-Schlüssel eintragen. Wer noch keinen hat, erzeugt ihn auf dem eigenen Rechner mit `ssh-keygen -t ed25519` und kopiert den Inhalt von `~/.ssh/id_ed25519.pub`.
 
-### 2. Server anlegen
+#### 2. Server anlegen
 
 Im UpCloud-Hub **Servers → Deploy server**:
 
@@ -681,7 +891,7 @@ Nach ein bis zwei Minuten läuft der Server. Seine **öffentliche IPv4- und IPv6
 
 **Firewall:** Unter dem Server → **Firewall** nur eingehende Verbindungen auf den Ports **22** (SSH), **80** (HTTP) und **443** (HTTPS) erlauben, alles andere sperren. Die Oberfläche von Coolify (Port 8000) bleibt damit von außen zu; für die Ersteinrichtung reicht ein SSH-Tunnel (Schritt 4).
 
-### 3. Domains auf den Server zeigen lassen
+#### 3. Domains auf den Server zeigen lassen
 
 Beim Anbieter der Domain (oder bei dem, der die Domain der Wehr verwaltet) zwei Einträge anlegen:
 
@@ -692,7 +902,7 @@ Beim Anbieter der Domain (oder bei dem, der die Domain der Wehr verwaltet) zwei 
 
 Alternativ ein Platzhalter-Eintrag `*.ff-musterstadt.de`, dann sind alle Unterdomains sofort erreichbar. Bis die Einträge überall bekannt sind, kann es einige Minuten dauern; prüfen lässt sich das mit `ping openwehr.ff-musterstadt.de`.
 
-### 4. Coolify installieren
+#### 4. Coolify installieren
 
 Coolify ist eine freie Oberfläche, mit der sich Apps und Datenbanken per Klick betreiben lassen; sie kümmert sich auch um die HTTPS-Zertifikate (Let's Encrypt).
 
@@ -713,7 +923,7 @@ und im Browser `http://localhost:8000` aufrufen. **Sofort** das Admin-Konto anle
 - **Profil → Two-factor authentication** einschalten.
 - **Settings → Notifications:** E-Mail einrichten, damit Coolify bei fehlgeschlagenen Deployments oder Backups Bescheid gibt.
 
-### 5. Datenbank anlegen
+#### 5. Datenbank anlegen
 
 **Projects → + Add** → Name z. B. `FF Musterstadt`. Im Projekt **+ New → Database → PostgreSQL**:
 
@@ -726,7 +936,11 @@ Unter der Datenbank steht die **interne Verbindung** (Postgres URL, *internal*).
 
 **Backups der Datenbank** (dringend empfohlen): Bei der Datenbank → **Backups** einen täglichen Zeitplan anlegen, z. B. `0 3 * * *`. Sicherer als auf dem Server selbst liegen die Sicherungen in einem S3-Speicher, z. B. **UpCloud Managed Object Storage**: Bucket anlegen, in Coolify unter **Settings → S3 Storages** eintragen (Endpoint, Bucket, Access Key, Secret Key, mit **Validate** prüfen) und beim Backup als Ziel wählen. Aufbewahrung z. B. 30 Tage.
 
-### 6. openwehr anlegen
+#### 6. openwehr anlegen
+
+Die Konfiguration in diesem Schritt gilt für beide Varianten; nur Image und Tag unterscheiden sich. Das anschließende Formularbeispiel bezieht sich ausdrücklich auf den Upstream.
+
+> **Upstream-Beispiel:** Das folgende Image `ghcr.io/roberteinsle/openwehr` und der beispielhafte Tag `v0.8.1` gehören zum Upstream-Projekt, nicht zu openwehr-extended. Beim Fork baut `fork-deploy.yml` Images nur bei Pushes auf `main` und veröffentlicht sie unter `ghcr.io/<owner>/<repo>` als `latest` (nur Default-Branch) und `sha-<commit>`. Pull Requests nach `main` oder `extended` führen Prüfungen aus, veröffentlichen aber kein Image. `fork-release.yml` veröffentlicht bei einem Tag `v<Version>-x<n>` das Fork-Image mit diesem Tag und `latest`; der Tag muss zur Versionsangabe in `config/app.php` passen. Verwende nur einen Tag, der tatsächlich in den Fork-Releases bzw. den Container Packages veröffentlicht wurde. Ein Push auf `extended` allein erstellt kein Image. Einzelheiten: [Fork-Leitfaden](FORK.md).
 
 Im selben Projekt **+ New → Docker Image**:
 
@@ -783,7 +997,7 @@ MAGIC_LINK_TTL_MINUTES=15
 
 Jetzt **Deploy** klicken. Coolify lädt das Image, die App legt beim ersten Start alle Tabellen an und holt das HTTPS-Zertifikat. Wenn der Status auf *Running (healthy)* steht, ist openwehr unter `https://openwehr.ff-musterstadt.de` erreichbar.
 
-### 7. Erste Schritte in openwehr
+#### 7. Erste Schritte in openwehr
 
 1. `https://openwehr.ff-musterstadt.de/anmelden` öffnen, die Adresse aus `ADMIN_EMAILS` eingeben und den Link aus der Mail öffnen.
 2. Oben rechts **Admin** → **Einstellungen**: Name und Kurzname der Wehr, Mail-Signatur und **Logo** hochladen.
@@ -792,19 +1006,19 @@ Jetzt **Deploy** klicken. Coolify lädt das Image, die App legt beim ersten Star
 5. Im **Admin-Dashboard** unter „Verbindungen“ prüfen, ob der Mailversand funktioniert.
 6. Den Kameraden die Adresse schicken. Sie melden sich selbst mit ihrer E-Mail-Adresse an.
 
-### 8. Updates einspielen
+#### 8. Updates einspielen
 
-Neue Versionen erscheinen unter [Releases](https://github.com/roberteinsle/openwehr/releases).
+Die [Upstream-Releases](https://github.com/roberteinsle/openwehr/releases) gehören zum Original. Fork-Releases erscheinen separat und verwenden Tags mit `-x<n>`; für Updates dieses Forks muss ein tatsächlich veröffentlichter Fork-Tag und das dazugehörige Fork-Image verwendet werden. Prüfe dafür die Releases- und Container-Packages-Seiten dieses Fork-Repositories. Das `latest`-Image des Forks ist nicht mit dem Upstream-Image identisch. Siehe [Fork-Leitfaden](FORK.md).
 
 1. In Coolify bei der Datenbank **Backups → Backup Now** – vor jedem Update.
-2. Bei der App den **Tag** auf die neue Version setzen (z. B. `v0.8.2`), **Save**, dann **Redeploy**.
+2. Bei der App den tatsächlich veröffentlichten Fork-Tag im Format `v<Version>-x<n>` setzen, **Save**, dann **Redeploy**.
 3. Datenbank-Änderungen laufen beim Start automatisch. Die Version steht im Admin-Bereich unten in der Navigation.
 
 **Wie oft?** Mindestens **monatlich**, und sofort, wenn ein Release als **Sicherheitsupdate** gekennzeichnet ist. Wer „Watch → Custom → Releases“ beim Repository einschaltet, bekommt jede neue Version per Mail.
 
 Zurück auf die vorige Version geht genauso über den alten Tag. Die Datenbank wird dabei nicht zurückgedreht; macht ein Update Probleme, das Backup aus Schritt 1 einspielen.
 
-### 9. Sicherungen im Blick behalten
+#### 9. Sicherungen im Blick behalten
 
 | Was | Wo | Wie oft |
 |---|---|---|
@@ -814,7 +1028,7 @@ Zurück auf die vorige Version geht genauso über den alten Tag. Die Datenbank w
 
 Einmal im Quartal ausprobieren, ob sich ein Datenbank-Backup wirklich einspielen lässt – am besten in eine zweite, leere Instanz.
 
-## Konfiguration
+### Konfiguration
 
 Alle Einstellungen laufen über Umgebungsvariablen (in Coolify unter **Environment Variables**). Die wichtigsten:
 
@@ -831,17 +1045,17 @@ Alle Einstellungen laufen über Umgebungsvariablen (in Coolify unter **Environme
 
 Alle Mails werden sofort verschickt, ein Queue-Worker ist nicht nötig. Der Laravel-Scheduler läuft im Docker-Image als eigener Dienst neben nginx und PHP-FPM mit, ein separater Container oder Cronjob ist nicht nötig. Er verschickt jede Minute fällige Erinnerungsmails und räumt täglich abgelaufene Login-Tokens auf.
 
-## Sicherheit
+### Sicherheit
 
 Wie openwehr gegen Lücken abgesichert wird und wie man eine meldet, steht in [SECURITY.md](SECURITY.md). Kurz:
 
 - **Updates:** Dependabot schlägt jede Woche Updates aller Abhängigkeiten vor (PHP, JavaScript, Docker-Basis-Image, GitHub-Actions); Sicherheitsupdates sofort. Jede Änderung läuft durch alle Tests, bevor ein Image entsteht.
-- **Prüfungen bei jedem Push und Pull Request** (GitHub-Workflow „Build & Deploy“, Job „Security Checks“): `composer audit` und `npm audit` (bekannte Schwachstellen), Larastan (statische Analyse, Level 5; alte Befunde in `phpstan-baseline.neon`, neuer Code muss sauber sein), Gitleaks (versehentlich eingecheckte Geheimnisse). Das Docker-Image wird vor dem Veröffentlichen mit Trivy gescannt; kritische Lücken mit verfügbarer Korrektur stoppen es.
-- **Wöchentlich** (Workflow „Security“): dieselben Audits und ein Scan des veröffentlichten Images `latest` – auch ohne Änderung, weil täglich neue Schwachstellen bekannt werden. Funde stehen im Security-Tab des Repositorys.
+- **Prüfungen** (Workflow „Fork Build & Deploy“): auf Pushes nach `main` und Pull Requests nach `main` oder `extended` laufen Tests (PostgreSQL 18), `composer audit`, `npm audit`, Larastan (Level 5), Gitleaks sowie eigene Dateien-Prüfschritte. Das Image wird nur bei Push nach `main` gebaut und vor Veröffentlichung auf kritische Schwachstellen mit verfügbarer Korrektur gescannt; Pull Requests veröffentlichen kein Image.
+- **Wöchentlich** (Workflow „Fork Security“): Composer- und npm-Abhängigkeitsaudits sowie ein Scan des veröffentlichten Fork-Images `ghcr.io/<owner>/<repo>:latest` auf kritische und hohe Schwachstellen. Funde stehen im Security-Tab des Repositorys.
 - **KI-Sicherheitsreview:** Pull Requests prüft die GitHub-Action „Claude Code Security Review“ (Workflow „Claude Security Review“; braucht das Repository-Secret `ANTHROPIC_API_KEY`, sonst wird sie übersprungen). Lokal geht dasselbe mit `/security-review` in Claude Code.
 - **In der App:** Security-Header auf jeder Antwort (`X-Content-Type-Options`, `X-Frame-Options` – außer dem öffentlichen Kalender zum Einbetten –, `Referrer-Policy`, `Permissions-Policy`, HSTS unter HTTPS und eine Content-Security-Policy, vorerst im Beobachtungsmodus „Report-Only“). Hochgeladene Dateien werden mit festem Dateityp ausgeliefert, nur PDFs und Fotos öffnen im Browser, alles andere wird heruntergeladen. CSV-Exporte entschärfen Zellen, die in Excel als Formel laufen würden. Externe Kalender lassen sich nur von öffentlichen Adressen abrufen. Links in Mails nehmen ihre Adresse immer aus `APP_URL`. Session-Cookies sind unter HTTPS automatisch `Secure`.
 - **Einladungslinks:** Den Login-Link als QR-Code oder zum Kopieren zeigt die Personalverwaltung nur für Kameraden, die sich noch nie angemeldet haben (Admins für jeden); alle anderen bekommen die Einladung per Mail an ihre eigene Adresse. Mails mit Login- oder Aktionslinks werden im Mail-Protokoll ohne Inhalt gespeichert.
 
-## Lizenz
+### Lizenz
 
 openwehr ist freie Software unter der [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0). Jede Wehr darf openwehr kostenlos nutzen, anpassen und weitergeben. Wer eine veränderte Version betreibt und anderen über das Netz zur Verfügung stellt, muss deren Quelltext ebenfalls unter der AGPL-3.0 offenlegen.

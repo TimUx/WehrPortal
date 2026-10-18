@@ -1,6 +1,16 @@
 # Fork-Leitfaden (openwehr-extended)
 
+[Zur Hauptdokumentation](README.md) · [Erweiterungsindex](docs-extended/README.md)
+
 Dieser Fork erweitert [roberteinsle/openwehr](https://github.com/roberteinsle/openwehr) und soll dem Original so nah wie möglich bleiben, damit Updates konfliktarm übernommen werden können.
+
+## Inhalt
+
+- [Grundregeln](#grundregeln)
+- [Architektur](#architektur)
+- [Upstream-Updates übernehmen](#upstream-updates-übernehmen)
+- [Fork-spezifische Punkte](#fork-spezifische-punkte)
+- [Liste der Upstream-Eingriffe](#liste-der-upstream-eingriffe)
 
 ## Grundregeln
 
@@ -67,7 +77,7 @@ Empfehlung: Branch Protection auf `main` (PR + grüne Checks), damit Upstream-Me
 - **Workflows:** `fork-deploy.yml`, `fork-release.yml`, `fork-security.yml` ersetzen die Originale. Image: `ghcr.io/<owner>/<repo>` (automatisch aus `github.repository`). Die Original-Workflows `deploy.yml`, `release.yml`, `security.yml` sind deaktiviert (nur `workflow_dispatch`, nur der `on:`-Block geändert – bei Merge-Konflikten die eigene Variante behalten). Tests und Security-Checks laufen weiter bei Push/PR über `fork-deploy.yml`.
 - **PR-Prüfungen für `extended`:** `fork-deploy.yml` prüft Pull Requests gegen `main` und `extended`. Dateien-Tests laufen vor der vollständigen Regression; Blade-Kompilierung sowie Dateien-Pint und die Extension-PHPStan-Konfiguration sind eigene Prüfschritte. Image-Build und Deployment bleiben auf Pushes nach `main` begrenzt.
 - **Secrets/Variablen (optional):** `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN` (Pull-Limit), `COOLIFY_DEPLOY_ENABLED` (Variable) + `COOLIFY_DEPLOY_WEBHOOK`/`COOLIFY_WEBHOOK_TOKEN`. Ohne sie wird das Deployment übersprungen.
-- **Release-Tags:** Format `v<upstream-version>-x<n>` (z. B. `v0.5.8-x1`); `config/app.php` → `version` muss `V.0.5.8-x1` lauten, sonst bricht `fork-release.yml` ab.
+- **Release-Tags:** Format `v<upstream-version>-x<n>`; `config/app.php` → `version` muss `V.<upstream-version>-x<n>` lauten, sonst bricht `fork-release.yml` ab.
 - **Version:** `config/app.php` → `version` bei Releases des Forks mit Suffix `-x<n>` führen, damit Upstream- und Fork-Stand unterscheidbar sind.
 - **Lizenz:** AGPL-3.0 gilt weiter; Änderungen bleiben unter derselben Lizenz und der Quellcode muss Nutzern zugänglich sein.
 - **Öffentliche Daten:** Die Regeln aus `CLAUDE.md` (keine echten Namen/Domains in Code, Tests, Docs) gelten auch hier.
@@ -90,6 +100,6 @@ Empfehlung: Branch Protection auf `main` (PR + grüne Checks), damit Upstream-Me
 | `modules/Wasserkarte/resources/views/livewire/source-form.blade.php` | explizite Offline-Entwurf-Markierungen der Formularfelder |
 | `public/sw.js` | Worker-Quelltext nach `extensions/Offline/resources/js/sw.js` verschoben; `/sw.js` liefert ihn jetzt mit korrekten Scope- und Cache-Headern aus |
 | `tests/Feature/Notifications/PushTest.php` | prüft den gerouteten Service Worker statt einer statischen Datei |
-| `README.md` | Hinweis auf Offline-Status und manuelle Wiederherstellung von Wasserquellen-Entwürfen |
+| `README.md` | Dokumentationsstruktur, Inhaltsverzeichnis, Technologie-/Lizenz-Badges, verifizierte Fork-Erweiterungen und Betriebsunterschiede; fachliche Inhalte einschließlich Offline-Status und manueller Wiederherstellung von Wasserquellen-Entwürfen bleiben erhalten |
 | `CLAUDE.md` | aktualisiert den Speicherort und die Verantwortung für den Root-Service-Worker |
 | `modules/Einsatzbericht/resources/views/livewire/report-editor.blade.php` | Einsatzbericht-Ergänzungen: ein `@includeIf('ebp::partials.editor', …)` (+ Kommentar) nach dem Abschnitt „Fahrzeuge und Besatzung“; ohne `extensions/EinsatzberichtPlus` bleibt es wirkungslos |

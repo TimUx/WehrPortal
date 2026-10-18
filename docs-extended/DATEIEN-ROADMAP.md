@@ -1,8 +1,24 @@
 # Dateien – Roadmap nach Meilenstein 1
 
-Planung der nächsten Meilensteine für die Extension `extensions/Dateien/`. Grundlage ist Meilenstein 1 (Dateiablage, Gruppenrechte, Versionierung) auf dem Branch `copilot/featuredateien-modul-setup`, beschrieben in `docs-extended/DATEIEN.md`. Dieses Dokument enthält keinen Code; jeder Meilenstein wird als eigener Pull Request umgesetzt.
+[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Dateien-Funktionsbeschreibung](DATEIEN.md) · [Fork-Leitfaden](../FORK.md)
 
-## Ausgangslage nach M1
+Planungsstand der Extension `extensions/Dateien/`, ausgehend von Meilenstein 1 (Dateiablage, Gruppenrechte, Versionierung). Meilensteine 2 bis 5 sind umgesetzt, Meilenstein 6 teilweise umgesetzt; Meilenstein 7 enthält spätere Ausbauideen. Die aktuelle Bedienung steht in [`DATEIEN.md`](DATEIEN.md). Dieses Dokument enthält keinen Code; neue Arbeit wird weiterhin separat umgesetzt.
+
+## Inhalt
+
+- [Ausgangslage nach M1 (historisch)](#ausgangslage-nach-m1-historisch)
+- [Priorisierung](#priorisierung)
+- [M2 – Betriebsreife (umgesetzt)](#m2--betriebsreife-must-have--umgesetzt)
+- [M3 – Office-Grundlage und Ansicht (umgesetzt)](#m3--office-grundlage-und-ansicht-must-have-bei-office-go-live--umgesetzt)
+- [M4 – Office-Bearbeitung (umgesetzt)](#m4--office-bearbeitung-must-have-bei-office-go-live--umgesetzt)
+- [M5 – Öffentliche Freigaben (umgesetzt, optional)](#m5--öffentliche-freigaben-optional-standardmäßig-aus--umgesetzt)
+- [M6 – Komfort und Zusammenarbeit (teilweise umgesetzt)](#m6--komfort-und-zusammenarbeit-optional--teilweise-umgesetzt)
+- [M7 – Später / Ausbau (optional)](#m7--später--ausbau-optional)
+- [Übergreifend pro Meilenstein](#übergreifend-pro-meilenstein)
+
+## Ausgangslage nach M1 (historisch)
+
+Die folgende Bestandsaufnahme beschreibt den Stand **nach M1 und vor den späteren Umsetzungen**. Ein Punkt unter „Lücken“ ist deshalb nicht automatisch ein heutiges Defizit; maßgeblich sind die Status der Meilensteine und die aktuelle [Funktionsbeschreibung](DATEIEN.md).
 
 **Vorhanden:**
 - Ablagen (`x_files_spaces`) mit Standort und Kontingent
@@ -149,15 +165,16 @@ Umsetzung siehe [`DATEIEN.md`](DATEIEN.md#öffentliche-links-meilenstein-5); der
 
 ## M6 – Komfort und Zusammenarbeit (optional) – teilweise umgesetzt
 
-Umgesetzt (siehe [`DATEIEN.md`](DATEIEN.md#komfort-und-zusammenarbeit-meilenstein-6)): Favoriten, „Zuletzt verwendet“, Startseiten-Karte, Bildvorschau, Ordner als ZIP, Beschreibung, Kommentare, Abos, Volltextsuche über Name und Beschreibung. **Offen:** PDF-Vorschau (bräuchte Ghostscript/Imagick im Image), Volltext über Dateiinhalte (Textextraktion), Verschieben zwischen Ablagen, Registry für andere Module.
+Umgesetzt (siehe [`DATEIEN.md`](DATEIEN.md#komfort-und-zusammenarbeit-meilenstein-6)): Favoriten, „Zuletzt verwendet“, Startseiten-Karte, Bildvorschau, Ordner als ZIP, Beschreibung, Kommentare, Abos und Volltextsuche über Name und Beschreibung. **Offen:** PDF-Vorschau (bräuchte Ghostscript/Imagick im Image), Volltext über Dateiinhalte (Textextraktion), Verschieben zwischen Ablagen und Registry für andere Module.
 
 - Favoriten, „Zuletzt verwendet“, Startseiten-Karte über `DashboardRegistry`.
 - Vorschaubilder für Bilder/PDFs, serverseitig erzeugt, nicht öffentlich gespeichert.
 - Ordner als ZIP (Stream, ACL pro Eintrag).
 - Kommentare/Beschreibung an Dateien; Abos „bei Änderungen benachrichtigen“.
-- Verschieben zwischen Ablagen (Kontingent, Rechte neu berechnen).
 - Volltextsuche (PostgreSQL `tsvector`) mit ACL-Filter.
 - Anbindung anderer Module über eine Registry (z. B. Dokument im Einsatzbericht verknüpfen), ohne interne Klassen zu importieren.
+
+Verschieben zwischen Ablagen ist weiterhin **nicht umgesetzt**; beim späteren Ausbau müssten Kontingent und Rechte neu berechnet werden.
 
 **Risiken:** Vorschau-Parser als Angriffsfläche; Leistung. **Testfokus:** ACL bei Vorschau, ZIP, Volltext; Speicherbedarf beim ZIP-Stream.
 
