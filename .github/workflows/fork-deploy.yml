@@ -8,7 +8,7 @@ on:
       - 'docs/**'
   # Pull requests (Dependabot, larger changes) run tests and security checks, but build nothing
   pull_request:
-    branches: [main]
+    branches: [main, extended]
     paths-ignore:
       - 'docs/**'
 
@@ -44,7 +44,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: "8.4"
-          extensions: pdo_pgsql, intl, mbstring, openssl, bcmath, gd, exif
+          extensions: pdo_pgsql, intl, mbstring, openssl, bcmath, gd, exif, zip
           coverage: none
 
       - name: Install Composer Dependencies
@@ -67,7 +67,20 @@ jobs:
           DB_USERNAME: openwehr
           DB_PASSWORD: secret
 
-      - name: Run Tests
+      - name: Run Dateien Tests
+        run: ./vendor/bin/pest tests/Feature/Extensions/Dateien
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: openwehr_test
+          DB_USERNAME: openwehr
+          DB_PASSWORD: secret
+
+      - name: Compile Blade Views
+        run: php artisan view:cache && php artisan view:clear
+
+      - name: Run Regression Tests
         run: ./vendor/bin/pest --parallel
         env:
           DB_CONNECTION: pgsql
@@ -91,7 +104,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: "8.4"
-          extensions: pdo_pgsql, intl, mbstring, openssl, bcmath, gd, exif
+          extensions: pdo_pgsql, intl, mbstring, openssl, bcmath, gd, exif, zip
           coverage: none
 
       - name: Install Composer Dependencies
@@ -99,6 +112,7 @@ jobs:
 
       # Larastan boots the app; it needs an environment like the tests
       - name: Prepare Environment
+        id: prepare
         run: cp .env.example .env && php artisan key:generate
 
       # Known vulnerabilities in the PHP packages (GitHub/FriendsOfPHP advisories) fail the build
@@ -107,7 +121,16 @@ jobs:
 
       # Static analysis (Larastan, level 5); old findings are in phpstan-baseline.neon, new code must be clean
       - name: Static Analysis
-        run: ./vendor/bin/phpstan analyse --memory-limit=2G --no-progress --error-format=github
+        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+        run: ./vendor/bin/phpstan analyse --memory-limit=2G --no-progress --error-format=table
+
+      - name: Dateien Static Analysis
+        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+        run: ./vendor/bin/phpstan analyse -c extensions/Dateien/phpstan.neon --memory-limit=2G --no-progress --error-format=table
+
+      - name: Dateien Code Style
+        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+        run: ./vendor/bin/pint --test extensions/Dateien tests/Feature/Extensions/Dateien
 
       - name: Setup Node
         uses: actions/setup-node@v4

@@ -62,8 +62,10 @@ Empfehlung: Branch Protection auf `main` (PR + grüne Checks), damit Upstream-Me
 - **Single Sign-On (OIDC):** Die Erweiterung liegt unter `extensions/Oidc/`; Einrichtung, Keycloak, lokale Admins und Notfall-Wiederherstellung stehen in [`docs-extended/OIDC.md`](docs-extended/OIDC.md). Der Core-Hook (`AuthMethodRegistry`) ist generisch und kann als Pull Request an das Original vorgeschlagen werden (eigener Commit-Kandidat: `app/Services/AuthMethod*.php`, `User::isLocalAdmin()`, Login-Seite, `MagicLinkService`).
 - **Mehrere Standorte:** Die Erweiterung liegt unter `extensions/Locations/` (kein Upstream-Eingriff); Rollen, Scope und Grenzen stehen in [`docs-extended/LOCATIONS.md`](docs-extended/LOCATIONS.md). Zusätzlich `docker/entrypoint.d/61-ensure-locations.sh` (neue Datei).
 - **Anwesenheitslisten:** Eigenständiges Modul unter `extensions/Anwesenheit/` (kein Upstream-Eingriff); Funktionsumfang, Standort-Regeln und Offline-Entwürfe in [`docs-extended/ANWESENHEIT.md`](docs-extended/ANWESENHEIT.md).
+- **Dateien:** Interne Dateiablage unter `extensions/Dateien/` (kein Upstream-Eingriff); Dateigruppen, vererbte ACLs, private Versionen und Papierkorb in [`docs-extended/DATEIEN.md`](docs-extended/DATEIEN.md). Keine Office-Anbindung oder öffentlichen Freigabelinks.
 - **Einsatzbericht-Ergänzungen:** `extensions/EinsatzberichtPlus/` ergänzt Kostenpflicht, beteiligte Personen, Verdienstausfall, externes Fahrzeug und Sollbesatzung-Hinweise (eigene `x_ebp_*`-Tabellen). Analyse und Grenzen in [`docs-extended/EINSATZBERICHT.md`](docs-extended/EINSATZBERICHT.md); ein Upstream-Eingriff (siehe Tabelle).
 - **Workflows:** `fork-deploy.yml`, `fork-release.yml`, `fork-security.yml` ersetzen die Originale. Image: `ghcr.io/<owner>/<repo>` (automatisch aus `github.repository`). Die Original-Workflows `deploy.yml`, `release.yml`, `security.yml` sind deaktiviert (nur `workflow_dispatch`, nur der `on:`-Block geändert – bei Merge-Konflikten die eigene Variante behalten). Tests und Security-Checks laufen weiter bei Push/PR über `fork-deploy.yml`.
+- **PR-Prüfungen für `extended`:** `fork-deploy.yml` prüft Pull Requests gegen `main` und `extended`. Dateien-Tests laufen vor der vollständigen Regression; Blade-Kompilierung sowie Dateien-Pint und die Extension-PHPStan-Konfiguration sind eigene Prüfschritte. Image-Build und Deployment bleiben auf Pushes nach `main` begrenzt.
 - **Secrets/Variablen (optional):** `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN` (Pull-Limit), `COOLIFY_DEPLOY_ENABLED` (Variable) + `COOLIFY_DEPLOY_WEBHOOK`/`COOLIFY_WEBHOOK_TOKEN`. Ohne sie wird das Deployment übersprungen.
 - **Release-Tags:** Format `v<upstream-version>-x<n>` (z. B. `v0.5.8-x1`); `config/app.php` → `version` muss `V.0.5.8-x1` lauten, sonst bricht `fork-release.yml` ab.
 - **Version:** `config/app.php` → `version` bei Releases des Forks mit Suffix `-x<n>` führen, damit Upstream- und Fork-Stand unterscheidbar sind.
@@ -74,6 +76,8 @@ Empfehlung: Branch Protection auf `main` (PR + grüne Checks), damit Upstream-Me
 
 | Datei | Grund |
 |---|---|
+| `tests/Feature/Gefahrstoffe/MaterialImportTest.php` | Cache-Control-Erwartung an die normalisierte Reihenfolge `no-store, private` angepasst; beide Schutzdirektiven bleiben geprüft |
+| `modules/Gefahrstoffe/src/Services/MaterialImport.php` | Validierungsfehler mit `messages()` feldweise behalten: Duplikatprüfung und anschließendes Zusammenführen erwarten Listen pro Feld, nicht die flache Liste aus `all()`; behebt zugleich den PHPStan-Fehler „Cannot assign new offset to string“ |
 | `composer.json`, `composer.lock` | Autoload und Provider-Discovery für `extensions/` |
 | `bootstrap/providers.php` | `Extensions\ExtensionsServiceProvider` (Root-`extra.laravel.providers` wird von Laravel nicht entdeckt) – ohne diese Zeile lädt keine Erweiterung |
 | `app/Models/User.php` | OIDC: `isLocalAdmin()` (+ `use`) – lokaler System-Admin als Core-Konzept |

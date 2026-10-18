@@ -65,7 +65,7 @@ class MaterialImport
             ])->errors();
 
             $un = (string) ($row['un_number'] ?? '');
-            $errors = $validated->all();
+            $errors = $validated->messages();
             if ($un !== '' && isset($seen[$un])) {
                 $errors['un_number'][] = 'UN-Nummer kommt in der Datei mehrfach vor.';
             }

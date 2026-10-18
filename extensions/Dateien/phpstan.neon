@@ -1,0 +1,12 @@
+includes:
+    - ../../phpstan.neon
+
+parameters:
+    paths:
+        - .
+    excludePaths:
+        - database
+        - resources/views
+    databaseMigrationsPath:
+        - %currentWorkingDirectory%/extensions/Dateien/database/migrations
+        - %currentWorkingDirectory%/extensions/Locations/database/migrations

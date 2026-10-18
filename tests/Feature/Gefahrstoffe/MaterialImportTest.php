@@ -93,7 +93,7 @@ test('the module provides a JSON catalogue for offline caching', function () {
 
     $this->actingAs($this->member)->get(route('gefahrstoffe.catalogue'))
         ->assertOk()
-        ->assertHeader('Cache-Control', 'private, no-store')
+        ->assertHeader('Cache-Control', 'no-store, private')
         ->assertJsonPath('materials.0.un_number', '1203')
         ->assertJsonPath('materials.0.source_name', 'Quelle Muster');
 });

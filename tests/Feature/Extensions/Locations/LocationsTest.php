@@ -61,7 +61,9 @@ it('shows users only the records of their Standort, global admins everything', f
     $north = station('Wache Nord');
     $southVehicle = Vehicle::factory()->create(['ext_location_id' => $south->id]);
     $northVehicle = Vehicle::factory()->create(['ext_location_id' => $north->id]);
-    $shared = Vehicle::factory()->create(['ext_location_id' => null]);
+    $shared = Vehicle::factory()->create();
+    $shared->forceFill(['ext_location_id' => null])->save();
+    expect($shared->fresh()->ext_location_id)->toBeNull();
 
     $this->actingAs(memberAt($south));
     expect(Vehicle::pluck('id')->all())->toEqualCanonicalizing([$southVehicle->id, $shared->id])
