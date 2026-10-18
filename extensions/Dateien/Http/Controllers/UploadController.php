@@ -39,7 +39,7 @@ class UploadController
         }
 
         $parent = ! empty($data['parent']) ? Node::query()->findOrFail($data['parent']) : null;
-        $space = Space::query()->findOrFail($parent?->space_id ?? ($data['space'] ?? 0));
+        $space = Space::query()->findOrFail($parent ? $parent->space_id : ($data['space'] ?? 0));
         $node = $files->upload($user, $space, $parent, $file);
 
         return response()->json(['id' => $node->id, 'name' => $node->name, 'version' => 1], 201);

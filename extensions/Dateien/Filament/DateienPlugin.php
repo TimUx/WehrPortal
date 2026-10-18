@@ -19,7 +19,7 @@ class DateienPlugin implements Plugin
 
     public function register(Panel $panel): void
     {
-        $panel->pages([DateienPage::class]);
+        $panel->pages([DateienPage::class, DateienAuditPage::class]);
     }
 
     public function boot(Panel $panel): void {}

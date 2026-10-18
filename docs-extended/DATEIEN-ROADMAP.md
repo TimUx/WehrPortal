@@ -44,7 +44,7 @@ Reihenfolge: M2 → M3 → M4 → produktiver Go-live → M5 / M6 nach Bedarf �
 
 ---
 
-## M2 – Betriebsreife (Must-have)
+## M2 – Betriebsreife (Must-have) – umgesetzt
 
 **Ziel:** Die Ablage läuft im Alltag ohne Datenverlust, ist wartbar und reicht für übliche Dateigrößen und Mengen.
 

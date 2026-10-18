@@ -10,6 +10,7 @@ use App\Support\FileResponse;
 use Extensions\Dateien\Models\FileGroup;
 use Extensions\Dateien\Services\FileService;
 use Extensions\Dateien\Services\GroupService;
+use Extensions\Dateien\Services\Maintenance;
 use Extensions\Locations\Models\Location;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -68,6 +69,9 @@ class DateienPage extends Page implements HasForms, ModuleArea
             'max_upload_kb' => FileService::maxUploadKb(),
             'extensions' => FileService::allowedExtensions(),
             'retention_days' => FileService::retentionDays(),
+            'quota_warning_percent' => FileService::quotaWarningPercent(),
+            'audit_retention_days' => FileService::auditRetentionDays(),
+            'verify_downloads' => FileService::verifyDownloads(),
         ]);
     }
 
@@ -75,13 +79,21 @@ class DateienPage extends Page implements HasForms, ModuleArea
     {
         return $schema->statePath('data')->components([
             Forms\Components\TextInput::make('max_upload_kb')->label('Maximale Dateigröße (KiB)')
-                ->numeric()->required()->minValue(1)->maxValue(51200),
+                ->numeric()->required()->minValue(1)->maxValue(FileService::maxUploadLimitKb())
+                ->helperText('Obergrenze laut Server-Konfiguration: '.FileService::maxUploadLimitKb().' KiB (DATEIEN_MAX_UPLOAD_LIMIT_KB). PHP lässt derzeit höchstens '.ini_get('upload_max_filesize').' pro Datei und '.ini_get('post_max_size').' pro Anfrage zu; der Reverse-Proxy braucht ein passendes Limit.'),
             Forms\Components\CheckboxList::make('extensions')->label('Erlaubte Dateiendungen')
                 ->options(array_combine(FileResponse::allowedExtensions(), FileResponse::allowedExtensions()))
                 ->required()->minItems(1),
             Forms\Components\TextInput::make('retention_days')->label('Mindestaufbewahrung im Papierkorb (Tage)')
                 ->numeric()->required()->minValue(0)->maxValue(3650)
                 ->helperText('Keine automatische Löschung. Erst nach dieser Frist ist eine explizite endgültige Löschung möglich.'),
+            Forms\Components\TextInput::make('quota_warning_percent')->label('Kontingent-Warnung ab (%)')
+                ->numeric()->required()->minValue(1)->maxValue(100),
+            Forms\Components\TextInput::make('audit_retention_days')->label('Aufbewahrung des Dateiprotokolls (Tage)')
+                ->numeric()->required()->minValue(0)->maxValue(36500)
+                ->helperText('0 = unbegrenzt. Ältere Einträge löscht der nächtliche Lauf dateien:prune-audit.'),
+            Forms\Components\Toggle::make('verify_downloads')->label('Prüfsumme beim Herunterladen prüfen')
+                ->helperText('Erkennt beschädigte Dateien vor der Auslieferung; kostet bei großen Dateien etwas Zeit.'),
         ]);
     }
 
@@ -91,14 +103,20 @@ class DateienPage extends Page implements HasForms, ModuleArea
         abort_unless(auth()->user()->is_admin, 403);
         $state = $this->form->getState();
         $this->validate([
-            'data.max_upload_kb' => ['required', 'integer', 'min:1', 'max:51200'],
+            'data.max_upload_kb' => ['required', 'integer', 'min:1', 'max:'.FileService::maxUploadLimitKb()],
             'data.extensions' => ['required', 'array', 'min:1'],
             'data.extensions.*' => ['required', 'string', 'in:'.implode(',', FileResponse::allowedExtensions())],
             'data.retention_days' => ['required', 'integer', 'min:0', 'max:3650'],
+            'data.quota_warning_percent' => ['required', 'integer', 'min:1', 'max:100'],
+            'data.audit_retention_days' => ['required', 'integer', 'min:0', 'max:36500'],
+            'data.verify_downloads' => ['boolean'],
         ]);
         Setting::set('dateien.max_upload_kb', (int) $state['max_upload_kb']);
         Setting::set('dateien.extensions', json_encode(array_values($state['extensions']), JSON_THROW_ON_ERROR));
         Setting::set('dateien.retention_days', (int) $state['retention_days']);
+        Setting::set('dateien.quota_warning_percent', (int) $state['quota_warning_percent']);
+        Setting::set('dateien.audit_retention_days', (int) $state['audit_retention_days']);
+        Setting::set('dateien.verify_downloads', ! empty($state['verify_downloads']) ? '1' : '0');
         Notification::make()->title('Einstellungen gespeichert')->success()->send();
     }
 
@@ -171,6 +189,24 @@ class DateienPage extends Page implements HasForms, ModuleArea
         Notification::make()->title('Ausstehende Dateilöschungen erneut versucht')->success()->send();
     }
 
+    public function runReconcile(): void
+    {
+        $this->authorizeManager();
+        abort_unless(auth()->user()->is_admin, 403);
+        $report = app(Maintenance::class)->reconcile();
+        $problems = Maintenance::problems($report);
+        Notification::make()->title($problems === 0 ? 'Speicherprüfung ohne Befund' : 'Speicherprüfung: '.$problems.' Auffälligkeiten')
+            ->{$problems === 0 ? 'success' : 'warning'}()->send();
+    }
+
+    public function deleteOrphans(): void
+    {
+        $this->authorizeManager();
+        $result = app(Maintenance::class)->deleteOrphans(auth()->user());
+        Notification::make()->title($result['orphans'].' verwaiste Dateien und '.$result['staging'].' abgebrochene Uploads entfernt')
+            ->{$result['failed'] === 0 ? 'success' : 'warning'}()->send();
+    }
+
     protected function getViewData(): array
     {
         $this->authorizeManager();
@@ -183,6 +219,8 @@ class DateienPage extends Page implements HasForms, ModuleArea
             'members' => $group ? $group->members()->get() : collect(),
             'users' => User::query()->where('is_active', true)->orderBy('name')->get(),
             'locations' => config('locations.enabled') && auth()->user()->is_admin ? Location::orderBy('name')->get() : collect(),
+            'report' => auth()->user()->is_admin ? app(Maintenance::class)->lastReport() : null,
+            'pending' => auth()->user()->is_admin ? app(Maintenance::class)->pendingDeletions() : null,
         ];
     }
 

@@ -64,6 +64,8 @@ class Explorer extends Component
 
     public $upload = null;
 
+    public string $search = '';
+
     public function mount(): void
     {
         if ($this->node !== null) {
@@ -87,6 +89,7 @@ class Explorer extends Component
         }
 
         abort_unless(in_array($view, ['', 'shared', 'trash'], true), 404);
+        $this->search = '';
         $this->space = $space;
         $this->node = $node;
         $this->view = $view;
@@ -104,6 +107,39 @@ class Explorer extends Component
             ? $this->service()->versions($this->user(), $node)->max('number')
             : null;
         $this->resetValidation();
+    }
+
+    /** Opens a search hit in its folder (or the shared view when the folder itself is not readable) */
+    public function openResult(int $id): void
+    {
+        $node = Node::query()->findOrFail($id);
+        $this->access()->authorize($this->user(), $node, 'read');
+        if ($node->kind === 'folder') {
+            $this->navigate(null, $node->id);
+
+            return;
+        }
+        $parent = $node->parent_id ? Node::query()->find($node->parent_id) : null;
+        $space = Space::query()->findOrFail($node->space_id);
+        if ($parent && $this->access()->can($this->user(), $parent, 'read')) {
+            $this->navigate(null, $parent->id);
+        } elseif (! $parent && $this->access()->can($this->user(), $space, 'read')) {
+            $this->navigate($space->id);
+        } else {
+            $this->navigate(null, null, 'shared');
+        }
+        $this->select($node->id);
+    }
+
+    /** Called by the upload script after files went through POST /dateien/hochladen */
+    public function uploaded(int $count, ?int $nodeId = null): void
+    {
+        if ($nodeId !== null && $nodeId === $this->selectedId) {
+            $this->select($nodeId);
+        }
+        if ($count > 0) {
+            session()->flash('flash', $count === 1 ? 'Datei hochgeladen.' : $count.' Dateien hochgeladen.');
+        }
     }
 
     public function resetSelection(): void
@@ -391,7 +427,16 @@ class Explorer extends Component
         $space = null;
         $folder = null;
         $rows = collect();
-        if ($this->node !== null || $this->space !== null) {
+        $searching = mb_strlen(trim($this->search)) >= 2;
+        if ($searching) {
+            $rows = $this->service()->search($user, mb_substr($this->search, 0, 100));
+        }
+        if ($searching) {
+            if ($this->space !== null) {
+                $space = Space::query()->find($this->space);
+                $space = $space && $access->can($user, $space, 'read') ? $space : null;
+            }
+        } elseif ($this->node !== null || $this->space !== null) {
             $requested = $this->node !== null ? $this->findNode($this->node) : null;
             if ($requested?->kind === 'file') {
                 $space = Space::query()->findOrFail($requested->space_id);
@@ -428,6 +473,10 @@ class Explorer extends Component
             'effectiveLevel' => $target ? $access->level($user, $target) : null,
             'purgeAfter' => $selected?->trashed() ? $selected->deleted_at->copy()->addDays(FileService::retentionDays()) : null,
             'retentionDays' => FileService::retentionDays(),
+            'searching' => $searching,
+            'quotaWarning' => $space && $this->view !== 'trash' ? $this->service()->quotaWarning($space) : null,
+            'maxUploadKb' => FileService::maxUploadKb(),
+            'allowedExtensions' => FileService::allowedExtensions(),
         ]);
     }
 

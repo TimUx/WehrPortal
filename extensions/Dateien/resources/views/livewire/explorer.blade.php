@@ -4,7 +4,12 @@
     $link = 'text-sm font-medium text-fw-navy underline';
 @endphp
 <div class="mx-auto max-w-6xl space-y-4">
-    <h1 class="text-xl font-bold text-gray-900">Dateien</h1>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-xl font-bold text-gray-900">Dateien</h1>
+        <label class="w-full text-sm sm:w-72"><span class="sr-only">Dateien suchen</span>
+            <input type="search" wire:model.live.debounce.400ms="search" maxlength="100" placeholder="Name suchen …" class="{{ $input }} w-full">
+        </label>
+    </div>
     @if(session('flash'))
         <p role="status" class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{{ session('flash') }}</p>
     @endif
@@ -43,13 +48,19 @@
                     <button type="button" wire:click="navigate({{ $currentSpace->id }}, null, 'trash')" class="{{ $link }} ml-auto">Papierkorb dieses Bereichs</button>
                 @endif
             </div>
-            @if($effectiveLevel)
+            @if($quotaWarning)
+                <p role="alert" class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">Speicherplatz dieses Bereichs zu {{ $quotaWarning['percent'] }} % belegt ({{ number_format($quotaWarning['used'] / 1048576, 1, ',', '.') }} von {{ number_format($quotaWarning['quota'] / 1048576, 1, ',', '.') }} MB, inklusive Versionen und Papierkorb).</p>
+            @endif
+            @if($searching)
+                <p class="text-sm text-gray-600">Suchergebnisse für „{{ $search }}“ (nur Einträge, die Sie öffnen dürfen; höchstens 50).</p>
+            @endif
+            @if($effectiveLevel && ! $searching)
                 <p class="text-sm text-gray-600">Ihr Recht: {{ ['read' => 'Lesen', 'edit' => 'Bearbeiten', 'manage' => 'Verwalten'][$effectiveLevel] }}</p>
             @endif
             @if($view === 'trash')
                 <p class="text-sm text-gray-500">Aufbewahrungsfrist im Papierkorb: {{ $retentionDays }} Tage. Danach können Einträge endgültig gelöscht werden. Das kann nicht rückgängig gemacht werden.</p>
             @endif
-            @if($canWriteHere)
+            @if($canWriteHere && ! $searching)
                 <div class="grid gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm lg:grid-cols-2">
                     <form wire:submit="createFolder" class="flex flex-wrap items-end gap-2">
                         <label class="min-w-0 flex-1 text-sm">Neuer Ordner
@@ -57,29 +68,26 @@
                         </label>
                         <button class="{{ $button }}" wire:loading.attr="disabled">Erstellen</button>
                     </form>
-                    <form wire:submit="uploadFile" class="flex min-w-0 flex-wrap items-end gap-2">
-                        <label class="min-w-0 flex-1 text-sm">Datei hochladen
-                            <input type="file" wire:model="upload" required class="mt-1 block w-full text-sm">
-                        </label>
-                        <button class="{{ $button }}" wire:loading.attr="disabled">Hochladen</button>
-                    </form>
+                    @include('dateien::partials.upload', ['label' => 'Dateien hochladen', 'multiple' => true, 'parent' => $folder?->id, 'spaceId' => $currentSpace?->id, 'nodeId' => null])
                 </div>
             @endif
             <div class="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white shadow-sm">
                 @forelse($rows as $row)
                     <div wire:key="node-{{ $row->id }}" class="flex items-center justify-between gap-3 px-4 py-3">
                         <div class="min-w-0">
-                            @if($row->kind === 'folder' && $view !== 'trash')
+                            @if($searching)
+                                <button type="button" wire:click="openResult({{ $row->id }})" class="break-words text-left font-semibold text-fw-navy">{{ $row->name }}</button>
+                            @elseif($row->kind === 'folder' && $view !== 'trash')
                                 <button type="button" wire:click="navigate(null, {{ $row->id }})" class="break-words text-left font-semibold text-fw-navy">{{ $row->name }}</button>
                             @else
                                 <button type="button" wire:click="select({{ $row->id }})" class="break-words text-left font-semibold text-gray-900">{{ $row->name }}</button>
                             @endif
                             <p class="text-xs text-gray-500">{{ $row->kind === 'folder' ? 'Ordner' : 'Datei' }}@if($row->trashed()) · Gelöscht {{ $row->deleted_at->timezone('Europe/Berlin')->format('d.m.Y H:i') }}@endif</p>
                         </div>
-                        <button type="button" wire:click="select({{ $row->id }})" class="{{ $link }}">Details</button>
+                        <button type="button" wire:click="{{ $searching ? 'openResult' : 'select' }}({{ $row->id }})" class="{{ $link }}">{{ $searching ? 'Öffnen' : 'Details' }}</button>
                     </div>
                 @empty
-                    <p class="px-4 py-6 text-sm text-gray-500">Keine Einträge.</p>
+                    <p class="px-4 py-6 text-sm text-gray-500">{{ $searching ? 'Keine Treffer.' : 'Keine Einträge.' }}</p>
                 @endforelse
             </div>
             @if($selected)
@@ -128,10 +136,7 @@
                         @if($selected->kind === 'file')
                             <h3 class="font-semibold">Versionen</h3>
                             @if($access->can($user, $selected, 'edit'))
-                                <form wire:submit="addVersion" class="flex flex-wrap items-end gap-2">
-                                    <label class="text-sm">Neue Version<input type="file" wire:model="upload" required class="mt-1 block text-sm"></label>
-                                    <button class="{{ $button }}" wire:loading.attr="disabled">Version hochladen</button>
-                                </form>
+                                @include('dateien::partials.upload', ['label' => 'Neue Version', 'multiple' => false, 'parent' => null, 'spaceId' => null, 'nodeId' => $selected->id])
                             @endif
                             <ul class="divide-y divide-gray-100">
                                 @forelse($versions as $revision)

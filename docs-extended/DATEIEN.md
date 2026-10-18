@@ -76,3 +76,15 @@ Pest-Featuretests liegen unter `tests/Feature/Extensions/Dateien/` und benötige
 Geprüft werden Modulfreigabe, Benutzer-/Gruppenrechte, Vererbungsgrenzen, Direktfreigaben ohne Metadatenlecks, Versionierung und Wiederherstellung, Namens-/Versionskonflikte, Papierkorb, IDOR-Schutz und Standortgrenzen.
 
 Nicht enthalten: externe Freigabelinks, OnlyOffice/Collabora, WOPI/JWT/Office-Sessions, Volltextindex, WebDAV, Desktop-Sync, Offline-Bearbeitung und Favoriten. Für den nächsten Meilenstein sind Office-Anbindung und deren separate Sicherheits-/Betriebsanforderungen zu planen; dieser Meilenstein stellt dafür noch keine öffentlichen Bearbeitungsendpunkte bereit.
+
+## Betrieb (Meilenstein 2)
+
+- **Hochladen:** mehrere Dateien per Drag & Drop oder Auswahl, mit Fortschritt und Abbrechen (`POST /dateien/hochladen`, eine Datei pro Anfrage). Größenobergrenze der Admin-Einstellung: `DATEIEN_MAX_UPLOAD_LIMIT_KB` (Standard 51200). PHP (`upload_max_filesize`, `post_max_size`) und Reverse-Proxy müssen mindestens so viel zulassen.
+- **Herunterladen:** gestreamt mit Range-Anfragen; Prüfsumme wird vor der Auslieferung geprüft (abschaltbar). Begrenzung: 60 Uploads und 300 Downloads pro Minute und Kamerad (`config/dateien.php` → `rate_limits`).
+- **Suche:** Namenssuche über alle Bereiche; nur Einträge, die der Kamerad lesen darf, nie Papierkorb.
+- **Benachrichtigung:** neue oder geänderte Freigaben melden sich bei den Empfängern (Glocke, Mail, Push), nur Name und Recht.
+- **Kontingent-Warnung** ab einstellbarem Prozentsatz (Standard 90 %).
+- **Dateiprotokoll:** `/admin/dateien/protokoll` (nur Admins), Filter und CSV-Export. Aufbewahrung einstellbar (Standard 730 Tage, 0 = unbegrenzt); `dateien:prune-audit` löscht täglich, sonst bleibt das Protokoll unveränderbar.
+- **Geplante Läufe:** `dateien:drain-deletions` (alle 15 Min., ausstehende physische Löschungen mit wachsendem Abstand), `dateien:prune-audit` (täglich), `dateien:reconcile` (wöchentlich, löscht nichts).
+- **Sicherung/Wiederherstellung:** Datenbank und `storage/app/private/dateien` gemeinsam sichern (zuerst DB, dann Dateien). Nach einer Wiederherstellung `php artisan dateien:reconcile --verify` ausführen; Exit-Code ≠ 0 bei fehlenden, veränderten oder verwaisten Dateien. Verwaiste Dateien löscht nur ein Admin auf der Verwaltungsseite nach erneuter Prüfung.
+- **Ausgeschiedene/inaktive Kameraden** verlieren sofort jeden Zugriff; ihre Freigaben bleiben bis zur Reaktivierung bestehen. „Löschen mit Übertragung“ überträgt ihre Versionen an den gewählten Kameraden; das Protokoll behält die ursprüngliche ID.

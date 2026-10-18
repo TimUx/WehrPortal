@@ -68,9 +68,31 @@
             <div><x-filament::button type="submit">Einstellungen speichern</x-filament::button></div>
         </form>
         <section style="display: grid; gap: .5rem;">
-            <h2>Speicherbereinigung</h2>
-            <p>Falls die physische Löschung nach einer endgültigen Löschung fehlgeschlagen ist, kann sie hier erneut versucht werden. Aktive Versionen werden nicht gelöscht.</p>
-            <div><x-filament::button wire:click="retryDeletions">Ausstehende Dateilöschungen erneut versuchen</x-filament::button></div>
+            <h2>Speicherprüfung und -bereinigung</h2>
+            <p>Vergleicht Dateien auf dem Datenträger mit der Datenbank (wöchentlich automatisch, nach einer Wiederherstellung von Hand: <code>php artisan dateien:reconcile --verify</code>). Die Prüfung löscht nichts.</p>
+            @if ($report)
+                <ul>
+                    <li>Stand: {{ \Illuminate\Support\Carbon::parse($report['checked_at'])->timezone('Europe/Berlin')->format('d.m.Y H:i') }}{{ $report['verified'] ? ' (mit Prüfsummen)' : '' }} · {{ $report['versions'] }} Versionen, {{ $report['files'] }} Dateien</li>
+                    <li>Fehlende Dateien: {{ count($report['missing']) }}</li>
+                    <li>Größe abweichend: {{ count($report['size_mismatch']) }}@if ($report['verified']) · Prüfsumme abweichend: {{ count($report['checksum_mismatch']) }}@endif</li>
+                    <li>Verwaiste Dateien: {{ count($report['orphans']) }} ({{ number_format(collect($report['orphans'])->sum('size') / 1048576, 1, ',', '.') }} MiB) · abgebrochene Uploads: {{ $report['stale_staging'] }}</li>
+                </ul>
+                @foreach (['missing' => 'Fehlt', 'size_mismatch' => 'Größe abweichend', 'checksum_mismatch' => 'Prüfsumme abweichend'] as $key => $label)
+                    @foreach (array_slice($report[$key], 0, 20) as $entry)
+                        <p role="alert">{{ $label }}: Version {{ $entry['version'] }} von Eintrag #{{ $entry['node'] }} – aus der Sicherung wiederherstellen.</p>
+                    @endforeach
+                @endforeach
+            @else
+                <p>Noch keine Prüfung gelaufen.</p>
+            @endif
+            <div style="display: flex; flex-wrap: wrap; gap: .5rem;">
+                <x-filament::button wire:click="runReconcile">Jetzt prüfen</x-filament::button>
+                @if ($report && (count($report['orphans']) > 0 || $report['stale_staging'] > 0))
+                    <x-filament::button color="danger" wire:click="deleteOrphans" wire:confirm="Verwaiste Dateien ohne Datenbankeintrag endgültig löschen? Vorher wird erneut geprüft; Dateien mit Version werden nie gelöscht.">Verwaiste Dateien löschen</x-filament::button>
+                @endif
+            </div>
+            <p>Ausstehende physische Löschungen: {{ $pending['count'] }}@if ($pending['oldest']) (älteste seit {{ $pending['oldest']->timezone('Europe/Berlin')->format('d.m.Y H:i') }})@endif. Sie werden alle 15 Minuten mit wachsendem Abstand erneut versucht.</p>
+            <div><x-filament::button color="gray" wire:click="retryDeletions">Ausstehende Dateilöschungen jetzt erneut versuchen</x-filament::button></div>
         </section>
     @endif
 </x-filament-panels::page>

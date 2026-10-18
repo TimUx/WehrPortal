@@ -6,6 +6,7 @@ return [
     'max_upload_kb' => 20480,
     // Upper bound for the admin setting. PHP (upload_max_filesize, post_max_size) and the reverse
     // proxy must allow at least this much, otherwise uploads fail before they reach the app.
+    // @phpstan-ignore larastan.noEnvCallsOutsideOfConfig (extension config, merged like config/)
     'max_upload_limit_kb' => (int) env('DATEIEN_MAX_UPLOAD_LIMIT_KB', 51200),
     'extensions' => FileResponse::allowedExtensions(),
     'retention_days' => 30,
