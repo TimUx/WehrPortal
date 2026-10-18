@@ -7,16 +7,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property int|null $ext_location_id
+ * @property bool $public_shares
  */
 class Space extends Model
 {
     protected $table = 'x_files_spaces';
 
-    protected $fillable = ['name', 'ext_location_id', 'quota_bytes'];
+    protected $fillable = ['name', 'ext_location_id', 'quota_bytes', 'public_shares'];
 
     protected function casts(): array
     {
-        return ['quota_bytes' => 'integer', 'ext_location_id' => 'integer'];
+        return ['quota_bytes' => 'integer', 'ext_location_id' => 'integer', 'public_shares' => 'boolean'];
     }
 
     /** @return HasMany<Node, $this> */

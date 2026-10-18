@@ -109,6 +109,40 @@
                 </div>
             </form>
         </section>
+        @if (auth()->user()->is_admin)
+            <section style="display: grid; gap: .75rem;">
+                <h2>Öffentliche Links</h2>
+                <p>Verwalter eines Eintrags können damit eine Datei oder einen Ordner ohne Anmeldung zum Herunterladen freigeben: nur lesen, mit Ablaufdatum, optional mit Passwort und Download-Limit. Standardmäßig aus; zusätzlich muss jede Ablage einzeln freigeschaltet werden. Ausschalten sperrt alle bestehenden Links sofort.</p>
+                <form wire:submit="saveShares" style="display: grid; gap: .5rem;">
+                    <label><x-filament::input.checkbox wire:model="shares.enabled" /> Öffentliche Links erlauben</label>
+                    <label>Höchstens gültig (Tage)
+                        <x-filament::input.wrapper><x-filament::input type="number" wire:model="shares.max_days" min="1" max="365" required /></x-filament::input.wrapper>
+                    </label>
+                    @error('shares.max_days') <p role="alert">{{ $message }}</p> @enderror
+                    <div><x-filament::button type="submit">Öffentliche Links speichern</x-filament::button></div>
+                </form>
+                <h3>Ablagen</h3>
+                <ul>
+                    @forelse ($shareSpaces as $shareSpace)
+                        <li>{{ $shareSpace->name }}: {{ $shareSpace->public_shares ? 'erlaubt' : 'nicht erlaubt' }}
+                            <x-filament::button size="xs" color="gray" wire:click="toggleSpaceShares({{ $shareSpace->id }})">{{ $shareSpace->public_shares ? 'Verbieten' : 'Erlauben' }}</x-filament::button>
+                        </li>
+                    @empty
+                        <li>Noch keine Ablagen.</li>
+                    @endforelse
+                </ul>
+                <h3>Aktive Links ({{ $activeShares->count() }})</h3>
+                <ul>
+                    @forelse ($activeShares as $activeShare)
+                        <li>{{ $activeShare->node?->name ?? 'Gelöschter Eintrag' }}{{ $activeShare->label ? ' („'.$activeShare->label.'“)' : '' }} · von {{ $activeShare->creator?->name ?? 'Unbekannt' }} · bis {{ $activeShare->expires_at->timezone('Europe/Berlin')->format('d.m.Y H:i') }} · {{ $activeShare->download_count }}{{ $activeShare->max_downloads ? '/'.$activeShare->max_downloads : '' }} Downloads{{ $activeShare->password_hash ? ' · Passwort' : '' }}
+                            <x-filament::button size="xs" color="danger" wire:click="revokeShare({{ $activeShare->id }})" wire:confirm="Diesen Link sofort widerrufen?">Widerrufen</x-filament::button>
+                        </li>
+                    @empty
+                        <li>Keine aktiven Links.</li>
+                    @endforelse
+                </ul>
+            </section>
+        @endif
         <section style="display: grid; gap: .5rem;">
             <h2>Speicherprüfung und -bereinigung</h2>
             <p>Vergleicht Dateien auf dem Datenträger mit der Datenbank (wöchentlich automatisch, nach einer Wiederherstellung von Hand: <code>php artisan dateien:reconcile --verify</code>). Die Prüfung löscht nichts.</p>

@@ -75,7 +75,7 @@ Pest-Featuretests liegen unter `tests/Feature/Extensions/Dateien/` und benötige
 
 Geprüft werden Modulfreigabe, Benutzer-/Gruppenrechte, Vererbungsgrenzen, Direktfreigaben ohne Metadatenlecks, Versionierung und Wiederherstellung, Namens-/Versionskonflikte, Papierkorb, IDOR-Schutz und Standortgrenzen.
 
-Nicht enthalten: externe Freigabelinks, OnlyOffice/Collabora, WOPI/JWT/Office-Sessions, Volltextindex, WebDAV, Desktop-Sync, Offline-Bearbeitung und Favoriten. Für den nächsten Meilenstein sind Office-Anbindung und deren separate Sicherheits-/Betriebsanforderungen zu planen; dieser Meilenstein stellt dafür noch keine öffentlichen Bearbeitungsendpunkte bereit.
+Nicht enthalten: Volltextindex, WebDAV, Desktop-Sync, Offline-Bearbeitung und Favoriten.
 
 ## Betrieb (Meilenstein 2)
 
@@ -113,3 +113,17 @@ Nicht enthalten: externe Freigabelinks, OnlyOffice/Collabora, WOPI/JWT/Office-Se
   - **Sperre für Uploads:** Solange eine Bearbeitungssitzung aktiv ist (Aktivität innerhalb `office.edit_idle_minutes`, 60 Min.) oder eine WOPI-Sperre gilt, werden „Neue Version“ und „Wiederherstellen“ abgelehnt; der Explorer zeigt einen Hinweis. Wurde trotzdem außerhalb des Office gespeichert (nach Ablauf des Fensters), bleibt die Office-Speicherung eine weitere Version und `office.saved` vermerkt `conflict`.
   - `dateien:prune-office-sessions` beendet zusätzlich untätige Bearbeitungssitzungen (`office.closed`, Grund `idle`) und löscht abgelaufene Sperren.
   - **Protokoll:** `office.saved` (Version, Autosave, beteiligte Kameraden bei ONLYOFFICE), `office.save_failed` (Grund, ohne Inhalt).
+
+## Öffentliche Links (Meilenstein 5)
+
+Optional und **standardmäßig aus**. Damit gibt ein Verwalter eine Datei oder einen Ordner an Externe (Gemeinde, Nachbarwehr) zum Herunterladen frei, ohne Anmeldung.
+
+- **Einschalten (Admin, `/admin/dateien` → „Öffentliche Links“):** globaler Schalter und Höchstdauer (1–365 Tage, Standard 30); zusätzlich jede Ablage einzeln „Erlauben“. Ohne beides entsteht kein Link; Ausschalten (global oder pro Ablage) macht alle bestehenden Links sofort wirkungslos. Dort steht auch die Liste aller aktiven Links mit Widerruf.
+- **Erstellen (Explorer, Abschnitt „Öffentliche Links“):** nur mit Recht „Verwalten“ auf dem Eintrag. Pflicht: Gültigkeit in Tagen; optional Passwort (mind. 8 Zeichen), Download-Limit, Bezeichnung. Der Link wird **nur einmal** angezeigt (gespeichert ist nur der SHA-256-Hash des 48-Zeichen-Tokens). Verwalter sehen die aktiven Links des Eintrags und widerrufen sie.
+- **Öffentliche Seite `/freigabe/{token}`:** zeigt nur den freigegebenen Teilbaum (Pfad ab der Freigabe, keine Namen darüber oder daneben), Name, Größe, Datum; Download der jeweils neuesten Version. Kein Office, keine Bearbeitung, keine älteren Versionen. Eigenständige Seite ohne App-Layout, eigene CSP (`default-src 'none'`), `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, `noindex`; der Service Worker lässt `/freigabe/` aus.
+- **Immer 404** (ohne Unterscheidung), wenn: Funktion aus, Modul aus, Ablage nicht freigegeben, Link abgelaufen, widerrufen oder Download-Limit erreicht, Eintrag oder ein übergeordneter Ordner im Papierkorb, Ziel außerhalb des Teilbaums (IDOR), Ersteller hat „Verwalten“ verloren oder ist nicht mehr aktiv.
+- **Download-Limit:** wird atomar gezählt (`UPDATE … WHERE download_count < max_downloads`); öffentliche Downloads liefern nur ganze Dateien (`Range` wird ignoriert), damit das Limit nicht stückweise umgangen wird.
+- **Schutz:** Rate-Limit pro Adresse (`dateien.shares.rate_limit`, 60/min) für Seiten und Downloads; Passwort 5 Fehlversuche pro Adresse und 30 pro Link in 15 Minuten, danach 429. Entsperren gilt für die Browsersitzung (Session wird erneuert).
+- **Audit:** `share.created`, `share.revoked`, `share.downloaded`, `share.unlocked`, `share.password_failed`, `share.settings_changed`, `share.space_changed`; IP gekürzt (IPv4 /24, IPv6 /48), nie das Token.
+- **Aufräumen:** `dateien:prune-shares` (täglich 03:30) löscht Links 30 Tage nach Ablauf oder Widerruf.
+- **Grenzen:** Ein weitergeleiteter Link gilt für jeden, der ihn kennt – daher kurze Laufzeiten, Passwort über einen anderen Kanal, Download-Limit. Kein Upload für Externe (Briefkasten erst mit Virenscanner, M7).

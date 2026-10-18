@@ -470,6 +470,20 @@ class FileService
     public function download(User $user, Node $node, ?Version $version = null, ?Request $request = null): SymfonyResponse
     {
         $this->access->authorize($user, $node, 'read');
+
+        return $this->stream($node, $version, $request, function (Node $node, Version $version) use ($user) {
+            $this->audit($user, 'version.downloaded', $this->spaceOf($node), $node, ['version_id' => $version->id]);
+        });
+    }
+
+    /**
+     * Streams a file without a Kamerad. Only for callers that authorized the access themselves
+     * (public links in ShareService). $onComplete runs for full downloads (not for later ranges).
+     *
+     * @param  callable(Node, Version): void  $onComplete
+     */
+    public function stream(Node $node, ?Version $version, ?Request $request, callable $onComplete): SymfonyResponse
+    {
         $node = Node::query()->findOrFail($node->id);
         $this->assertFile($node);
         $version = $version ? Version::where('node_id', $node->id)->findOrFail($version->id) : Version::where('node_id', $node->id)->orderByDesc('number')->firstOrFail();
@@ -493,7 +507,7 @@ class FileService
             }
         }
         if (! $partial) {
-            $this->audit($user, 'version.downloaded', $this->spaceOf($node), $node, ['version_id' => $version->id]);
+            $onComplete($node, $version);
         }
 
         $name = pathinfo($node->name, PATHINFO_FILENAME).'.'.$version->extension;

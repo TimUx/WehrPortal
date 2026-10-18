@@ -126,7 +126,9 @@ Reihenfolge: M2 → M3 → M4 → produktiver Go-live → M5 / M6 nach Bedarf �
 
 ---
 
-## M5 – Öffentliche Freigaben (optional, standardmäßig aus)
+## M5 – Öffentliche Freigaben (optional, standardmäßig aus) – umgesetzt
+
+Umsetzung siehe [`DATEIEN.md`](DATEIEN.md#öffentliche-links-meilenstein-5); der Upload-Briefkasten (Punkt 5) bleibt bei M7.
 
 **Ziel:** Einzelne Dateien/Ordner kontrolliert per Link an Externe geben (z. B. Gemeinde, Nachbarwehr).
 

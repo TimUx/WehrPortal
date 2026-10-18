@@ -209,6 +209,45 @@
                     </form>
                 </section>
             @endif
+            @if($shareNode && ($canShare || $shares->isNotEmpty()))
+                <section class="space-y-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                    <h2 class="font-semibold">Öffentliche Links: {{ $shareNode->name }}</h2>
+                    <p class="text-xs text-gray-500">Jeder mit dem Link kann {{ $shareNode->kind === 'folder' ? 'diesen Ordner samt Unterordnern ansehen und Dateien' : 'diese Datei' }} ohne Anmeldung herunterladen. Nur lesen, kein Office, keine Bearbeitung.</p>
+                    @if($newShareUrl)
+                        <div class="space-y-1 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+                            <p class="font-semibold">Link jetzt kopieren – er wird nur einmal angezeigt.</p>
+                            <input type="text" readonly value="{{ $newShareUrl }}" x-on:focus="$el.select()" class="{{ $input }} w-full font-mono">
+                        </div>
+                    @endif
+                    <ul class="space-y-1 text-sm">
+                        @forelse($shares as $share)
+                            <li class="flex flex-wrap items-center gap-2">
+                                <span>{{ $share->label ?: 'Link' }} · bis {{ $share->expires_at->timezone('Europe/Berlin')->format('d.m.Y H:i') }}{{ $share->password_hash ? ' · Passwort' : '' }}{{ $share->max_downloads ? ' · '.$share->download_count.'/'.$share->max_downloads.' Downloads' : ' · '.$share->download_count.' Downloads' }}</span>
+                                <button type="button" wire:click="revokeShare({{ $share->id }})" wire:confirm="Diesen Link widerrufen? Er funktioniert danach sofort nicht mehr." wire:loading.attr="disabled" class="{{ $link }}">Widerrufen</button>
+                            </li>
+                        @empty
+                            <li class="text-gray-500">Keine aktiven Links.</li>
+                        @endforelse
+                    </ul>
+                    @if($canShare)
+                        <form wire:submit="createShare" class="flex flex-wrap items-end gap-2">
+                            <label class="text-sm">Gültig (Tage)
+                                <input type="number" wire:model="shareDays" min="1" max="{{ $shareMaxDays }}" required class="{{ $input }} mt-1 block w-24">
+                            </label>
+                            <label class="text-sm">Passwort (optional)
+                                <input type="password" wire:model="sharePassword" minlength="8" maxlength="200" autocomplete="new-password" class="{{ $input }} mt-1 block">
+                            </label>
+                            <label class="text-sm">Max. Downloads (optional)
+                                <input type="number" wire:model="shareMaxDownloads" min="1" max="10000" class="{{ $input }} mt-1 block w-28">
+                            </label>
+                            <label class="text-sm">Bezeichnung (optional)
+                                <input type="text" wire:model="shareLabel" maxlength="150" class="{{ $input }} mt-1 block">
+                            </label>
+                            <button class="{{ $button }}" wire:loading.attr="disabled">Link erstellen</button>
+                        </form>
+                    @endif
+                </section>
+            @endif
         </main>
     </div>
     <p wire:loading role="status" class="text-sm text-gray-500">Wird verarbeitet …</p>

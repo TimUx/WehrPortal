@@ -3,6 +3,7 @@
 use Extensions\Dateien\Http\Controllers\DownloadController;
 use Extensions\Dateien\Http\Controllers\OfficeEditorController;
 use Extensions\Dateien\Http\Controllers\OnlyOfficeController;
+use Extensions\Dateien\Http\Controllers\PublicShareController;
 use Extensions\Dateien\Http\Controllers\UploadController;
 use Extensions\Dateien\Http\Controllers\WopiController;
 use Illuminate\Support\Facades\Route;
@@ -31,4 +32,15 @@ Route::prefix('dateien/office')->name('dateien.office.')
         Route::post('/wopi/files/{node}', [WopiController::class, 'fileOperation'])->whereNumber('node');
         Route::get('/wopi/files/{node}/contents', [WopiController::class, 'getFile'])->whereNumber('node')->name('wopi.contents');
         Route::post('/wopi/files/{node}/contents', [WopiController::class, 'putFile'])->whereNumber('node');
+    });
+
+// Public links (milestone 5): no login. The token in the URL is the only key; ShareService answers 404
+// for everything that is off, expired, revoked, exhausted or outside the shared subtree.
+Route::prefix('freigabe/{token}')->name('dateien.share')
+    ->where(['token' => '[A-Za-z0-9]{48}'])
+    ->middleware(['web', 'throttle:dateien-public'])
+    ->group(function () {
+        Route::get('/', [PublicShareController::class, 'show']);
+        Route::post('/', [PublicShareController::class, 'unlock'])->name('.unlock');
+        Route::get('/datei/{node}', [PublicShareController::class, 'download'])->whereNumber('node')->name('.download');
     });

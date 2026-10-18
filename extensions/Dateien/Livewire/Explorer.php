@@ -6,11 +6,13 @@ use App\Models\User;
 use Extensions\Dateien\Models\FileGroup;
 use Extensions\Dateien\Models\Node;
 use Extensions\Dateien\Models\OfficeSession;
+use Extensions\Dateien\Models\Share;
 use Extensions\Dateien\Models\Space;
 use Extensions\Dateien\Models\Version;
 use Extensions\Dateien\Office\OfficeService;
 use Extensions\Dateien\Services\FileAccess;
 use Extensions\Dateien\Services\FileService;
+use Extensions\Dateien\Services\ShareService;
 use Extensions\Locations\Services\LocationAccess;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -33,6 +35,10 @@ class Explorer extends Component
         'subjectType' => 'Empfängertyp',
         'subjectId' => 'Empfänger',
         'permissionLevel' => 'Berechtigung',
+        'shareDays' => 'Gültigkeit',
+        'sharePassword' => 'Passwort',
+        'shareMaxDownloads' => 'Download-Limit',
+        'shareLabel' => 'Bezeichnung',
     ];
 
     #[Url]
@@ -68,6 +74,18 @@ class Explorer extends Component
 
     public string $search = '';
 
+    public string $shareDays = '7';
+
+    public string $sharePassword = '';
+
+    public string $shareMaxDownloads = '';
+
+    public string $shareLabel = '';
+
+    /** The new link, shown once right after creating it (the token is stored only as a hash) */
+    #[Locked]
+    public ?string $newShareUrl = null;
+
     public function mount(): void
     {
         if ($this->node !== null) {
@@ -102,6 +120,7 @@ class Explorer extends Component
     {
         $node = $this->findNode($id, $this->view === 'trash');
         $this->selectedId = $node->id;
+        $this->newShareUrl = null;
         $this->name = $node->name;
         $this->inheritPermissions = (bool) $node->inherit_permissions;
         $this->destination = '';
@@ -146,7 +165,7 @@ class Explorer extends Component
 
     public function resetSelection(): void
     {
-        $this->reset('selectedId', 'expectedVersion', 'name', 'destination', 'subjectId', 'upload');
+        $this->reset('selectedId', 'expectedVersion', 'name', 'destination', 'subjectId', 'upload', 'newShareUrl');
         $this->resetValidation();
     }
 
@@ -274,6 +293,39 @@ class Explorer extends Component
         $this->service()->setPermission($this->user(), $target, $permission->subject_type, (int) $permission->subject_id, null);
         $this->leaveInaccessibleContext();
         session()->flash('flash', 'Direkte Freigabe entzogen.');
+    }
+
+    public function createShare(): void
+    {
+        $target = $this->shareTarget() ?? abort(404);
+        $this->validate([
+            'shareDays' => ['required', 'integer', 'min:1', 'max:'.ShareService::maxDays()],
+            'sharePassword' => ['nullable', 'string', 'min:8', 'max:200'],
+            'shareMaxDownloads' => ['nullable', 'integer', 'min:1', 'max:10000'],
+            'shareLabel' => ['nullable', 'string', 'max:150'],
+        ]);
+        [, $token] = app(ShareService::class)->create($this->user(), $target, (int) $this->shareDays,
+            $this->sharePassword ?: null, $this->shareMaxDownloads === '' ? null : (int) $this->shareMaxDownloads, $this->shareLabel ?: null);
+        $this->newShareUrl = route('dateien.share', ['token' => $token]);
+        $this->reset('sharePassword', 'shareMaxDownloads', 'shareLabel');
+        session()->flash('flash', 'Öffentlicher Link erstellt.');
+    }
+
+    public function revokeShare(int $id): void
+    {
+        $target = $this->shareTarget() ?? abort(404);
+        $share = Share::where('node_id', $target->id)->findOrFail($id);
+        app(ShareService::class)->revoke($this->user(), $share);
+        $this->newShareUrl = null;
+        session()->flash('flash', 'Öffentlicher Link widerrufen.');
+    }
+
+    /** The selected entry, or the open folder, if the user may manage it */
+    private function shareTarget(): ?Node
+    {
+        $node = $this->selectedId !== null ? $this->selected('manage') : ($this->node !== null ? $this->findNode($this->node) : null);
+
+        return $node && ! $node->trashed() && $this->access()->can($this->user(), $node, 'manage') ? $node : null;
     }
 
     public function updatedSubjectType(): void
@@ -482,6 +534,10 @@ class Explorer extends Component
             'officeEditUrl' => $selected && app(OfficeService::class)->canOpen($user, $selected, true) ? route('dateien.office', ['node' => $selected->id, 'bearbeiten' => 1]) : null,
             'officeEditing' => $selected && $selected->kind === 'file' && OfficeSession::editing($selected->id),
             'allowedExtensions' => FileService::allowedExtensions(),
+            'shareNode' => $shareNode = $this->view !== 'trash' && ! $searching ? ($selected ?? $folder) : null,
+            'canShare' => $shareNode && ! $shareNode->trashed() && app(ShareService::class)->canCreate($user, $shareNode),
+            'shares' => $shareNode && ! $shareNode->trashed() ? app(ShareService::class)->forNode($user, $shareNode) : collect(),
+            'shareMaxDays' => ShareService::maxDays(),
         ]);
     }
 

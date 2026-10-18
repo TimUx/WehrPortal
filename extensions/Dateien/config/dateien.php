@@ -30,4 +30,10 @@ return [
         // An edit session without activity for this long no longer blocks manual uploads
         'edit_idle_minutes' => 60,
     ],
+    // Public links (milestone 5). Switched on by the admin; these are limits.
+    'shares' => [
+        'max_days' => 30,
+        // Page views and downloads per minute and address
+        'rate_limit' => 60,
+    ],
 ];

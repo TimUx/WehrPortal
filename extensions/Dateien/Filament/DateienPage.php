@@ -9,13 +9,17 @@ use App\Models\User;
 use App\Support\FileResponse;
 use Extensions\Dateien\Models\AuditEvent;
 use Extensions\Dateien\Models\FileGroup;
+use Extensions\Dateien\Models\Node;
 use Extensions\Dateien\Models\OfficeSession;
+use Extensions\Dateien\Models\Share;
+use Extensions\Dateien\Models\Space;
 use Extensions\Dateien\Office\OfficeService;
 use Extensions\Dateien\Office\OfficeSettings;
 use Extensions\Dateien\Office\WopiDiscovery;
 use Extensions\Dateien\Services\FileService;
 use Extensions\Dateien\Services\GroupService;
 use Extensions\Dateien\Services\Maintenance;
+use Extensions\Dateien\Services\ShareService;
 use Extensions\Locations\Models\Location;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -69,6 +73,9 @@ class DateienPage extends Page implements HasForms, ModuleArea
 
     public string $officeSecret = '';
 
+    /** @var array{enabled: bool, max_days: int|string} */
+    public array $shares = ['enabled' => false, 'max_days' => 30];
+
     public static function allows(User $user): bool
     {
         return GroupService::canManage($user);
@@ -86,6 +93,7 @@ class DateienPage extends Page implements HasForms, ModuleArea
             'extensions' => $office->extensions(),
             'editing' => $office->editing(),
         ];
+        $this->shares = ['enabled' => ShareService::enabled(), 'max_days' => ShareService::maxDays()];
         $this->form->fill([
             'max_upload_kb' => FileService::maxUploadKb(),
             'extensions' => FileService::allowedExtensions(),
@@ -247,6 +255,32 @@ class DateienPage extends Page implements HasForms, ModuleArea
         Notification::make()->title('Online-Office gespeichert')->success()->send();
     }
 
+    public function saveShares(): void
+    {
+        $this->authorizeManager();
+        abort_unless(auth()->user()->is_admin, 403);
+        $this->validate(['shares.enabled' => ['boolean'], 'shares.max_days' => ['required', 'integer', 'min:1', 'max:365']]);
+        app(ShareService::class)->saveSettings(auth()->user(), (bool) $this->shares['enabled'], (int) $this->shares['max_days']);
+        Notification::make()->title('Öffentliche Links gespeichert')->success()->send();
+    }
+
+    public function toggleSpaceShares(int $id): void
+    {
+        $this->authorizeManager();
+        abort_unless(auth()->user()->is_admin, 403);
+        $space = Space::findOrFail($id);
+        app(ShareService::class)->allowSpace(auth()->user(), $space, ! $space->public_shares);
+        Notification::make()->title($space->public_shares ? 'Öffentliche Links in „'.$space->name.'“ erlaubt' : 'Öffentliche Links in „'.$space->name.'“ nicht mehr erlaubt')->success()->send();
+    }
+
+    public function revokeShare(int $id): void
+    {
+        $this->authorizeManager();
+        abort_unless(auth()->user()->is_admin, 403);
+        app(ShareService::class)->revoke(auth()->user(), Share::findOrFail($id));
+        Notification::make()->title('Link widerrufen')->success()->send();
+    }
+
     public function testOffice(): void
     {
         $this->authorizeManager();
@@ -301,6 +335,12 @@ class DateienPage extends Page implements HasForms, ModuleArea
             'officeExtensions' => OfficeSettings::VIEWABLE,
             'officeEditable' => OfficeSettings::EDITABLE,
             'officeHasSecret' => auth()->user()->is_admin && app(OfficeSettings::class)->secret() !== null,
+            'shareSpaces' => auth()->user()->is_admin ? Space::orderBy('name')->get() : collect(),
+            'activeShares' => auth()->user()->is_admin
+                ? Share::whereNull('revoked_at')->where('expires_at', '>', now())->orderBy('expires_at')->with('creator')->get()
+                    ->filter(fn (Share $share) => $share->isActive())
+                    ->each(fn (Share $share) => $share->setRelation('node', Node::withTrashed()->find($share->node_id)))
+                : collect(),
             'officeSessions' => auth()->user()->is_admin ? OfficeSession::whereNull('revoked_at')->where('expires_at', '>', now())->count() : 0,
         ];
     }
