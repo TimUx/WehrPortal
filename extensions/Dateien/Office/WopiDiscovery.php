@@ -31,11 +31,13 @@ class WopiDiscovery
         return Cache::remember($key, 3600, fn () => self::parse($this->fetch($base.'/hosting/discovery')));
     }
 
-    /** The action URL (view preferred) for an extension, with its origin replaced by the browser-facing server */
-    public function actionUrl(string $extension): ?string
+    /** The action URL (view or edit preferred) for an extension, with its origin replaced by the browser-facing server */
+    public function actionUrl(string $extension, bool $edit = false): ?string
     {
         $actions = $this->get()['actions'][strtolower($extension)] ?? [];
-        $url = $actions['view'] ?? $actions['edit'] ?? $actions['view_comment'] ?? null;
+        $url = $edit
+            ? ($actions['edit'] ?? null)
+            : ($actions['view'] ?? $actions['edit'] ?? $actions['view_comment'] ?? null);
         $origin = $this->settings->serverOrigin();
         if ($url === null || $origin === null) {
             return null;

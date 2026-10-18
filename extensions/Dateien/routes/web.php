@@ -28,5 +28,7 @@ Route::prefix('dateien/office')->name('dateien.office.')
         Route::post('/onlyoffice/{token}/rueckruf', [OnlyOfficeController::class, 'callback'])
             ->where('token', '[A-Za-z0-9]{64}')->name('onlyoffice.callback');
         Route::get('/wopi/files/{node}', [WopiController::class, 'checkFileInfo'])->whereNumber('node')->name('wopi.file');
+        Route::post('/wopi/files/{node}', [WopiController::class, 'fileOperation'])->whereNumber('node');
         Route::get('/wopi/files/{node}/contents', [WopiController::class, 'getFile'])->whereNumber('node')->name('wopi.contents');
+        Route::post('/wopi/files/{node}/contents', [WopiController::class, 'putFile'])->whereNumber('node');
     });

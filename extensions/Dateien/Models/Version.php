@@ -12,13 +12,13 @@ class Version extends Model
 
     public const UPDATED_AT = null;
 
-    protected $fillable = ['node_id', 'number', 'storage_key', 'checksum', 'size', 'mime', 'extension', 'created_by', 'source'];
+    protected $fillable = ['node_id', 'number', 'storage_key', 'checksum', 'size', 'mime', 'extension', 'created_by', 'source', 'office_session_id', 'autosave'];
 
     protected $hidden = ['storage_key'];
 
     protected function casts(): array
     {
-        return ['number' => 'integer', 'size' => 'integer'];
+        return ['number' => 'integer', 'size' => 'integer', 'office_session_id' => 'integer', 'autosave' => 'boolean'];
     }
 
     /** @return BelongsTo<Node, $this> */

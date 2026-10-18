@@ -64,8 +64,8 @@ class DateienPage extends Page implements HasForms, ModuleArea
 
     public ?int $quotaMb = null;
 
-    /** @var array{provider: string, server_url: string, internal_url: string, callback_url: string, extensions: array<int, string>} */
-    public array $office = ['provider' => '', 'server_url' => '', 'internal_url' => '', 'callback_url' => '', 'extensions' => []];
+    /** @var array{provider: string, server_url: string, internal_url: string, callback_url: string, extensions: array<int, string>, editing: bool} */
+    public array $office = ['provider' => '', 'server_url' => '', 'internal_url' => '', 'callback_url' => '', 'extensions' => [], 'editing' => true];
 
     public string $officeSecret = '';
 
@@ -84,6 +84,7 @@ class DateienPage extends Page implements HasForms, ModuleArea
             'internal_url' => (string) Setting::get('dateien.office.internal_url', ''),
             'callback_url' => (string) Setting::get('dateien.office.callback_url', ''),
             'extensions' => $office->extensions(),
+            'editing' => $office->editing(),
         ];
         $this->form->fill([
             'max_upload_kb' => FileService::maxUploadKb(),
@@ -220,6 +221,7 @@ class DateienPage extends Page implements HasForms, ModuleArea
             'office.callback_url' => ['nullable', 'string', 'max:255'],
             'office.extensions' => ['array'],
             'office.extensions.*' => ['string', 'in:'.implode(',', OfficeSettings::VIEWABLE)],
+            'office.editing' => ['boolean'],
             'officeSecret' => ['nullable', 'string', 'max:500'],
         ]);
         $settings = app(OfficeSettings::class);
@@ -230,6 +232,7 @@ class DateienPage extends Page implements HasForms, ModuleArea
             'internal_url' => $this->office['internal_url'],
             'callback_url' => $this->office['callback_url'],
             'extensions' => array_values($this->office['extensions']),
+            'editing' => (bool) $this->office['editing'],
         ], $this->officeSecret ?: null);
         $secretChanged = $this->officeSecret !== '';
         $this->officeSecret = '';
@@ -239,7 +242,7 @@ class DateienPage extends Page implements HasForms, ModuleArea
             app(OfficeService::class)->revokeAll(auth()->user());
         }
         AuditEvent::create(['actor_id' => auth()->id(), 'action' => 'office.settings_changed', 'metadata' => [
-            'provider' => $settings->provider(), 'server_url' => $settings->serverUrl(), 'secret_changed' => $secretChanged,
+            'provider' => $settings->provider(), 'server_url' => $settings->serverUrl(), 'secret_changed' => $secretChanged, 'editing' => $settings->editing(),
         ]]);
         Notification::make()->title('Online-Office gespeichert')->success()->send();
     }
@@ -296,6 +299,7 @@ class DateienPage extends Page implements HasForms, ModuleArea
             'pending' => auth()->user()->is_admin ? app(Maintenance::class)->pendingDeletions() : null,
             'officeProviders' => OfficeSettings::PROVIDERS,
             'officeExtensions' => OfficeSettings::VIEWABLE,
+            'officeEditable' => OfficeSettings::EDITABLE,
             'officeHasSecret' => auth()->user()->is_admin && app(OfficeSettings::class)->secret() !== null,
             'officeSessions' => auth()->user()->is_admin ? OfficeSession::whereNull('revoked_at')->where('expires_at', '>', now())->count() : 0,
         ];

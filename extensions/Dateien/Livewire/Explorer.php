@@ -5,6 +5,7 @@ namespace Extensions\Dateien\Livewire;
 use App\Models\User;
 use Extensions\Dateien\Models\FileGroup;
 use Extensions\Dateien\Models\Node;
+use Extensions\Dateien\Models\OfficeSession;
 use Extensions\Dateien\Models\Space;
 use Extensions\Dateien\Models\Version;
 use Extensions\Dateien\Office\OfficeService;
@@ -478,6 +479,8 @@ class Explorer extends Component
             'quotaWarning' => $space && $this->view !== 'trash' ? $this->service()->quotaWarning($space) : null,
             'maxUploadKb' => FileService::maxUploadKb(),
             'officeUrl' => $selected && app(OfficeService::class)->canOpen($user, $selected) ? route('dateien.office', ['node' => $selected->id]) : null,
+            'officeEditUrl' => $selected && app(OfficeService::class)->canOpen($user, $selected, true) ? route('dateien.office', ['node' => $selected->id, 'bearbeiten' => 1]) : null,
+            'officeEditing' => $selected && $selected->kind === 'file' && OfficeSession::editing($selected->id),
             'allowedExtensions' => FileService::allowedExtensions(),
         ]);
     }

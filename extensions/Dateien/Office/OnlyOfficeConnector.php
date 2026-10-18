@@ -29,22 +29,23 @@ class OnlyOfficeConnector implements OfficeConnector
     public function editor(OfficeSession $session, string $token, User $user, Node $node, Version $version): array
     {
         $base = $this->settings->callbackUrl();
+        $edit = $session->level === 'edit';
         $config = [
             'document' => [
                 'fileType' => $version->extension,
-                // Unique per stored content; ONLYOFFICE caches by this key
-                'key' => $node->id.'-'.$version->id.'-'.substr($version->checksum, 0, 16),
+                // Unique per stored content; everyone opening the same version edits together
+                'key' => self::documentKey($node, $version),
                 'title' => $node->name,
                 'url' => $base.route('dateien.office.onlyoffice.file', ['token' => $token], false),
-                'permissions' => ['edit' => false, 'comment' => false, 'review' => false, 'fillForms' => false, 'download' => true, 'print' => true],
+                'permissions' => ['edit' => $edit, 'comment' => false, 'review' => false, 'fillForms' => $edit, 'download' => true, 'print' => true],
             ],
             'documentType' => self::documentType($version->extension),
             'editorConfig' => [
-                'mode' => 'view',
+                'mode' => $edit ? 'edit' : 'view',
                 'lang' => 'de',
                 'callbackUrl' => $base.route('dateien.office.onlyoffice.callback', ['token' => $token], false),
                 'user' => ['id' => (string) $user->id, 'name' => $user->name],
-                'customization' => ['forcesave' => false, 'chat' => false, 'comments' => false],
+                'customization' => ['forcesave' => $edit, 'chat' => false, 'comments' => false],
             ],
         ];
         $config['token'] = Jwt::encode($config + ['exp' => $session->expires_at->getTimestamp()], (string) $this->settings->secret());
@@ -65,6 +66,11 @@ class OnlyOfficeConnector implements OfficeConnector
         } catch (Throwable) {
             return ['ok' => false, 'message' => 'ONLYOFFICE nicht erreichbar.'];
         }
+    }
+
+    public static function documentKey(Node $node, Version $version): string
+    {
+        return $node->id.'-'.$version->id.'-'.substr($version->checksum, 0, 16);
     }
 
     public static function documentType(string $extension): string

@@ -134,8 +134,14 @@
                             <button type="button" wire:click="trash" wire:confirm="Diesen Eintrag einschließlich Unterordnern in den Papierkorb verschieben?" wire:loading.attr="disabled" class="text-sm font-medium text-red-700 underline">In den Papierkorb</button>
                         @endif
                         @if($selected->kind === 'file')
+                            @if($officeEditUrl)
+                                <a href="{{ $officeEditUrl }}" target="_blank" rel="noopener" class="{{ $button }}">Im Office bearbeiten</a>
+                            @endif
                             @if($officeUrl)
                                 <a href="{{ $officeUrl }}" target="_blank" rel="noopener" class="{{ $button }}">Im Office ansehen</a>
+                            @endif
+                            @if($officeEditing)
+                                <p class="text-sm text-gray-600" role="status">Wird gerade im Online-Office bearbeitet. Neue Versionen können erst danach hochgeladen werden.</p>
                             @endif
                             <h3 class="font-semibold">Versionen</h3>
                             @if($access->can($user, $selected, 'edit'))

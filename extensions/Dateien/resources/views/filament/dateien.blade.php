@@ -69,7 +69,7 @@
         </form>
         <section style="display: grid; gap: .75rem;">
             <h2>Online-Office</h2>
-            <p>Öffnet Dokumente im Browser über ONLYOFFICE Docs oder Collabora Online, derzeit nur lesend. Der Office-Server muss die App unter der Rückruf-Adresse erreichen; die App ruft nur die hier eingetragenen Adressen auf, ohne Weiterleitungen (auch im internen Netz).</p>
+            <p>Öffnet Dokumente im Browser über ONLYOFFICE Docs oder Collabora Online. Bearbeiten dürfen nur Kameraden mit Bearbeitungsrecht; jede Speicherung wird eine neue Version (Zwischenspeicherungen einer Sitzung werden zusammengefasst). Der Office-Server muss die App unter der Rückruf-Adresse erreichen; die App ruft nur die hier eingetragenen Adressen auf, ohne Weiterleitungen (auch im internen Netz).</p>
             <form wire:submit="saveOffice" style="display: grid; gap: .5rem;">
                 <label>Anbieter
                     <x-filament::input.wrapper><x-filament::input.select wire:model="office.provider">
@@ -101,6 +101,7 @@
                         <label><x-filament::input.checkbox wire:model="office.extensions" value="{{ $extension }}" /> {{ $extension }}</label>
                     @endforeach
                 </fieldset>
+                <label><x-filament::input.checkbox wire:model="office.editing" /> Bearbeiten im Office erlauben (nur {{ implode(', ', $officeEditable) }})</label>
                 <div style="display: flex; flex-wrap: wrap; gap: .5rem;">
                     <x-filament::button type="submit">Online-Office speichern</x-filament::button>
                     <x-filament::button type="button" color="gray" wire:click="testOffice">Verbindung testen</x-filament::button>

@@ -21,7 +21,7 @@ class CollaboraConnector implements OfficeConnector
 
     public function editor(OfficeSession $session, string $token, User $user, Node $node, Version $version): array
     {
-        $action = $this->discovery->actionUrl($version->extension);
+        $action = $this->discovery->actionUrl($version->extension, $session->level === 'edit');
         if ($action === null) {
             throw new RuntimeException('Der Office-Server kann diese Datei nicht öffnen.');
         }

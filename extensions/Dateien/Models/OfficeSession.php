@@ -6,12 +6,13 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * @property int $id
  * @property int $user_id
  * @property int $node_id
- * @property int $version_id
+ * @property int|null $version_id
  * @property string $provider
  * @property string $level
  * @property Carbon $expires_at
@@ -53,5 +54,20 @@ class OfficeSession extends Model
     public function isUsable(): bool
     {
         return $this->revoked_at === null && $this->expires_at->isFuture();
+    }
+
+    /**
+     * Whether the file is being edited in the office right now: an open edit session with activity
+     * within the idle window, or a WOPI lock that has not expired. Manual uploads wait meanwhile.
+     */
+    public static function editing(int $nodeId): bool
+    {
+        $idle = now()->subMinutes(max(5, (int) config('dateien.office.edit_idle_minutes', 60)));
+
+        return static::where('node_id', $nodeId)->where('level', 'edit')
+            ->whereNull('ended_at')->whereNull('revoked_at')->where('expires_at', '>', now())
+            ->where(fn ($q) => $q->where('last_seen_at', '>', $idle)->orWhere(fn ($q) => $q->whereNull('last_seen_at')->where('created_at', '>', $idle)))
+            ->exists()
+            || DB::table('x_files_office_locks')->where('node_id', $nodeId)->where('expires_at', '>', now())->exists();
     }
 }

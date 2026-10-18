@@ -8,6 +8,7 @@ use App\Support\FileResponse;
 use Extensions\Dateien\Models\AuditEvent;
 use Extensions\Dateien\Models\FileGroup;
 use Extensions\Dateien\Models\Node;
+use Extensions\Dateien\Models\OfficeSession;
 use Extensions\Dateien\Models\Permission;
 use Extensions\Dateien\Models\Space;
 use Extensions\Dateien\Models\Version;
@@ -166,12 +167,31 @@ class FileService
         }
     }
 
+    /**
+     * Stores a file returned by the office server as a new version (source "office"). The Kamerad of
+     * the session needs edit rights now; the quota applies. An autosave of the same session that is
+     * still the newest version is replaced, so one session leaves one version plus explicit saves.
+     */
+    public function addOfficeVersion(User $user, Node $node, UploadedFile $file, int $sessionId, bool $autosave): Version
+    {
+        $keys = [];
+        try {
+            return $this->mutateNode($user, $node, 'edit', function (Space $space, Node $node) use ($user, $file, $sessionId, $autosave, &$keys) {
+                return $this->storeVersion($user, $space, $node, $file, null, $keys, ['session' => $sessionId, 'autosave' => $autosave]);
+            });
+        } catch (Throwable $e) {
+            $this->cleanup($keys);
+            throw $e;
+        }
+    }
+
     public function restoreVersion(User $user, Node $node, Version $version, ?int $expectedVersion = null): Version
     {
         $keys = [];
         try {
             return $this->mutateNode($user, $node, 'edit', function (Space $space, Node $node) use ($user, $version, $expectedVersion, &$keys) {
                 $this->assertFile($node);
+                $this->assertNotEditedInOffice($node);
                 $version = Version::where('node_id', $node->id)->find($version->id);
                 if (! $version) {
                     $this->invalid('version', 'Diese Version gehört nicht zu dieser Datei.');
@@ -600,9 +620,13 @@ class FileService
         return $parent;
     }
 
-    private function storeVersion(User $user, Space $space, Node $node, UploadedFile $file, ?int $expected, array &$keys): Version
+    /** @param  array{session: int, autosave: bool}|null  $office  set for saves from the office server */
+    private function storeVersion(User $user, Space $space, Node $node, UploadedFile $file, ?int $expected, array &$keys, ?array $office = null): Version
     {
         $this->assertFile($node);
+        if ($office === null) {
+            $this->assertNotEditedInOffice($node);
+        }
         $latest = $this->latest($node, $expected);
         [$extension, $mime, $size, $checksum] = $this->validateUpload($file);
         if ($extension !== strtolower(pathinfo($node->name, PATHINFO_EXTENSION))) {
@@ -611,7 +635,9 @@ class FileService
         if ($latest && hash_equals($latest->checksum, $checksum)) {
             return $latest;
         }
-        $this->quota($space, $size);
+        $replace = $office !== null && $latest && $latest->source === 'office' && $latest->autosave
+            && $latest->office_session_id === $office['session'];
+        $this->quota($space, $size - ($replace ? $latest->size : 0));
         $key = $this->key($space);
         $keys[] = $key;
         $stream = fopen($file->getRealPath(), 'rb');
@@ -626,12 +652,28 @@ class FileService
         if (! hash_equals($checksum, hash_file('sha256', $this->disk()->path($key)))) {
             $this->invalid('file', 'Die Prüfsumme der hochgeladenen Datei stimmt nicht.');
         }
+        if ($replace) {
+            // The replaced autosave goes through the deletion outbox like purged files
+            DB::table('x_files_pending_deletions')->insertOrIgnore(['storage_key' => $this->storageKey($latest->storage_key), 'created_at' => now()]);
+            $latest->delete();
+            DB::afterCommit(function () {
+                try {
+                    $this->drainDeletions();
+                } catch (Throwable $e) {
+                    report($e);
+                }
+            });
+        }
         $version = Version::create([
-            'node_id' => $node->id, 'number' => ($latest->number ?? 0) + 1, 'storage_key' => $key,
+            'node_id' => $node->id, 'number' => $replace ? $latest->number : ($latest->number ?? 0) + 1, 'storage_key' => $key,
             'checksum' => $checksum, 'size' => $size, 'mime' => $mime, 'extension' => $extension,
-            'created_by' => $user->id, 'source' => 'upload',
+            'created_by' => $user->id, 'source' => $office === null ? 'upload' : 'office',
+            'office_session_id' => $office['session'] ?? null, 'autosave' => $office['autosave'] ?? false,
         ]);
-        $this->audit($user, 'version.created', $space, $node, ['version_id' => $version->id, 'number' => $version->number, 'size' => $size]);
+        $this->audit($user, 'version.created', $space, $node, array_filter([
+            'version_id' => $version->id, 'number' => $version->number, 'size' => $size,
+            'source' => $office === null ? null : 'office', 'replaced_autosave' => $replace ? $latest->id : null,
+        ], fn ($value) => $value !== null));
 
         return $version;
     }
@@ -697,6 +739,13 @@ class FileService
             return $zip->locateName('[Content_Types].xml') !== false && $zip->locateName($part) !== false;
         } finally {
             $zip->close();
+        }
+    }
+
+    private function assertNotEditedInOffice(Node $node): void
+    {
+        if (OfficeSession::editing($node->id)) {
+            $this->invalid('file', 'Die Datei wird gerade im Online-Office bearbeitet. Bitte später erneut versuchen.');
         }
     }
 

@@ -23,7 +23,7 @@ class OfficeEditorController
         $user = $request->user();
         abort_unless($user instanceof User, 403);
         abort_unless($settings->enabled(), 404);
-        [$session, $token] = $office->open($user, $node);
+        [$session, $token] = $office->open($user, $node, $request->boolean('bearbeiten'));
         try {
             $editor = $office->connector()->editor($session, $token, $user, $node, $session->version()->firstOrFail());
         } catch (RuntimeException $e) {

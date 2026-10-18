@@ -20,6 +20,9 @@ class OfficeSettings
     /** Formats either server can show; the admin narrows them down, FileService's list applies too */
     public const VIEWABLE = ['docx', 'doc', 'odt', 'rtf', 'txt', 'xlsx', 'xls', 'ods', 'csv', 'pptx', 'ppt', 'odp', 'pdf'];
 
+    /** Formats both servers save back in the same format (old binary formats would be converted) */
+    public const EDITABLE = ['docx', 'odt', 'txt', 'xlsx', 'ods', 'csv', 'pptx', 'odp'];
+
     private const PREFIX = 'dateien.office.';
 
     public function provider(): ?string
@@ -80,6 +83,17 @@ class OfficeSettings
         return $this->enabled() && in_array(strtolower($extension), $this->extensions(), true);
     }
 
+    /** Whether Kameraden with edit rights may edit in the office (admin switch, on by default) */
+    public function editing(): bool
+    {
+        return (string) Setting::get(self::PREFIX.'editing', '1') === '1';
+    }
+
+    public function editable(string $extension): bool
+    {
+        return $this->editing() && $this->supports($extension) && in_array(strtolower($extension), self::EDITABLE, true);
+    }
+
     /** Origin (scheme://host[:port]) of the browser-facing office server, for CSP and form targets */
     public function serverOrigin(): ?string
     {
@@ -89,7 +103,7 @@ class OfficeSettings
     }
 
     /**
-     * @param  array{provider: ?string, server_url: ?string, internal_url: ?string, callback_url: ?string, extensions: array<int, string>}  $data
+     * @param  array{provider: ?string, server_url: ?string, internal_url: ?string, callback_url: ?string, extensions: array<int, string>, editing?: bool}  $data
      */
     public function save(array $data, ?string $secret): void
     {
@@ -108,6 +122,9 @@ class OfficeSettings
             throw ValidationException::withMessages(['office.server_url' => 'Die Adresse des Office-Servers fehlt.']);
         }
         $provider === null ? Setting::forget(self::PREFIX.'provider') : Setting::set(self::PREFIX.'provider', $provider);
+        if (array_key_exists('editing', $data)) {
+            Setting::set(self::PREFIX.'editing', $data['editing'] ? '1' : '0');
+        }
         Setting::set(self::PREFIX.'extensions', json_encode(array_values(array_intersect(self::VIEWABLE, $data['extensions'])), JSON_THROW_ON_ERROR));
         if (filled($secret)) {
             if (mb_strlen($secret) < 32) {
@@ -127,6 +144,15 @@ class OfficeSettings
         return is_array($parts) && in_array(strtolower($parts['scheme'] ?? ''), ['http', 'https'], true)
             && ! empty($parts['host']) && ! isset($parts['user']) && ! isset($parts['pass'])
             && ! isset($parts['query']) && ! isset($parts['fragment']);
+    }
+
+    /** Like validUrl, but a query is allowed (download links of the office server) */
+    public static function validUrlWithQuery(string $url): bool
+    {
+        $parts = parse_url($url);
+
+        return is_array($parts) && in_array(strtolower($parts['scheme'] ?? ''), ['http', 'https'], true)
+            && ! empty($parts['host']) && ! isset($parts['user']) && ! isset($parts['pass']) && ! isset($parts['fragment']);
     }
 
     public static function origin(string $url): string

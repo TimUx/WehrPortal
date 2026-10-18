@@ -20,10 +20,14 @@ return [
         'uploads_per_minute' => 60,
         'downloads_per_minute' => 300,
     ],
-    // Online-Office (milestone 3). Provider, URLs and secret are admin settings; these are limits.
+    // Online-Office (milestones 3 and 4). Provider, URLs and secret are admin settings; these are limits.
     'office' => [
         'session_minutes' => 480,
         'timeout' => 5,
         'rate_limit' => 600,
+        // Seconds for downloading a saved document from ONLYOFFICE
+        'save_timeout' => 60,
+        // An edit session without activity for this long no longer blocks manual uploads
+        'edit_idle_minutes' => 60,
     ],
 ];

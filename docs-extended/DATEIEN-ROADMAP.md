@@ -102,17 +102,17 @@ Reihenfolge: M2 → M3 → M4 → produktiver Go-live → M5 / M6 nach Bedarf �
 
 ---
 
-## M4 – Office-Bearbeitung (Must-have bei Office-Go-live)
+## M4 – Office-Bearbeitung (Must-have bei Office-Go-live) – umgesetzt
 
 **Ziel:** Benutzer mit `edit` bearbeiten Dokumente im Browser, auch gleichzeitig; jede Speicherung ergibt eine saubere Version.
 
 **Arbeitspakete:**
-1. **Migration:** CHECK der Versionsquelle um `office` erweitern, `office_session_id` ergänzen.
+1. **Migration:** CHECK der Versionsquelle um `office` erweitern, `office_session_id` und `autosave` ergänzen, Sperrtabelle `x_files_office_locks`.
 2. **Speichern:** ONLYOFFICE-Callback (Status 2/6) – Download nur vom konfigurierten Host, Größe/Typ prüfen, dann `FileService` → neue Version. WOPI `PutFile` – Lock prüfen, dann neue Version.
 3. **Sperren/Konflikte:** WOPI `Lock`, `Unlock`, `RefreshLock`, `GetLock`; Upload einer neuen Version während offener Office-Sitzung wird abgelehnt bzw. als Konflikt gemeldet (erwartete Versionsnummer aus M1); `PutRelativeFile` und Umbenennen aus Office zunächst deaktiviert.
 4. **Versionsstrategie:** Autosaves einer Sitzung zusammenfassen (eine Version pro Sitzung bzw. Forcesave).
 5. **Aufräumen:** geplanter Befehl schließt hängende Sitzungen und abgelaufene Locks.
-6. *Optional:* leere DOCX/XLSX/PPTX aus Vorlagen anlegen.
+6. *Optional:* leere DOCX/XLSX/PPTX aus Vorlagen anlegen (noch offen).
 
 **Risiken:** Versionsflut durch Autosave; Race Callback ↔ manueller Upload; SSRF über die Callback-Download-URL; Datenverlust bei fehlgeschlagenem Callback (loggen, Admin-Hinweis, Retry durch den Office-Server zulassen).
 
