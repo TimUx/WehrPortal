@@ -11,6 +11,7 @@ use Illuminate\Support\Carbon;
 use Modules\Fahrzeugbuchung\src\Models\Booking;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 use Modules\Kleiderkammer\database\seeders\KleiderkammerDemoDataSeeder;
+use RuntimeException;
 
 /**
  * Fork: example installation for the E2E screenshots (tests/e2e, docs-extended/SCREENSHOTS.md).
@@ -51,11 +52,10 @@ class ScreenshotSeeder extends Seeder
             ['MTW-N', $admin, 8, '10:00', '13:00', 'Fahrzeugpflege'],
         ];
         foreach ($bookings as [$vehicle, $user, $day, $from, $to, $purpose]) {
-            if ($vehicles->has($vehicle)) {
-                Booking::firstOrCreate(['vehicle_id' => $vehicles[$vehicle]->id, 'purpose' => $purpose], [
-                    'user_id' => $user->id, 'starts_at' => $at($day, $from), 'ends_at' => $at($day, $to), 'status' => 'confirmed',
-                ]);
-            }
+            // updateOrCreate: a re-run in a later week moves the bookings into that week
+            Booking::updateOrCreate(['vehicle_id' => ($vehicles->get($vehicle) ?? throw new RuntimeException("Vehicle {$vehicle} is missing"))->id, 'purpose' => $purpose], [
+                'user_id' => $user->id, 'starts_at' => $at($day, $from), 'ends_at' => $at($day, $to), 'status' => 'confirmed', 'cancelled_at' => null,
+            ]);
         }
 
         $hydrants = [
@@ -67,7 +67,7 @@ class ScreenshotSeeder extends Seeder
             Hydrant::firstOrCreate(['number' => $hydrant['number']], $hydrant);
         }
 
-        $list = AttendanceList::firstOrCreate(['title' => 'Übungsdienst Technische Hilfe'], [
+        $list = AttendanceList::updateOrCreate(['title' => 'Übungsdienst Technische Hilfe'], [
             'kind' => 'uebung',
             'status' => AttendanceList::SUBMITTED,
             'starts_at' => $at(-5, '19:00'),
