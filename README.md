@@ -757,6 +757,8 @@ Wer welchen Schlüssel der Wehr hat – statt Liste im Schlüsselkasten. Das Mod
 
 ## Erweiterungen im Detail
 
+Die folgenden Anleitungen ergänzen die [Kurzüberblick-Tabelle](#erweiterungen-von-openwehr-extended). Die Erweiterungen werden technisch geladen, ihre Module beziehungsweise Funktionen haben aber eigene Freischaltungen und Rechte. Verlinkte Detaildokumente beschreiben zusätzliche Betriebs- und Implementierungsgrenzen.
+
 ### Hydrantenkontrolle
 
 Die Fork-Erweiterung **Hydrantenkontrolle** wird unter **Admin → Module** aktiviert. Dort Modulzugang und Rolle `hydrantenwart` vergeben; aktive Admins benötigen keine zusätzliche Rolle. `HYDRANTENKONTROLLE_ENABLED=false` lädt die Erweiterung nicht. Die Modulleiste bietet **Jahreskontrollen** und **Hydranten**.
@@ -769,8 +771,6 @@ Die Fork-Erweiterung **Hydrantenkontrolle** wird unter **Admin → Module** akti
 - **Historie und Grenzen:** Jedes Jahr hat eigene Kontrollsätze und Stammdatenkopien. Spätere Änderungen und Archivierung ändern vorhandene Jahresdaten nicht. Paralleles Speichern mit veraltetem Bearbeitungsstand wird abgewiesen; bitte neu laden und Änderungen abgleichen. Änderungen werden im Aktivitätslog dokumentiert (dessen reguläre Aufbewahrungsfrist gilt weiterhin). Jahre bleiben bewusst bearbeitbar, es gibt keine endgültige Versiegelung. Keine automatische Übernahme aus Excel, keine Offline-Synchronisierung und keine automatische Kopplung an die Wasserkarte: deren Lösch-/Änderungslogik bleibt unverändert.
 
 Mit aktivem **Locations** sind Hydranten und Jahre auf die sichtbaren Standorte begrenzt; **Öffnen / ergänzen** arbeitet am aktuell gewählten Standort. Standortlose Daten bleiben entsprechend dem Fork-Muster gemeinsam sichtbar. Nummern und Jahre sind pro Standort eindeutig. Ohne Locations gibt es einen gemeinsamen Bestand.
-
-Die folgenden Anleitungen ergänzen die [Kurzüberblick-Tabelle](#erweiterungen-von-openwehr-extended). Die Erweiterungen werden technisch geladen, ihre Module beziehungsweise Funktionen haben aber eigene Freischaltungen und Rechte. Verlinkte Detaildokumente beschreiben zusätzliche Betriebs- und Implementierungsgrenzen.
 
 ### Anwesenheit im Detail
 
