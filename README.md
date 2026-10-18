@@ -45,6 +45,7 @@ Dieses Repository enthält **openwehr-extended**, einen Fork von [roberteinsle/o
   - [Lehrgänge und Qualifikationen](#lehrgänge--qualifikationen)
   - [Übungsdienstplaner](#übungsdienstplaner)
   - [Einsatzbericht](#einsatzbericht)
+    - [EinsatzberichtPlus](#ergänzung-durch-einsatzberichtplus)
   - [Kalender und Termine](#kalender--termine)
   - [Bestand](#bestand)
   - [Ausrüstungsverwaltung](#ausrüstungsverwaltung)
@@ -487,7 +488,15 @@ Ersetzt den Papier-Einsatzbericht: Der Einsatzleiter erfasst jeden Einsatz einma
 
 #### Ergänzung durch EinsatzberichtPlus
 
-Mit `EINSATZBERICHT_PLUS_ENABLED` (Standard: an) erscheint im Berichtseditor ein Zusatzbereich für Kostenpflicht und Kostenträger, strukturierte beteiligte Personen samt Rolle und Kontakt, Verdienstausfall je Besatzungsmitglied (Arbeitgeber, Stunden und Bearbeitungsstand) sowie ein externes Fahrzeug. Gibt es im Fahrzeugprofil eine Sollbesatzung, weist der Zusatzbereich auf eine Unter- oder Überbesetzung hin; er sperrt das Speichern nicht. Für Zusatzangaben gelten dieselben Zugriffs- und Bearbeitungsrechte wie für den Einsatzbericht. Personenbezogene Zusatzangaben sind verschlüsselt gespeichert. Sie erscheinen derzeit nicht im Berichtsdruck oder in Statistiken. Einzelheiten und Grenzen: [EinsatzberichtPlus](docs-extended/EINSATZBERICHT.md).
+Mit `EINSATZBERICHT_PLUS_ENABLED` (Standard: an) erscheint im Berichtseditor ein Zusatzbereich. Er wird zusammen mit dem Einsatzbericht geladen und hat keinen eigenen Modulschalter; zum Bearbeiten braucht man dieselben Rechte wie für den Bericht.
+
+- **Kostenpflicht:** Für den gesamten Einsatz lässt sich markieren, dass Kostenersatz zu prüfen ist; Kostenträger und Bemerkung können ergänzt werden. Das Kennzeichen ist nicht auf Fehlalarme beschränkt.
+- **Beteiligte Personen:** Personen außerhalb der Besatzung lassen sich strukturiert mit Rolle und Kontakt erfassen, statt sie nur in ein Freitextfeld zu schreiben. Personenbezogene Zusatzangaben werden verschlüsselt gespeichert.
+- **Verdienstausfall:** Für Einsatzkräfte der Besatzung können Arbeitgeber, Stunden und Bearbeitungsstand festgehalten werden. Wird ein Kamerad gelöscht, entfallen seine zugehörigen Verdienstausfall-Einträge.
+- **Externes Fahrzeug:** Ein Fahrzeug, das nicht in der gemeinsamen Fahrzeugliste steht, kann als Freitext angegeben werden; reguläre Fahrzeuge werden weiterhin wie bisher aus der Liste ausgewählt.
+- **Sollbesatzung:** Ist das Modul Fahrzeuge aktiv und im Fahrzeugprofil eine Sollbesatzung hinterlegt, weist der Bericht auf Unter- oder Überbesetzung hin. Das ist ein Hinweis, keine Pflicht und keine Sperre. Ohne Sollbesatzung erscheint kein Hinweis.
+
+Die Zusatzangaben sind derzeit nicht im Berichtsdruck oder in Statistiken enthalten. Die Erweiterung nutzt eigene Tabellen und ändert keine Upstream-Tabellen. Weitere technische Hintergründe und Grenzen: [EinsatzberichtPlus](docs-extended/EINSATZBERICHT.md).
 
 ### Kalender & Termine
 
@@ -743,6 +752,96 @@ Wer welchen Schlüssel der Wehr hat – statt Liste im Schlüsselkasten. Das Mod
 - **Erinnerung:** `schluessel:remind` läuft täglich um 7:10 Uhr; wer einen Schlüssel über die Frist hat, bekommt einmal eine Mail. Die Startseite zeigt dem Kameraden „Schlüssel zurückgeben“, dem Schlüsselwart überfällige, verlorene und **Schlüssel bei Kameraden, die nicht mehr aktiv sind** (ausgetreten oder inaktiv – zum Einsammeln; auch oben in der Liste).
 - **QR-Etikett:** Die Schlüsselseite zeigt den QR-Code des Schlüssels; der Scan (`/i/SL-0001`) öffnet für den Schlüsselwart den Schlüssel, für alle anderen „Meine Schlüssel“ auf dem Profil.
 - **Mit den anderen Modulen:** Die Seite eines **Objekts** (Objektpläne) und eines **Fahrzeugs** (Fahrzeugverwaltung) zeigt seine Schlüssel mit Aufbewahrung oder „ausgegeben“ (wer ihn hat, sieht nur der Schlüsselwart); die Akte in der **Personalverwaltung** zeigt die Schlüssel des Kameraden. „Löschen mit Übertragung“ überträgt die Ausgaben.
+
+## Erweiterungen im Detail
+
+Die folgenden Anleitungen ergänzen die [Kurzüberblick-Tabelle](#erweiterungen-von-openwehr-extended). Die Erweiterungen werden technisch geladen, ihre Module beziehungsweise Funktionen haben aber eigene Freischaltungen und Rechte. Verlinkte Detaildokumente beschreiben zusätzliche Betriebs- und Implementierungsgrenzen.
+
+### Anwesenheit im Detail
+
+Das Modul „Anwesenheit“ führt eigenständige Listen für Übungen, Dienste und Besprechungen. Ein Kalendertermin ist dafür nicht erforderlich. Nach der Migration ist das Modul zunächst inaktiv. Ein Admin schaltet es unter **Admin → Module** ein und gibt es den Kameraden frei; `ANWESENHEIT_ENABLED=false` deaktiviert die Erweiterung vollständig.
+
+- **Liste anlegen** (`/anwesenheit`): „Neue Liste“ öffnen und Titel, Art, Beginn, Ende, Übungsleiter und Teilnehmende festlegen. Beginn und Ende bestimmen automatisch Dauer und Teilnehmerzahl. Listen und Vorlagen stehen für den Standort der Liste zur Verfügung. Wenn das Kalender-Modul aktiv ist, kann ein Termin als Vorbelegung für Titel, Art, Ort und Zeiten verwendet werden; danach ist die Anwesenheitsliste ein eigener Datensatz.
+- **Entwurf und Abgabe:** Eine Liste lässt sich zunächst als Entwurf speichern und später vervollständigen. Der Ersteller kann eigene Entwürfe bearbeiten. Mit „Abgeben“ wird die Liste abgeschlossen; danach können Modulverwalter sie weiterhin bearbeiten. Abgegebene Listen zählen im Stundennachweis und Jahresbericht, Entwürfe nicht.
+- **Teilnehmende und Anhänge:** Die Teilnehmendenauswahl enthält Kameraden des Standorts der Liste. Bei Bedarf lassen sich Dateien anhängen (höchstens fünf Dateien zu je 5 MB). Beim Löschen einer Liste werden auch ihre Anhänge entfernt.
+- **PDF und E-Mail:** Eine Liste kann als PDF geöffnet und per E-Mail versendet werden. Als Empfänger gelten die unter **Admin → Anwesenheit → Einstellungen** hinterlegten Standardadressen sowie zusätzliche Adressen der einzelnen Liste. Ein Versandfehler verhindert nicht, dass die Liste gespeichert bleibt.
+- **Vorlagen:** Unter **Admin → Anwesenheit → Vorlagen** (`/admin/anwesenheit/vorlagen`) können Verwalter Vorlagen anlegen und bearbeiten. Eine Vorlage übernimmt Angaben als Startwerte für neue Listen; spätere Änderungen an der Vorlage ändern keine bereits angelegten Listen.
+- **Zugriff:** Kameraden mit Modulzugang erstellen eigene Listen und bearbeiten ihre Entwürfe. Die Modulrolle `verwalter` und Standort-Admins verwalten Listen, Vorlagen und Einstellungen ihres Standorts; globale Admins sehen alle Standorte. Wenn Locations aktiv ist, begrenzt sie Listen, Leitung und Teilnehmende auf den Standort.
+- **Offline:** Bei aktivierter Offline-Erweiterung können Titel, Art, Zeiten, Leitung, Gästezahl und Teilnehmendenauswahl als lokaler Entwurf wiederhergestellt werden. Standortwahl, Notizen, Empfänger und Anhänge werden nicht gespeichert. Der Entwurf muss nach dem Wiederherstellen geprüft und regulär abgesendet werden; er wird nicht automatisch synchronisiert. Siehe [Offline und PWA](#offline-und-pwa-im-detail).
+
+Ausführliche technische Angaben zu Rechtevergabe, Standortbezug und Datenspeicherung stehen in der [Dokumentation Anwesenheit](docs-extended/ANWESENHEIT.md).
+
+### Dateien im Detail
+
+„Dateien“ ist ein internes Modul für Dateiablagen und benötigt keinen eigenen `DATEIEN_ENABLED`-Schalter. Ein Admin schaltet es unter **Admin → Module** frei. Die Freigabe des Moduls gibt jedoch noch keinen Zugriff auf Dateien; Ablagen und Einträge erhalten eigene Rechte.
+
+- **Ablage einrichten (globaler Admin):** Unter **Admin → Dateien** (`/admin/dateien`) eine Ablage anlegen. Optional einen Standort und ein Speicher-Kontingent in MiB angeben. Ablagen ohne Standort sind gemeinsam standortübergreifend sichtbar. Das Kontingent berücksichtigt alle Versionen und den Papierkorb, nicht nur aktuelle Dateien.
+- **Dateigruppen:** Unter **Admin → Dateien** Dateigruppen erstellen und bestehende Mitglieder zuordnen. Sie sind unabhängig von Abteilungen und Funktionen. `gruppenverwalter` dürfen Gruppen und deren Mitglieder verwalten, erhalten dadurch aber kein Leserecht auf Dateien.
+- **Zugriff vergeben:** Im Explorer (`/dateien`) eine Ablage öffnen und über „Rechte“ Benutzer oder Dateigruppen mit **Lesen**, **Bearbeiten** oder **Verwalten** freigeben. Ohne explizite passende Freigabe haben Mitglieder keinen Zugriff. Das höchste zutreffende Benutzer- oder Gruppenrecht gilt:
+
+  | Recht | Was damit möglich ist |
+  |---|---|
+  | Lesen | Auflisten, ansehen, herunterladen und Versionsverlauf lesen |
+  | Bearbeiten | Zusätzlich hochladen, Ordner erstellen, umbenennen sowie neue Versionen und Wiederherstellungen anlegen |
+  | Verwalten | Zusätzlich Rechte und Vererbung ändern, verschieben, Papierkorb verwalten und endgültig löschen |
+
+- **Ordner und Dateien:** Im Explorer Ordner anlegen, Dateien einzeln oder mehrfach hochladen, suchen, als Favorit markieren oder zuletzt verwendete Einträge öffnen. Es gibt eine Bildvorschau, Kommentare und ZIP-Download. „Mit mir geteilt“ zeigt direkte Freigaben auch dann, wenn der übergeordnete Ordner nicht lesbar ist. Die Suche berücksichtigt Namen und Beschreibungen, nicht Dateiinhalte.
+- **Rechtevererbung:** Neue Einträge erben die Rechte des Elternordners beziehungsweise der Ablage. Wird die Vererbung unterbrochen, gelten an diesem Eintrag nur seine eigenen Rechte und unterhalb davon die dort neu gesetzten Rechte. Eine Direktfreigabe zeigt keine gesperrten Eltern oder Geschwister. Verschieben benötigt „Verwalten“ sowohl am Ausgangs- als auch am Zielort; Verschieben zwischen Ablagen ist nicht verfügbar.
+- **Versionen und Papierkorb:** Für Inhaltsänderungen „Neue Version“ verwenden; der Explorer überschreibt nicht stillschweigend bei Namenskonflikten. Eine ältere Version wiederherzustellen erzeugt eine neue aktuelle Version und erhält den bisherigen Verlauf. „Löschen“ verschiebt in den Papierkorb. Eine Wiederherstellung setzt voraus, dass der Elternordner verfügbar und der Name frei ist. Endgültiges Löschen erfordert „Verwalten“, eine Bestätigung und das Ende der Mindestaufbewahrung (Standard 30 Tage); Dateien werden nicht automatisch endgültig gelöscht.
+- **Standortzugriff:** Ist Locations aktiv, begrenzt die Ablagenberechtigung zusätzlich auf deren Standort. Benutzer- und Gruppenfreigaben heben diese Grenze nicht auf. Standortlose Ablagen und Gruppen gelten als gemeinsam. Einzelheiten und Grenzen stehen unter [Locations](#locations-im-detail).
+- **Öffentliche Lesefreigaben:** Sie sind standardmäßig deaktiviert. Ein Admin muss sie global und zusätzlich für die jeweilige Ablage erlauben. Danach können Personen mit „Verwalten“ für eine Datei oder einen Ordner einen zeitlich befristeten, nur lesenden Download-Link erzeugen; optional mit Passwort oder Download-Limit. Das Token wird nur einmal angezeigt. Externe können weder hochladen noch bearbeiten, ältere Versionen sehen oder Office nutzen. Einen weitergeleiteten Link kann jeder verwenden, der ihn kennt; deshalb Laufzeit kurz halten und ein Passwort über einen anderen Kanal übermitteln. Admins können Freigaben widerrufen.
+- **Online-Office:** Optional lässt sich genau ein separat betriebener ONLYOFFICE- oder Collabora-Server konfigurieren. Die Admin-Einstellungen müssen Browser-Adresse, Rückruf und gegebenenfalls interne Serveradresse enthalten; ONLYOFFICE benötigt ein JWT-Secret. Im Explorer wird „Im Office bearbeiten“ nur mit Bearbeitungsrecht und unterstütztem Format angeboten. PDF und alte Binärformate lassen sich nicht bearbeiten. Sitzungen und Dateiänderungen werden weiterhin auf aktuelle Zugriffsrechte geprüft.
+- **Betrieb:** Datei-Inhalte liegen privat unter `storage/app/private/dateien`, nicht im öffentlichen Webverzeichnis. Dieser Speicher muss persistent und schreibbar sein. Datenbank und Dateien immer gemeinsam und konsistent sichern und wiederherstellen; Virenscan ist nicht integriert. Standard-Uploadlimit: 20 MiB; Admins können es bis 50 MiB erhöhen, sofern PHP, Livewire und Reverse-Proxy das Limit ebenfalls erlauben.
+
+Nicht verfügbar sind WebDAV, Desktop-Synchronisierung, Offline-Bearbeitung und PDF-/Office-Vorschau. Die [Dateien-Dokumentation](docs-extended/DATEIEN.md) beschreibt unter anderem die Admin-Einstellungen, Protokolle, Wartungskommandos, Office- und Freigabeoptionen ausführlicher; die [Roadmap](docs-extended/DATEIEN-ROADMAP.md) trennt geplante von umgesetzten Funktionen.
+
+### Locations im Detail
+
+Die Locations-Erweiterung ergänzt ausgewählte Datensätze um einen Standort. Sie ist standardmäßig aktiv; `LOCATIONS_ENABLED=false` schaltet Standortverwaltung und Standortbegrenzung ab. Standorte sind eine organisatorische Abgrenzung, keine vollständige Mandantentrennung.
+
+- **Standorte anlegen:** Der globale Admin öffnet **Admin → Standorte** und legt die benötigten Standorte an. Die Migration erzeugt bereits einen Hauptstandort; mindestens ein Standort muss bestehen bleiben. Vorhandene Datensätze werden bei der Migration diesem Standort zugeordnet.
+- **Mitglieder und Zuständigkeiten:** Auf der Standortseite Mitglieder zuordnen und bei Bedarf Standort-Admins festlegen. Ein Mitglied kann einem oder mehreren Standorten zugeordnet werden. Ein Standort-Admin darf nur den eigenen Standort verwalten; globale Admins können alle Standorte einsehen und ändern.
+- **Fahrzeuge und Ausrüstung:** Auf der Standortseite Fahrzeuge und Ausrüstung dem Standort zuweisen. Für die von der Erweiterung unterstützten Datensätze filtern Listen und Abfragen automatisch auf die Standorte, zu denen das angemeldete Mitglied gehört.
+- **Standort auswählen:** Für globale Admins erscheint der Standort-Umschalter im Admin-Menü. Er bestimmt, welchem Standort neue Datensätze zugeordnet werden, er begrenzt aber nicht die Sicht eines globalen Admins. Bei anderen Nutzern wird ein neuer Datensatz dem aktuell gewählten, sonst dem eigenen oder ersatzweise dem Hauptstandort zugeordnet.
+- **Standort-Admin im Admin-Bereich:** Standort-Admins gelangen in ihren begrenzten Verwaltungsbereich. Sie können dort Standortname, Mitglieder und zugehörige Fahrzeuge/Ausrüstung pflegen. Globale Core-Adminseiten bleiben globalen Admins vorbehalten.
+- **Gemeinsame Datensätze:** Ein Datensatz ohne Standort (`NULL`) gilt als gemeinsam und ist standortübergreifend sichtbar. Für vertrauliche Daten einen Standort zuweisen, statt sie standortlos abzulegen.
+- **Grenzen:** Die Abgrenzung gilt für die konfigurierten Modelle, darunter Mitglieder, Gruppen, Fahrzeuge, Ausrüstung, Kleiderkammerartikel, Einsatzberichte, Mängel und Kalendertermine. Direkte `DB::table()`-Abfragen umgehen den Eloquent-Scope; eindeutige Kennungen bleiben global. Nicht jedes Upstream-Formular bietet eine Standortauswahl. Deshalb ist Locations kein Ersatz für eine vollständige Mandantentrennung oder zusätzliche Datenschutzprüfung.
+
+Die Liste der begrenzten Modelle und weitere Hinweise zu Migration und Upstream-Synchronisierung stehen in der [Locations-Dokumentation](docs-extended/LOCATIONS.md).
+
+### Offline und PWA im Detail
+
+openwehr ist installierbar und zeigt bei fehlender Verbindung eine Offline-Seite. Die Offline-Erweiterung ergänzt dies um lokale Entwürfe für ausdrücklich gekennzeichnete Formulare. `OFFLINE_ENABLED=false` deaktiviert die Offline-Statusanzeige und Entwürfe, nicht aber das Manifest, den Root-Service-Worker oder die Offline-Fallback-Seite.
+
+- **Offline-Status:** Der Statusbereich zeigt, ob das Gerät verbunden ist und wie viele lokale Entwürfe gespeichert sind. „Jetzt synchronisieren“ aktualisiert den Service Worker und den Entwurfsstatus; die Eingaben werden dabei nicht an den Server gesendet.
+- **Wasserkarte:** Im Formular einer Löschwasserquelle werden ausdrücklich markierte Felder – darunter Art, Nummer, Lage, Koordinaten, Durchfluss, Druck, Nennweite, Inhalt, Saughöhe, Betreiber, Prüfintervall und Kartenstatus – lokal gesichert. Notizen, Dateien und nicht markierte Felder sind nicht Teil des Entwurfs.
+- **Anwesenheit:** Titel, Art, Zeiten, Leitung, Gästezahl und Teilnehmendenauswahl können lokal gespeichert werden. Standortwahl, Notizen, Empfänger und Dateien bleiben außen vor.
+- **Entwurf wiederherstellen:** Nach erneuter Verbindung das betreffende Formular öffnen und den vorhandenen Entwurf wiederherstellen. Eingaben vor dem normalen Absenden prüfen oder den Entwurf verwerfen. Es gibt keine automatische Übermittlung und kein Wiederholen zwischengespeicherter Livewire-Anfragen; Anmeldung, Validierung und Geschäftsregeln laufen beim regulären Absenden weiter.
+- **Lokale Daten:** Entwürfe werden je Benutzer und Formularseite im Browser abgelegt, verfallen nach 30 Tagen und werden beim Abmelden gelöscht. Auf gemeinsam genutzten Geräten können sie bis dahin lokale Angaben enthalten.
+- **Was der Service Worker speichert:** Der Root-Service-Worker cached die Offline-Seite und öffentliche, versionierte statische Assets, aber keine Navigationen, angemeldeten Seiten, Login-, Admin- oder Livewire-Anfragen. Objektpläne verwenden bewusst einen eigenen Offline-Speicher für die Bibliothek, Objektseiten und aktuelle Pläne; neue Planversionen müssen für Offline-Nutzung erneut gespeichert werden.
+
+Es gibt keine allgemeine Offline-Synchronisierung, keinen automatischen Versand von Formularen und keine Offline-Bearbeitung der Dateien. Details zu den unterstützten Feldern und den Speichergrenzen: [Offline-Dokumentation](docs-extended/OFFLINE.md).
+
+### OIDC / Single Sign-On im Detail
+
+Die OIDC-Erweiterung ergänzt den bisherigen Login per E-Mail-Link um die Anmeldung an einem externen Identitätsanbieter (z. B. Keycloak). Sie nutzt Authorization Code mit PKCE. Der Anbieter muss öffentlich über HTTPS erreichbar sein. `OIDC_ENABLED=false` entfernt OIDC-Routen und Einstellungen; `OIDC_FORCE_DISABLED=true` schaltet den IdP-Login im Notfall ab und gibt den Link-Login wieder für alle frei.
+
+1. **Identitätsanbieter vorbereiten:** In Keycloak einen OpenID-Connect-Client anlegen, Client Authentication einschalten und nur den Standard Flow aktivieren. In openwehr unter **Admin → Single Sign-On (OIDC)** die exakte Redirect-URI ablesen und beim Client eintragen (zum Beispiel `https://openwehr.example.com/auth/oidc/callback`, ohne Wildcards). Client-ID und Client-Secret bereithalten.
+2. **Benutzer im IdP vorbereiten:** Die Scopes `openid email profile` verwenden und sicherstellen, dass Benutzer eine bestätigte E-Mail (`email_verified`) haben. Der IdP muss Discovery-, Schlüssel- und Token-Endpunkte über eine öffentliche HTTPS-Adresse bereitstellen.
+3. **Verbindung in openwehr konfigurieren:** Unter **Admin → Single Sign-On (OIDC)** Issuer-URL, Client-ID, Client-Secret, Scopes und gewünschten Button-Text eintragen. Mit „Verbindung testen“ Konfiguration und Schlüsselabruf prüfen; danach „Single Sign-On aktiv“ einschalten. Das Secret wird mit `APP_KEY` verschlüsselt gespeichert, nicht wieder angezeigt und beim Leer-Lassen beibehalten.
+4. **Ersten Login testen:** Standardmäßig wird ein bereits vorhandenes, aktives openwehr-Konto nur mit einer bestätigten, übereinstimmenden E-Mail verknüpft. Inaktive Konten werden abgelehnt. Optional kann die automatische Kontoanlage (JIT) eingeschaltet werden; neu angelegte Konten erhalten dadurch weder Adminrechte noch Modulzugänge und müssen anschließend regulär freigeschaltet werden.
+5. **Weitere Logins:** Nach der ersten Verknüpfung identifiziert die Kombination aus Issuer und `sub` das Konto. Eine bestehende Verknüpfung wird nicht allein wegen einer später übereinstimmenden E-Mail auf eine andere IdP-Identität übertragen. Gruppen- und Rollen-Claims werden nicht ausgewertet; Adminrechte und Modulzugänge bleiben von der Personalverwaltung in openwehr abhängig.
+- **Nur Single Sign-On:** Diese Einstellung blendet den Link-Login für normale Nutzer aus. Lokale System-Admins behalten ihn und melden sich unter `/anmelden/lokal` an. Mindestens ein aktiver lokaler Admin muss bestehen bleiben; der letzte lässt sich nicht entfernen oder deaktivieren, solange „Nur Single Sign-On“ aktiv ist. Vor dem Einschalten einen funktionierenden lokalen Notfallzugang testen.
+- **Notfall-Wiederherstellung:** Bei Serverzugriff kann der IdP-Login deaktiviert und ein lokaler Admin eingerichtet werden:
+
+  ```bash
+  php artisan oidc:disable
+  php artisan oidc:make-local-admin hanna@example.com [--grant-admin]
+  ```
+
+  Alternativ `OIDC_FORCE_DISABLED=true` setzen und den Container neu starten. Die Wiederherstellung des Link-Logins ist damit auch möglich, wenn die Admin-Oberfläche nicht erreichbar ist.
+
+Nicht umgesetzt sind RP-initiated Logout und die Zuordnung von IdP-Gruppen oder -Rollen zu openwehr-Rechten. Eine ausführlichere Keycloak-Anleitung, Claim-Prüfungen und Fehlersuche enthält die [OIDC-Dokumentation](docs-extended/OIDC.md).
 
 ## Betrieb und Entwicklung
 
