@@ -3,12 +3,19 @@
 namespace Extensions\Dateien\Livewire;
 
 use App\Models\User;
+use Extensions\Dateien\Models\Comment;
 use Extensions\Dateien\Models\FileGroup;
 use Extensions\Dateien\Models\Node;
+use Extensions\Dateien\Models\OfficeSession;
+use Extensions\Dateien\Models\Share;
 use Extensions\Dateien\Models\Space;
 use Extensions\Dateien\Models\Version;
+use Extensions\Dateien\Office\OfficeService;
+use Extensions\Dateien\Services\CollaborationService;
 use Extensions\Dateien\Services\FileAccess;
 use Extensions\Dateien\Services\FileService;
+use Extensions\Dateien\Services\PreviewService;
+use Extensions\Dateien\Services\ShareService;
 use Extensions\Locations\Services\LocationAccess;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -31,7 +38,15 @@ class Explorer extends Component
         'subjectType' => 'Empfängertyp',
         'subjectId' => 'Empfänger',
         'permissionLevel' => 'Berechtigung',
+        'shareDays' => 'Gültigkeit',
+        'sharePassword' => 'Passwort',
+        'shareMaxDownloads' => 'Download-Limit',
+        'shareLabel' => 'Bezeichnung',
+        'description' => 'Beschreibung',
+        'commentBody' => 'Kommentar',
     ];
+
+    public const VIEWS = ['', 'shared', 'trash', 'favorites', 'recent'];
 
     #[Url]
     public ?int $space = null;
@@ -64,6 +79,24 @@ class Explorer extends Component
 
     public $upload = null;
 
+    public string $search = '';
+
+    public string $description = '';
+
+    public string $commentBody = '';
+
+    public string $shareDays = '7';
+
+    public string $sharePassword = '';
+
+    public string $shareMaxDownloads = '';
+
+    public string $shareLabel = '';
+
+    /** The new link, shown once right after creating it (the token is stored only as a hash) */
+    #[Locked]
+    public ?string $newShareUrl = null;
+
     public function mount(): void
     {
         if ($this->node !== null) {
@@ -86,7 +119,8 @@ class Explorer extends Component
             $this->access()->authorize($this->user(), Space::query()->findOrFail($space), 'read');
         }
 
-        abort_unless(in_array($view, ['', 'shared', 'trash'], true), 404);
+        abort_unless(in_array($view, self::VIEWS, true), 404);
+        $this->search = '';
         $this->space = $space;
         $this->node = $node;
         $this->view = $view;
@@ -97,8 +131,11 @@ class Explorer extends Component
     {
         $node = $this->findNode($id, $this->view === 'trash');
         $this->selectedId = $node->id;
+        $this->newShareUrl = null;
         $this->name = $node->name;
         $this->inheritPermissions = (bool) $node->inherit_permissions;
+        $this->description = (string) $node->description;
+        $this->commentBody = '';
         $this->destination = '';
         $this->expectedVersion = $node->kind === 'file' && ! $node->trashed()
             ? $this->service()->versions($this->user(), $node)->max('number')
@@ -106,9 +143,42 @@ class Explorer extends Component
         $this->resetValidation();
     }
 
+    /** Opens a search hit in its folder (or the shared view when the folder itself is not readable) */
+    public function openResult(int $id): void
+    {
+        $node = Node::query()->findOrFail($id);
+        $this->access()->authorize($this->user(), $node, 'read');
+        if ($node->kind === 'folder') {
+            $this->navigate(null, $node->id);
+
+            return;
+        }
+        $parent = $node->parent_id ? Node::query()->find($node->parent_id) : null;
+        $space = Space::query()->findOrFail($node->space_id);
+        if ($parent && $this->access()->can($this->user(), $parent, 'read')) {
+            $this->navigate(null, $parent->id);
+        } elseif (! $parent && $this->access()->can($this->user(), $space, 'read')) {
+            $this->navigate($space->id);
+        } else {
+            $this->navigate(null, null, 'shared');
+        }
+        $this->select($node->id);
+    }
+
+    /** Called by the upload script after files went through POST /dateien/hochladen */
+    public function uploaded(int $count, ?int $nodeId = null): void
+    {
+        if ($nodeId !== null && $nodeId === $this->selectedId) {
+            $this->select($nodeId);
+        }
+        if ($count > 0) {
+            session()->flash('flash', $count === 1 ? 'Datei hochgeladen.' : $count.' Dateien hochgeladen.');
+        }
+    }
+
     public function resetSelection(): void
     {
-        $this->reset('selectedId', 'expectedVersion', 'name', 'destination', 'subjectId', 'upload');
+        $this->reset('selectedId', 'expectedVersion', 'name', 'destination', 'subjectId', 'upload', 'newShareUrl');
         $this->resetValidation();
     }
 
@@ -236,6 +306,87 @@ class Explorer extends Component
         $this->service()->setPermission($this->user(), $target, $permission->subject_type, (int) $permission->subject_id, null);
         $this->leaveInaccessibleContext();
         session()->flash('flash', 'Direkte Freigabe entzogen.');
+    }
+
+    public function saveDescription(): void
+    {
+        $this->validate(['description' => ['nullable', 'string', 'max:2000']]);
+        $this->service()->describe($this->user(), $this->selected('edit'), $this->description);
+        session()->flash('flash', 'Beschreibung gespeichert.');
+    }
+
+    /** Favourite or subscription of the selected entry, or of the open folder when nothing is selected */
+    public function toggleFavorite(): void
+    {
+        $on = $this->collaboration()->toggleFavorite($this->user(), $this->collaborationTarget());
+        session()->flash('flash', $on ? 'Zu den Favoriten hinzugefügt.' : 'Aus den Favoriten entfernt.');
+    }
+
+    public function toggleSubscription(): void
+    {
+        $on = $this->collaboration()->toggleSubscription($this->user(), $this->collaborationTarget());
+        session()->flash('flash', $on ? 'Abonniert: Du wirst bei Änderungen benachrichtigt.' : 'Abo beendet.');
+    }
+
+    public function addComment(): void
+    {
+        $this->validate(['commentBody' => ['required', 'string', 'max:2000']]);
+        $this->collaboration()->comment($this->user(), $this->selected('read'), $this->commentBody);
+        $this->commentBody = '';
+        session()->flash('flash', 'Kommentar gespeichert.');
+    }
+
+    public function deleteComment(int $id): void
+    {
+        $node = $this->selected('read');
+        $this->collaboration()->deleteComment($this->user(), Comment::where('node_id', $node->id)->findOrFail($id));
+        session()->flash('flash', 'Kommentar gelöscht.');
+    }
+
+    private function collaborationTarget(): Node
+    {
+        $node = $this->selectedId !== null ? $this->selected('read') : ($this->node !== null ? $this->findNode($this->node) : null);
+        abort_if($node === null || $node->trashed(), 404);
+
+        return $node;
+    }
+
+    private function collaboration(): CollaborationService
+    {
+        return app(CollaborationService::class);
+    }
+
+    public function createShare(): void
+    {
+        $target = $this->shareTarget() ?? abort(404);
+        $this->validate([
+            'shareDays' => ['required', 'integer', 'min:1', 'max:'.ShareService::maxDays()],
+            'sharePassword' => ['nullable', 'string', 'min:8', 'max:200'],
+            'shareMaxDownloads' => ['nullable', 'integer', 'min:1', 'max:10000'],
+            'shareLabel' => ['nullable', 'string', 'max:150'],
+        ]);
+        [, $token] = app(ShareService::class)->create($this->user(), $target, (int) $this->shareDays,
+            $this->sharePassword ?: null, $this->shareMaxDownloads === '' ? null : (int) $this->shareMaxDownloads, $this->shareLabel ?: null);
+        $this->newShareUrl = route('dateien.share', ['token' => $token]);
+        $this->reset('sharePassword', 'shareMaxDownloads', 'shareLabel');
+        session()->flash('flash', 'Öffentlicher Link erstellt.');
+    }
+
+    public function revokeShare(int $id): void
+    {
+        $target = $this->shareTarget() ?? abort(404);
+        $share = Share::where('node_id', $target->id)->findOrFail($id);
+        app(ShareService::class)->revoke($this->user(), $share);
+        $this->newShareUrl = null;
+        session()->flash('flash', 'Öffentlicher Link widerrufen.');
+    }
+
+    /** The selected entry, or the open folder, if the user may manage it */
+    private function shareTarget(): ?Node
+    {
+        $node = $this->selectedId !== null ? $this->selected('manage') : ($this->node !== null ? $this->findNode($this->node) : null);
+
+        return $node && ! $node->trashed() && $this->access()->can($this->user(), $node, 'manage') ? $node : null;
     }
 
     public function updatedSubjectType(): void
@@ -385,13 +536,22 @@ class Explorer extends Component
     public function render()
     {
         $user = $this->user();
-        abort_unless(in_array($this->view, ['', 'shared', 'trash'], true), 404);
+        abort_unless(in_array($this->view, self::VIEWS, true), 404);
         $access = $this->access();
         $spaces = Space::query()->orderBy('name')->get()->filter(fn (Space $space) => $access->can($user, $space, 'read'));
         $space = null;
         $folder = null;
         $rows = collect();
-        if ($this->node !== null || $this->space !== null) {
+        $searching = mb_strlen(trim($this->search)) >= 2;
+        if ($searching) {
+            $rows = $this->service()->search($user, mb_substr($this->search, 0, 100));
+        }
+        if ($searching) {
+            if ($this->space !== null) {
+                $space = Space::query()->find($this->space);
+                $space = $space && $access->can($user, $space, 'read') ? $space : null;
+            }
+        } elseif ($this->node !== null || $this->space !== null) {
             $requested = $this->node !== null ? $this->findNode($this->node) : null;
             if ($requested?->kind === 'file') {
                 $space = Space::query()->findOrFail($requested->space_id);
@@ -402,6 +562,10 @@ class Explorer extends Component
                         ->filter(fn (Node $node) => $this->canManageTrashed($node))
                     : $this->service()->children($user, $space, $folder);
             }
+        } elseif ($this->view === 'favorites') {
+            $rows = $this->collaboration()->favorites($user);
+        } elseif ($this->view === 'recent') {
+            $rows = $this->collaboration()->recent($user, CollaborationService::RECENT_KEEP);
         } elseif ($this->view === 'shared') {
             $rows = $this->service()->shared($user);
         } elseif ($this->view === 'trash') {
@@ -423,11 +587,27 @@ class Explorer extends Component
             'breadcrumbs' => $folder ? $this->breadcrumbs($folder) : collect(),
             'canWriteHere' => $this->view !== 'trash' && ($this->node === null || $folder) && ($folder || $space) && $access->can($user, $folder ?? $space, 'edit'),
             'canManage' => $canManage, 'subjects' => $subjects, 'destinations' => $destinations,
-            'versions' => $selected && $selected->kind === 'file' && ! $selected->trashed() ? $this->service()->versions($user, $selected) : collect(),
+            'versions' => $versions = $selected && $selected->kind === 'file' && ! $selected->trashed() ? $this->service()->versions($user, $selected) : collect(),
             'permissions' => $canManage ? $target->permissions()->get() : collect(),
             'effectiveLevel' => $target ? $access->level($user, $target) : null,
             'purgeAfter' => $selected?->trashed() ? $selected->deleted_at->copy()->addDays(FileService::retentionDays()) : null,
             'retentionDays' => FileService::retentionDays(),
+            'searching' => $searching,
+            'quotaWarning' => $space && $this->view !== 'trash' ? $this->service()->quotaWarning($space) : null,
+            'maxUploadKb' => FileService::maxUploadKb(),
+            'officeUrl' => $selected && app(OfficeService::class)->canOpen($user, $selected) ? route('dateien.office', ['node' => $selected->id]) : null,
+            'officeEditUrl' => $selected && app(OfficeService::class)->canOpen($user, $selected, true) ? route('dateien.office', ['node' => $selected->id, 'bearbeiten' => 1]) : null,
+            'officeEditing' => $selected && $selected->kind === 'file' && OfficeSession::editing($selected->id),
+            'allowedExtensions' => FileService::allowedExtensions(),
+            'shareNode' => $shareNode = $this->view !== 'trash' && ! $searching ? ($selected ?? $folder) : null,
+            'canShare' => $shareNode && ! $shareNode->trashed() && app(ShareService::class)->canCreate($user, $shareNode),
+            'shares' => $shareNode && ! $shareNode->trashed() ? app(ShareService::class)->forNode($user, $shareNode) : collect(),
+            'shareMaxDays' => ShareService::maxDays(),
+            'collabNode' => $collabNode = $this->view !== 'trash' && ! $searching ? ($selected ?? $folder) : null,
+            'isFavorite' => $collabNode && ! $collabNode->trashed() && $this->collaboration()->isFavorite($user, $collabNode),
+            'isSubscribed' => $collabNode && ! $collabNode->trashed() && $this->collaboration()->isSubscribed($user, $collabNode),
+            'comments' => $selected && ! $selected->trashed() ? $this->collaboration()->comments($user, $selected) : collect(),
+            'hasPreview' => $selected && $selected->kind === 'file' && ! $selected->trashed() && PreviewService::supports($versions->first()),
         ]);
     }
 

@@ -1,0 +1,4 @@
+# Invented test secrets for the Dateien office tests (FF Musterstadt), not credentials. Removed from
+# the files later; these fingerprints only cover the commits that still contain them.
+e70d3bfb13fd891dac73689e2e735994a61ebe70:tests/Feature/Extensions/Dateien/OfficeTest.php:generic-api-key:21
+92ee4c2a2bdd55b627b9742bab2da09fdcf338ed:tests/Feature/Extensions/Dateien/OfficeEditingTest.php:generic-api-key:21

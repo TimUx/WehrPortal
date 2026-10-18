@@ -4,7 +4,12 @@
     $link = 'text-sm font-medium text-fw-navy underline';
 @endphp
 <div class="mx-auto max-w-6xl space-y-4">
-    <h1 class="text-xl font-bold text-gray-900">Dateien</h1>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-xl font-bold text-gray-900">Dateien</h1>
+        <label class="w-full text-sm sm:w-72"><span class="sr-only">Dateien suchen</span>
+            <input type="search" wire:model.live.debounce.400ms="search" maxlength="100" placeholder="Name suchen …" class="{{ $input }} w-full">
+        </label>
+    </div>
     @if(session('flash'))
         <p role="status" class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{{ session('flash') }}</p>
     @endif
@@ -22,6 +27,8 @@
                 <p class="text-sm text-gray-500">Keine freigegebenen Bereiche.</p>
             @endforelse
             <hr class="border-gray-100">
+            <button type="button" wire:click="navigate(null, null, 'favorites')" class="block text-sm text-fw-navy">Favoriten</button>
+            <button type="button" wire:click="navigate(null, null, 'recent')" class="block text-sm text-fw-navy">Zuletzt verwendet</button>
             <button type="button" wire:click="navigate(null, null, 'shared')" class="block text-sm text-fw-navy">Mit mir geteilt</button>
             <button type="button" wire:click="navigate(null, null, 'trash')" class="block text-sm text-fw-navy">Papierkorb</button>
         </aside>
@@ -39,17 +46,30 @@
                     <button type="button" wire:click="navigate(null, {{ $crumb->id }})" class="{{ $link }}">{{ $crumb->name }}</button>
                 @endforeach
                 @if($view === 'trash')<span class="font-semibold">Papierkorb</span>@endif
+                @if($view === 'favorites')<span class="font-semibold">Favoriten</span>@endif
+                @if($view === 'recent')<span class="font-semibold">Zuletzt verwendet</span>@endif
+                @if($folder && ! $selected && $collabNode)
+                    <a href="{{ route('dateien.zip', ['node' => $folder->id]) }}" class="{{ $link }}">Als ZIP herunterladen</a>
+                    <button type="button" wire:click="toggleFavorite" class="{{ $link }}">{{ $isFavorite ? '★ Favorit' : '☆ Favorit' }}</button>
+                    <button type="button" wire:click="toggleSubscription" class="{{ $link }}">{{ $isSubscribed ? 'Abo beenden' : 'Abonnieren' }}</button>
+                @endif
                 @if($currentSpace && $view !== 'trash' && $access->can($user, $currentSpace, 'manage'))
                     <button type="button" wire:click="navigate({{ $currentSpace->id }}, null, 'trash')" class="{{ $link }} ml-auto">Papierkorb dieses Bereichs</button>
                 @endif
             </div>
-            @if($effectiveLevel)
+            @if($quotaWarning)
+                <p role="alert" class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">Speicherplatz dieses Bereichs zu {{ $quotaWarning['percent'] }} % belegt ({{ number_format($quotaWarning['used'] / 1048576, 1, ',', '.') }} von {{ number_format($quotaWarning['quota'] / 1048576, 1, ',', '.') }} MB, inklusive Versionen und Papierkorb).</p>
+            @endif
+            @if($searching)
+                <p class="text-sm text-gray-600">Suchergebnisse für „{{ $search }}“ (nur Einträge, die Sie öffnen dürfen; höchstens 50).</p>
+            @endif
+            @if($effectiveLevel && ! $searching)
                 <p class="text-sm text-gray-600">Ihr Recht: {{ ['read' => 'Lesen', 'edit' => 'Bearbeiten', 'manage' => 'Verwalten'][$effectiveLevel] }}</p>
             @endif
             @if($view === 'trash')
                 <p class="text-sm text-gray-500">Aufbewahrungsfrist im Papierkorb: {{ $retentionDays }} Tage. Danach können Einträge endgültig gelöscht werden. Das kann nicht rückgängig gemacht werden.</p>
             @endif
-            @if($canWriteHere)
+            @if($canWriteHere && ! $searching)
                 <div class="grid gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm lg:grid-cols-2">
                     <form wire:submit="createFolder" class="flex flex-wrap items-end gap-2">
                         <label class="min-w-0 flex-1 text-sm">Neuer Ordner
@@ -57,29 +77,26 @@
                         </label>
                         <button class="{{ $button }}" wire:loading.attr="disabled">Erstellen</button>
                     </form>
-                    <form wire:submit="uploadFile" class="flex min-w-0 flex-wrap items-end gap-2">
-                        <label class="min-w-0 flex-1 text-sm">Datei hochladen
-                            <input type="file" wire:model="upload" required class="mt-1 block w-full text-sm">
-                        </label>
-                        <button class="{{ $button }}" wire:loading.attr="disabled">Hochladen</button>
-                    </form>
+                    @include('dateien::partials.upload', ['label' => 'Dateien hochladen', 'multiple' => true, 'parent' => $folder?->id, 'spaceId' => $currentSpace?->id, 'nodeId' => null])
                 </div>
             @endif
             <div class="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white shadow-sm">
                 @forelse($rows as $row)
                     <div wire:key="node-{{ $row->id }}" class="flex items-center justify-between gap-3 px-4 py-3">
                         <div class="min-w-0">
-                            @if($row->kind === 'folder' && $view !== 'trash')
+                            @if($searching)
+                                <button type="button" wire:click="openResult({{ $row->id }})" class="break-words text-left font-semibold text-fw-navy">{{ $row->name }}</button>
+                            @elseif($row->kind === 'folder' && $view !== 'trash')
                                 <button type="button" wire:click="navigate(null, {{ $row->id }})" class="break-words text-left font-semibold text-fw-navy">{{ $row->name }}</button>
                             @else
                                 <button type="button" wire:click="select({{ $row->id }})" class="break-words text-left font-semibold text-gray-900">{{ $row->name }}</button>
                             @endif
                             <p class="text-xs text-gray-500">{{ $row->kind === 'folder' ? 'Ordner' : 'Datei' }}@if($row->trashed()) · Gelöscht {{ $row->deleted_at->timezone('Europe/Berlin')->format('d.m.Y H:i') }}@endif</p>
                         </div>
-                        <button type="button" wire:click="select({{ $row->id }})" class="{{ $link }}">Details</button>
+                        <button type="button" wire:click="{{ $searching ? 'openResult' : 'select' }}({{ $row->id }})" class="{{ $link }}">{{ $searching ? 'Öffnen' : 'Details' }}</button>
                     </div>
                 @empty
-                    <p class="px-4 py-6 text-sm text-gray-500">Keine Einträge.</p>
+                    <p class="px-4 py-6 text-sm text-gray-500">{{ $searching ? 'Keine Treffer.' : 'Keine Einträge.' }}</p>
                 @endforelse
             </div>
             @if($selected)
@@ -100,6 +117,26 @@
                             </div>
                         @endif
                     @else
+                        <div class="flex flex-wrap items-center gap-3">
+                            <button type="button" wire:click="toggleFavorite" class="{{ $link }}">{{ $isFavorite ? '★ Favorit' : '☆ Als Favorit merken' }}</button>
+                            <button type="button" wire:click="toggleSubscription" class="{{ $link }}">{{ $isSubscribed ? 'Abo beenden' : 'Bei Änderungen benachrichtigen' }}</button>
+                            @if($selected->kind === 'folder')
+                                <a href="{{ route('dateien.zip', ['node' => $selected->id]) }}" class="{{ $link }}">Als ZIP herunterladen</a>
+                            @endif
+                        </div>
+                        @if($hasPreview)
+                            <img src="{{ route('dateien.preview', ['node' => $selected->id, 'v' => $versions->first()->id]) }}" alt="Vorschau von {{ $selected->name }}" loading="lazy" class="max-h-80 max-w-full rounded-lg border border-gray-100">
+                        @endif
+                        @if($access->can($user, $selected, 'edit'))
+                            <form wire:submit="saveDescription" class="space-y-1">
+                                <label class="block text-sm">Beschreibung
+                                    <textarea wire:model="description" maxlength="2000" rows="2" class="{{ $input }} mt-1 block w-full"></textarea>
+                                </label>
+                                <button class="{{ $button }}" wire:loading.attr="disabled">Beschreibung speichern</button>
+                            </form>
+                        @elseif($selected->description)
+                            <p class="whitespace-pre-line text-sm text-gray-700">{{ $selected->description }}</p>
+                        @endif
                         @if($access->can($user, $selected, 'edit'))
                             <form wire:submit="rename" class="flex flex-wrap items-end gap-2">
                                 <label class="text-sm">Name<input wire:model="name" required maxlength="255" class="{{ $input }} ml-2"></label>
@@ -126,12 +163,18 @@
                             <button type="button" wire:click="trash" wire:confirm="Diesen Eintrag einschließlich Unterordnern in den Papierkorb verschieben?" wire:loading.attr="disabled" class="text-sm font-medium text-red-700 underline">In den Papierkorb</button>
                         @endif
                         @if($selected->kind === 'file')
+                            @if($officeEditUrl)
+                                <a href="{{ $officeEditUrl }}" target="_blank" rel="noopener" class="{{ $button }}">Im Office bearbeiten</a>
+                            @endif
+                            @if($officeUrl)
+                                <a href="{{ $officeUrl }}" target="_blank" rel="noopener" class="{{ $button }}">Im Office ansehen</a>
+                            @endif
+                            @if($officeEditing)
+                                <p class="text-sm text-gray-600" role="status">Wird gerade im Online-Office bearbeitet. Neue Versionen können erst danach hochgeladen werden.</p>
+                            @endif
                             <h3 class="font-semibold">Versionen</h3>
                             @if($access->can($user, $selected, 'edit'))
-                                <form wire:submit="addVersion" class="flex flex-wrap items-end gap-2">
-                                    <label class="text-sm">Neue Version<input type="file" wire:model="upload" required class="mt-1 block text-sm"></label>
-                                    <button class="{{ $button }}" wire:loading.attr="disabled">Version hochladen</button>
-                                </form>
+                                @include('dateien::partials.upload', ['label' => 'Neue Version', 'multiple' => false, 'parent' => null, 'spaceId' => null, 'nodeId' => $selected->id])
                             @endif
                             <ul class="divide-y divide-gray-100">
                                 @forelse($versions as $revision)
@@ -147,6 +190,27 @@
                                 @endforelse
                             </ul>
                         @endif
+                        <h3 class="font-semibold">Kommentare</h3>
+                        <ul class="space-y-2">
+                            @forelse($comments as $comment)
+                                <li class="text-sm" wire:key="comment-{{ $comment->id }}">
+                                    <p class="text-xs text-gray-500">{{ $comment->author?->name ?? 'Unbekannt' }} · {{ $comment->created_at?->timezone('Europe/Berlin')->format('d.m.Y H:i') }}
+                                        @if($comment->user_id === $user->id || $access->can($user, $selected, 'manage'))
+                                            <button type="button" wire:click="deleteComment({{ $comment->id }})" wire:confirm="Diesen Kommentar löschen?" class="{{ $link }} ml-2">Löschen</button>
+                                        @endif
+                                    </p>
+                                    <p class="whitespace-pre-line break-words">{{ $comment->body }}</p>
+                                </li>
+                            @empty
+                                <li class="text-sm text-gray-500">Noch keine Kommentare.</li>
+                            @endforelse
+                        </ul>
+                        <form wire:submit="addComment" class="space-y-1">
+                            <label class="block text-sm"><span class="sr-only">Kommentar</span>
+                                <textarea wire:model="commentBody" required maxlength="2000" rows="2" placeholder="Kommentar schreiben …" class="{{ $input }} block w-full"></textarea>
+                            </label>
+                            <button class="{{ $button }}" wire:loading.attr="disabled">Kommentieren</button>
+                        </form>
                     @endif
                 </section>
             @endif
@@ -193,6 +257,45 @@
                         </label>
                         <button class="{{ $button }}" wire:loading.attr="disabled">Übernehmen</button>
                     </form>
+                </section>
+            @endif
+            @if($shareNode && ($canShare || $shares->isNotEmpty()))
+                <section class="space-y-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                    <h2 class="font-semibold">Öffentliche Links: {{ $shareNode->name }}</h2>
+                    <p class="text-xs text-gray-500">Jeder mit dem Link kann {{ $shareNode->kind === 'folder' ? 'diesen Ordner samt Unterordnern ansehen und Dateien' : 'diese Datei' }} ohne Anmeldung herunterladen. Nur lesen, kein Office, keine Bearbeitung.</p>
+                    @if($newShareUrl)
+                        <div class="space-y-1 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+                            <p class="font-semibold">Link jetzt kopieren – er wird nur einmal angezeigt.</p>
+                            <input type="text" readonly value="{{ $newShareUrl }}" x-on:focus="$el.select()" class="{{ $input }} w-full font-mono">
+                        </div>
+                    @endif
+                    <ul class="space-y-1 text-sm">
+                        @forelse($shares as $share)
+                            <li class="flex flex-wrap items-center gap-2">
+                                <span>{{ $share->label ?: 'Link' }} · bis {{ $share->expires_at->timezone('Europe/Berlin')->format('d.m.Y H:i') }}{{ $share->password_hash ? ' · Passwort' : '' }}{{ $share->max_downloads ? ' · '.$share->download_count.'/'.$share->max_downloads.' Downloads' : ' · '.$share->download_count.' Downloads' }}</span>
+                                <button type="button" wire:click="revokeShare({{ $share->id }})" wire:confirm="Diesen Link widerrufen? Er funktioniert danach sofort nicht mehr." wire:loading.attr="disabled" class="{{ $link }}">Widerrufen</button>
+                            </li>
+                        @empty
+                            <li class="text-gray-500">Keine aktiven Links.</li>
+                        @endforelse
+                    </ul>
+                    @if($canShare)
+                        <form wire:submit="createShare" class="flex flex-wrap items-end gap-2">
+                            <label class="text-sm">Gültig (Tage)
+                                <input type="number" wire:model="shareDays" min="1" max="{{ $shareMaxDays }}" required class="{{ $input }} mt-1 block w-24">
+                            </label>
+                            <label class="text-sm">Passwort (optional)
+                                <input type="password" wire:model="sharePassword" minlength="8" maxlength="200" autocomplete="new-password" class="{{ $input }} mt-1 block">
+                            </label>
+                            <label class="text-sm">Max. Downloads (optional)
+                                <input type="number" wire:model="shareMaxDownloads" min="1" max="10000" class="{{ $input }} mt-1 block w-28">
+                            </label>
+                            <label class="text-sm">Bezeichnung (optional)
+                                <input type="text" wire:model="shareLabel" maxlength="150" class="{{ $input }} mt-1 block">
+                            </label>
+                            <button class="{{ $button }}" wire:loading.attr="disabled">Link erstellen</button>
+                        </form>
+                    @endif
                 </section>
             @endif
         </main>

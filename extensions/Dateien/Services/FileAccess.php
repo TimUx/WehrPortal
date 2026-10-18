@@ -66,27 +66,30 @@ class FileAccess
 
         $chain = [];
         if ($target instanceof Node) {
-            /** @var Node|null $node */
-            $node = Node::withTrashed()->find($target->getKey());
-            if (! $node) {
+            // The whole ancestor chain in one query instead of one query per level
+            $rows = DB::select(<<<'SQL'
+                WITH RECURSIVE chain AS (
+                    SELECT id, parent_id, space_id, deleted_at, inherit_permissions, 0 AS depth FROM x_files_nodes WHERE id = ?
+                    UNION ALL
+                    SELECT n.id, n.parent_id, n.space_id, n.deleted_at, n.inherit_permissions, c.depth + 1
+                    FROM x_files_nodes n JOIN chain c ON n.id = c.parent_id WHERE c.depth < 10000
+                ) SELECT id, parent_id, space_id, deleted_at, inherit_permissions FROM chain ORDER BY depth
+                SQL, [$target->getKey()]);
+            if ($rows === []) {
                 return null;
             }
-            $space = Space::find($node->space_id);
+            $space = Space::find($rows[0]->space_id);
             $seen = [];
-            while ($node) {
-                if (isset($seen[$node->id]) || ! $space || $node->space_id !== $space->id
-                    || ($node->trashed() && (! $allowTrashed || $chain !== []))) {
+            foreach ($rows as $row) {
+                if (isset($seen[$row->id]) || ! $space || (int) $row->space_id !== $space->id
+                    || ($row->deleted_at !== null && (! $allowTrashed || $chain !== []))) {
                     return null;
                 }
-                $seen[$node->id] = true;
-                $chain[] = $node;
-                if ($node->parent_id === null) {
-                    break;
-                }
-                $node = Node::withTrashed()->find($node->parent_id);
-                if (! $node) {
-                    return null;
-                }
+                $seen[$row->id] = true;
+                $chain[] = $row;
+            }
+            if (end($chain)->parent_id !== null) {
+                return null;
             }
         } else {
             /** @var Space|null $space */
@@ -109,29 +112,28 @@ class FileAccess
             $locations = (new LocationAccess)->visibleLocationIds($user);
             $groups->where(fn ($q) => $q->whereNull('x_files_groups.ext_location_id')->orWhereIn('x_files_groups.ext_location_id', $locations));
         }
-        $groups = $groups->pluck('group_id');
-        $best = 0;
+        $groups = $groups->pluck('group_id')->all();
+        $nodes = [];
         $inherit = true;
         foreach ($chain as $node) {
-            $best = max($best, $this->directLevel($user, $groups->all(), 'node', $node->id));
+            $nodes[] = (int) $node->id;
             if (! $node->inherit_permissions) {
                 $inherit = false;
                 break;
             }
         }
-        if ($inherit) {
-            $best = max($best, $this->directLevel($user, $groups->all(), 'space', $space->id));
-        }
-
-        return array_search($best, self::LEVELS, true) ?: null;
-    }
-
-    private function directLevel(User $user, array $groups, string $type, int $id): int
-    {
-        return Permission::where('target_type', $type)->where('target_id', $id)
+        $best = Permission::query()
+            ->where(function ($query) use ($nodes, $inherit, $space) {
+                $query->where(fn ($q) => $q->where('target_type', 'node')->whereIn('target_id', $nodes ?: [0]));
+                if ($inherit) {
+                    $query->orWhere(fn ($q) => $q->where('target_type', 'space')->where('target_id', $space->id));
+                }
+            })
             ->where(function ($query) use ($user, $groups) {
                 $query->where(fn ($q) => $q->where('subject_type', 'user')->where('subject_id', $user->id))
                     ->orWhere(fn ($q) => $q->where('subject_type', 'group')->whereIn('subject_id', $groups));
             })->pluck('level')->map(fn ($level) => self::LEVELS[$level] ?? 0)->max() ?? 0;
+
+        return array_search($best, self::LEVELS, true) ?: null;
     }
 }

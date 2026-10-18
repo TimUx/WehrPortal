@@ -64,7 +64,7 @@ it('authorizes every download and binds each revision to its actual file', funct
     $this->actingAs($this->member)->get($url)->assertForbidden();
     $this->files->setPermission($this->admin, $this->node, 'user', $this->member->id, 'read');
     $this->actingAs($this->member)->get($url)
-        ->assertOk()->assertContent('Erste Fassung')
+        ->assertOk()->assertStreamedContent('Erste Fassung')
         ->assertHeader('content-type', 'text/plain; charset=utf-8')
         ->assertHeader('x-content-type-options', 'nosniff');
     $other = $this->files->upload($this->admin, $this->space, null, filesUpload('Andere Datei', 'andere.txt'));
@@ -79,7 +79,7 @@ it('downloads percent and Unicode filenames with a safe encoded disposition', fu
     $node = $this->files->upload($this->admin, $this->space, null, filesUpload(name: $name));
     $response = $this->actingAs($this->admin)->get(route('dateien.download', [
         'node' => $node->id, 'version' => $node->versions()->sole()->id,
-    ]))->assertOk()->assertContent('Erste Fassung')
+    ]))->assertOk()->assertStreamedContent('Erste Fassung')
         ->assertHeader('content-type', 'text/plain; charset=utf-8')
         ->assertHeader('x-content-type-options', 'nosniff');
 

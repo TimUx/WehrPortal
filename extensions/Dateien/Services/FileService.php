@@ -8,15 +8,17 @@ use App\Support\FileResponse;
 use Extensions\Dateien\Models\AuditEvent;
 use Extensions\Dateien\Models\FileGroup;
 use Extensions\Dateien\Models\Node;
+use Extensions\Dateien\Models\OfficeSession;
 use Extensions\Dateien\Models\Permission;
 use Extensions\Dateien\Models\Space;
 use Extensions\Dateien\Models\Version;
+use Extensions\Dateien\Notifications\SharedWithYouNotification;
 use Extensions\Locations\Services\LocationAccess;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Database\DatabaseTransactionsManager;
 use Illuminate\Database\QueryException;
-use Illuminate\Http\Response;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -24,16 +26,23 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use League\Flysystem\FilesystemException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\HeaderUtils;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Throwable;
 
 class FileService
 {
     public function __construct(private FileAccess $access) {}
 
+    public static function maxUploadLimitKb(): int
+    {
+        return max(1, (int) config('dateien.max_upload_limit_kb', 51200));
+    }
+
     public static function maxUploadKb(): int
     {
-        return max(1, min(51200, (int) Setting::get('dateien.max_upload_kb', config('dateien.max_upload_kb', 20480))));
+        return max(1, min(self::maxUploadLimitKb(), (int) Setting::get('dateien.max_upload_kb', config('dateien.max_upload_kb', 20480))));
     }
 
     public static function allowedExtensions(): array
@@ -49,6 +58,39 @@ class FileService
     public static function retentionDays(): int
     {
         return max(0, min(3650, (int) Setting::get('dateien.retention_days', config('dateien.retention_days', 30))));
+    }
+
+    public static function quotaWarningPercent(): int
+    {
+        return max(1, min(100, (int) Setting::get('dateien.quota_warning_percent', config('dateien.quota_warning_percent', 90))));
+    }
+
+    public static function auditRetentionDays(): int
+    {
+        return max(0, min(36500, (int) Setting::get('dateien.audit_retention_days', config('dateien.audit_retention_days', 730))));
+    }
+
+    public static function verifyDownloads(): bool
+    {
+        return filter_var(Setting::get('dateien.verify_downloads', config('dateien.verify_downloads', true)), FILTER_VALIDATE_BOOLEAN);
+    }
+
+    /** Bytes counted against the quota: all versions, including the trash */
+    public function usage(Space $space): int
+    {
+        return (int) Version::whereIn('node_id', Node::withTrashed()->where('space_id', $space->id)->select('id'))->sum('size');
+    }
+
+    /** @return array{used: int, quota: int, percent: int}|null when the space has a quota and its warning threshold is reached */
+    public function quotaWarning(Space $space): ?array
+    {
+        if ($space->quota_bytes === null || $space->quota_bytes <= 0) {
+            return null;
+        }
+        $used = $this->usage($space);
+        $percent = (int) floor($used * 100 / $space->quota_bytes);
+
+        return $percent >= self::quotaWarningPercent() ? ['used' => $used, 'quota' => $space->quota_bytes, 'percent' => $percent] : null;
     }
 
     public function createSpace(User $user, array $data): Space
@@ -88,6 +130,7 @@ class FileService
             $parent = $this->destination($user, $space, $parent, 'edit');
             $node = Node::create(['space_id' => $space->id, 'parent_id' => $parent?->id, 'name' => $this->name($name), 'kind' => 'folder']);
             $this->audit($user, 'folder.created', $space, $node);
+            $this->collaboration()->notifySubscribers($user, $node, 'created');
 
             return $node;
         });
@@ -103,6 +146,7 @@ class FileService
                 $node = Node::create(['space_id' => $space->id, 'parent_id' => $parent?->id, 'name' => $name, 'kind' => 'file']);
                 $this->storeVersion($user, $space, $node, $file, null, $keys);
                 $this->audit($user, 'file.created', $space, $node);
+                $this->collaboration()->notifySubscribers($user, $node, 'created');
 
                 return $node;
             });
@@ -125,12 +169,31 @@ class FileService
         }
     }
 
+    /**
+     * Stores a file returned by the office server as a new version (source "office"). The Kamerad of
+     * the session needs edit rights now; the quota applies. An autosave of the same session that is
+     * still the newest version is replaced, so one session leaves one version plus explicit saves.
+     */
+    public function addOfficeVersion(User $user, Node $node, UploadedFile $file, int $sessionId, bool $autosave): Version
+    {
+        $keys = [];
+        try {
+            return $this->mutateNode($user, $node, 'edit', function (Space $space, Node $node) use ($user, $file, $sessionId, $autosave, &$keys) {
+                return $this->storeVersion($user, $space, $node, $file, null, $keys, ['session' => $sessionId, 'autosave' => $autosave]);
+            });
+        } catch (Throwable $e) {
+            $this->cleanup($keys);
+            throw $e;
+        }
+    }
+
     public function restoreVersion(User $user, Node $node, Version $version, ?int $expectedVersion = null): Version
     {
         $keys = [];
         try {
             return $this->mutateNode($user, $node, 'edit', function (Space $space, Node $node) use ($user, $version, $expectedVersion, &$keys) {
                 $this->assertFile($node);
+                $this->assertNotEditedInOffice($node);
                 $version = Version::where('node_id', $node->id)->find($version->id);
                 if (! $version) {
                     $this->invalid('version', 'Diese Version gehört nicht zu dieser Datei.');
@@ -178,6 +241,19 @@ class FileService
             }
             $node->update(['name' => $name]);
             $this->audit($user, 'node.renamed', $space, $node);
+        });
+    }
+
+    /** A short text about the entry; edit right, searchable through the full-text index */
+    public function describe(User $user, Node $node, ?string $description): void
+    {
+        $description = $description === null ? null : trim($description);
+        if ($description !== null && (mb_strlen($description) > 2000 || ! mb_check_encoding($description, 'UTF-8'))) {
+            $this->invalid('description', 'Die Beschreibung darf höchstens 2000 Zeichen lang sein.');
+        }
+        $this->mutateNode($user, $node, 'edit', function (Space $space, Node $node) use ($user, $description) {
+            $node->forceFill(['description' => $description === '' ? null : $description])->save();
+            $this->audit($user, 'node.described', $space, $node);
         });
     }
 
@@ -277,10 +353,14 @@ class FileService
                 }
             }
             $key = ['target_type' => $target instanceof Space ? 'space' : 'node', 'target_id' => $target->id, 'subject_type' => $subjectType, 'subject_id' => $subjectId];
+            $previous = Permission::where($key)->value('level');
             if ($level === null) {
                 Permission::where($key)->delete();
             } else {
                 Permission::updateOrCreate($key, ['level' => $level]);
+                if ($previous !== $level) {
+                    DB::afterCommit(fn () => $this->notifyShared($user, $target, $subjectType, $subjectId, $level));
+                }
             }
             $this->audit($user, 'permission.changed', $space, $target instanceof Node ? $target : null, ['subject_type' => $subjectType, 'subject_id' => $subjectId, 'level' => $level]);
         });
@@ -332,6 +412,50 @@ class FileService
         return Node::whereIn('id', $ids)->orderBy('name')->get()->filter(fn (Node $node) => $this->access->can($user, $node, 'read'))->values();
     }
 
+    /**
+     * Name and full-text search (name + description) over active entries. The database narrows the candidates to spaces the user can
+     * reach at all (space permission, or any direct share inside); every hit is then checked
+     * with the full ACL, so nothing from a locked area, another Standort or the trash leaks.
+     *
+     * @return Collection<int, Node>
+     */
+    public function search(User $user, string $term, ?Space $space = null, int $limit = 50): Collection
+    {
+        $user = $this->access->member($user);
+        $term = trim($term);
+        if (mb_strlen($term) < 2) {
+            return collect();
+        }
+        $pattern = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], mb_strtolower($term)).'%';
+        // Name substring, or the German full-text index over name and description (x_files_nodes_fulltext)
+        $query = Node::query()->where(fn ($q) => $q->whereRaw("lower(name) LIKE ? ESCAPE '\\'", [$pattern])
+            ->orWhereRaw("to_tsvector('german', name || ' ' || coalesce(description, '')) @@ plainto_tsquery('german', ?)", [$term]))
+            ->orderBy('name')->orderBy('id');
+        if ($space) {
+            $query->where('space_id', $space->id);
+        }
+        if (! $user->is_admin) {
+            $groups = DB::table('x_files_group_members')->where('user_id', $user->id)->select('group_id');
+            $subject = fn ($q) => $q->where(fn ($q) => $q->where('subject_type', 'user')->where('subject_id', $user->id))
+                ->orWhere(fn ($q) => $q->where('subject_type', 'group')->whereIn('subject_id', $groups));
+            $spaces = Permission::where('target_type', 'space')->where($subject)->select('target_id');
+            $shared = Node::withTrashed()->whereIn('id', Permission::where('target_type', 'node')->where($subject)->select('target_id'))->select('space_id');
+            $query->where(fn ($q) => $q->whereIn('space_id', $spaces)->orWhereIn('space_id', $shared));
+        }
+
+        $hits = collect();
+        foreach ($query->limit(1000)->get() as $node) {
+            if ($this->access->can($user, $node, 'read')) {
+                $hits->push($node);
+                if ($hits->count() >= $limit) {
+                    break;
+                }
+            }
+        }
+
+        return $hits;
+    }
+
     /** @return Collection<int, Node> */
     public function trashItems(User $user, Space $space): Collection
     {
@@ -356,35 +480,72 @@ class FileService
         return Version::where('node_id', $node->id)->orderByDesc('number')->get();
     }
 
-    public function download(User $user, Node $node, ?Version $version = null): Response
+    /**
+     * Streams a version from the private disk: constant memory, HTTP Range for PDF viewers and
+     * media, the same fixed type/disposition/nosniff/sandbox rules as FileResponse. No lock on
+     * the space – a long download must not block writers.
+     */
+    public function download(User $user, Node $node, ?Version $version = null, ?Request $request = null): SymfonyResponse
     {
-        return $this->mutateNode($user, $node, 'read', function (Space $space, Node $node) use ($user, $version) {
-            $this->assertFile($node);
-            $version = $version ? Version::where('node_id', $node->id)->findOrFail($version->id) : Version::where('node_id', $node->id)->orderByDesc('number')->firstOrFail();
-            try {
-                $bytes = $this->disk()->get($this->storageKey($version->storage_key));
-            } catch (FilesystemException $e) {
-                report($e);
-                abort(404, 'Die gespeicherte Datei ist nicht verfügbar.');
-            }
-            if (! is_string($bytes)) {
-                abort(404, 'Die gespeicherte Datei ist nicht verfügbar.');
-            }
-            if (! hash_equals($version->checksum, hash('sha256', $bytes))) {
+        $this->access->authorize($user, $node, 'read');
+
+        return $this->stream($node, $version, $request, function (Node $node, Version $version) use ($user) {
+            $this->audit($user, 'version.downloaded', $this->spaceOf($node), $node, ['version_id' => $version->id]);
+            $this->collaboration()->touchRecent($user, $node);
+        });
+    }
+
+    /**
+     * Streams a file without a Kamerad. Only for callers that authorized the access themselves
+     * (public links in ShareService). $onComplete runs for full downloads (not for later ranges).
+     *
+     * @param  callable(Node, Version): void  $onComplete
+     */
+    public function stream(Node $node, ?Version $version, ?Request $request, callable $onComplete): SymfonyResponse
+    {
+        $node = Node::query()->findOrFail($node->id);
+        $this->assertFile($node);
+        $version = $version ? Version::where('node_id', $node->id)->findOrFail($version->id) : Version::where('node_id', $node->id)->orderByDesc('number')->firstOrFail();
+        $key = $this->storageKey($version->storage_key);
+        $disk = $this->disk();
+        try {
+            $exists = $disk->exists($key);
+        } catch (FilesystemException $e) {
+            report($e);
+            $exists = false;
+        }
+        if (! $exists) {
+            abort(404, 'Die gespeicherte Datei ist nicht verfügbar.');
+        }
+        $path = $disk->path($key);
+        $range = ($request ?? request())->headers->get('Range');
+        $partial = $range !== null && ! preg_match('/^bytes=0-/', $range);
+        if ((! $partial && self::verifyDownloads()) || filesize($path) !== $version->size) {
+            if (filesize($path) !== $version->size || ! hash_equals($version->checksum, (string) hash_file('sha256', $path))) {
                 $this->invalid('file', 'Die Prüfsumme der gespeicherten Datei stimmt nicht.');
             }
-            $this->audit($user, 'version.downloaded', $space, $node, ['version_id' => $version->id]);
-            $name = pathinfo($node->name, PATHINFO_FILENAME).'.'.$version->extension;
-            $fallback = str_replace(['%', '/', '\\'], '_', preg_replace('/[^\x20-\x7e]/', '_', Str::ascii($name))) ?: 'datei.'.$version->extension;
-            $response = FileResponse::make($bytes, $fallback, 'private, no-store');
-            $response->headers->set('Content-Disposition', HeaderUtils::makeDisposition(
-                isset(FileResponse::INLINE[$version->extension]) ? 'inline' : 'attachment',
-                $name,
-                $fallback,
-            ));
+        }
+        if (! $partial) {
+            $onComplete($node, $version);
+        }
 
-            return $response;
-        });
+        $name = pathinfo($node->name, PATHINFO_FILENAME).'.'.$version->extension;
+        $fallback = str_replace(['%', '/', '\\'], '_', preg_replace('/[^\x20-\x7e]/', '_', Str::ascii($name))) ?: 'datei.'.$version->extension;
+        $type = FileResponse::INLINE[$version->extension] ?? FileResponse::DOWNLOAD[$version->extension] ?? 'application/octet-stream';
+        $response = new BinaryFileResponse($path, 200, [], false, null, false, true);
+        $response->headers->set('Content-Type', $type.(str_starts_with($type, 'text/') ? '; charset=utf-8' : ''));
+        $response->headers->set('Content-Disposition', HeaderUtils::makeDisposition(
+            isset(FileResponse::INLINE[$version->extension]) ? 'inline' : 'attachment',
+            $name,
+            $fallback,
+        ));
+        $response->headers->set('X-Content-Type-Options', 'nosniff');
+        $response->headers->set('Cache-Control', 'private, no-store');
+        if ($type !== 'application/pdf') {
+            $response->headers->set('Content-Security-Policy', "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'");
+        }
+
+        return $response;
     }
 
     public function purgeExpired(User $user): int
@@ -492,9 +653,13 @@ class FileService
         return $parent;
     }
 
-    private function storeVersion(User $user, Space $space, Node $node, UploadedFile $file, ?int $expected, array &$keys): Version
+    /** @param  array{session: int, autosave: bool}|null  $office  set for saves from the office server */
+    private function storeVersion(User $user, Space $space, Node $node, UploadedFile $file, ?int $expected, array &$keys, ?array $office = null): Version
     {
         $this->assertFile($node);
+        if ($office === null) {
+            $this->assertNotEditedInOffice($node);
+        }
         $latest = $this->latest($node, $expected);
         [$extension, $mime, $size, $checksum] = $this->validateUpload($file);
         if ($extension !== strtolower(pathinfo($node->name, PATHINFO_EXTENSION))) {
@@ -503,7 +668,9 @@ class FileService
         if ($latest && hash_equals($latest->checksum, $checksum)) {
             return $latest;
         }
-        $this->quota($space, $size);
+        $replace = $office !== null && $latest && $latest->source === 'office' && $latest->autosave
+            && $latest->office_session_id === $office['session'];
+        $this->quota($space, $size - ($replace ? $latest->size : 0));
         $key = $this->key($space);
         $keys[] = $key;
         $stream = fopen($file->getRealPath(), 'rb');
@@ -518,12 +685,31 @@ class FileService
         if (! hash_equals($checksum, hash_file('sha256', $this->disk()->path($key)))) {
             $this->invalid('file', 'Die Prüfsumme der hochgeladenen Datei stimmt nicht.');
         }
+        if ($replace) {
+            // The replaced autosave goes through the deletion outbox like purged files
+            DB::table('x_files_pending_deletions')->insertOrIgnore(['storage_key' => $this->storageKey($latest->storage_key), 'created_at' => now()]);
+            $latest->delete();
+            DB::afterCommit(function () {
+                try {
+                    $this->drainDeletions();
+                } catch (Throwable $e) {
+                    report($e);
+                }
+            });
+        }
         $version = Version::create([
-            'node_id' => $node->id, 'number' => ($latest->number ?? 0) + 1, 'storage_key' => $key,
+            'node_id' => $node->id, 'number' => $replace ? $latest->number : ($latest->number ?? 0) + 1, 'storage_key' => $key,
             'checksum' => $checksum, 'size' => $size, 'mime' => $mime, 'extension' => $extension,
-            'created_by' => $user->id, 'source' => 'upload',
+            'created_by' => $user->id, 'source' => $office === null ? 'upload' : 'office',
+            'office_session_id' => $office['session'] ?? null, 'autosave' => $office['autosave'] ?? false,
         ]);
-        $this->audit($user, 'version.created', $space, $node, ['version_id' => $version->id, 'number' => $version->number, 'size' => $size]);
+        $this->audit($user, 'version.created', $space, $node, array_filter([
+            'version_id' => $version->id, 'number' => $version->number, 'size' => $size,
+            'source' => $office === null ? null : 'office', 'replaced_autosave' => $replace ? $latest->id : null,
+        ], fn ($value) => $value !== null));
+        if ($latest && ! $version->autosave) {
+            $this->collaboration()->notifySubscribers($user, $node, 'version');
+        }
 
         return $version;
     }
@@ -592,10 +778,16 @@ class FileService
         }
     }
 
+    private function assertNotEditedInOffice(Node $node): void
+    {
+        if (OfficeSession::editing($node->id)) {
+            $this->invalid('file', 'Die Datei wird gerade im Online-Office bearbeitet. Bitte später erneut versuchen.');
+        }
+    }
+
     private function quota(Space $space, int $bytes): void
     {
-        $used = (int) Version::whereIn('node_id', Node::withTrashed()->where('space_id', $space->id)->select('id'))->sum('size');
-        if ($space->quota_bytes !== null && $used + $bytes > $space->quota_bytes) {
+        if ($space->quota_bytes !== null && $this->usage($space) + $bytes > $space->quota_bytes) {
             $this->invalid('file', 'Das Speicherlimit dieses Bereichs ist erreicht.');
         }
     }
@@ -630,12 +822,59 @@ class FileService
         return $ids;
     }
 
+    /**
+     * "Mit dir geteilt" under the bell (and by mail/push). Only names and the level, never file
+     * contents; only recipients who can actually open the target now; failures never undo the share.
+     */
+    private function notifyShared(User $actor, Space|Node $target, string $subjectType, int $subjectId, string $level): void
+    {
+        try {
+            $ids = $subjectType === 'user'
+                ? [$subjectId]
+                : DB::table('x_files_group_members')->where('group_id', $subjectId)->pluck('user_id')->all();
+            $recipients = User::query()->whereIn('id', $ids)->whereKeyNot($actor->id)->where('is_active', true)->get()
+                ->filter(fn (User $recipient) => $this->access->can($recipient, $target, 'read'));
+            foreach ($recipients as $recipient) {
+                try {
+                    $recipient->notify(new SharedWithYouNotification($target, $actor->name, $level));
+                } catch (Throwable $e) {
+                    report($e);
+                }
+            }
+        } catch (Throwable $e) {
+            report($e);
+        }
+    }
+
     private function audit(User $user, string $action, Space $space, ?Node $node = null, array $metadata = []): void
     {
         AuditEvent::create(['actor_id' => $user->id, 'action' => $action, 'space_id' => $space->id, 'node_id' => $node?->id, 'metadata' => $metadata]);
     }
 
-    private function disk(): Filesystem
+    private function collaboration(): CollaborationService
+    {
+        return app(CollaborationService::class);
+    }
+
+    /** Local path of a stored version, or null when the file is missing or has the wrong size */
+    public function pathOf(Version $version): ?string
+    {
+        $key = $this->storageKey($version->storage_key);
+        try {
+            if (! $this->disk()->exists($key)) {
+                return null;
+            }
+        } catch (FilesystemException $e) {
+            report($e);
+
+            return null;
+        }
+        $path = $this->disk()->path($key);
+
+        return filesize($path) === $version->size ? $path : null;
+    }
+
+    public function disk(): Filesystem
     {
         // Never accept a public or remote disk configuration for this private local store.
         $config = config('filesystems.disks.dateien');
@@ -694,21 +933,49 @@ class FileService
         }
     }
 
-    private function drainDeletions(): void
+    /**
+     * Works through the deletion outbox. Failures stay queued with exponential backoff
+     * (2^attempts minutes, at most a day); $force ignores the backoff (admin "retry now").
+     *
+     * @return array{deleted: int, failed: int, kept: int}
+     */
+    public function drainPendingDeletions(bool $force = false): array
     {
-        foreach (DB::table('x_files_pending_deletions')->orderBy('id')->limit(500)->get() as $entry) {
+        $result = ['deleted' => 0, 'failed' => 0, 'kept' => 0];
+        $query = DB::table('x_files_pending_deletions')->orderBy('id')->limit(500);
+        if (! $force) {
+            $query->where(fn ($q) => $q->whereNull('next_attempt_at')->orWhere('next_attempt_at', '<=', now()));
+        }
+        foreach ($query->get() as $entry) {
             try {
                 $key = $this->storageKey($entry->storage_key);
                 if (Version::where('storage_key', $key)->exists()) {
+                    // Still referenced (e.g. restored from a backup): never delete live content
+                    $result['kept']++;
+
                     continue;
                 }
-                if ($this->disk()->delete($key)) {
-                    DB::table('x_files_pending_deletions')->where('id', $entry->id)->delete();
-                }
+                $this->disk()->delete($key);
+                DB::table('x_files_pending_deletions')->where('id', $entry->id)->delete();
+                $result['deleted']++;
             } catch (Throwable $e) {
                 report($e);
+                $attempts = (int) $entry->attempts + 1;
+                DB::table('x_files_pending_deletions')->where('id', $entry->id)->update([
+                    'attempts' => $attempts,
+                    'next_attempt_at' => now()->addMinutes(min(1440, 2 ** min($attempts, 11))),
+                    'last_error' => Str::limit(class_basename($e).': '.$e->getMessage(), 250),
+                ]);
+                $result['failed']++;
             }
         }
+
+        return $result;
+    }
+
+    private function drainDeletions(): void
+    {
+        $this->drainPendingDeletions(true);
     }
 
     private function invalid(string $field, string $message): never

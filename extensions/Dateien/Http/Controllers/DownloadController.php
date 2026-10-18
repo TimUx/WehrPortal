@@ -8,7 +8,7 @@ use Extensions\Dateien\Models\Version;
 use Extensions\Dateien\Services\FileAccess;
 use Extensions\Dateien\Services\FileService;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
+use Symfony\Component\HttpFoundation\Response;
 
 class DownloadController
 {
@@ -21,6 +21,6 @@ class DownloadController
         abort_unless($file->kind === 'file', 404);
         $revision = Version::query()->where('node_id', $file->id)->findOrFail($version);
 
-        return $files->download($user, $file, $revision);
+        return $files->download($user, $file, $revision, $request);
     }
 }

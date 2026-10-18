@@ -13,7 +13,7 @@ class Node extends Model
 
     protected $table = 'x_files_nodes';
 
-    protected $fillable = ['space_id', 'parent_id', 'name', 'kind', 'inherit_permissions'];
+    protected $fillable = ['space_id', 'parent_id', 'name', 'kind', 'inherit_permissions', 'description'];
 
     protected function casts(): array
     {

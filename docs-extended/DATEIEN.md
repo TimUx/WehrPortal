@@ -75,4 +75,68 @@ Pest-Featuretests liegen unter `tests/Feature/Extensions/Dateien/` und benötige
 
 Geprüft werden Modulfreigabe, Benutzer-/Gruppenrechte, Vererbungsgrenzen, Direktfreigaben ohne Metadatenlecks, Versionierung und Wiederherstellung, Namens-/Versionskonflikte, Papierkorb, IDOR-Schutz und Standortgrenzen.
 
-Nicht enthalten: externe Freigabelinks, OnlyOffice/Collabora, WOPI/JWT/Office-Sessions, Volltextindex, WebDAV, Desktop-Sync, Offline-Bearbeitung und Favoriten. Für den nächsten Meilenstein sind Office-Anbindung und deren separate Sicherheits-/Betriebsanforderungen zu planen; dieser Meilenstein stellt dafür noch keine öffentlichen Bearbeitungsendpunkte bereit.
+Nicht enthalten: Volltext über Dateiinhalte, WebDAV, Desktop-Sync, Offline-Bearbeitung und Favoriten.
+
+## Betrieb (Meilenstein 2)
+
+- **Hochladen:** mehrere Dateien per Drag & Drop oder Auswahl, mit Fortschritt und Abbrechen (`POST /dateien/hochladen`, eine Datei pro Anfrage). Größenobergrenze der Admin-Einstellung: `DATEIEN_MAX_UPLOAD_LIMIT_KB` (Standard 51200). PHP (`upload_max_filesize`, `post_max_size`) und Reverse-Proxy müssen mindestens so viel zulassen.
+- **Herunterladen:** gestreamt mit Range-Anfragen; Prüfsumme wird vor der Auslieferung geprüft (abschaltbar). Begrenzung: 60 Uploads und 300 Downloads pro Minute und Kamerad (`config/dateien.php` → `rate_limits`).
+- **Suche:** Namenssuche über alle Bereiche; nur Einträge, die der Kamerad lesen darf, nie Papierkorb.
+- **Benachrichtigung:** neue oder geänderte Freigaben melden sich bei den Empfängern (Glocke, Mail, Push), nur Name und Recht.
+- **Kontingent-Warnung** ab einstellbarem Prozentsatz (Standard 90 %).
+- **Dateiprotokoll:** `/admin/dateien/protokoll` (nur Admins), Filter und CSV-Export. Aufbewahrung einstellbar (Standard 730 Tage, 0 = unbegrenzt); `dateien:prune-audit` löscht täglich, sonst bleibt das Protokoll unveränderbar.
+- **Geplante Läufe:** `dateien:drain-deletions` (alle 15 Min., ausstehende physische Löschungen mit wachsendem Abstand), `dateien:prune-audit` (täglich), `dateien:reconcile` (wöchentlich, löscht nichts).
+- **Sicherung/Wiederherstellung:** Datenbank und `storage/app/private/dateien` gemeinsam sichern (zuerst DB, dann Dateien). Nach einer Wiederherstellung `php artisan dateien:reconcile --verify` ausführen; Exit-Code ≠ 0 bei fehlenden, veränderten oder verwaisten Dateien. Verwaiste Dateien löscht nur ein Admin auf der Verwaltungsseite nach erneuter Prüfung.
+- **Ausgeschiedene/inaktive Kameraden** verlieren sofort jeden Zugriff; ihre Freigaben bleiben bis zur Reaktivierung bestehen. „Löschen mit Übertragung“ überträgt ihre Versionen an den gewählten Kameraden; das Protokoll behält die ursprüngliche ID.
+
+## Online-Office (Meilensteine 3 und 4)
+
+- **Anbieter:** ONLYOFFICE Docs (ab 8.1, wegen PDF) **oder** Collabora Online (WOPI); höchstens einer je Instanz. Einstellung in `/admin/dateien` → „Online-Office“ (nur Admins).
+- **Adressen:**
+  - *Office-Server für den Browser* (z. B. `https://office.ff-musterstadt.de`): iframe, Skript, CSP.
+  - *Interne Adresse* (optional, z. B. `http://onlyoffice` im Docker-Netz): Healthcheck bzw. `/hosting/discovery`.
+  - *Rückruf-Adresse der App* (leer = `APP_URL`): so erreicht der Office-Server die App.
+  - Bewusste Entscheidung: diese Admin-Adressen laufen **nicht** über `SafeUrl` (interne Ziele sind erlaubt); die App ruft nur genau diese Adressen auf, ohne Weiterleitungen, Timeout 5 s.
+- **ONLYOFFICE:** JWT-Secret Pflicht (≥ 32 Zeichen, gleich `JWT_SECRET` des Document Servers), verschlüsselt gespeichert, im Aktivitätsprotokoll maskiert. Konfiguration, Dateiabruf und Rückruf sind HS256-signiert; andere Algorithmen werden abgelehnt.
+- **Collabora:** Jeder WOPI-Aufruf (`CheckFileInfo`, `GetFile`) braucht eine gültige Proof-Signatur (Schlüssel aus Discovery, auch der alte Schlüssel, höchstens 20 Minuten alt). Discovery wird eine Stunde zwischengespeichert.
+- **Office-Sitzungen** (`x_files_office_sessions`): zufälliges Token je Öffnen, nur als SHA-256 gespeichert, gebunden an Kamerad, Datei, Version und Anbieter, 8 Stunden gültig (`config/dateien.php` → `office.session_minutes`). Bei **jedem** Aufruf des Office-Servers werden Token, Ablauf, Widerruf, Datei und die aktuellen Rechte (inkl. Standort, Status, Modulzugang) erneut geprüft. Antworten: 401 (Token/Signatur), 403 (Recht entzogen), 404 (Modul oder Office aus).
+- **Routen ohne Login** unter `/dateien/office/…`: kein Session-Cookie, kein CSRF, eigenes Rate-Limit (600/Min. je IP), `NoIndex` global.
+- **Editor-Seite** `/dateien/dateien/{id}/office`: eigene, **erzwungene** CSP (`default-src 'none'`, Skripte nur mit Nonce und vom Office-Host, `frame-src`/`form-action` nur Office-Host), `no-referrer` per Meta-Tag.
+- **Protokoll:** `office.opened` (mit Stufe `read`/`edit`), `office.closed` (ONLYOFFICE Status 2/4, WOPI Unlock, untätig, abgelaufen, widerrufen), `office.revoked_all`, `office.settings_changed` – nie Tokens oder Secrets.
+- **Widerruf:** Knopf „Alle Office-Sitzungen beenden“; Wechsel von Anbieter, Server-Adresse oder Secret beendet alle Sitzungen automatisch. `dateien:prune-office-sessions` (stündlich) räumt abgelaufene Sitzungen auf.
+- **Bearbeiten (M4):**
+  - Knopf „Im Office bearbeiten“ nur mit Recht `edit` und nur für Formate, die beide Server im selben Format zurückspeichern: `docx`, `odt`, `txt`, `xlsx`, `ods`, `csv`, `pptx`, `odp` (alte Binärformate und PDF nur ansehen). Admin-Schalter „Bearbeiten im Office erlauben“ (Standard an); aus = Speichern wird abgelehnt.
+  - Sitzungen mit Stufe `edit` arbeiten immer auf der neuesten Version; jede Speicherung prüft die **aktuellen** Bearbeitungsrechte und das Speicherlimit und wird eine Version mit Quelle `office` (Ersteller = Kamerad der Sitzung).
+  - **ONLYOFFICE:** Alle, die dieselbe Version öffnen, bearbeiten gemeinsam (gleicher `document.key`). Rückruf Status 2 (alle geschlossen) und 6 (Speichern-Knopf/Forcesave) speichern; der Download erfolgt **nur** vom eingestellten Office-Server (Browser- oder interne Adresse; die Browser-Adresse wird intern abgerufen), ohne Weiterleitungen, höchstens bis zum Upload-Limit, Timeout `office.save_timeout` (60 s). Es zählt nur der Inhalt des geprüften JWT; ein abweichender `filetype` oder `key` wird abgelehnt. Fehlschlag → `{"error":1}` (der Document Server behält das Dokument) und `office.save_failed`.
+  - **Collabora (WOPI):** `Lock`, `GetLock`, `RefreshLock`, `Unlock` (30 Minuten, `x_files_office_locks`), `PutFile` nur mit der aktuellen Sperre, sonst 409 mit `X-WOPI-Lock`. Weicht `X-COOL-WOPI-Timestamp` von der neuesten Version ab, folgt 409 mit `COOLStatusCode 1010` (Collabora fragt dann nach). `PutRelativeFile` und `RenameFile` sind abgeschaltet (501). Schreiben nur mit einer Bearbeitungssitzung.
+  - **Versionen:** Automatische Zwischenspeicherungen (Collabora `IsAutosave`, ONLYOFFICE Forcesave per Timer) ersetzen die vorige Zwischenspeicherung **derselben Sitzung**, solange sie die neueste Version ist; ausdrückliche Speicherungen und das Schließen bleiben eigene Versionen. Ersetzte Dateien gehen über die Lösch-Warteschlange.
+  - **Sperre für Uploads:** Solange eine Bearbeitungssitzung aktiv ist (Aktivität innerhalb `office.edit_idle_minutes`, 60 Min.) oder eine WOPI-Sperre gilt, werden „Neue Version“ und „Wiederherstellen“ abgelehnt; der Explorer zeigt einen Hinweis. Wurde trotzdem außerhalb des Office gespeichert (nach Ablauf des Fensters), bleibt die Office-Speicherung eine weitere Version und `office.saved` vermerkt `conflict`.
+  - `dateien:prune-office-sessions` beendet zusätzlich untätige Bearbeitungssitzungen (`office.closed`, Grund `idle`) und löscht abgelaufene Sperren.
+  - **Protokoll:** `office.saved` (Version, Autosave, beteiligte Kameraden bei ONLYOFFICE), `office.save_failed` (Grund, ohne Inhalt).
+
+## Öffentliche Links (Meilenstein 5)
+
+Optional und **standardmäßig aus**. Damit gibt ein Verwalter eine Datei oder einen Ordner an Externe (Gemeinde, Nachbarwehr) zum Herunterladen frei, ohne Anmeldung.
+
+- **Einschalten (Admin, `/admin/dateien` → „Öffentliche Links“):** globaler Schalter und Höchstdauer (1–365 Tage, Standard 30); zusätzlich jede Ablage einzeln „Erlauben“. Ohne beides entsteht kein Link; Ausschalten (global oder pro Ablage) macht alle bestehenden Links sofort wirkungslos. Dort steht auch die Liste aller aktiven Links mit Widerruf.
+- **Erstellen (Explorer, Abschnitt „Öffentliche Links“):** nur mit Recht „Verwalten“ auf dem Eintrag. Pflicht: Gültigkeit in Tagen; optional Passwort (mind. 8 Zeichen), Download-Limit, Bezeichnung. Der Link wird **nur einmal** angezeigt (gespeichert ist nur der SHA-256-Hash des 48-Zeichen-Tokens). Verwalter sehen die aktiven Links des Eintrags und widerrufen sie.
+- **Öffentliche Seite `/freigabe/{token}`:** zeigt nur den freigegebenen Teilbaum (Pfad ab der Freigabe, keine Namen darüber oder daneben), Name, Größe, Datum; Download der jeweils neuesten Version. Kein Office, keine Bearbeitung, keine älteren Versionen. Eigenständige Seite ohne App-Layout, eigene CSP (`default-src 'none'`), `Cache-Control: no-store`, `<meta name="referrer" content="no-referrer">` (der globale Header aus `SecurityHeaders` bleibt), `noindex`; der Service Worker lässt `/freigabe/` aus.
+- **Immer 404** (ohne Unterscheidung), wenn: Funktion aus, Modul aus, Ablage nicht freigegeben, Link abgelaufen, widerrufen oder Download-Limit erreicht, Eintrag oder ein übergeordneter Ordner im Papierkorb, Ziel außerhalb des Teilbaums (IDOR), Ersteller hat „Verwalten“ verloren oder ist nicht mehr aktiv.
+- **Download-Limit:** wird atomar gezählt (`UPDATE … WHERE download_count < max_downloads`); öffentliche Downloads liefern nur ganze Dateien (`Range` wird ignoriert), damit das Limit nicht stückweise umgangen wird.
+- **Schutz:** Rate-Limit pro Adresse (`dateien.shares.rate_limit`, 60/min) für Seiten und Downloads; Passwort 5 Fehlversuche pro Adresse und 30 pro Link in 15 Minuten, danach 429. Entsperren gilt für die Browsersitzung (Session wird erneuert).
+- **Audit:** `share.created`, `share.revoked`, `share.downloaded`, `share.unlocked`, `share.password_failed`, `share.settings_changed`, `share.space_changed`; IP gekürzt (IPv4 /24, IPv6 /48), nie das Token.
+- **Aufräumen:** `dateien:prune-shares` (täglich 03:30) löscht Links 30 Tage nach Ablauf oder Widerruf.
+- **Grenzen:** Ein weitergeleiteter Link gilt für jeden, der ihn kennt – daher kurze Laufzeiten, Passwort über einen anderen Kanal, Download-Limit. Kein Upload für Externe (Briefkasten erst mit Virenscanner, M7).
+
+## Komfort und Zusammenarbeit (Meilenstein 6)
+
+Alle Listen werden beim Lesen mit den vollen Rechten gefiltert: Wer ein Recht verliert, sieht den Eintrag auch nicht mehr in Favoriten, „Zuletzt verwendet“, Startseite oder Mails.
+
+- **Favoriten und „Zuletzt verwendet“:** Stern im Explorer (Eintrag oder offener Ordner), eigene Ansichten in der Seitenleiste. „Zuletzt verwendet“ merkt sich Downloads und Office-Öffnungen (je Kamerad die letzten 30). Startseiten-Karte „Dateien“ (`DashboardRegistry`) mit je 5 Einträgen, nur wenn es etwas zu zeigen gibt.
+- **Beschreibung:** Freitext (max. 2000 Zeichen) pro Datei/Ordner, bearbeitbar mit Recht „Bearbeiten“.
+- **Kommentare:** Jeder mit Leserecht darf kommentieren; löschen dürfen Autor, Verwalter des Eintrags und Admins (Audit `comment.created`/`comment.deleted`).
+- **Abos („Bei Änderungen benachrichtigen“):** gelten für den Eintrag und – bei Ordnern – alles darunter. Mail + Glocke bei neuer Datei/neuem Ordner, neuer Version (keine Office-Zwischenspeicherungen) und neuem Kommentar; nur an Abonnenten mit Leserecht auf den betroffenen Eintrag, nie an den Auslöser, höchstens eine Mail je Eintrag und Kamerad in 10 Minuten. Die Mail nennt nur Namen, nie Inhalte oder Kommentartexte. Versand nach dem Commit, Fehler brechen nichts ab.
+- **Bildvorschau:** JPEG, PNG, GIF, WebP; serverseitig mit GD auf 480 px verkleinert (WebP, sonst PNG) und pro Version in `x_files_previews` (Datenbank) zwischengespeichert – wird mit der Version gelöscht und taucht nie als verwaiste Datei auf. Route `/dateien/dateien/{id}/vorschau` prüft Leserecht bei jedem Aufruf. Bilder über 20 MB oder 16 Megapixel (`dateien.previews.*`) bekommen keine Vorschau (Schutz vor Speicher-Bomben). Keine PDF-/Office-Vorschau (kein zusätzlicher Parser).
+- **Ordner als ZIP:** `/dateien/ordner/{id}/zip`; enthält nur, was der Kamerad lesen darf – ein Unterordner ohne Leserecht fehlt samt Inhalt und Namen. Unkomprimiert gestreamt (konstanter Speicher), UTF-8-Namen, jeweils die neueste Version. Grenzen: 2000 Einträge, 2 GiB, 5 ZIPs pro Minute (`dateien.zip.*`); darüber Hinweis „Unterordner einzeln herunterladen“. Audit `folder.zipped`.
+- **Volltextsuche:** Die Suche findet zusätzlich zu Teilstrings im Namen Wörter in Name und Beschreibung (PostgreSQL `to_tsvector('german', …)`, GIN-Index `x_files_nodes_fulltext`, Wortstämme: „Grundausbildungen“ findet „Grundausbildung“). Treffer werden wie bisher einzeln gegen die Rechte geprüft. Dateiinhalte werden nicht durchsucht.
+- **Nicht umgesetzt:** PDF-Vorschau, Inhaltsindex, Verschieben zwischen Ablagen, Verknüpfung aus anderen Modulen (siehe Roadmap).

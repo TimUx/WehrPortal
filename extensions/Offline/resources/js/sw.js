@@ -1,7 +1,7 @@
 const CACHE = 'openwehr-shell-v2';
 const OFFLINE = '/offline';
 const STATIC_PATHS = ['/build/assets/', '/images/', '/fonts/'];
-const BYPASS_PATHS = ['/livewire/', '/broadcasting/', '/api/', '/anmelden', '/e-mail-bestaetigen', '/login', '/auth/login', '/auth/email', '/admin/logout'];
+const BYPASS_PATHS = ['/livewire/', '/broadcasting/', '/api/', '/anmelden', '/e-mail-bestaetigen', '/login', '/auth/login', '/auth/email', '/admin/logout', '/dateien/', '/freigabe/'];
 const REFERENCE_PAGES = ['/gefahrenmatrix', '/gefahrstoffe'];
 const REFERENCE_DATA = '/gefahrstoffe/katalog.json';
 
