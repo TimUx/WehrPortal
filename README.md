@@ -1,7 +1,7 @@
 # openwehr
 
 [![Lizenz: AGPL-3.0](https://img.shields.io/badge/Lizenz-AGPL--3.0-3da639)](LICENSE)
-[![PHP: 8.2 und neuer](https://img.shields.io/badge/PHP-8.2%2B-777bb4)](composer.json)
+[![PHP-Anforderung: ^8.2](https://img.shields.io/badge/PHP-%5E8.2-777bb4)](composer.json)
 [![Blade: Laravel](https://img.shields.io/badge/Blade-Laravel-f05340)](composer.json)
 [![JavaScript](https://img.shields.io/badge/JavaScript-ESM-f7df1e)](package.json)
 [![Laravel: 12](https://img.shields.io/badge/Laravel-12-f05340)](composer.json)
@@ -903,10 +903,10 @@ Jetzt **Deploy** klicken. Coolify lädt das Image, die App legt beim ersten Star
 
 #### 8. Updates einspielen
 
-Der Link führt zu den **Upstream-Releases**. Fork-Releases erscheinen separat und verwenden Tags mit `-x<n>`; für Updates dieses Forks muss ein tatsächlich veröffentlichter Fork-Tag und das dazugehörige Fork-Image verwendet werden. Das `latest`-Image des Forks ist nicht mit dem Upstream-Image identisch. Siehe [Fork-Leitfaden](FORK.md).
+Die [Upstream-Releases](https://github.com/roberteinsle/openwehr/releases) gehören zum Original. Fork-Releases erscheinen separat und verwenden Tags mit `-x<n>`; für Updates dieses Forks muss ein tatsächlich veröffentlichter Fork-Tag und das dazugehörige Fork-Image verwendet werden. Prüfe dafür die Releases- und Container-Packages-Seiten dieses Fork-Repositories. Das `latest`-Image des Forks ist nicht mit dem Upstream-Image identisch. Siehe [Fork-Leitfaden](FORK.md).
 
 1. In Coolify bei der Datenbank **Backups → Backup Now** – vor jedem Update.
-2. Bei der App den **Tag** auf die neue Version setzen (z. B. `v0.8.2`), **Save**, dann **Redeploy**.
+2. Bei der App den tatsächlich veröffentlichten Fork-Tag im Format `v<Version>-x<n>` setzen, **Save**, dann **Redeploy**.
 3. Datenbank-Änderungen laufen beim Start automatisch. Die Version steht im Admin-Bereich unten in der Navigation.
 
 **Wie oft?** Mindestens **monatlich**, und sofort, wenn ein Release als **Sicherheitsupdate** gekennzeichnet ist. Wer „Watch → Custom → Releases“ beim Repository einschaltet, bekommt jede neue Version per Mail.
