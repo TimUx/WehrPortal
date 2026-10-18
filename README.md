@@ -63,6 +63,7 @@ Dieses Repository enthält **openwehr-extended**, einen Fork von [roberteinsle/o
   - [Personalverwaltung](#personalverwaltung)
   - [Schlüsselverwaltung](#schlüsselverwaltung)
 - [Erweiterungen im Detail](#erweiterungen-im-detail)
+  - [Hydrantenkontrolle](#hydrantenkontrolle)
   - [Anwesenheit](#anwesenheit-im-detail)
   - [Dateien](#dateien-im-detail)
   - [Locations](#locations-im-detail)
@@ -126,6 +127,7 @@ Die folgenden Erweiterungen sind zusätzlich zu den 25 Modulen des Upstreams vor
 
 | Erweiterung | Funktionen und Zugriff | Aktivierung, Abhängigkeiten und Grenzen |
 |---|---|---|
+| [Hydrantenkontrolle](#hydrantenkontrolle) ([Bedienungsanleitung](docs-extended/README.md#hydrantenkontrolle-bedienungsanleitung)) | Hydrantenstammdaten, über mehrere Tage bearbeitbare Jahreskontrollen nach Excel-Checkliste, Suche, Kennzahlen und PDF-Jahresberichte. Rolle `hydrantenwart` oder Admin. | Unter Admin → Module freischalten; zunächst inaktiv. `HYDRANTENKONTROLLE_ENABLED=false` lädt die Erweiterung nicht. Jahresdaten behalten eigene Stammdatenkopien; Locations wird berücksichtigt. Keine automatische Kopplung an die Wasserkarte. |
 | [Anwesenheit](#anwesenheit-im-detail) ([Einrichtungsdetails](docs-extended/ANWESENHEIT.md)) | Eigenständige Anwesenheitslisten mit Entwurf/Abgabe, Vorlagen, PDF und E-Mail; Kameraden sehen ihre Listen, `verwalter` und Standort-Admins verwalten den eigenen Standort, globale Admins alle. | Unter Admin → Module freischalten; nach der Migration zunächst inaktiv. `ANWESENHEIT_ENABLED=false` lädt die Erweiterung nicht. Kalendertermine sind nur eine optionale Vorbelegung; Locations begrenzt Listen und Teilnehmende auf Standorte. Offline-Entwürfe speichern ausdrücklich markierte Formularfelder und Teilnehmendenauswahl, aber keine Anhänge, Notizen, Empfänger oder Standortwahl. |
 | [Dateien](#dateien-im-detail) ([Einrichtungsdetails](docs-extended/DATEIEN.md)) | Interne Dateiablagen mit Benutzer-/Gruppenrechten, Versionen, Papierkorb, Favoriten, Suche, Vorschau, ZIP und Zusammenarbeit. `gruppenverwalter` verwalten Gruppen, erhalten dadurch aber keinen Dateizugriff; Rechte an Dateien oder Ablagen werden ausdrücklich vergeben. | Unter Admin → Module freischalten und Ablagen samt Rechten einrichten. Die Erweiterung hat keinen eigenen `DATEIEN_ENABLED`-Schalter. Online-Office benötigt einen separat betriebenen ONLYOFFICE- oder Collabora-Server. Öffentliche, lesende Links sind standardmäßig aus und müssen global und je Ablage erlaubt werden; Datenbank und privates Dateiverzeichnis gemeinsam sichern. |
 | [EinsatzberichtPlus](#ergänzung-durch-einsatzberichtplus) ([Hintergrund](docs-extended/EINSATZBERICHT.md)) | Ergänzt den Einsatzbericht um Kostenpflicht, strukturierte beteiligte Personen, Verdienstausfall und externe Fahrzeuge; Hinweise vergleichen die Besatzung mit der Sollbesatzung. | Wird automatisch mit dem Einsatzbericht angeboten; `EINSATZBERICHT_PLUS_ENABLED=false` schaltet die Erweiterung ab. Es gelten die Rollen des Einsatzberichts (Einsatzleitung, Wehrführung, Admins), einschließlich Standortgrenzen. Die Zusatzangaben erscheinen derzeit weder im Druck noch in Statistiken; der Sollbesatzungshinweis blockiert nichts. |
@@ -756,6 +758,23 @@ Wer welchen Schlüssel der Wehr hat – statt Liste im Schlüsselkasten. Das Mod
 ## Erweiterungen im Detail
 
 Die folgenden Anleitungen ergänzen die [Kurzüberblick-Tabelle](#erweiterungen-von-openwehr-extended). Die Erweiterungen werden technisch geladen, ihre Module beziehungsweise Funktionen haben aber eigene Freischaltungen und Rechte. Verlinkte Detaildokumente beschreiben zusätzliche Betriebs- und Implementierungsgrenzen.
+
+### Hydrantenkontrolle
+
+Die Fork-Erweiterung **Hydrantenkontrolle** wird unter **Admin → Module** aktiviert. Dort Modulzugang und Rolle `hydrantenwart` vergeben; aktive Admins benötigen keine zusätzliche Rolle. `HYDRANTENKONTROLLE_ENABLED=false` lädt die Erweiterung nicht. Die Modulleiste bietet **Jahreskontrollen** und **Hydranten**.
+
+- **Stammdaten:** Nummer, Straße, optionale Hausnummer, Lagebeschreibung und Koordinaten. Straße oder Lagebeschreibung oder ein vollständiges Koordinatenpaar ist Pflicht. Archivieren statt Löschen erhält bestehende Jahresdaten.
+- **Jahreskontrolle:** Erst Stammdaten erfassen, dann das Jahr über **Öffnen / ergänzen** anlegen. Alle aktiven Hydranten des aktuellen Standorts werden als ungeprüft aufgenommen. Das erneute Öffnen ergänzt nur fehlende aktive Hydranten; vorhandene Kontrollwerte und eingefrorene Stammdaten bleiben erhalten. Über die Jahreslinks kann die Bearbeitung an späteren Tagen fortgesetzt werden.
+- **Erfassung:** Prüfdatum innerhalb des gewählten Jahres, automatisch der speichernde Kamerad als Prüfer, alle zehn Mängel der Excel-Checkliste, „Unterflurhydrant in Ordnung“ und Bemerkungen. „In Ordnung“ und Mängel schließen sich aus. Ohne Prüfdatum und ohne Ergebnis bleibt der Hydrant ausdrücklich ungeprüft; Bemerkungen sind bereits möglich.
+- **Übersicht:** Gesamt, ungeprüft, in Ordnung und mit Mängeln; Suche nach Nummer/Straße und Filter nach Prüfstatus. Die Kennzahlen beziehen sich immer auf das ganze Jahr, nicht nur auf die gefilterte Liste.
+- **PDF-Bericht:** Je Jahr jederzeit als Zwischenstand oder Jahresbericht mit Organisation, Erstellungsdatum (Europe/Berlin), Prüfübersicht und Einzelbefunden herunterladen. Der Export ist ein echtes mehrseitiges A4-PDF und enthält stets alle Hydranten des gewählten Jahres, unabhängig vom Bildschirmfilter.
+- **Historie und Grenzen:** Jedes Jahr hat eigene Kontrollsätze und Stammdatenkopien. Spätere Änderungen und Archivierung ändern vorhandene Jahresdaten nicht. Paralleles Speichern mit veraltetem Bearbeitungsstand wird abgewiesen; bitte neu laden und Änderungen abgleichen. Änderungen werden im Aktivitätslog dokumentiert (dessen reguläre Aufbewahrungsfrist gilt weiterhin). Jahre bleiben bewusst bearbeitbar, es gibt keine endgültige Versiegelung. Keine automatische Übernahme aus Excel, keine Offline-Synchronisierung und keine automatische Kopplung an die Wasserkarte: deren Lösch-/Änderungslogik bleibt unverändert.
+
+Mit aktivem **Locations** sind Hydranten und Jahre auf die sichtbaren Standorte begrenzt; **Öffnen / ergänzen** arbeitet am aktuell gewählten Standort. Standortlose Daten bleiben entsprechend dem Fork-Muster gemeinsam sichtbar. Nummern und Jahre sind pro Standort eindeutig. Ohne Locations gibt es einen gemeinsamen Bestand.
+
+**Schnelleinstieg:** Unter `/hydrantenkontrolle/hydranten` den Bestand erfassen, unter `/hydrantenkontrolle` das Jahr anlegen und die einzelnen Hydranten über **Bearbeiten → Kontrolle speichern** dokumentieren. An weiteren Tagen den vorhandenen Jahreslink öffnen, nicht ein anderes Jahr anlegen. Zum Abschluss den Filter **Ungeprüft** kontrollieren und über **PDF-Bericht** den aktuellen Jahresstand herunterladen.
+
+Die [ausführliche Bedienungsanleitung](docs-extended/README.md#hydrantenkontrolle-bedienungsanleitung) beschreibt Einrichtung, alle Mängelfelder, Korrekturen, Archivierung und typische Rückfragen.
 
 ### Anwesenheit im Detail
 
