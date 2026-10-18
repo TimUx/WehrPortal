@@ -78,7 +78,6 @@ class PublicShareController
         $file = Node::find($node) ?? throw new NotFoundHttpException;
         $response = $this->shares->download($share, $file, $request);
         $response->headers->set('Cache-Control', 'private, no-store');
-        $response->headers->set('Referrer-Policy', 'no-referrer');
 
         return $response;
     }
@@ -107,7 +106,6 @@ class PublicShareController
         return response()->view($view, $data + ['nonce' => $nonce], $status)->withHeaders([
             'Content-Security-Policy' => "default-src 'none'; style-src 'nonce-{$nonce}'; img-src 'self' data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
             'Cache-Control' => 'private, no-store',
-            'Referrer-Policy' => 'no-referrer',
         ]);
     }
 }

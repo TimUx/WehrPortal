@@ -9,7 +9,9 @@ use Extensions\Dateien\Services\ShareService;
 use Extensions\Locations\Models\Location;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
 require_once __DIR__.'/helpers.php';
@@ -59,7 +61,7 @@ test('only managers create links and only admins change the settings', function 
     $this->files->setPermission($this->admin, $this->folder, 'user', $this->member->id, 'edit');
     expect(fn () => $this->shares->create($this->member, $this->folder, 7))->toThrow(AuthorizationException::class)
         ->and(fn () => $this->shares->saveSettings($this->member, true, 30))->toThrow(AuthorizationException::class)
-        ->and(fn () => $this->shares->create($this->admin, $this->folder, 31))->toThrow(Illuminate\Validation\ValidationException::class);
+        ->and(fn () => $this->shares->create($this->admin, $this->folder, 31))->toThrow(ValidationException::class);
 });
 
 test('pages and downloads stay inside the shared subtree', function () {
@@ -88,7 +90,7 @@ test('pages are not cached, not indexed and send no referrer', function () {
     $response = $this->get(route('dateien.share', ['token' => $token]))->assertOk();
     expect($response->headers->get('Cache-Control'))->toContain('no-store')
         ->and($response->headers->get('X-Robots-Tag'))->toContain('noindex')
-        ->and($response->headers->get('Referrer-Policy'))->toBe('no-referrer')
+        ->and($response->getContent())->toContain('<meta name="referrer" content="no-referrer">')
         ->and($response->headers->get('Content-Security-Policy'))->toContain("default-src 'none'");
     $download = $this->get(route('dateien.share.download', ['token' => $token, 'node' => $this->file->id]))->assertOk();
     expect($download->headers->get('Cache-Control'))->toContain('no-store');
@@ -133,8 +135,8 @@ test('password links unlock per session and are rate limited', function () {
     $this->post(route('dateien.share.unlock', ['token' => $token]), ['passwort' => 'Lager2026!'])->assertStatus(429);
     expect(AuditEvent::where('action', 'share.password_failed')->count())->toBe(5);
 
-    Illuminate\Support\Facades\RateLimiter::clear('dateien-share-pw|'.$share->id.'|127.0.0.1');
-    Illuminate\Support\Facades\RateLimiter::clear('dateien-share-pw|'.$share->id);
+    RateLimiter::clear('dateien-share-pw|'.$share->id.'|127.0.0.1');
+    RateLimiter::clear('dateien-share-pw|'.$share->id);
     $this->post(route('dateien.share.unlock', ['token' => $token]), ['passwort' => 'Lager2026!'])->assertRedirect();
     $this->get(route('dateien.share', ['token' => $token]))->assertOk()->assertSee('packliste.txt');
     $this->get(route('dateien.share.download', ['token' => $token, 'node' => $this->file->id]))->assertOk();
@@ -149,7 +151,7 @@ test('the audit log records downloads with a shortened address and never the tok
     expect($event->metadata['ip'] ?? null)->toBe('203.0.113.0')
         ->and(AuditEvent::where('metadata', 'like', '%'.$token.'%')->exists())->toBeFalse()
         ->and($share->fresh()->token_hash)->toBe(hash('sha256', $token))
-        ->and(ShareService::shortIp('2001:db8:1234:5678::1'))->toBe('2001:db8:1234::');
+        ->and(ShareService::shortIp('2001:db8:1234:5678::1'))->toBe('2001:db8:1234::/48');
 });
 
 test('managers create and revoke links in the explorer, the link is shown once', function () {

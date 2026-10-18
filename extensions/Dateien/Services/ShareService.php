@@ -194,12 +194,12 @@ class ShareService
                 $inside = true;
             }
         }
-        if (! $inside || $rows === [] || end($rows)->parent_id !== null) {
+        if (! $inside || end($rows)->parent_id !== null) {
             return null;
         }
         $nodes = Node::whereIn('id', $ids)->get()->keyBy('id');
 
-        return array_values(array_map(fn (int $id) => $nodes[$id], array_reverse($ids)));
+        return array_map(fn (int $id) => $nodes[$id], array_reverse($ids));
     }
 
     /** @return Collection<int, Node> */
