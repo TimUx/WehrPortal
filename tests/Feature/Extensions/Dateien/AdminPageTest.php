@@ -67,9 +67,10 @@ it('lets module managers maintain groups but not change global settings or space
 });
 
 it('rechecks management authority after the page has been opened', function () {
-    $component = Livewire::actingAs($this->manager)->test(DateienPage::class);
+    $component = Livewire::actingAs($this->manager)->test(DateienPage::class)
+        ->set('groupName', 'Nicht erlaubt');
     $this->manager->moduleAccess()->where('module', 'dateien')->update(['role' => null]);
-    $component->set('groupName', 'Nicht erlaubt')->call('saveGroup')->assertForbidden();
+    $component->call('saveGroup')->assertForbidden();
     expect(FileGroup::count())->toBe(0);
 });
 

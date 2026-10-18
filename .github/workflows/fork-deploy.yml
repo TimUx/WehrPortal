@@ -112,6 +112,7 @@ jobs:
 
       # Larastan boots the app; it needs an environment like the tests
       - name: Prepare Environment
+        id: prepare
         run: cp .env.example .env && php artisan key:generate
 
       # Known vulnerabilities in the PHP packages (GitHub/FriendsOfPHP advisories) fail the build
@@ -120,12 +121,15 @@ jobs:
 
       # Static analysis (Larastan, level 5); old findings are in phpstan-baseline.neon, new code must be clean
       - name: Static Analysis
-        run: ./vendor/bin/phpstan analyse --memory-limit=2G --no-progress --error-format=github -vvv
+        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+        run: ./vendor/bin/phpstan analyse --memory-limit=2G --no-progress --error-format=table
 
       - name: Dateien Static Analysis
-        run: ./vendor/bin/phpstan analyse -c extensions/Dateien/phpstan.neon --memory-limit=2G --no-progress --error-format=github
+        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+        run: ./vendor/bin/phpstan analyse -c extensions/Dateien/phpstan.neon --memory-limit=2G --no-progress --error-format=table
 
       - name: Dateien Code Style
+        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
         run: ./vendor/bin/pint --test extensions/Dateien tests/Feature/Extensions/Dateien
 
       - name: Setup Node
