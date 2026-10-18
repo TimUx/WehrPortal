@@ -329,6 +329,16 @@ it('rejects executable and MIME-disguised uploads without leaving files behind',
         ->and(Storage::disk('dateien')->allFiles())->toBeEmpty();
 });
 
+it('detects image MIME types from bytes instead of upload metadata', function () {
+    $image = \Illuminate\Http\UploadedFile::fake()->image('uebung.png');
+    $node = $this->files->upload($this->admin, $this->space, null, $image);
+    expect($node->versions()->sole()->mime)->toBe('image/png');
+
+    $disguised = filesUpload('<?php echo "no";', 'bild.png')->mimeType('image/png');
+    expect(fn () => $this->files->upload($this->admin, $this->space, null, $disguised))->toThrow(ValidationException::class);
+    expect(Node::count())->toBe(1)->and(Version::count())->toBe(1);
+});
+
 it('rejects oversized uploads and extension-changing renames', function () {
     config(['dateien.max_upload_kb' => 1]);
     expect(fn () => $this->files->upload($this->admin, $this->space, null, filesUpload(str_repeat('x', 2048))))->toThrow(ValidationException::class);

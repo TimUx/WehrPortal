@@ -532,7 +532,7 @@ class FileService
         if (! in_array($extension, $allowed, true)) {
             $this->invalid('file', 'Dieser Dateityp ist nicht erlaubt.');
         }
-        $mime = (string) $file->getMimeType();
+        $mime = (string) (new \finfo(FILEINFO_MIME_TYPE))->file($file->getRealPath());
         $expected = FileResponse::INLINE + FileResponse::DOWNLOAD;
         $matches = $mime === $expected[$extension];
         if (in_array($extension, ['txt', 'csv'], true)) {

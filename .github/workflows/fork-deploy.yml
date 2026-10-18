@@ -120,7 +120,7 @@ jobs:
 
       # Static analysis (Larastan, level 5); old findings are in phpstan-baseline.neon, new code must be clean
       - name: Static Analysis
-        run: ./vendor/bin/phpstan analyse --memory-limit=2G --no-progress --error-format=github
+        run: ./vendor/bin/phpstan analyse --memory-limit=2G --no-progress --error-format=github -vvv
 
       - name: Dateien Static Analysis
         run: ./vendor/bin/phpstan analyse -c extensions/Dateien/phpstan.neon --memory-limit=2G --no-progress --error-format=github

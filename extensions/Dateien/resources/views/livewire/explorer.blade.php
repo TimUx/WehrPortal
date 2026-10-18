@@ -110,7 +110,9 @@
                             <form wire:submit="move" class="flex flex-wrap items-end gap-2">
                                 <label class="text-sm">Zielordner
                                     <select wire:model="destination" class="{{ $input }} ml-2">
-                                        @php($selectedSpace = $currentSpace ?? \Extensions\Dateien\Models\Space::query()->find($selected->space_id))
+                                        @php
+                                            $selectedSpace = $currentSpace ?? \Extensions\Dateien\Models\Space::query()->find($selected->space_id);
+                                        @endphp
                                         @if($selectedSpace && $access->can($user, $selectedSpace, 'manage'))
                                             <option value="">Bereichs-Stammordner</option>
                                         @else
