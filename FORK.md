@@ -76,6 +76,7 @@ Empfehlung: Branch Protection auf `main` (PR + grüne Checks), damit Upstream-Me
 
 | Datei | Grund |
 |---|---|
+| `modules/Gefahrstoffe/src/Services/MaterialImport.php` | Validierungsfehler mit `messages()` feldweise behalten: Duplikatprüfung und anschließendes Zusammenführen erwarten Listen pro Feld, nicht die flache Liste aus `all()`; behebt zugleich den PHPStan-Fehler „Cannot assign new offset to string“ |
 | `composer.json`, `composer.lock` | Autoload und Provider-Discovery für `extensions/` |
 | `bootstrap/providers.php` | `Extensions\ExtensionsServiceProvider` (Root-`extra.laravel.providers` wird von Laravel nicht entdeckt) – ohne diese Zeile lädt keine Erweiterung |
 | `app/Models/User.php` | OIDC: `isLocalAdmin()` (+ `use`) – lokaler System-Admin als Core-Konzept |
