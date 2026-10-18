@@ -13,6 +13,7 @@ Die Erweiterungen ergänzen die 25 Module des Upstreams. Sie werden über den Er
 
 | Erweiterung | Zweck | Zugang, Aktivierung und wichtige Grenzen |
 |---|---|---|
+| [Hydrantenkontrolle](../README.md#hydrantenkontrolle) | Stammdaten, fortsetzbare Jahreskontrollen, Mängelcheckliste und echte PDF-Berichte. | Unter Admin → Module aktivieren und Rolle `hydrantenwart` vergeben (Admins ebenfalls berechtigt). `HYDRANTENKONTROLLE_ENABLED=false` lädt die Erweiterung nicht. Jahresbezogene Stammdatenkopien, Konfliktschutz beim Speichern, optionale Standortbegrenzung; keine automatische Wasserkarte-/Excel-Synchronisierung. |
 | [Locations](LOCATIONS.md) | Mitglieder und ausgewählte Datensätze Standorten zuordnen. | `LOCATIONS_ENABLED=false` deaktiviert Scope und Standortverwaltung. Nur konfigurierte Modelle werden begrenzt; Standortloses (`NULL`) bleibt gemeinsam sichtbar. Keine vollständige Mandantentrennung. |
 | [Offline/PWA](OFFLINE.md) | Offline-Fallback sowie lokale Entwürfe ausdrücklich markierter Formulare. | `OFFLINE_ENABLED=false` schaltet Statusanzeige und Entwürfe ab, aber nicht Manifest, Service Worker und Fallback-Seite. Keine automatische Übermittlung oder Synchronisierung von Formularen; Objektpläne nutzen einen separaten Worker. |
 | [OIDC](OIDC.md) | Anmeldung über einen externen OpenID-Connect-Anbieter. | `OIDC_ENABLED=false` lädt OIDC nicht. Nur aktive Konten mit bestätigter E-Mail werden verknüpft; JIT-Anlage ist optional, IdP-Rollen werden nicht übernommen. Bei „Nur Single Sign-On“ lokale System-Admins und Notfallzugang erhalten. |
