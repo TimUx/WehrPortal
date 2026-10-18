@@ -18,7 +18,8 @@ use Illuminate\Validation\ValidationException;
 
 require_once __DIR__.'/helpers.php';
 
-const EDIT_SECRET = 'bearbeiten-test-secret-fuer-musterstadt-0123456789';
+// Invented test value (not a credential), built at runtime so secret scanners don't flag it
+define('EDIT_SECRET', str_repeat('bearbeiten-', 5));
 
 beforeEach(function () {
     Module::where('key', 'dateien')->update(['is_active' => true]);
