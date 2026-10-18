@@ -88,3 +88,20 @@ Nicht enthalten: externe Freigabelinks, OnlyOffice/Collabora, WOPI/JWT/Office-Se
 - **Geplante Läufe:** `dateien:drain-deletions` (alle 15 Min., ausstehende physische Löschungen mit wachsendem Abstand), `dateien:prune-audit` (täglich), `dateien:reconcile` (wöchentlich, löscht nichts).
 - **Sicherung/Wiederherstellung:** Datenbank und `storage/app/private/dateien` gemeinsam sichern (zuerst DB, dann Dateien). Nach einer Wiederherstellung `php artisan dateien:reconcile --verify` ausführen; Exit-Code ≠ 0 bei fehlenden, veränderten oder verwaisten Dateien. Verwaiste Dateien löscht nur ein Admin auf der Verwaltungsseite nach erneuter Prüfung.
 - **Ausgeschiedene/inaktive Kameraden** verlieren sofort jeden Zugriff; ihre Freigaben bleiben bis zur Reaktivierung bestehen. „Löschen mit Übertragung“ überträgt ihre Versionen an den gewählten Kameraden; das Protokoll behält die ursprüngliche ID.
+
+## Online-Office (Meilenstein 3, nur lesend)
+
+- **Anbieter:** ONLYOFFICE Docs (ab 8.1, wegen PDF) **oder** Collabora Online (WOPI); höchstens einer je Instanz. Einstellung in `/admin/dateien` → „Online-Office“ (nur Admins).
+- **Adressen:**
+  - *Office-Server für den Browser* (z. B. `https://office.ff-musterstadt.de`): iframe, Skript, CSP.
+  - *Interne Adresse* (optional, z. B. `http://onlyoffice` im Docker-Netz): Healthcheck bzw. `/hosting/discovery`.
+  - *Rückruf-Adresse der App* (leer = `APP_URL`): so erreicht der Office-Server die App.
+  - Bewusste Entscheidung: diese Admin-Adressen laufen **nicht** über `SafeUrl` (interne Ziele sind erlaubt); die App ruft nur genau diese Adressen auf, ohne Weiterleitungen, Timeout 5 s.
+- **ONLYOFFICE:** JWT-Secret Pflicht (≥ 32 Zeichen, gleich `JWT_SECRET` des Document Servers), verschlüsselt gespeichert, im Aktivitätsprotokoll maskiert. Konfiguration, Dateiabruf und Rückruf sind HS256-signiert; andere Algorithmen werden abgelehnt.
+- **Collabora:** Jeder WOPI-Aufruf (`CheckFileInfo`, `GetFile`) braucht eine gültige Proof-Signatur (Schlüssel aus Discovery, auch der alte Schlüssel, höchstens 20 Minuten alt). Discovery wird eine Stunde zwischengespeichert.
+- **Office-Sitzungen** (`x_files_office_sessions`): zufälliges Token je Öffnen, nur als SHA-256 gespeichert, gebunden an Kamerad, Datei, Version und Anbieter, 8 Stunden gültig (`config/dateien.php` → `office.session_minutes`). Bei **jedem** Aufruf des Office-Servers werden Token, Ablauf, Widerruf, Datei und die aktuellen Rechte (inkl. Standort, Status, Modulzugang) erneut geprüft. Antworten: 401 (Token/Signatur), 403 (Recht entzogen), 404 (Modul oder Office aus).
+- **Routen ohne Login** unter `/dateien/office/…`: kein Session-Cookie, kein CSRF, eigenes Rate-Limit (600/Min. je IP), `NoIndex` global.
+- **Editor-Seite** `/dateien/dateien/{id}/office`: eigene, **erzwungene** CSP (`default-src 'none'`, Skripte nur mit Nonce und vom Office-Host, `frame-src`/`form-action` nur Office-Host), `no-referrer` per Meta-Tag.
+- **Protokoll:** `office.opened`, `office.closed` (ONLYOFFICE Status 4, abgelaufen, widerrufen), `office.revoked_all`, `office.settings_changed` – nie Tokens oder Secrets.
+- **Widerruf:** Knopf „Alle Office-Sitzungen beenden“; Wechsel von Anbieter, Server-Adresse oder Secret beendet alle Sitzungen automatisch. `dateien:prune-office-sessions` (stündlich) räumt abgelaufene Sitzungen auf.
+- **Noch nicht (M4):** Bearbeiten und Speichern aus dem Office; Speicher-Rückrufe werden in M3 bestätigt, aber verworfen.

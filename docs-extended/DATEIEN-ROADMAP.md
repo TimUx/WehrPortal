@@ -76,7 +76,7 @@ Reihenfolge: M2 → M3 → M4 → produktiver Go-live → M5 / M6 nach Bedarf �
 
 ---
 
-## M3 – Office-Grundlage und Ansicht (Must-have bei Office-Go-live)
+## M3 – Office-Grundlage und Ansicht (Must-have bei Office-Go-live) – umgesetzt
 
 **Ziel:** DOCX/XLSX/PPTX, ODF und PDF öffnen im Browser über ONLYOFFICE **oder** Collabora, zunächst nur lesend.
 

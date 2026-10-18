@@ -7,6 +7,7 @@ use Extensions\Dateien\Models\FileGroup;
 use Extensions\Dateien\Models\Node;
 use Extensions\Dateien\Models\Space;
 use Extensions\Dateien\Models\Version;
+use Extensions\Dateien\Office\OfficeService;
 use Extensions\Dateien\Services\FileAccess;
 use Extensions\Dateien\Services\FileService;
 use Extensions\Locations\Services\LocationAccess;
@@ -476,6 +477,7 @@ class Explorer extends Component
             'searching' => $searching,
             'quotaWarning' => $space && $this->view !== 'trash' ? $this->service()->quotaWarning($space) : null,
             'maxUploadKb' => FileService::maxUploadKb(),
+            'officeUrl' => $selected && app(OfficeService::class)->canOpen($user, $selected) ? route('dateien.office', ['node' => $selected->id]) : null,
             'allowedExtensions' => FileService::allowedExtensions(),
         ]);
     }

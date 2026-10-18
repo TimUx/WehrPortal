@@ -67,6 +67,47 @@
             {{ $this->form }}
             <div><x-filament::button type="submit">Einstellungen speichern</x-filament::button></div>
         </form>
+        <section style="display: grid; gap: .75rem;">
+            <h2>Online-Office</h2>
+            <p>Öffnet Dokumente im Browser über ONLYOFFICE Docs oder Collabora Online, derzeit nur lesend. Der Office-Server muss die App unter der Rückruf-Adresse erreichen; die App ruft nur die hier eingetragenen Adressen auf, ohne Weiterleitungen (auch im internen Netz).</p>
+            <form wire:submit="saveOffice" style="display: grid; gap: .5rem;">
+                <label>Anbieter
+                    <x-filament::input.wrapper><x-filament::input.select wire:model="office.provider">
+                        <option value="">Aus</option>
+                        @foreach ($officeProviders as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
+                    </x-filament::input.select></x-filament::input.wrapper>
+                </label>
+                @error('office.provider') <p role="alert">{{ $message }}</p> @enderror
+                <label>Adresse des Office-Servers (für den Browser)
+                    <x-filament::input.wrapper><x-filament::input type="url" wire:model="office.server_url" placeholder="https://office.ff-musterstadt.de" /></x-filament::input.wrapper>
+                </label>
+                @error('office.server_url') <p role="alert">{{ $message }}</p> @enderror
+                <label>Interne Adresse des Office-Servers (für die App, optional)
+                    <x-filament::input.wrapper><x-filament::input type="url" wire:model="office.internal_url" placeholder="http://onlyoffice" /></x-filament::input.wrapper>
+                </label>
+                @error('office.internal_url') <p role="alert">{{ $message }}</p> @enderror
+                <label>Rückruf-Adresse dieser App (für den Office-Server, leer = APP_URL)
+                    <x-filament::input.wrapper><x-filament::input type="url" wire:model="office.callback_url" placeholder="http://app:8080" /></x-filament::input.wrapper>
+                </label>
+                @error('office.callback_url') <p role="alert">{{ $message }}</p> @enderror
+                <label>JWT-Secret (ONLYOFFICE, mindestens 32 Zeichen; leer lassen = unverändert)
+                    <x-filament::input.wrapper><x-filament::input type="password" wire:model="officeSecret" autocomplete="new-password" /></x-filament::input.wrapper>
+                </label>
+                <p>{{ $officeHasSecret ? 'Ein Secret ist gespeichert (verschlüsselt).' : 'Kein Secret gespeichert.' }}</p>
+                @error('office.secret') <p role="alert">{{ $message }}</p> @enderror
+                <fieldset style="display: flex; flex-wrap: wrap; gap: .75rem;">
+                    <legend>Im Office öffnen</legend>
+                    @foreach ($officeExtensions as $extension)
+                        <label><x-filament::input.checkbox wire:model="office.extensions" value="{{ $extension }}" /> {{ $extension }}</label>
+                    @endforeach
+                </fieldset>
+                <div style="display: flex; flex-wrap: wrap; gap: .5rem;">
+                    <x-filament::button type="submit">Online-Office speichern</x-filament::button>
+                    <x-filament::button type="button" color="gray" wire:click="testOffice">Verbindung testen</x-filament::button>
+                    <x-filament::button type="button" color="danger" wire:click="revokeOfficeSessions" wire:confirm="Alle offenen Office-Sitzungen sofort beenden?">Alle Office-Sitzungen beenden ({{ $officeSessions }})</x-filament::button>
+                </div>
+            </form>
+        </section>
         <section style="display: grid; gap: .5rem;">
             <h2>Speicherprüfung und -bereinigung</h2>
             <p>Vergleicht Dateien auf dem Datenträger mit der Datenbank (wöchentlich automatisch, nach einer Wiederherstellung von Hand: <code>php artisan dateien:reconcile --verify</code>). Die Prüfung löscht nichts.</p>

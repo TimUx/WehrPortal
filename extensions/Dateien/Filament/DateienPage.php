@@ -7,7 +7,12 @@ use App\Filament\ModuleArea;
 use App\Models\Setting;
 use App\Models\User;
 use App\Support\FileResponse;
+use Extensions\Dateien\Models\AuditEvent;
 use Extensions\Dateien\Models\FileGroup;
+use Extensions\Dateien\Models\OfficeSession;
+use Extensions\Dateien\Office\OfficeService;
+use Extensions\Dateien\Office\OfficeSettings;
+use Extensions\Dateien\Office\WopiDiscovery;
 use Extensions\Dateien\Services\FileService;
 use Extensions\Dateien\Services\GroupService;
 use Extensions\Dateien\Services\Maintenance;
@@ -18,6 +23,8 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 
 /**
@@ -57,6 +64,11 @@ class DateienPage extends Page implements HasForms, ModuleArea
 
     public ?int $quotaMb = null;
 
+    /** @var array{provider: string, server_url: string, internal_url: string, callback_url: string, extensions: array<int, string>} */
+    public array $office = ['provider' => '', 'server_url' => '', 'internal_url' => '', 'callback_url' => '', 'extensions' => []];
+
+    public string $officeSecret = '';
+
     public static function allows(User $user): bool
     {
         return GroupService::canManage($user);
@@ -65,6 +77,14 @@ class DateienPage extends Page implements HasForms, ModuleArea
     public function mount(): void
     {
         abort_unless(self::canAccess(), 403);
+        $office = app(OfficeSettings::class);
+        $this->office = [
+            'provider' => (string) $office->provider(),
+            'server_url' => (string) $office->serverUrl(),
+            'internal_url' => (string) Setting::get('dateien.office.internal_url', ''),
+            'callback_url' => (string) Setting::get('dateien.office.callback_url', ''),
+            'extensions' => $office->extensions(),
+        ];
         $this->form->fill([
             'max_upload_kb' => FileService::maxUploadKb(),
             'extensions' => FileService::allowedExtensions(),
@@ -189,6 +209,59 @@ class DateienPage extends Page implements HasForms, ModuleArea
         Notification::make()->title('Ausstehende Dateilöschungen erneut versucht')->success()->send();
     }
 
+    public function saveOffice(): void
+    {
+        $this->authorizeManager();
+        abort_unless(auth()->user()->is_admin, 403);
+        $this->validate([
+            'office.provider' => ['nullable', 'in:'.implode(',', array_keys(OfficeSettings::PROVIDERS))],
+            'office.server_url' => ['nullable', 'string', 'max:255'],
+            'office.internal_url' => ['nullable', 'string', 'max:255'],
+            'office.callback_url' => ['nullable', 'string', 'max:255'],
+            'office.extensions' => ['array'],
+            'office.extensions.*' => ['string', 'in:'.implode(',', OfficeSettings::VIEWABLE)],
+            'officeSecret' => ['nullable', 'string', 'max:500'],
+        ]);
+        $settings = app(OfficeSettings::class);
+        $before = $settings->provider().'|'.$settings->serverUrl();
+        $settings->save([
+            'provider' => $this->office['provider'] ?: null,
+            'server_url' => $this->office['server_url'],
+            'internal_url' => $this->office['internal_url'],
+            'callback_url' => $this->office['callback_url'],
+            'extensions' => array_values($this->office['extensions']),
+        ], $this->officeSecret ?: null);
+        $secretChanged = $this->officeSecret !== '';
+        $this->officeSecret = '';
+        Cache::forget(WopiDiscovery::CACHE.'.'.sha1((string) $settings->internalUrl()));
+        // Sessions of another server or with an old secret must not keep working
+        if ($secretChanged || $before !== $settings->provider().'|'.$settings->serverUrl()) {
+            app(OfficeService::class)->revokeAll(auth()->user());
+        }
+        AuditEvent::create(['actor_id' => auth()->id(), 'action' => 'office.settings_changed', 'metadata' => [
+            'provider' => $settings->provider(), 'server_url' => $settings->serverUrl(), 'secret_changed' => $secretChanged,
+        ]]);
+        Notification::make()->title('Online-Office gespeichert')->success()->send();
+    }
+
+    public function testOffice(): void
+    {
+        $this->authorizeManager();
+        abort_unless(auth()->user()->is_admin, 403);
+        if (app(OfficeSettings::class)->provider() === null) {
+            throw ValidationException::withMessages(['office.provider' => 'Zuerst einen Anbieter speichern.']);
+        }
+        $result = app(OfficeService::class)->connector()->test();
+        Notification::make()->title($result['message'])->{$result['ok'] ? 'success' : 'danger'}()->send();
+    }
+
+    public function revokeOfficeSessions(): void
+    {
+        $this->authorizeManager();
+        $count = app(OfficeService::class)->revokeAll(auth()->user());
+        Notification::make()->title($count.' Office-Sitzungen beendet')->success()->send();
+    }
+
     public function runReconcile(): void
     {
         $this->authorizeManager();
@@ -221,6 +294,10 @@ class DateienPage extends Page implements HasForms, ModuleArea
             'locations' => config('locations.enabled') && auth()->user()->is_admin ? Location::orderBy('name')->get() : collect(),
             'report' => auth()->user()->is_admin ? app(Maintenance::class)->lastReport() : null,
             'pending' => auth()->user()->is_admin ? app(Maintenance::class)->pendingDeletions() : null,
+            'officeProviders' => OfficeSettings::PROVIDERS,
+            'officeExtensions' => OfficeSettings::VIEWABLE,
+            'officeHasSecret' => auth()->user()->is_admin && app(OfficeSettings::class)->secret() !== null,
+            'officeSessions' => auth()->user()->is_admin ? OfficeSession::whereNull('revoked_at')->where('expires_at', '>', now())->count() : 0,
         ];
     }
 

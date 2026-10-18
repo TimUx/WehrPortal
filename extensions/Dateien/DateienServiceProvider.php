@@ -7,9 +7,14 @@ use App\Services\ModuleRegistry;
 use App\Support\ModuleNav;
 use Extensions\Dateien\Console\DrainDeletionsCommand;
 use Extensions\Dateien\Console\PruneAuditCommand;
+use Extensions\Dateien\Console\PruneOfficeSessionsCommand;
 use Extensions\Dateien\Console\ReconcileCommand;
 use Extensions\Dateien\Filament\DateienPlugin;
 use Extensions\Dateien\Livewire\Explorer;
+use Extensions\Dateien\Office\OfficeService;
+use Extensions\Dateien\Office\OfficeSettings;
+use Extensions\Dateien\Office\WopiDiscovery;
+use Extensions\Dateien\Office\WopiProof;
 use Extensions\Dateien\Services\FileAccess;
 use Extensions\Dateien\Services\FileService;
 use Extensions\Dateien\Services\GroupService;
@@ -38,6 +43,10 @@ class DateienServiceProvider extends ServiceProvider
         $this->app->singleton(FileService::class);
         $this->app->singleton(GroupService::class);
         $this->app->singleton(Maintenance::class);
+        $this->app->singleton(OfficeSettings::class);
+        $this->app->singleton(OfficeService::class);
+        $this->app->singleton(WopiDiscovery::class);
+        $this->app->singleton(WopiProof::class);
         $this->app->booting(fn () => Filament::getPanel('admin')->plugin(DateienPlugin::make()));
     }
 
@@ -46,21 +55,25 @@ class DateienServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom(__DIR__.'/database/migrations');
         $this->loadViewsFrom(__DIR__.'/resources/views', 'dateien');
         if (! $this->app->routesAreCached()) {
-            Route::middleware('web')->group(__DIR__.'/routes/web.php');
+            Route::group([], __DIR__.'/routes/web.php');
         }
         Livewire::component('dateien.explorer', Explorer::class);
 
         foreach (['upload' => 'uploads', 'download' => 'downloads'] as $name => $key) {
-            RateLimiter::for('dateien-'.$name, fn (Request $request) => Limit::perMinute(max(1, (int) config('dateien.rate_limits.'.$key, 60)))
+            RateLimiter::for('dateien-'.$name, fn (Request $request) => Limit::perMinute(max(1, (int) config('dateien.rate_limits.'.$key.'_per_minute', 60)))
                 ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
         }
+        // The office server calls from one address; keyed by IP because there is no session
+        RateLimiter::for('dateien-office', fn (Request $request) => Limit::perMinute(max(1, (int) config('dateien.office.rate_limit', 600)))
+            ->by('office|'.$request->ip()));
         if ($this->app->runningInConsole()) {
-            $this->commands([ReconcileCommand::class, DrainDeletionsCommand::class, PruneAuditCommand::class]);
+            $this->commands([ReconcileCommand::class, DrainDeletionsCommand::class, PruneAuditCommand::class, PruneOfficeSessionsCommand::class]);
         }
         $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
             $output = is_writable('/proc/1/fd/2') ? '/proc/1/fd/2' : storage_path('logs/schedule.log');
             $schedule->command('dateien:drain-deletions')->everyFifteenMinutes()->withoutOverlapping()->appendOutputTo($output);
             $schedule->command('dateien:prune-audit')->dailyAt('03:20')->withoutOverlapping()->appendOutputTo($output);
+            $schedule->command('dateien:prune-office-sessions')->hourly()->withoutOverlapping()->appendOutputTo($output);
             $schedule->command('dateien:reconcile')->weeklyOn(0, '03:40')->withoutOverlapping()->appendOutputTo($output);
         });
 

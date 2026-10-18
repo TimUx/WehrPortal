@@ -134,6 +134,9 @@
                             <button type="button" wire:click="trash" wire:confirm="Diesen Eintrag einschließlich Unterordnern in den Papierkorb verschieben?" wire:loading.attr="disabled" class="text-sm font-medium text-red-700 underline">In den Papierkorb</button>
                         @endif
                         @if($selected->kind === 'file')
+                            @if($officeUrl)
+                                <a href="{{ $officeUrl }}" target="_blank" rel="noopener" class="{{ $button }}">Im Office ansehen</a>
+                            @endif
                             <h3 class="font-semibold">Versionen</h3>
                             @if($access->can($user, $selected, 'edit'))
                                 @include('dateien::partials.upload', ['label' => 'Neue Version', 'multiple' => false, 'parent' => null, 'spaceId' => null, 'nodeId' => $selected->id])
