@@ -3,6 +3,7 @@
 namespace Extensions\Dateien\Livewire;
 
 use App\Models\User;
+use Extensions\Dateien\Models\Comment;
 use Extensions\Dateien\Models\FileGroup;
 use Extensions\Dateien\Models\Node;
 use Extensions\Dateien\Models\OfficeSession;
@@ -10,8 +11,10 @@ use Extensions\Dateien\Models\Share;
 use Extensions\Dateien\Models\Space;
 use Extensions\Dateien\Models\Version;
 use Extensions\Dateien\Office\OfficeService;
+use Extensions\Dateien\Services\CollaborationService;
 use Extensions\Dateien\Services\FileAccess;
 use Extensions\Dateien\Services\FileService;
+use Extensions\Dateien\Services\PreviewService;
 use Extensions\Dateien\Services\ShareService;
 use Extensions\Locations\Services\LocationAccess;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -39,7 +42,11 @@ class Explorer extends Component
         'sharePassword' => 'Passwort',
         'shareMaxDownloads' => 'Download-Limit',
         'shareLabel' => 'Bezeichnung',
+        'description' => 'Beschreibung',
+        'commentBody' => 'Kommentar',
     ];
+
+    public const VIEWS = ['', 'shared', 'trash', 'favorites', 'recent'];
 
     #[Url]
     public ?int $space = null;
@@ -73,6 +80,10 @@ class Explorer extends Component
     public $upload = null;
 
     public string $search = '';
+
+    public string $description = '';
+
+    public string $commentBody = '';
 
     public string $shareDays = '7';
 
@@ -108,7 +119,7 @@ class Explorer extends Component
             $this->access()->authorize($this->user(), Space::query()->findOrFail($space), 'read');
         }
 
-        abort_unless(in_array($view, ['', 'shared', 'trash'], true), 404);
+        abort_unless(in_array($view, self::VIEWS, true), 404);
         $this->search = '';
         $this->space = $space;
         $this->node = $node;
@@ -123,6 +134,8 @@ class Explorer extends Component
         $this->newShareUrl = null;
         $this->name = $node->name;
         $this->inheritPermissions = (bool) $node->inherit_permissions;
+        $this->description = (string) $node->description;
+        $this->commentBody = '';
         $this->destination = '';
         $this->expectedVersion = $node->kind === 'file' && ! $node->trashed()
             ? $this->service()->versions($this->user(), $node)->max('number')
@@ -293,6 +306,54 @@ class Explorer extends Component
         $this->service()->setPermission($this->user(), $target, $permission->subject_type, (int) $permission->subject_id, null);
         $this->leaveInaccessibleContext();
         session()->flash('flash', 'Direkte Freigabe entzogen.');
+    }
+
+    public function saveDescription(): void
+    {
+        $this->validate(['description' => ['nullable', 'string', 'max:2000']]);
+        $this->service()->describe($this->user(), $this->selected('edit'), $this->description);
+        session()->flash('flash', 'Beschreibung gespeichert.');
+    }
+
+    /** Favourite or subscription of the selected entry, or of the open folder when nothing is selected */
+    public function toggleFavorite(): void
+    {
+        $on = $this->collaboration()->toggleFavorite($this->user(), $this->collaborationTarget());
+        session()->flash('flash', $on ? 'Zu den Favoriten hinzugefügt.' : 'Aus den Favoriten entfernt.');
+    }
+
+    public function toggleSubscription(): void
+    {
+        $on = $this->collaboration()->toggleSubscription($this->user(), $this->collaborationTarget());
+        session()->flash('flash', $on ? 'Abonniert: Du wirst bei Änderungen benachrichtigt.' : 'Abo beendet.');
+    }
+
+    public function addComment(): void
+    {
+        $this->validate(['commentBody' => ['required', 'string', 'max:2000']]);
+        $this->collaboration()->comment($this->user(), $this->selected('read'), $this->commentBody);
+        $this->commentBody = '';
+        session()->flash('flash', 'Kommentar gespeichert.');
+    }
+
+    public function deleteComment(int $id): void
+    {
+        $node = $this->selected('read');
+        $this->collaboration()->deleteComment($this->user(), Comment::where('node_id', $node->id)->findOrFail($id));
+        session()->flash('flash', 'Kommentar gelöscht.');
+    }
+
+    private function collaborationTarget(): Node
+    {
+        $node = $this->selectedId !== null ? $this->selected('read') : ($this->node !== null ? $this->findNode($this->node) : null);
+        abort_if($node === null || $node->trashed(), 404);
+
+        return $node;
+    }
+
+    private function collaboration(): CollaborationService
+    {
+        return app(CollaborationService::class);
     }
 
     public function createShare(): void
@@ -475,7 +536,7 @@ class Explorer extends Component
     public function render()
     {
         $user = $this->user();
-        abort_unless(in_array($this->view, ['', 'shared', 'trash'], true), 404);
+        abort_unless(in_array($this->view, self::VIEWS, true), 404);
         $access = $this->access();
         $spaces = Space::query()->orderBy('name')->get()->filter(fn (Space $space) => $access->can($user, $space, 'read'));
         $space = null;
@@ -501,6 +562,10 @@ class Explorer extends Component
                         ->filter(fn (Node $node) => $this->canManageTrashed($node))
                     : $this->service()->children($user, $space, $folder);
             }
+        } elseif ($this->view === 'favorites') {
+            $rows = $this->collaboration()->favorites($user);
+        } elseif ($this->view === 'recent') {
+            $rows = $this->collaboration()->recent($user, CollaborationService::RECENT_KEEP);
         } elseif ($this->view === 'shared') {
             $rows = $this->service()->shared($user);
         } elseif ($this->view === 'trash') {
@@ -522,7 +587,7 @@ class Explorer extends Component
             'breadcrumbs' => $folder ? $this->breadcrumbs($folder) : collect(),
             'canWriteHere' => $this->view !== 'trash' && ($this->node === null || $folder) && ($folder || $space) && $access->can($user, $folder ?? $space, 'edit'),
             'canManage' => $canManage, 'subjects' => $subjects, 'destinations' => $destinations,
-            'versions' => $selected && $selected->kind === 'file' && ! $selected->trashed() ? $this->service()->versions($user, $selected) : collect(),
+            'versions' => $versions = $selected && $selected->kind === 'file' && ! $selected->trashed() ? $this->service()->versions($user, $selected) : collect(),
             'permissions' => $canManage ? $target->permissions()->get() : collect(),
             'effectiveLevel' => $target ? $access->level($user, $target) : null,
             'purgeAfter' => $selected?->trashed() ? $selected->deleted_at->copy()->addDays(FileService::retentionDays()) : null,
@@ -538,6 +603,11 @@ class Explorer extends Component
             'canShare' => $shareNode && ! $shareNode->trashed() && app(ShareService::class)->canCreate($user, $shareNode),
             'shares' => $shareNode && ! $shareNode->trashed() ? app(ShareService::class)->forNode($user, $shareNode) : collect(),
             'shareMaxDays' => ShareService::maxDays(),
+            'collabNode' => $collabNode = $this->view !== 'trash' && ! $searching ? ($selected ?? $folder) : null,
+            'isFavorite' => $collabNode && ! $collabNode->trashed() && $this->collaboration()->isFavorite($user, $collabNode),
+            'isSubscribed' => $collabNode && ! $collabNode->trashed() && $this->collaboration()->isSubscribed($user, $collabNode),
+            'comments' => $selected && ! $selected->trashed() ? $this->collaboration()->comments($user, $selected) : collect(),
+            'hasPreview' => $selected && $selected->kind === 'file' && ! $selected->trashed() && PreviewService::supports($versions->first()),
         ]);
     }
 

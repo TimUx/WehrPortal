@@ -6,6 +6,7 @@ use App\Models\User;
 use Extensions\Dateien\Models\Node;
 use Extensions\Dateien\Office\OfficeService;
 use Extensions\Dateien\Office\OfficeSettings;
+use Extensions\Dateien\Services\CollaborationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -24,6 +25,7 @@ class OfficeEditorController
         abort_unless($user instanceof User, 403);
         abort_unless($settings->enabled(), 404);
         [$session, $token] = $office->open($user, $node, $request->boolean('bearbeiten'));
+        app(CollaborationService::class)->touchRecent($user, $node);
         try {
             $editor = $office->connector()->editor($session, $token, $user, $node, $session->version()->firstOrFail());
         } catch (RuntimeException $e) {

@@ -147,7 +147,9 @@ Umsetzung siehe [`DATEIEN.md`](DATEIEN.md#öffentliche-links-meilenstein-5); der
 
 ---
 
-## M6 – Komfort und Zusammenarbeit (optional)
+## M6 – Komfort und Zusammenarbeit (optional) – teilweise umgesetzt
+
+Umgesetzt (siehe [`DATEIEN.md`](DATEIEN.md#komfort-und-zusammenarbeit-meilenstein-6)): Favoriten, „Zuletzt verwendet“, Startseiten-Karte, Bildvorschau, Ordner als ZIP, Beschreibung, Kommentare, Abos, Volltextsuche über Name und Beschreibung. **Offen:** PDF-Vorschau (bräuchte Ghostscript/Imagick im Image), Volltext über Dateiinhalte (Textextraktion), Verschieben zwischen Ablagen, Registry für andere Module.
 
 - Favoriten, „Zuletzt verwendet“, Startseiten-Karte über `DashboardRegistry`.
 - Vorschaubilder für Bilder/PDFs, serverseitig erzeugt, nicht öffentlich gespeichert.

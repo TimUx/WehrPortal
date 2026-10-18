@@ -36,4 +36,16 @@ return [
         // Page views and downloads per minute and address
         'rate_limit' => 60,
     ],
+    // Comfort (milestone 6)
+    'previews' => [
+        'size' => 480,
+        'max_bytes' => 20 * 1024 * 1024,
+        // Larger images get no preview (GD needs about 4 bytes per pixel)
+        'max_pixels' => 16_000_000,
+    ],
+    'zip' => [
+        'max_entries' => 2000,
+        'max_bytes' => 2 * 1024 * 1024 * 1024,
+        'per_minute' => 5,
+    ],
 ];

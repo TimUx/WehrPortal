@@ -1,8 +1,10 @@
 <?php
 
 use Extensions\Dateien\Http\Controllers\DownloadController;
+use Extensions\Dateien\Http\Controllers\FolderZipController;
 use Extensions\Dateien\Http\Controllers\OfficeEditorController;
 use Extensions\Dateien\Http\Controllers\OnlyOfficeController;
+use Extensions\Dateien\Http\Controllers\PreviewController;
 use Extensions\Dateien\Http\Controllers\PublicShareController;
 use Extensions\Dateien\Http\Controllers\UploadController;
 use Extensions\Dateien\Http\Controllers\WopiController;
@@ -15,6 +17,10 @@ Route::prefix('dateien')->name('dateien.')
         Route::post('/hochladen', UploadController::class)->middleware('throttle:dateien-upload')->name('upload');
         Route::get('/dateien/{node}/versionen/{version}', DownloadController::class)
             ->whereNumber(['node', 'version'])->middleware('throttle:dateien-download')->name('download');
+        Route::get('/dateien/{node}/vorschau', PreviewController::class)
+            ->whereNumber('node')->middleware('throttle:dateien-download')->name('preview');
+        Route::get('/ordner/{node}/zip', FolderZipController::class)
+            ->whereNumber('node')->middleware('throttle:dateien-zip')->name('zip');
         Route::get('/dateien/{node}/office', OfficeEditorController::class)
             ->whereNumber('node')->middleware('throttle:dateien-download')->name('office');
     });

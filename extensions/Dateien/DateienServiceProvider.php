@@ -3,6 +3,7 @@
 namespace Extensions\Dateien;
 
 use App\Models\User;
+use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
 use App\Support\ModuleNav;
 use Extensions\Dateien\Console\DrainDeletionsCommand;
@@ -16,11 +17,14 @@ use Extensions\Dateien\Office\OfficeService;
 use Extensions\Dateien\Office\OfficeSettings;
 use Extensions\Dateien\Office\WopiDiscovery;
 use Extensions\Dateien\Office\WopiProof;
+use Extensions\Dateien\Services\CollaborationService;
 use Extensions\Dateien\Services\FileAccess;
 use Extensions\Dateien\Services\FileService;
 use Extensions\Dateien\Services\GroupService;
 use Extensions\Dateien\Services\Maintenance;
+use Extensions\Dateien\Services\PreviewService;
 use Extensions\Dateien\Services\ShareService;
+use Extensions\Dateien\Services\ZipService;
 use Filament\Facades\Filament;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Scheduling\Schedule;
@@ -46,6 +50,9 @@ class DateienServiceProvider extends ServiceProvider
         $this->app->singleton(GroupService::class);
         $this->app->singleton(Maintenance::class);
         $this->app->singleton(ShareService::class);
+        $this->app->singleton(CollaborationService::class);
+        $this->app->singleton(PreviewService::class);
+        $this->app->singleton(ZipService::class);
         $this->app->singleton(OfficeSettings::class);
         $this->app->singleton(OfficeService::class);
         $this->app->singleton(WopiDiscovery::class);
@@ -69,6 +76,8 @@ class DateienServiceProvider extends ServiceProvider
         // The office server calls from one address; keyed by IP because there is no session
         RateLimiter::for('dateien-office', fn (Request $request) => Limit::perMinute(max(1, (int) config('dateien.office.rate_limit', 600)))
             ->by('office|'.$request->ip()));
+        RateLimiter::for('dateien-zip', fn (Request $request) => Limit::perMinute(max(1, (int) config('dateien.zip.per_minute', 5)))
+            ->by('zip|'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
         RateLimiter::for('dateien-public', fn (Request $request) => Limit::perMinute(max(1, (int) config('dateien.shares.rate_limit', 60)))
             ->by('share|'.$request->ip()));
         if ($this->app->runningInConsole()) {
@@ -92,6 +101,15 @@ class DateienServiceProvider extends ServiceProvider
             provider: self::class,
             route: 'dateien.index',
         );
+        // Start page: favourites and recently used files, each re-checked against the ACL
+        $this->app->make(DashboardRegistry::class)->register('dateien', 'favorites', function (User $user) {
+            $collaboration = $this->app->make(CollaborationService::class);
+            $favorites = $collaboration->favorites($user, 20)->take(5);
+            $recent = $collaboration->recent($user, 5);
+
+            return $favorites->isEmpty() && $recent->isEmpty() ? null
+                : view('dateien::cards.favorites', ['favorites' => $favorites, 'recent' => $recent])->render();
+        });
         $registry->navigation('dateien', fn (User $user) => [
             'tabs' => [ModuleNav::tab('Dateien', 'dateien.index')],
             'manage' => GroupService::canManage($user) ? url('/admin/dateien') : null,

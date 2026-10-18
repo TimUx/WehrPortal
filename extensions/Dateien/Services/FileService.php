@@ -130,6 +130,7 @@ class FileService
             $parent = $this->destination($user, $space, $parent, 'edit');
             $node = Node::create(['space_id' => $space->id, 'parent_id' => $parent?->id, 'name' => $this->name($name), 'kind' => 'folder']);
             $this->audit($user, 'folder.created', $space, $node);
+            $this->collaboration()->notifySubscribers($user, $node, 'created');
 
             return $node;
         });
@@ -145,6 +146,7 @@ class FileService
                 $node = Node::create(['space_id' => $space->id, 'parent_id' => $parent?->id, 'name' => $name, 'kind' => 'file']);
                 $this->storeVersion($user, $space, $node, $file, null, $keys);
                 $this->audit($user, 'file.created', $space, $node);
+                $this->collaboration()->notifySubscribers($user, $node, 'created');
 
                 return $node;
             });
@@ -239,6 +241,19 @@ class FileService
             }
             $node->update(['name' => $name]);
             $this->audit($user, 'node.renamed', $space, $node);
+        });
+    }
+
+    /** A short text about the entry; edit right, searchable through the full-text index */
+    public function describe(User $user, Node $node, ?string $description): void
+    {
+        $description = $description === null ? null : trim($description);
+        if ($description !== null && (mb_strlen($description) > 2000 || ! mb_check_encoding($description, 'UTF-8'))) {
+            $this->invalid('description', 'Die Beschreibung darf höchstens 2000 Zeichen lang sein.');
+        }
+        $this->mutateNode($user, $node, 'edit', function (Space $space, Node $node) use ($user, $description) {
+            $node->forceFill(['description' => $description === '' ? null : $description])->save();
+            $this->audit($user, 'node.described', $space, $node);
         });
     }
 
@@ -398,7 +413,7 @@ class FileService
     }
 
     /**
-     * Name search over active entries. The database narrows the candidates to spaces the user can
+     * Name and full-text search (name + description) over active entries. The database narrows the candidates to spaces the user can
      * reach at all (space permission, or any direct share inside); every hit is then checked
      * with the full ACL, so nothing from a locked area, another Standort or the trash leaks.
      *
@@ -412,7 +427,10 @@ class FileService
             return collect();
         }
         $pattern = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], mb_strtolower($term)).'%';
-        $query = Node::query()->whereRaw("lower(name) LIKE ? ESCAPE '\\'", [$pattern])->orderBy('name')->orderBy('id');
+        // Name substring, or the German full-text index over name and description (x_files_nodes_fulltext)
+        $query = Node::query()->where(fn ($q) => $q->whereRaw("lower(name) LIKE ? ESCAPE '\\'", [$pattern])
+            ->orWhereRaw("to_tsvector('german', name || ' ' || coalesce(description, '')) @@ plainto_tsquery('german', ?)", [$term]))
+            ->orderBy('name')->orderBy('id');
         if ($space) {
             $query->where('space_id', $space->id);
         }
@@ -473,6 +491,7 @@ class FileService
 
         return $this->stream($node, $version, $request, function (Node $node, Version $version) use ($user) {
             $this->audit($user, 'version.downloaded', $this->spaceOf($node), $node, ['version_id' => $version->id]);
+            $this->collaboration()->touchRecent($user, $node);
         });
     }
 
@@ -688,6 +707,9 @@ class FileService
             'version_id' => $version->id, 'number' => $version->number, 'size' => $size,
             'source' => $office === null ? null : 'office', 'replaced_autosave' => $replace ? $latest->id : null,
         ], fn ($value) => $value !== null));
+        if ($latest && ! $version->autosave) {
+            $this->collaboration()->notifySubscribers($user, $node, 'version');
+        }
 
         return $version;
     }
@@ -827,6 +849,29 @@ class FileService
     private function audit(User $user, string $action, Space $space, ?Node $node = null, array $metadata = []): void
     {
         AuditEvent::create(['actor_id' => $user->id, 'action' => $action, 'space_id' => $space->id, 'node_id' => $node?->id, 'metadata' => $metadata]);
+    }
+
+    private function collaboration(): CollaborationService
+    {
+        return app(CollaborationService::class);
+    }
+
+    /** Local path of a stored version, or null when the file is missing or has the wrong size */
+    public function pathOf(Version $version): ?string
+    {
+        $key = $this->storageKey($version->storage_key);
+        try {
+            if (! $this->disk()->exists($key)) {
+                return null;
+            }
+        } catch (FilesystemException $e) {
+            report($e);
+
+            return null;
+        }
+        $path = $this->disk()->path($key);
+
+        return filesize($path) === $version->size ? $path : null;
     }
 
     public function disk(): Filesystem

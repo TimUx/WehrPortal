@@ -27,6 +27,8 @@
                 <p class="text-sm text-gray-500">Keine freigegebenen Bereiche.</p>
             @endforelse
             <hr class="border-gray-100">
+            <button type="button" wire:click="navigate(null, null, 'favorites')" class="block text-sm text-fw-navy">Favoriten</button>
+            <button type="button" wire:click="navigate(null, null, 'recent')" class="block text-sm text-fw-navy">Zuletzt verwendet</button>
             <button type="button" wire:click="navigate(null, null, 'shared')" class="block text-sm text-fw-navy">Mit mir geteilt</button>
             <button type="button" wire:click="navigate(null, null, 'trash')" class="block text-sm text-fw-navy">Papierkorb</button>
         </aside>
@@ -44,6 +46,13 @@
                     <button type="button" wire:click="navigate(null, {{ $crumb->id }})" class="{{ $link }}">{{ $crumb->name }}</button>
                 @endforeach
                 @if($view === 'trash')<span class="font-semibold">Papierkorb</span>@endif
+                @if($view === 'favorites')<span class="font-semibold">Favoriten</span>@endif
+                @if($view === 'recent')<span class="font-semibold">Zuletzt verwendet</span>@endif
+                @if($folder && ! $selected && $collabNode)
+                    <a href="{{ route('dateien.zip', ['node' => $folder->id]) }}" class="{{ $link }}">Als ZIP herunterladen</a>
+                    <button type="button" wire:click="toggleFavorite" class="{{ $link }}">{{ $isFavorite ? '★ Favorit' : '☆ Favorit' }}</button>
+                    <button type="button" wire:click="toggleSubscription" class="{{ $link }}">{{ $isSubscribed ? 'Abo beenden' : 'Abonnieren' }}</button>
+                @endif
                 @if($currentSpace && $view !== 'trash' && $access->can($user, $currentSpace, 'manage'))
                     <button type="button" wire:click="navigate({{ $currentSpace->id }}, null, 'trash')" class="{{ $link }} ml-auto">Papierkorb dieses Bereichs</button>
                 @endif
@@ -108,6 +117,26 @@
                             </div>
                         @endif
                     @else
+                        <div class="flex flex-wrap items-center gap-3">
+                            <button type="button" wire:click="toggleFavorite" class="{{ $link }}">{{ $isFavorite ? '★ Favorit' : '☆ Als Favorit merken' }}</button>
+                            <button type="button" wire:click="toggleSubscription" class="{{ $link }}">{{ $isSubscribed ? 'Abo beenden' : 'Bei Änderungen benachrichtigen' }}</button>
+                            @if($selected->kind === 'folder')
+                                <a href="{{ route('dateien.zip', ['node' => $selected->id]) }}" class="{{ $link }}">Als ZIP herunterladen</a>
+                            @endif
+                        </div>
+                        @if($hasPreview)
+                            <img src="{{ route('dateien.preview', ['node' => $selected->id, 'v' => $versions->first()->id]) }}" alt="Vorschau von {{ $selected->name }}" loading="lazy" class="max-h-80 max-w-full rounded-lg border border-gray-100">
+                        @endif
+                        @if($access->can($user, $selected, 'edit'))
+                            <form wire:submit="saveDescription" class="space-y-1">
+                                <label class="block text-sm">Beschreibung
+                                    <textarea wire:model="description" maxlength="2000" rows="2" class="{{ $input }} mt-1 block w-full"></textarea>
+                                </label>
+                                <button class="{{ $button }}" wire:loading.attr="disabled">Beschreibung speichern</button>
+                            </form>
+                        @elseif($selected->description)
+                            <p class="whitespace-pre-line text-sm text-gray-700">{{ $selected->description }}</p>
+                        @endif
                         @if($access->can($user, $selected, 'edit'))
                             <form wire:submit="rename" class="flex flex-wrap items-end gap-2">
                                 <label class="text-sm">Name<input wire:model="name" required maxlength="255" class="{{ $input }} ml-2"></label>
@@ -161,6 +190,27 @@
                                 @endforelse
                             </ul>
                         @endif
+                        <h3 class="font-semibold">Kommentare</h3>
+                        <ul class="space-y-2">
+                            @forelse($comments as $comment)
+                                <li class="text-sm" wire:key="comment-{{ $comment->id }}">
+                                    <p class="text-xs text-gray-500">{{ $comment->author?->name ?? 'Unbekannt' }} · {{ $comment->created_at?->timezone('Europe/Berlin')->format('d.m.Y H:i') }}
+                                        @if($comment->user_id === $user->id || $access->can($user, $selected, 'manage'))
+                                            <button type="button" wire:click="deleteComment({{ $comment->id }})" wire:confirm="Diesen Kommentar löschen?" class="{{ $link }} ml-2">Löschen</button>
+                                        @endif
+                                    </p>
+                                    <p class="whitespace-pre-line break-words">{{ $comment->body }}</p>
+                                </li>
+                            @empty
+                                <li class="text-sm text-gray-500">Noch keine Kommentare.</li>
+                            @endforelse
+                        </ul>
+                        <form wire:submit="addComment" class="space-y-1">
+                            <label class="block text-sm"><span class="sr-only">Kommentar</span>
+                                <textarea wire:model="commentBody" required maxlength="2000" rows="2" placeholder="Kommentar schreiben …" class="{{ $input }} block w-full"></textarea>
+                            </label>
+                            <button class="{{ $button }}" wire:loading.attr="disabled">Kommentieren</button>
+                        </form>
                     @endif
                 </section>
             @endif

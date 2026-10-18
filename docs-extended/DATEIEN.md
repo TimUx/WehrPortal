@@ -75,7 +75,7 @@ Pest-Featuretests liegen unter `tests/Feature/Extensions/Dateien/` und benötige
 
 Geprüft werden Modulfreigabe, Benutzer-/Gruppenrechte, Vererbungsgrenzen, Direktfreigaben ohne Metadatenlecks, Versionierung und Wiederherstellung, Namens-/Versionskonflikte, Papierkorb, IDOR-Schutz und Standortgrenzen.
 
-Nicht enthalten: Volltextindex, WebDAV, Desktop-Sync, Offline-Bearbeitung und Favoriten.
+Nicht enthalten: Volltext über Dateiinhalte, WebDAV, Desktop-Sync, Offline-Bearbeitung und Favoriten.
 
 ## Betrieb (Meilenstein 2)
 
@@ -127,3 +127,16 @@ Optional und **standardmäßig aus**. Damit gibt ein Verwalter eine Datei oder e
 - **Audit:** `share.created`, `share.revoked`, `share.downloaded`, `share.unlocked`, `share.password_failed`, `share.settings_changed`, `share.space_changed`; IP gekürzt (IPv4 /24, IPv6 /48), nie das Token.
 - **Aufräumen:** `dateien:prune-shares` (täglich 03:30) löscht Links 30 Tage nach Ablauf oder Widerruf.
 - **Grenzen:** Ein weitergeleiteter Link gilt für jeden, der ihn kennt – daher kurze Laufzeiten, Passwort über einen anderen Kanal, Download-Limit. Kein Upload für Externe (Briefkasten erst mit Virenscanner, M7).
+
+## Komfort und Zusammenarbeit (Meilenstein 6)
+
+Alle Listen werden beim Lesen mit den vollen Rechten gefiltert: Wer ein Recht verliert, sieht den Eintrag auch nicht mehr in Favoriten, „Zuletzt verwendet“, Startseite oder Mails.
+
+- **Favoriten und „Zuletzt verwendet“:** Stern im Explorer (Eintrag oder offener Ordner), eigene Ansichten in der Seitenleiste. „Zuletzt verwendet“ merkt sich Downloads und Office-Öffnungen (je Kamerad die letzten 30). Startseiten-Karte „Dateien“ (`DashboardRegistry`) mit je 5 Einträgen, nur wenn es etwas zu zeigen gibt.
+- **Beschreibung:** Freitext (max. 2000 Zeichen) pro Datei/Ordner, bearbeitbar mit Recht „Bearbeiten“.
+- **Kommentare:** Jeder mit Leserecht darf kommentieren; löschen dürfen Autor, Verwalter des Eintrags und Admins (Audit `comment.created`/`comment.deleted`).
+- **Abos („Bei Änderungen benachrichtigen“):** gelten für den Eintrag und – bei Ordnern – alles darunter. Mail + Glocke bei neuer Datei/neuem Ordner, neuer Version (keine Office-Zwischenspeicherungen) und neuem Kommentar; nur an Abonnenten mit Leserecht auf den betroffenen Eintrag, nie an den Auslöser, höchstens eine Mail je Eintrag und Kamerad in 10 Minuten. Die Mail nennt nur Namen, nie Inhalte oder Kommentartexte. Versand nach dem Commit, Fehler brechen nichts ab.
+- **Bildvorschau:** JPEG, PNG, GIF, WebP; serverseitig mit GD auf 480 px verkleinert (WebP, sonst PNG) und pro Version in `x_files_previews` (Datenbank) zwischengespeichert – wird mit der Version gelöscht und taucht nie als verwaiste Datei auf. Route `/dateien/dateien/{id}/vorschau` prüft Leserecht bei jedem Aufruf. Bilder über 20 MB oder 16 Megapixel (`dateien.previews.*`) bekommen keine Vorschau (Schutz vor Speicher-Bomben). Keine PDF-/Office-Vorschau (kein zusätzlicher Parser).
+- **Ordner als ZIP:** `/dateien/ordner/{id}/zip`; enthält nur, was der Kamerad lesen darf – ein Unterordner ohne Leserecht fehlt samt Inhalt und Namen. Unkomprimiert gestreamt (konstanter Speicher), UTF-8-Namen, jeweils die neueste Version. Grenzen: 2000 Einträge, 2 GiB, 5 ZIPs pro Minute (`dateien.zip.*`); darüber Hinweis „Unterordner einzeln herunterladen“. Audit `folder.zipped`.
+- **Volltextsuche:** Die Suche findet zusätzlich zu Teilstrings im Namen Wörter in Name und Beschreibung (PostgreSQL `to_tsvector('german', …)`, GIN-Index `x_files_nodes_fulltext`, Wortstämme: „Grundausbildungen“ findet „Grundausbildung“). Treffer werden wie bisher einzeln gegen die Rechte geprüft. Dateiinhalte werden nicht durchsucht.
+- **Nicht umgesetzt:** PDF-Vorschau, Inhaltsindex, Verschieben zwischen Ablagen, Verknüpfung aus anderen Modulen (siehe Roadmap).
