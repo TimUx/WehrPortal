@@ -10,7 +10,10 @@ use Extensions\Dateien\Models\Version;
 use Extensions\Dateien\Services\FileAccess;
 use Extensions\Dateien\Services\FileService;
 use Extensions\Locations\Services\LocationAccess;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -303,11 +306,14 @@ class Explorer extends Component
         return $node;
     }
 
+    /** @return array{Space, Node|null} */
     private function context(string $level = 'read'): array
     {
         $parent = $this->node !== null ? $this->findNode($this->node) : null;
         abort_if($parent && $parent->kind !== 'folder', 404);
-        $space = Space::query()->findOrFail($parent?->space_id ?? $this->space);
+        $spaceId = $parent !== null ? $parent->space_id : $this->space;
+        abort_if($spaceId === null, 404);
+        $space = Space::query()->findOrFail($spaceId);
         $this->access()->authorize($this->user(), $parent ?? $space, $level);
 
         return [$space, $parent];
@@ -331,6 +337,7 @@ class Explorer extends Component
         ]]);
     }
 
+    /** @return array{users: EloquentCollection<int, User>, groups: EloquentCollection<int, FileGroup>} */
     private function subjects(Space $space): array
     {
         $users = User::query()->where('is_active', true);
@@ -338,7 +345,7 @@ class Explorer extends Component
             $location = (int) $space->ext_location_id;
             $users->where(function ($query) use ($location) {
                 $query->where('ext_location_id', $location)
-                    ->orWhereIn('id', \Illuminate\Support\Facades\DB::table('x_location_user')->where('location_id', $location)->select('user_id'));
+                    ->orWhereIn('id', DB::table('x_location_user')->where('location_id', $location)->select('user_id'));
             });
         }
         $groups = FileGroup::query();
@@ -356,8 +363,10 @@ class Explorer extends Component
         ];
     }
 
+    /** @return Collection<int, Node> */
     private function breadcrumbs(Node $folder): Collection
     {
+        /** @var Collection<int, Node> $crumbs */
         $crumbs = collect();
         $seen = [];
         $current = $folder;
@@ -367,7 +376,7 @@ class Explorer extends Component
                 break;
             }
             $crumbs->prepend($current);
-            $current = $current->parent_id ? Node::query()->find($current->parent_id) : null;
+            $current = $current->parent_id ? Node::query()->whereKey($current->parent_id)->first() : null;
         }
 
         return $crumbs;
@@ -428,7 +437,7 @@ class Explorer extends Component
             $this->access()->authorizeTrashed($this->user(), $node);
 
             return true;
-        } catch (\Illuminate\Auth\Access\AuthorizationException) {
+        } catch (AuthorizationException) {
             return false;
         }
     }

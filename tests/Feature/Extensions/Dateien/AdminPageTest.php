@@ -9,8 +9,8 @@ use Extensions\Dateien\Services\GroupService;
 use Extensions\Locations\Models\Location;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Cache;
-use Livewire\Livewire;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
+use Livewire\Livewire;
 
 require_once __DIR__.'/helpers.php';
 

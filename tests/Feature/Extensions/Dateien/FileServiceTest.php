@@ -10,6 +10,7 @@ use Extensions\Dateien\Services\FileService;
 use Extensions\Locations\Models\Location;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\QueryException;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -330,7 +331,7 @@ it('rejects executable and MIME-disguised uploads without leaving files behind',
 });
 
 it('detects image MIME types from bytes instead of upload metadata', function () {
-    $image = \Illuminate\Http\UploadedFile::fake()->image('uebung.png');
+    $image = UploadedFile::fake()->image('uebung.png');
     $node = $this->files->upload($this->admin, $this->space, null, $image);
     expect($node->versions()->sole()->mime)->toBe('image/png');
 

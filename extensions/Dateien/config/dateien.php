@@ -1,7 +1,9 @@
 <?php
 
+use App\Support\FileResponse;
+
 return [
     'max_upload_kb' => 20480,
-    'extensions' => \App\Support\FileResponse::allowedExtensions(),
+    'extensions' => FileResponse::allowedExtensions(),
     'retention_days' => 30,
 ];

@@ -19,6 +19,9 @@ use Filament\Pages\Page;
 use Filament\Schemas\Schema;
 use Livewire\Attributes\Locked;
 
+/**
+ * @property-read Schema $form
+ */
 class DateienPage extends Page implements HasForms, ModuleArea
 {
     use InteractsWithForms;
@@ -103,7 +106,7 @@ class DateienPage extends Page implements HasForms, ModuleArea
     {
         $this->authorizeManager();
         $group = app(GroupService::class)->groups(auth()->user())->firstWhere('id', $id);
-        abort_unless($group, 403);
+        abort_unless($group !== null, 403);
         $this->groupId = $group->id;
         $this->groupName = $group->name;
         $this->groupLocationId = $group->ext_location_id;

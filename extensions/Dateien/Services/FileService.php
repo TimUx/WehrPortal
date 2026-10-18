@@ -2,8 +2,8 @@
 
 namespace Extensions\Dateien\Services;
 
-use App\Models\User;
 use App\Models\Setting;
+use App\Models\User;
 use App\Support\FileResponse;
 use Extensions\Dateien\Models\AuditEvent;
 use Extensions\Dateien\Models\FileGroup;
@@ -13,9 +13,9 @@ use Extensions\Dateien\Models\Space;
 use Extensions\Dateien\Models\Version;
 use Extensions\Locations\Services\LocationAccess;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Database\DatabaseTransactionsManager;
 use Illuminate\Database\QueryException;
-use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\Response;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -294,6 +294,7 @@ class FileService
         });
     }
 
+    /** @return Collection<int, Node> */
     public function children(User $user, Space $space, ?Node $parent): Collection
     {
         $this->access->member($user);
@@ -310,6 +311,7 @@ class FileService
             ->filter(fn (Node $node) => $this->access->can($user, $node, 'read'))->values();
     }
 
+    /** @return Collection<int, Space> */
     public function spaces(User $user): Collection
     {
         $this->access->member($user);
@@ -317,6 +319,7 @@ class FileService
         return Space::orderBy('name')->get()->filter(fn (Space $space) => $this->access->can($user, $space, 'read'))->values();
     }
 
+    /** @return Collection<int, Node> */
     public function shared(User $user): Collection
     {
         $user = $this->access->member($user);
@@ -329,6 +332,7 @@ class FileService
         return Node::whereIn('id', $ids)->orderBy('name')->get()->filter(fn (Node $node) => $this->access->can($user, $node, 'read'))->values();
     }
 
+    /** @return Collection<int, Node> */
     public function trashItems(User $user, Space $space): Collection
     {
         $this->access->member($user);
@@ -344,6 +348,7 @@ class FileService
         })->values();
     }
 
+    /** @return Collection<int, Version> */
     public function versions(User $user, Node $node): Collection
     {
         $this->access->authorize($user, $node, 'read');
@@ -416,6 +421,12 @@ class FileService
         }
     }
 
+    /**
+     * @template T
+     *
+     * @param  callable(Space): T  $callback
+     * @return T
+     */
     private function mutate(User $user, Space $space, callable $callback): mixed
     {
         try {
@@ -433,6 +444,12 @@ class FileService
         }
     }
 
+    /**
+     * @template T
+     *
+     * @param  callable(Space, Node): T  $callback
+     * @return T
+     */
     private function mutateNode(User $user, Node $node, string $level, callable $callback, bool $trashed = false): mixed
     {
         return $this->mutate($user, $this->spaceOf($node), function (Space $space) use ($user, $node, $level, $callback, $trashed) {
@@ -618,7 +635,7 @@ class FileService
         AuditEvent::create(['actor_id' => $user->id, 'action' => $action, 'space_id' => $space->id, 'node_id' => $node?->id, 'metadata' => $metadata]);
     }
 
-    private function disk(): FilesystemAdapter
+    private function disk(): Filesystem
     {
         // Never accept a public or remote disk configuration for this private local store.
         $config = config('filesystems.disks.dateien');

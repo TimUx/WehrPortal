@@ -29,7 +29,7 @@ class DateienServiceProvider extends ServiceProvider
         $this->app->singleton(FileAccess::class);
         $this->app->singleton(FileService::class);
         $this->app->singleton(GroupService::class);
-        $this->app->booting(fn () => Filament::getPanel('admin')?->plugin(DateienPlugin::make()));
+        $this->app->booting(fn () => Filament::getPanel('admin')->plugin(DateienPlugin::make()));
     }
 
     public function boot(): void

@@ -6,5 +6,7 @@ parameters:
         - .
     excludePaths:
         - database
+        - resources/views
     databaseMigrationsPath:
-        - database/migrations
+        - %currentWorkingDirectory%/extensions/Dateien/database/migrations
+        - %currentWorkingDirectory%/extensions/Locations/database/migrations

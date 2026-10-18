@@ -66,6 +66,7 @@ class FileAccess
 
         $chain = [];
         if ($target instanceof Node) {
+            /** @var Node|null $node */
             $node = Node::withTrashed()->find($target->getKey());
             if (! $node) {
                 return null;
@@ -88,6 +89,7 @@ class FileAccess
                 }
             }
         } else {
+            /** @var Space|null $space */
             $space = Space::find($target->getKey());
         }
 

@@ -21,11 +21,13 @@ class Version extends Model
         return ['number' => 'integer', 'size' => 'integer'];
     }
 
+    /** @return BelongsTo<Node, $this> */
     public function node(): BelongsTo
     {
         return $this->belongsTo(Node::class)->withTrashed();
     }
 
+    /** @return BelongsTo<User, $this> */
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

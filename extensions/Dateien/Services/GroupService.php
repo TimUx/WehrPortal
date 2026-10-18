@@ -6,6 +6,7 @@ use App\Models\User;
 use Extensions\Dateien\Models\AuditEvent;
 use Extensions\Dateien\Models\FileGroup;
 use Extensions\Locations\Services\LocationAccess;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -19,13 +20,14 @@ class GroupService
     {
         try {
             $user = app(FileAccess::class)->member($user);
-        } catch (\Illuminate\Auth\Access\AuthorizationException) {
+        } catch (AuthorizationException) {
             return false;
         }
 
         return $user->is_admin || $user->hasModuleRole('dateien', 'gruppenverwalter');
     }
 
+    /** @return Collection<int, FileGroup> */
     public function groups(User $user): Collection
     {
         $user = $this->actor($user);

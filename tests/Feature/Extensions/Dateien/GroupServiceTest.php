@@ -2,6 +2,7 @@
 
 use App\Models\Module;
 use Extensions\Dateien\Models\FileGroup;
+use Extensions\Dateien\Services\FileAccess;
 use Extensions\Dateien\Services\FileService;
 use Extensions\Dateien\Services\GroupService;
 use Extensions\Locations\Models\Location;
@@ -49,7 +50,7 @@ it('limits module managers to shared and own Standort groups without granting fi
     expect($shared->fresh()->name)->toBe('Gemeinsame Ausbildung');
     expect(fn () => $this->groups->setMember($this->manager, $other, $this->member->id, true))->toThrow(HttpException::class);
     expect(fn () => $this->groups->save($this->manager, $other, 'Übernommen', null))->toThrow(HttpException::class);
-    expect(app(\Extensions\Dateien\Services\FileAccess::class)->can($this->manager, $space, 'manage'))->toBeFalse();
+    expect(app(FileAccess::class)->can($this->manager, $space, 'manage'))->toBeFalse();
     expect($other->fresh()->name)->toBe('Fahrzeugwarte');
 });
 
