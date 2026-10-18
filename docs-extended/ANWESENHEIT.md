@@ -1,6 +1,15 @@
 # Anwesenheitslisten (Erweiterung `extensions/Anwesenheit`)
 
+[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Fork-Leitfaden](../FORK.md)
+
 Eigenständiges Modul für Übungen, Dienste und Besprechungen. Eine Liste braucht **keinen** Kalendertermin; Vorlagen und Kalendertermine sind nur eine optionale Vorbelegung (Titel, Art, Ort, Zeiten), danach ist die Liste ein eigener Datensatz.
+
+## Inhalt
+
+- [Funktionen](#funktionen)
+- [Rechte und Standorte](#rechte-und-standorte)
+- [Offline](#offline)
+- [Technik](#technik)
 
 ## Funktionen
 
@@ -21,9 +30,11 @@ Eigenständiges Modul für Übungen, Dienste und Besprechungen. Eine Liste brauc
 
 Listen und Vorlagen tragen `ext_location_id` und nutzen `LocationScope`/`AssignsLocation` der Locations-Erweiterung (nur aktiv bei `locations.enabled`). Teilnehmer und Leitung kommen aus dem Standort der Liste. Kalender-Vorbelegung wird nur angeboten, wenn das Kalender-Modul aktiv ist (Prüfung per `class_exists` und Modulstatus, ohne harte Kopplung).
 
+Das Löschen einer Liste entfernt auch ihre zugehörigen Datei-Anhänge. Eine Vorlage ist nur eine Vorbelegung; Änderungen daran verändern bereits angelegte Listen nicht.
+
 ## Offline
 
-Das Formular nutzt die Offline-Erweiterung (`data-offline-draft="anwesenheit-list"`, Felder mit `data-offline-draft-field`): Entwurf wird lokal gesichert, kann wiederhergestellt oder verworfen werden und wird beim Absenden gelöscht. Es werden keine Livewire-Requests nachgespielt; Dateien und Teilnehmer-Checkboxen werden nicht lokal gesichert, siehe [`OFFLINE.md`](OFFLINE.md).
+Das Formular nutzt die Offline-Erweiterung (`data-offline-draft="anwesenheit-list"`, Felder mit `data-offline-draft-field`): Titel, Art, Zeiten, Leitung, Gästezahl und die Teilnehmendenauswahl werden lokal gesichert, können wiederhergestellt oder verworfen werden und werden beim Absenden gelöscht. Standortwahl, Notizen, Empfänger und Dateien werden nicht lokal gesichert. Es werden keine Livewire-Requests nachgespielt; siehe [`OFFLINE.md`](OFFLINE.md).
 
 ## Technik
 

@@ -1,10 +1,17 @@
 # Offline und PWA
 
+[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Fork-Leitfaden](../FORK.md)
+
 openwehr hat bereits ein PWA-Manifest, eine Offline-Fallback-Seite und Push-Benachrichtigungen. Der Root-Service-Worker wird über `/sw.js` mit `Service-Worker-Allowed: /` ausgeliefert. Er zeigt bei fehlender Verbindung die Fallback-Seite und cached nur die Offline-Seite sowie öffentliche, versionierte statische Assets. Er cached keine Navigationen, angemeldeten Seiten, Login-, Admin- oder Livewire-Anfragen. Objektpläne sind die bewusst getrennte Ausnahme: ihr eigener Service Worker speichert Inhalte im Bereich `/objektplaene`.
+
+## Inhalt
+
+- [Offline-Entwürfe](#offline-entwürfe)
+- [Anwesenheitslisten](#anwesenheitslisten)
 
 ## Offline-Entwürfe
 
-Die Erweiterung speichert nur ausdrücklich markierte Eingabefelder eines Livewire-Formulars lokal in IndexedDB. Der erste Pilot ist das Formular für Löschwasserquellen in der Wasserkarte. Auswahl, Zahlen, Lage und Koordinaten werden lokal gesichert; Notizen, Datei-Uploads und nicht markierte Felder bleiben außen vor. Ein vorhandener Entwurf kann wiederhergestellt oder verworfen werden.
+Die Erweiterung speichert nur ausdrücklich markierte Eingabefelder eines Livewire-Formulars lokal in IndexedDB. Der erste Pilot ist das Formular für Löschwasserquellen in der Wasserkarte: Art, Nummer, Lage, Koordinaten, Durchfluss, Druck, Nennweite, Inhalt, Saughöhe, Betreiber, Prüfintervall und Kartenstatus. Notizen, Datei-Uploads und nicht markierte Felder bleiben außen vor. Ein vorhandener Entwurf kann wiederhergestellt oder verworfen werden.
 
 Ein Entwurf wird **nicht** im Hintergrund gesendet. Livewire-Snapshots, CSRF-Token und Sitzungen dürfen nicht blind erneut abgespielt werden. Nach der Wiederherstellung muss die Person das Formular prüfen und normal absenden; damit bleiben Authentifizierung, Validierung und alle Geschäftsregeln auf dem Server unverändert. Es gibt derzeit keine geeigneten klassischen POST-Formulare, deren Offline-Übermittlung gefahrlos in eine Warteschlange gelegt werden könnte.
 
@@ -14,4 +21,4 @@ Die Funktion lässt sich mit `OFFLINE_ENABLED=false` abschalten. Das schaltet Of
 
 ## Anwesenheitslisten
 
-Das Formular der Anwesenheitsliste (`data-offline-draft="anwesenheit-list"`) nutzt dasselbe Entwurfsmuster: lokale Sicherung, Wiederherstellen/Verwerfen, Löschen beim Absenden. Dateien und Teilnehmerauswahl werden nicht lokal gesichert. Siehe [`ANWESENHEIT.md`](ANWESENHEIT.md).
+Das Formular der Anwesenheitsliste (`data-offline-draft="anwesenheit-list"`) nutzt dasselbe Entwurfsmuster: Titel, Art, Zeiten, Leitung, Gästezahl und Teilnehmendenauswahl werden lokal gesichert, können wiederhergestellt oder verworfen werden und werden beim Absenden gelöscht. Standortwahl, Notizen, Empfänger und Dateien werden nicht lokal gesichert. Siehe [`ANWESENHEIT.md`](ANWESENHEIT.md).

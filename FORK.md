@@ -1,6 +1,16 @@
 # Fork-Leitfaden (openwehr-extended)
 
+[Zur Hauptdokumentation](README.md) · [Erweiterungsindex](docs-extended/README.md)
+
 Dieser Fork erweitert [roberteinsle/openwehr](https://github.com/roberteinsle/openwehr) und soll dem Original so nah wie möglich bleiben, damit Updates konfliktarm übernommen werden können.
+
+## Inhalt
+
+- [Grundregeln](#grundregeln)
+- [Architektur](#architektur)
+- [Upstream-Updates übernehmen](#upstream-updates-übernehmen)
+- [Fork-spezifische Punkte](#fork-spezifische-punkte)
+- [Liste der Upstream-Eingriffe](#liste-der-upstream-eingriffe)
 
 ## Grundregeln
 
@@ -90,6 +100,6 @@ Empfehlung: Branch Protection auf `main` (PR + grüne Checks), damit Upstream-Me
 | `modules/Wasserkarte/resources/views/livewire/source-form.blade.php` | explizite Offline-Entwurf-Markierungen der Formularfelder |
 | `public/sw.js` | Worker-Quelltext nach `extensions/Offline/resources/js/sw.js` verschoben; `/sw.js` liefert ihn jetzt mit korrekten Scope- und Cache-Headern aus |
 | `tests/Feature/Notifications/PushTest.php` | prüft den gerouteten Service Worker statt einer statischen Datei |
-| `README.md` | Hinweis auf Offline-Status und manuelle Wiederherstellung von Wasserquellen-Entwürfen |
+| `README.md` | Dokumentationsstruktur, Inhaltsverzeichnis, Technologie-/Lizenz-Badges, verifizierte Fork-Erweiterungen und Betriebsunterschiede; fachliche Inhalte einschließlich Offline-Status und manueller Wiederherstellung von Wasserquellen-Entwürfen bleiben erhalten |
 | `CLAUDE.md` | aktualisiert den Speicherort und die Verantwortung für den Root-Service-Worker |
 | `modules/Einsatzbericht/resources/views/livewire/report-editor.blade.php` | Einsatzbericht-Ergänzungen: ein `@includeIf('ebp::partials.editor', …)` (+ Kommentar) nach dem Abschnitt „Fahrzeuge und Besatzung“; ohne `extensions/EinsatzberichtPlus` bleibt es wirkungslos |

@@ -1,6 +1,24 @@
 # Dateien
 
+[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Roadmap](DATEIEN-ROADMAP.md) · [Fork-Leitfaden](../FORK.md)
+
 Die Fork-Extension `extensions/Dateien/` ergänzt eine interne Dateiablage. Sie wird automatisch geladen, ist als Modul **standardmäßig ausgeschaltet** und benötigt keine Änderungen am Upstream.
+
+Die Erweiterung hat keinen eigenen `DATEIEN_ENABLED`-Schalter: Sie wird geladen, wenn der Fork-Erweiterungs-Provider aktiv ist. Die Freischaltung des Moduls unter **Admin → Module** steuert den Kameradenzugang; sie ersetzt nicht die unten beschriebenen Rechte pro Ablage und Eintrag.
+
+## Inhalt
+
+- [Einrichtung und Bedienung](#einrichtung-und-bedienung)
+- [Rechte](#rechte)
+  - [Standorte](#standorte)
+- [Versionierung und Papierkorb](#versionierung-und-papierkorb)
+- [Datenmodell](#datenmodell)
+- [Betrieb und Sicherheit](#betrieb-und-sicherheit)
+- [Tests und Grenzen](#tests-und-grenzen)
+- [Betrieb (Meilenstein 2)](#betrieb-meilenstein-2)
+- [Online-Office (Meilensteine 3 und 4)](#online-office-meilensteine-3-und-4)
+- [Öffentliche Links (Meilenstein 5)](#öffentliche-links-meilenstein-5)
+- [Komfort und Zusammenarbeit (Meilenstein 6)](#komfort-und-zusammenarbeit-meilenstein-6)
 
 ## Einrichtung und Bedienung
 
@@ -9,7 +27,7 @@ Die Fork-Extension `extensions/Dateien/` ergänzt eine interne Dateiablage. Sie 
 3. Dort eigene Dateigruppen anlegen und bestehende Mitglieder zuordnen. Dateigruppen sind unabhängig von Abteilungen und Funktionen. Die Modulrolle `gruppenverwalter` erlaubt Gruppen- und Mitgliederverwaltung, aber keinen automatischen Zugriff auf Dateien. Das Gruppenverwalter-Kennzeichen einer Mitgliedschaft dokumentiert die Zuständigkeit; es ersetzt die Modulrolle nicht.
 4. Unter `/dateien` die Ablage öffnen und Rechte an Benutzer oder Dateigruppen vergeben. Globale Admins dürfen in aktiven Modulen alles; für alle anderen gilt **standardmäßig kein Zugriff**.
 
-Der Explorer bietet Ordner, Einzel-Upload, Umbenennen, Verschieben innerhalb einer Ablage, Downloads, Versionsverlauf, Rechte und Papierkorb. Namenskonflikte werden angezeigt; es gibt kein stilles Überschreiben. Für einen Inhaltswechsel ausdrücklich eine **neue Version** hochladen. „Mit mir geteilt“ erschließt Direktfreigaben, auch wenn der übergeordnete Ordner nicht zugänglich ist.
+Der Explorer bietet Ordner, Mehrfach-Upload, Umbenennen, Verschieben innerhalb einer Ablage, Downloads, Versionsverlauf, Rechte, Suche, Favoriten, „Zuletzt verwendet“, Bildvorschau, ZIP-Download, Kommentare und Papierkorb. Namenskonflikte werden angezeigt; es gibt kein stilles Überschreiben. Für einen Inhaltswechsel ausdrücklich eine **neue Version** hochladen. „Mit mir geteilt“ erschließt Direktfreigaben, auch wenn der übergeordnete Ordner nicht zugänglich ist.
 
 ## Rechte
 
@@ -48,8 +66,12 @@ Alle Tabellen verwenden `x_files_`:
 | `groups`, `group_members` | Dateigruppen und bestehende Benutzer mit Zuständigkeitskennzeichen |
 | `permissions` | Benutzer-/Gruppenrechte auf Ablagen oder Einträgen |
 | `audit_events` | Aktionen und IDs, ohne Dateibytes oder Speicherzugangsdaten |
+| `pending_deletions` | Dauerhafte Warteschlange für physische Löschungen nach dem Datenbank-Commit |
+| `office_sessions`, `office_locks` | Kurzlebige Office-Sitzungen und WOPI-Sperren |
+| `shares` | Gehashte Tokens und Einstellungen öffentlicher Lesefreigaben |
+| `previews` | In der Datenbank gespeicherte Bildvorschauen pro Version |
 
-Fremdschlüssel, Prüfungen und eindeutige aktive Namen pro Ordner sichern die Struktur zusätzlich zur zentralen Service-Schicht. Favoriten sind nicht Teil dieses Meilensteins.
+Fremdschlüssel, Prüfungen und eindeutige aktive Namen pro Ordner sichern die Struktur zusätzlich zur zentralen Service-Schicht. Favoriten und „Zuletzt verwendet“ kamen nach dem ursprünglichen ersten Meilenstein hinzu; siehe [Komfort und Zusammenarbeit](#komfort-und-zusammenarbeit-meilenstein-6).
 
 ## Betrieb und Sicherheit
 
@@ -60,7 +82,7 @@ Fremdschlüssel, Prüfungen und eindeutige aktive Namen pro Ordner sichern die S
 - Endgültige Löschungen verwenden eine persistente Löschliste (`x_files_pending_deletions`): Erst nach erfolgreichem Datenbank-Commit werden Dateibytes entfernt. Bei Speicherfehlern bleiben die Aufträge erhalten. Globale Admins können unter **Admin → Dateien → Speicherbereinigung** ausstehende Löschungen erneut versuchen; weitere endgültige Löschaktionen arbeiten die Liste ebenfalls ab.
 - Uploadlimit standardmäßig 20 MiB, administrativ bis maximal 50 MiB. Erlaubt sind nur ausgewählte Endungen aus der zentralen `FileResponse`-Allowlist und passende MIME-Typen. PHP (`upload_max_filesize`, `post_max_size`), Livewire-Temporärupload und Reverse Proxy können kleinere Grenzen setzen und müssen zum gewünschten Limit passen.
 - Office-Dateien werden nur gespeichert/heruntergeladen, nicht serverseitig ausgeführt. Die Typprüfung ersetzt **keinen Virenscanner**. Dateien nur aus vertrauenswürdigen Quellen öffnen; ein Virenscanner ist nicht integriert.
-- Downloads benötigen Anmeldung, aktives Konto, Modulzugriff, Standortzugriff und ACL. Versions-IDs werden an die angefragte Datei gebunden. Sichere Dateiauslieferung erfolgt über `FileResponse` mit `private, no-store` und `nosniff`; es gibt keine öffentlichen Datei-URLs.
+- Interne Downloads benötigen Anmeldung, aktives Konto, Modulzugriff, Standortzugriff und ACL. Versions-IDs werden an die angefragte Datei gebunden. Sichere Dateiauslieferung erfolgt über `FileResponse` mit `private, no-store` und `nosniff`. Die optionale öffentliche Lesefreigabe ist eine eng begrenzte Ausnahme und wird unter [Öffentliche Links](#öffentliche-links-meilenstein-5) beschrieben.
 - Datei-Inhalte, Tokens und Speicherzugangsdaten gehören nicht in Logs. Die Extension führt eigene Metadaten-Auditereignisse; der allgemeine ActivityRecorder verarbeitet keine Extension-Modelle.
 - Die Dateien-Oberfläche und Downloads sind kein Offline-Angebot. Keine Dateien in Service-Worker- oder Proxy-Caches aufnehmen.
 
@@ -75,7 +97,7 @@ Pest-Featuretests liegen unter `tests/Feature/Extensions/Dateien/` und benötige
 
 Geprüft werden Modulfreigabe, Benutzer-/Gruppenrechte, Vererbungsgrenzen, Direktfreigaben ohne Metadatenlecks, Versionierung und Wiederherstellung, Namens-/Versionskonflikte, Papierkorb, IDOR-Schutz und Standortgrenzen.
 
-Nicht enthalten: Volltext über Dateiinhalte, WebDAV, Desktop-Sync, Offline-Bearbeitung und Favoriten.
+Die Suche umfasst Namen und Beschreibungen, aber keine Dateiinhalte. Nicht enthalten sind WebDAV, Desktop-Sync, Offline-Bearbeitung und PDF-Vorschau. Favoriten und „Zuletzt verwendet“ sind inzwischen Teil des späteren Meilensteins 6.
 
 ## Betrieb (Meilenstein 2)
 

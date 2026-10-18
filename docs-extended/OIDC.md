@@ -1,6 +1,19 @@
 # Single Sign-On (OIDC, z. B. Keycloak)
 
+[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Fork-Leitfaden](../FORK.md)
+
 Erweiterung `extensions/Oidc/`. Anmeldung über einen externen Identity Provider mit OpenID Connect (Authorization Code Flow mit PKCE, `state`, `nonce`). Die Anmeldung per Link-Mail bleibt Standard und funktioniert ohne die Erweiterung unverändert.
+
+## Inhalt
+
+- [Aufbau](#aufbau)
+- [Keycloak einrichten](#keycloak-einrichten)
+- [In openwehr einrichten](#in-openwehr-einrichten)
+- [Zuordnung und Claims](#zuordnung-und-claims)
+- [Lokaler System-Admin und Aussperr-Schutz](#lokaler-system-admin-und-aussperr-schutz)
+- [Notfall-Wiederherstellung](#notfall-wiederherstellung-server-zugriff)
+- [Upstream-Merges](#upstream-merges)
+- [Fehlersuche](#fehlersuche)
 
 ## Aufbau
 

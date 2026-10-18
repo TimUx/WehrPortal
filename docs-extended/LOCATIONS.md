@@ -1,6 +1,15 @@
 # Mehrere Standorte (Extension `Locations`)
 
+[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Fork-Leitfaden](../FORK.md)
+
 Für Gemeinden mit mehreren Feuerwehrhäusern. Code: `extensions/Locations/`, Abschaltung mit `LOCATIONS_ENABLED=false`.
+
+## Inhalt
+
+- [Rollen](#rollen)
+- [Datenmodell](#datenmodell)
+- [Wirkung](#wirkung)
+- [Grenzen / offen](#grenzen--offen)
 
 ## Rollen
 
@@ -23,6 +32,7 @@ Standort-Admins erreichen `/admin` über `MyLocationPage` (`ModuleArea`), `User:
 - `LocationScope` (globaler Scope) filtert die konfigurierten Modelle auf die Standorte des angemeldeten Nutzers. Ohne angemeldeten Nutzer (Konsole, Queue, Scheduler, Login, Magic Link) und für globale Admins ist er aus.
 - Neue Datensätze erhalten den aktuellen Standort (Umschalter im Benutzermenü, sonst eigener, sonst Hauptstandort); Schreiben in einen fremden Standort wirft `AuthorizationException`.
 - `PersonnelService::visibleMembers()` und alle Listen, die über Eloquent laufen, sind damit automatisch standortbezogen.
+- Bei Benutzern bleiben zusätzlich das eigene Konto und Mitglieder sichtbar, die über `x_location_user` einem der eigenen Standorte zugeordnet sind.
 
 ## Grenzen / offen
 

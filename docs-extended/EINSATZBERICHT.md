@@ -1,5 +1,12 @@
 # Einsatzbericht: Analyse und Ergänzungen (`extensions/EinsatzberichtPlus`)
 
+[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Fork-Leitfaden](../FORK.md)
+
+## Inhalt
+
+- [Abgleich mit der FW-App](#abgleich-mit-der-fw-app)
+- [Umsetzung](#umsetzung)
+
 ## Abgleich mit der FW-App
 
 | Anforderung | Stand im Original | Ergebnis |
@@ -18,6 +25,7 @@
 ## Umsetzung
 
 - Eigene Tabellen `x_ebp_extras`, `x_ebp_persons`, `x_ebp_earning_losses` (Personendaten mit `encrypted`-Cast); keine Upstream-Tabelle wird geändert.
+- `EINSATZBERICHT_PLUS_ENABLED=false` deaktiviert die Erweiterung. Bei aktivem Einsatzbericht erscheint sie direkt im Berichtseditor; sie hat keinen eigenen Modulzugangsschalter.
 - Livewire-Komponente `ebp.extras`, eingebunden über `@includeIf('ebp::partials.editor')` im Editor (einziger Upstream-Eingriff, siehe `FORK.md`).
 - Rechte wie der Editor: nur Einsatzleiter/Wehrführung/Admins; Bearbeiten nur bei `ReportService::canEdit`. Der Bericht wird über das standortgefilterte Modell geladen, andere Standorte sind 404.
 - Sollbesatzung: `CrewSize` liest `fv_profiles.crew` (`1/8` → 9, `1/5/6` → 6) nur, wenn das Modul Fahrzeuge aktiv ist; ohne Eintrag kein Hinweis. Reiner Hinweis, nichts wird blockiert.
