@@ -155,7 +155,7 @@ class FileService
                     $this->invalid('file', 'Die Prüfsumme der gespeicherten Datei stimmt nicht.');
                 }
                 $new = Version::create([
-                    'node_id' => $node->id, 'number' => ($latest?->number ?? 0) + 1, 'storage_key' => $key,
+                    'node_id' => $node->id, 'number' => ($latest->number ?? 0) + 1, 'storage_key' => $key,
                     'checksum' => $version->checksum, 'size' => $version->size, 'mime' => $version->mime,
                     'extension' => $version->extension, 'created_by' => $user->id, 'source' => 'restore',
                 ]);
@@ -519,7 +519,7 @@ class FileService
             $this->invalid('file', 'Die Prüfsumme der hochgeladenen Datei stimmt nicht.');
         }
         $version = Version::create([
-            'node_id' => $node->id, 'number' => ($latest?->number ?? 0) + 1, 'storage_key' => $key,
+            'node_id' => $node->id, 'number' => ($latest->number ?? 0) + 1, 'storage_key' => $key,
             'checksum' => $checksum, 'size' => $size, 'mime' => $mime, 'extension' => $extension,
             'created_by' => $user->id, 'source' => 'upload',
         ]);
@@ -531,7 +531,7 @@ class FileService
     private function latest(Node $node, ?int $expected): ?Version
     {
         $latest = Version::where('node_id', $node->id)->orderByDesc('number')->first();
-        if ($expected !== null && $expected !== ($latest?->number ?? 0)) {
+        if ($expected !== null && $expected !== ($latest->number ?? 0)) {
             $this->invalid('expectedVersion', 'Die Datei wurde inzwischen geändert. Bitte neu laden.');
         }
 
