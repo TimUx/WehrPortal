@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 use Modules\Kalender\src\Livewire\EventForm;
+use Modules\Kalender\src\Livewire\EventDetail;
 use Modules\Kalender\src\Models\Event;
 use Modules\Kalender\src\Models\Template;
 use Modules\Kalender\src\Notifications\EventCreatedNotification;
@@ -67,7 +68,7 @@ test('an Übungsdienst is a Termin in the Kalender of its target group – with 
     $service = Service::sole();
     $this->plan->setTopic($service, 'Geheimes Übungsszenario Bahnunfall');
     $event = Event::sole();
-    expect($event)->title->toBe('Übungsdienst')->type->toBe('uebung')->description->toBeNull()->managed_by->toBe('uebungsdienste')
+    expect($event)->title->toBe('Übungsdienst')->type->toBe('uebung')->rsvp->toBeTrue()->description->toBeNull()->managed_by->toBe('uebungsdienste')
         ->location->toBe('Gerätehaus Musterstadt')->place_id->toBe($this->station->id)->dress_code_ids->toBe([$this->turnout->id])
         ->and($event->starts_at->copy()->setTimezone('Europe/Berlin')->format('d.m. H:i'))->toBe('16.03. 19:00')
         ->and($event->ends_at->copy()->setTimezone('Europe/Berlin')->format('H:i'))->toBe('21:30')
@@ -76,7 +77,9 @@ test('an Übungsdienst is a Termin in the Kalender of its target group – with 
 
     Livewire::actingAs($this->hanna)->test(Home::class)->assertSee('Übungsdienst')->assertSee('Hauptstraße 1, 12345 Musterstadt')
         ->assertSee('Einsatzkleidung')->assertSee('google.com/maps/dir', false)->assertDontSee('Bahnunfall');
-    $this->actingAs($this->hanna)->get(route('kalender.show', $event))->assertOk()->assertSee('Kommt aus dem Übungsdienstplaner')->assertDontSee('Bahnunfall');
+    $this->actingAs($this->hanna)->get(route('kalender.show', $event))->assertOk()->assertSee('Kommt aus dem Übungsdienstplaner')->assertSee('Zusagen')->assertSee('Absagen')->assertDontSee('Bahnunfall');
+    Livewire::actingAs($this->hanna)->test(EventDetail::class, ['event' => $event])->call('respond', 'yes')->assertHasNoErrors();
+    expect($event->responses()->where('user_id', $this->hanna->id)->value('status'))->toBe('yes');
     expect(app(IcsExporter::class)->render(collect([$event->fresh()])))->not->toContain('Bahnunfall')->toContain('Hauptstraße 1');
 
     // Moving the Dienst moves the Termin; deleting it removes the Termin

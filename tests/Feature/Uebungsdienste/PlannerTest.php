@@ -1,12 +1,16 @@
 <?php
 
 use App\Livewire\Dashboard\Home;
+use App\Models\Group;
+use App\Models\MemberFunction;
 use App\Models\Module;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
+use Modules\Kalender\src\Models\Event;
+use Modules\Kalender\src\Services\EventService;
 use Modules\Uebungsdienste\src\Livewire\Planner;
 use Modules\Uebungsdienste\src\Livewire\ServiceForm;
 use Modules\Uebungsdienste\src\Models\Service;
@@ -20,6 +24,9 @@ beforeEach(function () {
     $this->admin = User::factory()->admin()->create(['name' => 'Anna Admin']);
     $this->board = User::factory()->create(['name' => 'Bernd Blaulicht']);
     $this->board->moduleAccess()->create(['module' => 'uebungsdienste']);
+    $this->board->functions()->attach(MemberFunction::create(['name' => 'Vorstand']));
+    $this->placeGroup = Group::create(['name' => 'Ortswehr Musterstadt']);
+    $this->board->groups()->attach($this->placeGroup);
     $this->member = User::factory()->create(['name' => 'Hanna Hydrant']);
 
     $this->plan = app(ServicePlan::class);
@@ -57,13 +64,14 @@ test('every Vorstand member sets the topic and several responsible people', func
         ->and($this->next->responsible->pluck('name')->all())->toBe(['Hanna Hydrant']);
 });
 
-test('date, time and place are changed by admins only, on their own page', function () {
-    $this->actingAs($this->board)->get('/uebungsdienste/anlegen')->assertForbidden();
-    $this->actingAs($this->board)->get('/uebungsdienste/'.$this->next->id.'/bearbeiten')->assertForbidden();
-    Livewire::actingAs($this->board)->test(Planner::class)->assertDontSee('Dienst anlegen')->assertDontSee('Ändern');
+test('the Vorstand can plan services and other module members cannot', function () {
+    $this->actingAs($this->board)->get('/uebungsdienste/anlegen')->assertOk();
+    $this->actingAs($this->board)->get('/uebungsdienste/'.$this->next->id.'/bearbeiten')->assertOk();
+    Livewire::actingAs($this->board)->test(Planner::class)->assertSee('Dienst anlegen')->assertSee('Ändern');
 
-    expect(fn () => $this->plan->reschedule($this->board, $this->next, '2027-03-17', '18:30', 'Gerätehaus'))->toThrow(ValidationException::class)
-        ->and(fn () => $this->plan->delete($this->board, $this->next))->toThrow(ValidationException::class);
+    $this->member->moduleAccess()->create(['module' => 'uebungsdienste']);
+    $this->actingAs($this->member)->get('/uebungsdienste/anlegen')->assertForbidden();
+    expect(fn () => $this->plan->reschedule($this->member, $this->next, '2027-03-17', '18:30', 'Gerätehaus'))->toThrow(ValidationException::class);
 
     $this->actingAs($this->admin)->get('/uebungsdienste/'.$this->next->id.'/bearbeiten')->assertOk()->assertSee('Dienst am Di, 16.03.2027 ändern');
     Livewire::actingAs($this->admin)->test(ServiceForm::class, ['service' => $this->next])
@@ -73,6 +81,47 @@ test('date, time and place are changed by admins only, on their own page', funct
 
     expect($this->next->refresh())->starts_at->toBe('18:30')->location->toBe('Gerätehaus');
     Livewire::actingAs($this->admin)->test(Planner::class)->assertSee('Dienst am Mi, 17.03.2027 geändert');
+});
+
+test('new services default to the planner’s groups and all groups can be selected', function () {
+    $otherGroup = Group::create(['name' => 'Ortswehr Beispielort']);
+
+    Livewire::actingAs($this->board)->test(ServiceForm::class)
+        ->assertSet('groupIds', [(string) $this->placeGroup->id])
+        ->set('groupIds', [(string) $this->placeGroup->id, (string) $otherGroup->id])
+        ->set('date', '2027-04-06')->set('time', '19:00')
+        ->call('save')->assertRedirect();
+
+    $service = Service::whereDate('date', '2027-04-06')->sole();
+    expect($service->group_ids)->toBe([$this->placeGroup->id, $otherGroup->id]);
+
+    Livewire::actingAs($this->board)->test(ServiceForm::class)
+        ->set('groupIds', [])
+        ->set('date', '2027-04-13')->set('time', '19:00')
+        ->call('save')->assertRedirect();
+
+    expect(Service::whereDate('date', '2027-04-13')->sole()->group_ids)->toBeNull();
+});
+
+test('the plan shows RSVP totals for linked Übungsdienste', function () {
+    Module::where('key', 'kalender')->update(['is_active' => true]);
+    Cache::forget('modules_active_keys');
+    $this->member->groups()->attach($this->placeGroup);
+    $this->member->moduleAccess()->create(['module' => 'kalender']);
+    $otherGroup = Group::create(['name' => 'Ortswehr Beispielort']);
+    $otherMember = User::factory()->create(['name' => 'Tina Beispiel']);
+    $otherMember->groups()->attach($otherGroup);
+    $otherMember->moduleAccess()->create(['module' => 'kalender']);
+
+    $service = $this->plan->add($this->admin, '2027-04-06', '19:00', 'Wache', ['group_ids' => [$this->placeGroup->id, $otherGroup->id]]);
+    $event = Event::findOrFail($service->event_id);
+    expect($event->rsvp)->toBeTrue();
+
+    app(EventService::class)->respond($event, $this->member, 'yes');
+    app(EventService::class)->respond($event, $otherMember, 'yes');
+
+    Livewire::actingAs($this->board)->test(Planner::class)
+        ->assertSee('2 zugesagt · 0 vielleicht · 0 abgesagt');
 });
 
 test('admins add single Dienste and series on "Dienst anlegen", and delete them', function () {
