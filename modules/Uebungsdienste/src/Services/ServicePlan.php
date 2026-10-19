@@ -32,7 +32,7 @@ class ServicePlan
     /** The next Übungsdienst for a Kamerad in one of their Einsatzabteilungen */
     public function nextFor(User $user): ?Service
     {
-        $groups = $user->groups()->pluck('groups.id')->all();
+        $groups = $user->groups()->whereRaw('lower(groups.name) = ?', ['einsatzabteilung'])->pluck('groups.id')->all();
 
         return Service::whereDate('date', '>=', self::today())->orderBy('date')->orderBy('starts_at')->get()
             ->first(function (Service $s) use ($groups) {

@@ -68,8 +68,12 @@
                     <p class="hidden md:block text-gray-700">{{ $service->timeLabel() ?? '–' }}</p>
                     <div class="mt-2 md:mt-0">
                         <label class="sr-only" for="topic-{{ $service->id }}">Thema</label>
-                        <textarea id="topic-{{ $service->id }}" rows="2" wire:change="saveTopic({{ $service->id }}, $event.target.value)" maxlength="1000" placeholder="Thema eintragen …"
-                                  class="{{ $input }} w-full resize-y">{{ $service->topic }}</textarea>
+                        @if($editableIds->contains($service->id))
+                            <textarea id="topic-{{ $service->id }}" rows="2" wire:change="saveTopic({{ $service->id }}, $event.target.value)" maxlength="1000" placeholder="Thema eintragen …"
+                                      class="{{ $input }} w-full resize-y">{{ $service->topic }}</textarea>
+                        @else
+                            <p class="whitespace-pre-line text-gray-700">{{ $service->topic }}</p>
+                        @endif
                     </div>
                     <p class="hidden md:block text-gray-700">{{ $service->location ?: '–' }}</p>
                     <div class="mt-2 md:mt-0">
@@ -78,15 +82,17 @@
                             @foreach($service->responsible as $person)
                                 <span class="inline-flex items-center gap-1 rounded-full bg-gray-100 py-1 pl-2.5 pr-1 text-sm text-gray-800" wire:key="r-{{ $service->id }}-{{ $person->id }}">
                                     {{ $person->name }}
-                                    <button type="button" wire:click="removeResponsible({{ $service->id }}, {{ $person->id }})" class="inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-500 hover:bg-gray-200 hover:text-red-600" aria-label="{{ $person->name }} entfernen">×</button>
+                                    @if($editableIds->contains($service->id))<button type="button" wire:click="removeResponsible({{ $service->id }}, {{ $person->id }})" class="inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-500 hover:bg-gray-200 hover:text-red-600" aria-label="{{ $person->name }} entfernen">×</button>@endif
                                 </span>
                             @endforeach
-                            <select wire:change="addResponsible({{ $service->id }}, $event.target.value)" wire:key="add-{{ $service->id }}-{{ $service->responsible->pluck('id')->implode('-') }}" class="{{ $input }} py-1 max-w-full" aria-label="Verantwortliche hinzufügen">
-                                <option value="">+ hinzufügen</option>
-                                @foreach($people as $id => $name)
-                                    @unless($service->responsible->contains('id', $id))<option value="{{ $id }}">{{ $name }}</option>@endunless
-                                @endforeach
-                            </select>
+                            @if($editableIds->contains($service->id))
+                                <select wire:change="addResponsible({{ $service->id }}, $event.target.value)" wire:key="add-{{ $service->id }}-{{ $service->responsible->pluck('id')->implode('-') }}" class="{{ $input }} py-1 max-w-full" aria-label="Verantwortliche hinzufügen">
+                                    <option value="">+ hinzufügen</option>
+                                    @foreach($people as $id => $name)
+                                        @unless($service->responsible->contains('id', $id))<option value="{{ $id }}">{{ $name }}</option>@endunless
+                                    @endforeach
+                                </select>
+                            @endif
                         </div>
                     </div>
                 </div>
