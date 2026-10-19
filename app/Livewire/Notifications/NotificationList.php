@@ -3,6 +3,7 @@
 namespace App\Livewire\Notifications;
 
 use App\Services\Impersonation;
+use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -23,7 +24,13 @@ class NotificationList extends Component
         if (! app(Impersonation::class)->active()) {
             auth()->user()->unreadNotifications()->update(['read_at' => now()]);
         }
+        // The bell and the list on /benachrichtigungen show the same entries: both redraw
+        $this->dispatch('notifications-read');
     }
+
+    /** Another component marked entries read: redraw so dots and count agree */
+    #[On('notifications-read')]
+    public function refreshEntries(): void {}
 
     public function render()
     {
@@ -32,6 +39,7 @@ class NotificationList extends Component
         return view('livewire.notifications.notification-list', [
             'notifications' => $query->paginate(25),
             'unread' => auth()->user()->unreadNotifications()->count(),
+            'viewingAs' => app(Impersonation::class)->active(),
         ]);
     }
 }
