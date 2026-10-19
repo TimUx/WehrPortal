@@ -23,6 +23,9 @@ Die Erweiterungen ergänzen die 25 Module des Upstreams. Sie werden über den Er
 | [Dateien](DATEIEN.md) | Private Dateiablagen mit ACL, Versionen, Suche und optionaler Office-Bearbeitung bzw. öffentlicher Lesefreigabe. | Modul nach Migration zunächst inaktiv. Es gibt keinen `DATEIEN_ENABLED`-Schalter. Zugriff wird zusätzlich zu Modulzugang pro Ablage/Eintrag vergeben; öffentliche Links sind standardmäßig aus. Online-Office benötigt einen separat betriebenen Server. |
 | [EinsatzberichtPlus](EINSATZBERICHT.md) | Zusätzliche Einsatzangaben und ein nicht blockierender Sollbesatzungshinweis. | `EINSATZBERICHT_PLUS_ENABLED=false` schaltet die Erweiterung ab. Nutzt die Rollen und Standortgrenzen des Einsatzberichts; Zusatzangaben sind derzeit nicht Teil von Druck oder Statistik. |
 
+![Screenshot: Öffentlicher Vereinsbeitritt](screenshots/vereinsverwaltung/beitritt.png)
+![Screenshot: Vereinsantrag im Vorstandsbereich](screenshots/vereinsverwaltung/antraege.png)
+
 ## Hydrantenkontrolle: Bedienungsanleitung
 
 [Kurzüberblick in der README](../README.md#hydrantenkontrolle)
