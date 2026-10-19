@@ -89,6 +89,7 @@ Nicht fotografiert: `/personalakte/nachweise` (der QR-Code hängt vom zufällige
 
 - **Artefakte:** `screenshots` (immer, 30 Tage) mit allen Bildern; bei Fehlern zusätzlich `e2e-report` (Playwright-Report, Traces, Fehlerbilder, `storage/logs/` der Wegwerf-Installation, 7 Tage).
 - **Dokumentation aktuell halten:** `docs-screenshots.yml` läuft bei jedem Push auf `extended` (außer reinen Doku-/Markdown-Änderungen) und manuell. Er ruft `screenshots.yml` auf, ersetzt `docs-extended/screenshots/` durch das Artefakt und committet nur, wenn sich ein Bild geändert hat („Update documentation screenshots“, als `github-actions[bot]`). Weil der Lauf deterministisch ist, passiert das nur bei geänderter Oberfläche oder geänderten Beispieldaten. Pushes mit `GITHUB_TOKEN` lösen keine weiteren Läufe aus. Ist `extended` gegen direkte Pushes geschützt, muss `github-actions[bot]` die Regel umgehen dürfen – sonst schlägt nur dieser Schritt fehl.
+- Die Bilder und die Erweiterung `extensions/E2e` kommen nicht ins Docker-Image (`.dockerignore`).
 - `screenshots.yml` selbst braucht nur Leserechte und ist damit als Release-Gate (`workflow_call`) nutzbar. Keine Secrets nötig.
 
 ## Lokal ausführen

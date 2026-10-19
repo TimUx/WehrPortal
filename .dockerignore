@@ -12,3 +12,50 @@ storage/framework/cache/data/*
 storage/framework/sessions/*
 storage/framework/views/*
 tests
+
+# Fork (openwehr-extended): nothing in the image that the app doesn't need at runtime or for the build
+# Documentation and project page (incl. the screenshots in docs-extended/screenshots/)
+docs
+docs-extended
+*.md
+# Development and CI configuration
+.devcontainer
+.editorconfig
+.gitattributes
+.gitignore
+.gitleaksignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+phpstan.neon
+phpstan-baseline.neon
+phpunit.xml
+.phpunit.cache
+.phpunit.result.cache
+.phpactor.json
+.idea
+.vscode
+.fleet
+.nova
+.zed
+Homestead.json
+Homestead.yaml
+# Only for the E2E screenshot run (frozen clock), never needed in production
+extensions/E2e
+# Local state of a development checkout: caches, uploads, credentials
+auth.json
+*.log
+.DS_Store
+Thumbs.db
+public/storage
+bootstrap/cache/*.php
+storage/*.key
+storage/pail
+storage/app/private/*
+!storage/app/private/.gitignore
+storage/app/public/*
+!storage/app/public/.gitignore
+storage/framework/testing/*
+!storage/framework/testing/.gitignore
+storage/framework/phpstan/*
+!storage/framework/phpstan/.gitignore

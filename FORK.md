@@ -102,5 +102,6 @@ Empfehlung: Branch Protection auf `main` (PR + grüne Checks), damit Upstream-Me
 | `public/sw.js` | Worker-Quelltext nach `extensions/Offline/resources/js/sw.js` verschoben; `/sw.js` liefert ihn jetzt mit korrekten Scope- und Cache-Headern aus |
 | `tests/Feature/Notifications/PushTest.php` | prüft den gerouteten Service Worker statt einer statischen Datei |
 | `README.md` | Dokumentationsstruktur, Inhaltsverzeichnis, Technologie-/Lizenz-Badges, verifizierte Fork-Erweiterungen und Betriebsunterschiede; fachliche Inhalte einschließlich Offline-Status und manueller Wiederherstellung von Wasserquellen-Entwürfen bleiben erhalten |
+| `.dockerignore` | zusätzlich ausgeschlossen (Abschnitt „Fork“ am Ende, Upstream-Zeilen unverändert): Dokumentation samt Screenshots (`docs`, `docs-extended`, `*.md`), Entwicklungs- und CI-Konfiguration, `extensions/E2e` (nur für den Screenshot-Lauf) und lokaler Zustand eines Checkouts (Uploads in `storage/app`, `bootstrap/cache/*.php`, `auth.json`, Logs) |
 | `CLAUDE.md` | aktualisiert den Speicherort und die Verantwortung für den Root-Service-Worker |
 | `modules/Einsatzbericht/resources/views/livewire/report-editor.blade.php` | Einsatzbericht-Ergänzungen: ein `@includeIf('ebp::partials.editor', …)` (+ Kommentar) nach dem Abschnitt „Fahrzeuge und Besatzung“; ohne `extensions/EinsatzberichtPlus` bleibt es wirkungslos |
