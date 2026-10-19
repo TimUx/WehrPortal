@@ -196,7 +196,7 @@ class Board extends Component
                 ->with('association')
                 ->select(['id', 'association_id', 'status', 'title', 'first_name', 'last_name', 'email', 'submitted_at', 'youth_member', 'photo_consent', 'youth_photo_consent'])
                 ->where('association_id', $association->id)
-                ->where('status', 'pending')->oldest('submitted_at')->get(),
+                ->where('status', 'pending')->oldest('submitted_at')->get()
                 : collect(),
             'members' => $association ? Member::query()->withoutGlobalScopes()
                 ->select(['id', 'user_id', 'association_id', 'membership_type', 'youth_member', 'status', 'title', 'first_name', 'last_name', 'annual_fee_cents', 'mandate_status', 'photo_consent', 'youth_photo_consent'])
