@@ -68,6 +68,27 @@ it('creates hydrants and resumes an inspection through Livewire without overwrit
     expect($inspection->fresh()->notes)->toBe('Schild ersetzen');
 });
 
+it('shows the latest saved inspection result for each year in the hydrant history', function () {
+    $service = app(InspectionService::class);
+    $hydrant = $service->saveHydrant($this->wart, ['number' => 'H-1', 'street' => 'Musterstraße']);
+    $oldInspection = $service->openYear($this->wart, 2025)->inspections()->sole();
+    $service->saveInspection($this->wart, $oldInspection, [
+        'checked_at' => '2025-09-10', 'defects' => ['sign_problem'], 'notes' => 'Schild erneuern',
+    ], $oldInspection->version);
+    $currentInspection = $service->openYear($this->wart, 2026)->inspections()->sole();
+    $service->saveInspection($this->wart, $currentInspection, [
+        'checked_at' => '2026-10-19', 'is_ok' => true, 'notes' => 'Geprüft',
+    ], $currentInspection->version);
+
+    $this->get(route('hydrantenkontrolle.history', $hydrant))
+        ->assertOk()
+        ->assertSeeInOrder(['2026', 'In Ordnung', '19.10.2026', 'Geprüft', '2025', 'Mängel', '10.09.2025', 'Schild erneuern'])
+        ->assertSee('Hinweisschild unleserlich/falsch/fehlt');
+
+    $this->get(route('hydrantenkontrolle.hydrants'))->assertOk()->assertSee('Historie');
+    $this->get(route('hydrantenkontrolle.year', $currentInspection->year))->assertOk()->assertSee('Historie');
+});
+
 it('rejects stale Livewire inspection forms instead of overwriting a newer result', function () {
     $service = app(InspectionService::class);
     $service->saveHydrant($this->wart, ['number' => 'H-1', 'street' => 'Musterstraße']);
@@ -146,4 +167,5 @@ it('protects year views PDFs and inspection editing across locations', function 
     $this->get(route('hydrantenkontrolle.year', $year))->assertNotFound();
     $this->get(route('hydrantenkontrolle.pdf', $year))->assertNotFound();
     $this->get(route('hydrantenkontrolle.edit', $hydrant))->assertNotFound();
+    $this->get(route('hydrantenkontrolle.history', $hydrant))->assertNotFound();
 });

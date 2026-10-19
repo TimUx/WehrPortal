@@ -14,7 +14,7 @@ Die Erweiterungen ergänzen die 25 Module des Upstreams. Sie werden über den Er
 
 | Erweiterung | Zweck | Zugang, Aktivierung und wichtige Grenzen |
 |---|---|---|
-| [Hydrantenkontrolle](#hydrantenkontrolle-bedienungsanleitung) | Stammdaten, fortsetzbare Jahreskontrollen, Mängelcheckliste und echte PDF-Berichte. | Unter Admin → Module aktivieren und Rolle `hydrantenwart` vergeben (Admins ebenfalls berechtigt). `HYDRANTENKONTROLLE_ENABLED=false` lädt die Erweiterung nicht. Jahresbezogene Stammdatenkopien, Konfliktschutz beim Speichern, optionale Standortbegrenzung; keine automatische Wasserkarte-/Excel-Synchronisierung. |
+| [Hydrantenkontrolle](#hydrantenkontrolle-bedienungsanleitung) | Stammdaten, fortsetzbare Jahreskontrollen, Kontrollhistorie je Hydrant, Mängelcheckliste und echte PDF-Berichte. | Unter Admin → Module aktivieren und Rolle `hydrantenwart` vergeben (Admins ebenfalls berechtigt). `HYDRANTENKONTROLLE_ENABLED=false` lädt die Erweiterung nicht. Jahresbezogene Stammdatenkopien, Konfliktschutz beim Speichern, optionale Standortbegrenzung; keine automatische Wasserkarte-/Excel-Synchronisierung. |
 | [Locations](LOCATIONS.md) | Mitglieder und ausgewählte Datensätze Standorten zuordnen. | `LOCATIONS_ENABLED=false` deaktiviert Scope und Standortverwaltung. Nur konfigurierte Modelle werden begrenzt; Standortloses (`NULL`) bleibt gemeinsam sichtbar. Keine vollständige Mandantentrennung. |
 | [Offline/PWA](OFFLINE.md) | Offline-Fallback sowie lokale Entwürfe ausdrücklich markierter Formulare. | `OFFLINE_ENABLED=false` schaltet Statusanzeige und Entwürfe ab, aber nicht Manifest, Service Worker und Fallback-Seite. Keine automatische Übermittlung oder Synchronisierung von Formularen; Objektpläne nutzen einen separaten Worker. |
 | [OIDC](OIDC.md) | Anmeldung über einen externen OpenID-Connect-Anbieter. | `OIDC_ENABLED=false` lädt OIDC nicht. Nur aktive Konten mit bestätigter E-Mail werden verknüpft; JIT-Anlage ist optional, IdP-Rollen werden nicht übernommen. Bei „Nur Single Sign-On“ lokale System-Admins und Notfallzugang erhalten. |
@@ -57,7 +57,7 @@ Unter **Hydranten → Hydrant erfassen** (`/hydrantenkontrolle/hydranten/neu`) f
 
 Mindestens **Straße oder Lagebeschreibung oder ein vollständiges Koordinatenpaar** muss vorhanden sein. Es gibt keine automatische Adresssuche oder Kartenpositionierung.
 
-In der Bestandsliste nach Nummer, Straße oder Lagebeschreibung suchen und zwischen **Aktiv**, **Archiviert** und **Alle** wechseln. Ein Klick auf den Hydranten öffnet die Stammdatenbearbeitung. Der Standort lässt sich dort nicht nachträglich ändern.
+In der Bestandsliste nach Nummer, Straße oder Lagebeschreibung suchen und zwischen **Aktiv**, **Archiviert** und **Alle** wechseln. Ein Klick auf den Hydranten öffnet die Stammdatenbearbeitung; **Historie** zeigt alle gespeicherten Jahreskontrollen. Der Standort lässt sich dort nicht nachträglich ändern.
 
 ### Ein Jahr beginnen und an weiteren Tagen fortsetzen
 
@@ -98,15 +98,15 @@ Alternativ **Unterflurhydrant in Ordnung** wählen. Dieses Häkchen darf nicht m
 
 Ein Prüfdatum ohne Ergebnis oder ein Ergebnis ohne Prüfdatum wird abgewiesen. Um eine irrtümliche Prüfung wieder auf **Ungeprüft** zu setzen, Prüfdatum und sämtliche Häkchen entfernen und speichern.
 
-### Übersicht, Korrekturen und Historie
+### Übersicht, Kontrollhistorie und Korrekturen
 
-Die Jahresansicht zeigt **Gesamt**, **Ungeprüft**, **In Ordnung** und **Mit Mängeln**. Suche nach Nummer oder Straße und Statusfilter begrenzen die angezeigte Liste; die Kennzahlen bleiben auf das ganze ausgewählte Jahr bezogen.
+Die Jahresansicht zeigt **Gesamt**, **Ungeprüft**, **In Ordnung** und **Mit Mängeln**. Suche nach Nummer oder Straße und Statusfilter begrenzen die angezeigte Liste; die Kennzahlen bleiben auf das ganze ausgewählte Jahr bezogen. Über **Historie** beim Hydranten öffnet sich eine Jahresübersicht mit dem zuletzt gespeicherten Status, Prüfdatum, Prüfer, Mängeln und Bemerkungen. Sie ist sowohl in der Hydrantenliste als auch neben **Bearbeiten** in der Jahresansicht erreichbar.
 
 Stammdatenänderungen wirken nicht rückwirkend auf bestehende Kontrollsätze. Beispiel: Wird „Musterstraße 12“ später zu „Musterstraße 14“ korrigiert, zeigt eine bereits angelegte Jahreskontrolle weiterhin ihre ursprüngliche Kopie. Auch erneutes **Öffnen / ergänzen** aktualisiert diese Kopie nicht. Deshalb die Stammdaten möglichst vor Beginn der Jahreskontrolle prüfen.
 
 Bei zeitgleicher Bearbeitung desselben Datensatzes wird ein veralteter Speicherstand abgewiesen. Eigene noch nicht gespeicherte Angaben zunächst sichern, die Seite neu laden, den inzwischen gespeicherten Stand prüfen und die gewünschte Korrektur erneut vornehmen. Es gibt keine automatische Zusammenführung.
 
-Die Jahresdaten bleiben bearbeitbar; es gibt keine endgültige Freigabe oder Versiegelung. Änderungen werden im normalen Aktivitätslog mit dessen regulärer Aufbewahrungsfrist dokumentiert. Die erhaltenen Jahresdaten sind daher nicht mit einer unbegrenzt aufbewahrten Änderungshistorie gleichzusetzen.
+Die Jahresdaten bleiben bearbeitbar; es gibt keine endgültige Freigabe oder Versiegelung. Die Kontrollhistorie zeigt je Jahr nur den zuletzt gespeicherten Stand, keine einzelnen Revisionen. Änderungen innerhalb eines Jahres werden im normalen Aktivitätslog mit dessen regulärer Aufbewahrungsfrist dokumentiert. Die Jahresstände bleiben erhalten, sind aber nicht mit einer unbegrenzt aufbewahrten Änderungshistorie gleichzusetzen.
 
 ### PDF als Zwischenstand oder Jahresbericht
 
