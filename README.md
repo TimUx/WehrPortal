@@ -848,6 +848,9 @@ Die [ausführliche Bedienungsanleitung](docs-extended/README.md#hydrantenkontrol
 
 ### Vereinsverwaltung
 
+![Screenshot: Öffentlicher Vereinsbeitritt](docs-extended/screenshots/vereinsverwaltung/beitritt.png)
+![Screenshot: Offener Vereinsantrag im Vorstandsbereich](docs-extended/screenshots/vereinsverwaltung/antraege.png)
+
 Die Vereinsverwaltung wird nach der Migration unter **Admin → Module** aktiviert. Dem Vereinsvorstand wird dort die Rolle `vereinsvorstand` gegeben. Die Rolle hängt nicht von der Vereinsmitgliedsart ab: Aktive und passive Vereinsmitglieder können im Vorstand sein. Für den App-Zugriff ist ein aktives Kameradenkonto erforderlich; Mitglieder ohne App-Konto können trotzdem verwaltet werden.
 
 Die öffentliche Beitrittsseite `/vereinsbeitritt` nimmt persönliche Angaben und Bankverbindung entgegen. Anträge erscheinen im geschützten Vorstandsbereich `/verein`. Annahme legt ein passives Vereinsmitglied mit dem konfigurierten Standardbeitrag an; Ablehnung löscht die personenbezogenen Angaben des Antrags. Der Vorstand kann Mitglieder ergänzen und bearbeiten, Mitgliedsart, Beitrag und Austrittsdatum pflegen und optional ein Kameradenkonto verknüpfen. Aktive Kameraden lassen sich außerdem in ihrer Personalakte mit „Vereinsmitglied“ eintragen; dabei werden Name und Kontaktdaten ausschließlich aus der Personalverwaltung bezogen und die Mitgliedschaft dem Standort des Kameraden zugeordnet. Beim Abwählen wird die Mitgliedschaft mit Austrittsdatum beendet, nicht gelöscht.
