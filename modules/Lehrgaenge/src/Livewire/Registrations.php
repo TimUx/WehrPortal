@@ -110,6 +110,33 @@ class Registrations extends Component
         $this->flash = $record->user->name.': „'.$record->course->name.'“ absolviert.';
     }
 
+    /** In fox112 angemeldet: the Kamerad moves from Interesse to the Warteliste (and back) */
+    public function waitlist(int $recordId, bool $on = true): void
+    {
+        $record = Record::with(['user', 'course'])->findOrFail($recordId);
+        $this->reset('flash', 'error');
+        try {
+            app(RegistrationService::class)->waitlist($record, $on);
+        } catch (ValidationException $e) {
+            $this->error = collect($e->errors())->flatten()->first();
+
+            return;
+        }
+        $this->flash = $record->user->name.': „'.$record->course->name.'“ '.($on ? 'steht auf der Warteliste, E-Mail ist raus.' : 'wieder unter Interesse.');
+    }
+
+    /** Absage signed off in fox112: no longer red on the start page (and back) */
+    public function markCancelSeen(int $recordId, bool $seen = true): void
+    {
+        $record = Record::with(['user', 'course'])->findOrFail($recordId);
+        $this->reset('flash', 'error');
+        try {
+            app(RegistrationService::class)->markCancelSeen($record, $seen);
+        } catch (ValidationException $e) {
+            $this->error = collect($e->errors())->flatten()->first();
+        }
+    }
+
     public function startReject(int $recordId): void
     {
         $this->closeSessions();
@@ -130,7 +157,7 @@ class Registrations extends Component
             return;
         }
 
-        $this->flash = $record->user->name.': „'.$record->course->name.'“ abgelehnt, E-Mail ist raus.';
+        $this->flash = $record->user->getAttribute('name').': „'.$record->course->getAttribute('name').'“ abgelehnt, E-Mail ist raus.';
         $this->reset('rejectRecordId', 'rejectComment');
     }
 
@@ -173,14 +200,17 @@ class Registrations extends Component
             ->where(fn ($q) => $q->whereIn('status', Record::OPEN)
                 ->orWhere(fn ($c) => $c->whereIn('status', ['cancelled', 'rejected'])->where('cancelled_at', '>=', now()->subDays(90))))
             ->oldest()->get();
-        $requested = $records->where('status', 'requested');
+        $requested = $records->where('status', 'requested')->whereNull('waitlisted_at');
+        $group = fn ($records) => $records->groupBy('course_id')->sortBy(fn ($group) => $group->min('created_at'))
+            ->map(fn ($group) => ['course' => $group->first()->course, 'records' => $group->sortBy('created_at')->values()])->values();
 
         return view('lehrgaenge::livewire.registrations', [
             'cancelled' => $records->where('status', 'cancelled')->sortByDesc('cancelled_at')->values(),
             'rejected' => $records->where('status', 'rejected')->sortByDesc('cancelled_at')->values(),
             // Bedarf per Lehrgang, the Kameraden in the order they came; the Lehrgang waiting longest on top
-            'demand' => $requested->groupBy('course_id')->sortBy(fn ($group) => $group->min('created_at'))
-                ->map(fn ($group) => ['course' => $group->first()->course, 'records' => $group->sortBy('created_at')->values()])->values(),
+            'demand' => $group($requested),
+            // Registered in fox112, waiting for a place
+            'waitlist' => $group($records->where('status', 'requested')->whereNotNull('waitlisted_at')),
             'confirmed' => $records->where('status', 'confirmed')->sortBy('starts_on')->values(),
             'lastRun' => CatalogImporter::lastRun(),
             'offeredCourses' => Course::offered()->orderBy('name')->get(['id', 'name']),

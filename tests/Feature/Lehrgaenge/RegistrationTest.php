@@ -30,6 +30,7 @@ use Modules\Lehrgaenge\src\Notifications\RegisteredByManagerNotification;
 use Modules\Lehrgaenge\src\Notifications\RegistrationCancelledNotification;
 use Modules\Lehrgaenge\src\Notifications\RegistrationRejectedNotification;
 use Modules\Lehrgaenge\src\Notifications\RequestReceivedNotification;
+use Modules\Lehrgaenge\src\Notifications\WaitlistedNotification;
 use Modules\Lehrgaenge\src\Services\CatalogImporter;
 use Modules\Lehrgaenge\src\Services\RegistrationService;
 use Modules\Lehrgaenge\src\Services\ResultImport;
@@ -360,7 +361,7 @@ test('6+7: the Kamerad cancels with a reason; the Ausbildungsleiter is told and 
 
     Livewire::actingAs($this->leader)->test(Registrations::class)->assertSee('bitte in fox112 wieder abmelden')->assertSee('Grund: Beruflich verhindert')->assertSee('(war bestätigt)');
     Livewire::actingAs($this->leader)->test(MemberProfile::class, ['member' => $this->member])->assertSee('Grund: Beruflich verhindert');
-    Livewire::actingAs($this->leader)->test(Home::class)->assertSee('1 Absage in den letzten 7 Tagen');
+    Livewire::actingAs($this->leader)->test(Home::class)->assertSee('1 Absage – in fox112 abmelden');
 
     // Bedarf can be announced again afterwards
     $this->r->request($this->member, $this->agt, null);
@@ -543,13 +544,13 @@ test('the start page shows Interesse and Absagen to the same people who are noti
     $admin = User::factory()->create(['is_admin' => true]);
     $this->r->cancel($this->r->request($this->member, $this->agt, null), 'keine Zeit');
 
-    Livewire::actingAs($this->leader)->test(Home::class)->assertSee('1 Absage in den letzten 7 Tagen');
+    Livewire::actingAs($this->leader)->test(Home::class)->assertSee('1 Absage – in fox112 abmelden');
     // An admin without the role is not notified, so the card doesn't nag either
-    Livewire::actingAs($admin)->test(Home::class)->assertDontSee('Absage in den letzten 7 Tagen');
+    Livewire::actingAs($admin)->test(Home::class)->assertDontSee('Absage – in fox112 abmelden');
 
     // Without an Ausbildungsleiter the admins are notified – and see it
     ModuleUser::where('module', 'lehrgaenge')->where('role', 'ausbildungsleiter')->delete();
-    Livewire::actingAs($admin)->test(Home::class)->assertSee('1 Absage in den letzten 7 Tagen');
+    Livewire::actingAs($admin)->test(Home::class)->assertSee('1 Absage – in fox112 abmelden');
 });
 
 test('admins and Ausbildungsleiter correct and delete absolvierte Lehrgänge, with or without a documented reason', function () {
@@ -666,6 +667,82 @@ test('the Ausbildungsleiter registers Kameraden for a Lehrgang; they are told an
     expect(fn () => $this->r->registerFor($this->member, $this->agt, [$tim->id]))->toThrow(ValidationException::class);
 
     // Tim (no access to the module) sees it on his start page, Hanna with access always sees her Lehrgänge
-    Livewire::actingAs($tim)->test(Home::class)->assertSee('wartet auf die Termine')->assertDontSee(route('lehrgaenge.index'));
+    Livewire::actingAs($tim)->test(Home::class)->assertSee('wartet auf die Anmeldung')->assertDontSee(route('lehrgaenge.index'));
     Livewire::actingAs($this->member)->test(Home::class)->assertSee('Lehrgänge')->assertSee('0 Lehrgänge absolviert')->assertSee(route('lehrgaenge.index'));
+});
+
+test('Interesse registered in fox112 moves to the Warteliste and leaves the start page count', function () {
+    $record = $this->r->request($this->member, $this->agt, null);
+    Livewire::actingAs($this->leader)->test(Home::class)->assertSee('1 Kamerad mit Interesse an einem Lehrgang');
+
+    Livewire::actingAs($this->leader)->test(Registrations::class)
+        ->call('waitlist', $record->id)->assertSee('steht auf der Warteliste')->assertSee('Warteliste')->assertSee('Zurück zu Interesse');
+    expect($record->fresh())->status->toBe('requested')->isWaitlisted()->toBeTrue()->statusLabel()->toBe('Warteliste');
+    Notification::assertSentTo($this->member, WaitlistedNotification::class);
+
+    Livewire::actingAs($this->leader)->test(Home::class)->assertDontSee('mit Interesse an einem Lehrgang');
+    Livewire::actingAs($this->member)->test(MyCourses::class)->assertSee('du stehst auf der Warteliste');
+
+    // Still open: the Kamerad can cancel, the Ausbildungsleiter confirms the days as before
+    confirmDays($record->fresh());
+    expect($record->fresh()->status)->toBe('confirmed');
+
+    // Taken back by mistake
+    $other = $this->r->request($this->member, Course::where('name', 'Truppführung Teil 1')->first(), null);
+    $this->r->waitlist($other);
+    Livewire::actingAs($this->leader)->test(Registrations::class)->call('waitlist', $other->id, false);
+    expect($other->fresh()->waitlisted_at)->toBeNull();
+});
+
+test('an Absage marked as signed off in fox112 no longer shows red on the start page', function () {
+    $record = $this->r->request($this->member, $this->agt, null);
+    $this->r->cancel($record, 'keine Zeit');
+    Livewire::actingAs($this->leader)->test(Home::class)->assertSee('1 Absage – in fox112 abmelden');
+
+    // Not dealt with: still red after the 7 days the start page used to show
+    $this->travel(10)->days();
+    Livewire::actingAs($this->leader)->test(Home::class)->assertSee('1 Absage – in fox112 abmelden');
+
+    Livewire::actingAs($this->leader)->test(Registrations::class)->call('markCancelSeen', $record->id)->assertSee('In fox112 abgemeldet');
+    expect($record->fresh()->cancel_seen_at)->not->toBeNull();
+    Livewire::actingAs($this->leader)->test(Home::class)->assertDontSee('Absage – in fox112 abmelden');
+
+    Livewire::actingAs($this->leader)->test(Registrations::class)->call('markCancelSeen', $record->id, false);
+    expect($record->fresh()->cancel_seen_at)->toBeNull();
+});
+
+test('absolvierte Lehrgänge go in without a date, one by one or for many Kameraden at once', function () {
+    $single = $this->r->recordCompleted($this->member, 'Truppmann Teil 1', null);
+    expect($single)->status->toBe('completed')->completed_on->toBeNull()->validUntil()->toBeNull();
+    Livewire::actingAs($this->leader)->test(MemberProfile::class, ['member' => $this->member])->assertSee('(Datum unbekannt)');
+
+    // A later Lehrgang with a date replaces nothing without a refresher; with a date for an undated one the refresher counts from it
+    $this->agt->update(['repeat_months' => 12]);
+    $undated = $this->r->recordCompleted($this->member, 'Atemschutzgeräteträger', '');
+    expect($this->r->recordCompleted($this->member, 'Atemschutzgeräteträger', '2027-01-15')->id)->toBe($undated->id)
+        ->and($undated->fresh()->completed_on->toDateString())->toBe('2027-01-15');
+
+    $anna = User::factory()->create(['name' => 'Anna Atemschutz']);
+    $karl = User::factory()->create(['name' => 'Karl Kübelspritze']);
+    $inactive = User::factory()->create(['name' => 'Otto Oldtimer', 'is_active' => false]);
+
+    $page = Livewire::actingAs($this->leader)->test(Members::class)
+        ->set('bulkCourse', 'Truppmann Teil 1')->assertSee('(hat ihn schon)')->assertDontSee('Otto Oldtimer')
+        ->call('selectAll');
+    expect($page->get('bulkMembers'))->toContain((string) $anna->id, (string) $karl->id)->not->toContain((string) $this->member->id);
+    $page->set('bulkMembers', [(string) $anna->id, (string) $karl->id, (string) $this->member->id])
+        ->set('bulkNote', 'aus der alten Liste')->call('addMany')
+        ->assertHasNoErrors()->assertSee('2 Kameraden nachgetragen')->assertSee('Hatten den Lehrgang schon: Hanna Hydrant');
+    expect(Record::where('status', 'completed')->whereIn('user_id', [$anna->id, $karl->id])->whereNull('completed_on')->where('entered_manually', true)->count())->toBe(2);
+
+    // With a date, and the checks
+    $page->set('bulkCourse', 'Maschinist')->set('bulkDate', '2020-05-01')->set('bulkMembers', [(string) $anna->id])->call('addMany');
+    expect(Record::where('user_id', $anna->id)->whereHas('course', fn ($q) => $q->where('name', 'Maschinist'))->sole()->completed_on->toDateString())->toBe('2020-05-01');
+    $page->set('bulkDate', '2030-01-01')->set('bulkMembers', [(string) $karl->id])->call('addMany')->assertHasErrors('entry_date');
+    $page->set('bulkDate', '')->set('bulkMembers', [])->call('addMany')->assertHasErrors('entry_members');
+
+    // Only admins and Ausbildungsleiter
+    $chief = User::factory()->create();
+    $chief->moduleAccess()->create(['module' => 'lehrgaenge', 'role' => 'wehrführung']);
+    Livewire::actingAs($chief)->test(Members::class)->assertDontSee('für mehrere Kameraden nachtragen')->call('addMany')->assertForbidden();
 });

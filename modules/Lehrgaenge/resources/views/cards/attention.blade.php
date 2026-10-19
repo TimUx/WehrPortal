@@ -4,7 +4,7 @@
         <p class="mt-1 text-sm text-gray-900">Dein nächster Lehrgang: <span class="font-semibold">{{ $next->course->name }}</span> ab {{ $next->starts_on->format('d.m.Y') }}</p>
     @endif
     @foreach($open as $r)
-        <p class="mt-1 text-sm text-gray-700">„{{ $r->course->name }}“ – angemeldet, wartet auf die Termine</p>
+        <p class="mt-1 text-sm text-gray-700">„{{ $r->course->name }}“ – {{ $r->isWaitlisted() ? 'in fox112 angemeldet, auf der Warteliste' : 'Interesse gemeldet, wartet auf die Anmeldung' }}</p>
     @endforeach
     @if(! $next && $open->isEmpty())
         <p class="mt-1 text-sm text-gray-700">Gerade kein Lehrgang angemeldet.</p>
@@ -16,10 +16,10 @@
     @endforeach
     @if(array_sum($todo) > 0)
         <ul class="mt-2 space-y-0.5 text-sm text-gray-700">
-            @if($todo['cancelled'] > 0)<li class="font-semibold text-red-700">{{ $todo['cancelled'] }} Absage{{ $todo['cancelled'] === 1 ? '' : 'n' }} in den letzten 7 Tagen – in fox112 abmelden</li>@endif
+            @if($todo['cancelled'] > 0)<li class="font-semibold text-red-700">{{ $todo['cancelled'] }} Absage{{ $todo['cancelled'] === 1 ? '' : 'n' }} – in fox112 abmelden und als erledigt markieren</li>@endif
             @if(($todo['suggested'] ?? 0) > 0)<li><a href="{{ route('lehrgaenge.courses') }}" class="underline">{{ $todo['suggested'] }} Vorschl{{ $todo['suggested'] === 1 ? 'ag' : 'äge' }} aus fox112</a> – anbieten oder nicht?</li>@endif
             @if(($todo['gone'] ?? 0) > 0)<li><a href="{{ route('lehrgaenge.courses') }}" class="underline">{{ $todo['gone'] }} angebotene{{ $todo['gone'] === 1 ? 'r Lehrgang' : ' Lehrgänge' }} nicht mehr in fox112</a></li>@endif
-            @if($todo['requested'] > 0)<li>{{ $todo['requested'] }} Kamerad{{ $todo['requested'] === 1 ? '' : 'en' }} mit Interesse an einem Lehrgang</li>@endif
+            @if($todo['requested'] > 0)<li>{{ $todo['requested'] }} Kamerad{{ $todo['requested'] === 1 ? '' : 'en' }} mit Interesse an einem Lehrgang – in fox112 anmelden</li>@endif
         </ul>
         <a href="{{ route('lehrgaenge.registrations') }}" class="text-sm text-fw-navy underline">Lehrgangsanmeldungen</a>
     @endif
