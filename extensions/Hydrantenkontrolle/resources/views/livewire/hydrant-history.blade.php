@@ -2,7 +2,7 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
             <h1 class="text-xl font-bold">Kontrollhistorie · Nr. {{ $hydrant->number }}</h1>
-            <p class="text-sm text-gray-600">{{ $hydrant->street }} {{ $hydrant->house_number }}{{ $hydrant->location_description ? ' · '.$hydrant->location_description : '' }}</p>
+            <p class="text-sm text-gray-600">{{ $hydrant->city }} · {{ $hydrant->street }} {{ $hydrant->house_number }}{{ $hydrant->location_description ? ' · '.$hydrant->location_description : '' }}</p>
         </div>
         <a href="{{ route('hydrantenkontrolle.edit', $hydrant) }}" class="inline-flex text-fw-navy">Zu den Stammdaten</a>
     </div>

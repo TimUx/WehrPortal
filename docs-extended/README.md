@@ -15,7 +15,7 @@ Die Erweiterungen ergänzen die 25 Module des Upstreams. Sie werden über den Er
 | Erweiterung | Zweck | Zugang, Aktivierung und wichtige Grenzen |
 |---|---|---|
 | Vereinsverwaltung | Öffentlicher Beitrittsantrag mit Vereinsauswahl, Datenschutz- und optionaler Fotoeinwilligung, kostenfreie Jugend-/Kinderfeuerwehr-Mitgliedschaft, Beitrags- und SEPA-Mandatsdokumentation; Kameraden können aus der Personalakte übernommen werden, ohne Kontaktdaten doppelt zu speichern. | System-Admins verwalten unter Admin → Vereine Namen, Standort und Vorstandszuordnungen. Jeder Vorstand verwaltet nur den zugewiesenen Verein; relevante Personaldaten sind auf dessen Standort begrenzt. Beitritt unter `/vereinsbeitritt`. Bank- und Personendaten verschlüsselt; keine SEPA-Dateien oder Zahlungsabwicklung. Ab 14 Jahren wird für Jugendfotos zusätzlich die eigene Zustimmung verlangt. Weitere Einstellungen über `VEREIN_*`; `VEREINSVERWALTUNG_ENABLED=false` schaltet die Erweiterung ab. |
-| [Hydrantenkontrolle](#hydrantenkontrolle-bedienungsanleitung) | Stammdaten, fortsetzbare Jahreskontrollen, Kontrollhistorie je Hydrant, Mängelcheckliste und echte PDF-Berichte. | Unter Admin → Module aktivieren und Rolle `hydrantenwart` vergeben (Admins ebenfalls berechtigt). `HYDRANTENKONTROLLE_ENABLED=false` lädt die Erweiterung nicht. Jahresbezogene Stammdatenkopien, Konfliktschutz beim Speichern, optionale Standortbegrenzung; keine automatische Wasserkarte-/Excel-Synchronisierung. |
+| [Hydrantenkontrolle](#hydrantenkontrolle-bedienungsanleitung) | Stammdaten, fortsetzbare Jahreskontrollen, Kontrollhistorie je Hydrant, Mängelcheckliste und echte PDF-Berichte. | Unter Admin → Module aktivieren und Rolle `hydrantenwart` (eigener Ort) oder `uebergreifend` (alle Orte) vergeben; Admins ebenfalls berechtigt. `HYDRANTENKONTROLLE_ENABLED=false` lädt die Erweiterung nicht. Jahresbezogene Stammdatenkopien und Konfliktschutz beim Speichern; keine automatische Wasserkarte-/Excel-Synchronisierung. |
 | [Locations](LOCATIONS.md) | Mitglieder und ausgewählte Datensätze Standorten zuordnen. | `LOCATIONS_ENABLED=false` deaktiviert Scope und Standortverwaltung. Nur konfigurierte Modelle werden begrenzt; Standortloses (`NULL`) bleibt gemeinsam sichtbar. Keine vollständige Mandantentrennung. |
 | [Offline/PWA](OFFLINE.md) | Offline-Fallback sowie lokale Entwürfe ausdrücklich markierter Formulare. | `OFFLINE_ENABLED=false` schaltet Statusanzeige und Entwürfe ab, aber nicht Manifest, Service Worker und Fallback-Seite. Keine automatische Übermittlung oder Synchronisierung von Formularen; Objektpläne nutzen einen separaten Worker. |
 | [OIDC](OIDC.md) | Anmeldung über einen externen OpenID-Connect-Anbieter. | `OIDC_ENABLED=false` lädt OIDC nicht. Nur aktive Konten mit bestätigter E-Mail werden verknüpft; JIT-Anlage ist optional, IdP-Rollen werden nicht übernommen. Bei „Nur Single Sign-On“ lokale System-Admins und Notfallzugang erhalten. |
@@ -41,12 +41,16 @@ Die Hydrantenkontrolle ist ein eigenes Fork-Modul für die jährliche Prüfung v
 1. Die neue Anwendungsversion mit den Datenbankmigrationen installieren; vor einem Update die Datenbank sichern. Im Produktionscontainer laufen Migrationen beim Start, bei einer manuellen Installation mit `php artisan migrate --force`.
 2. Die Erweiterung ist standardmäßig geladen. `HYDRANTENKONTROLLE_ENABLED=false` schaltet ihren Provider und ihre Routen ab; gespeicherte Daten werden dadurch nicht gelöscht. Nach Änderungen an Umgebungsvariablen die Anwendung mit aktualisierter Konfiguration neu starten.
 3. Unter **Admin → Module** das zunächst inaktive Modul **Hydrantenkontrolle** einschalten.
-4. Den zuständigen Kameraden Modulzugang und die Modulrolle **Hydrantenwart** (`hydrantenwart`) geben. Aktive globale Admins dürfen das aktive Modul ohne zusätzliche Rollenzuweisung nutzen.
+4. Den zuständigen Kameraden Modulzugang und die Modulrolle **Hydrantenwart** (`hydrantenwart`) geben. Für Kommune, Brandschutzamt/GBI, SPI und weitere übergreifende Bearbeiter die Rolle `uebergreifend` vergeben; sie sehen Hydranten aller Orte und Standorte. Aktive globale Admins dürfen das aktive Modul ohne zusätzliche Rollenzuweisung nutzen.
 5. Das Modul über die Startseite beziehungsweise das App-Menü öffnen. Die Modulleiste enthält **Jahreskontrollen** und **Hydranten**.
 
-Modulzugang allein genügt nicht: Auch das Lesen der Übersichten und der PDF-Export erfordern die Rolle oder globale Adminrechte. Eine gleichnamige Rolle im Modul Wasserkarte gilt nicht automatisch für die Hydrantenkontrolle. Standort-Adminrechte allein ersetzen die Modulrolle ebenfalls nicht.
+Modulzugang allein genügt nicht: Auch das Lesen der Übersichten und der PDF-Export erfordern eine der beiden Rollen oder globale Adminrechte. Eine gleichnamige Rolle im Modul Wasserkarte gilt nicht automatisch für die Hydrantenkontrolle. Standort-Adminrechte allein ersetzen die Modulrolle ebenfalls nicht.
 
-Bei aktivem **Locations** vor dem Erfassen den gewünschten Standort auswählen. Neue Hydranten und neue Jahreskontrollen gehören zum aktuellen Standort; **Öffnen / ergänzen** nimmt nur dessen aktive Hydranten auf. Sichtbare Jahre werden mit Standort angezeigt. Standortlose Datensätze bleiben nach dem Fork-Muster gemeinsam sichtbar; dies ist keine vollständige Mandantentrennung.
+Die Rolle **Hydrantenwart** sieht und bearbeitet nur Hydranten, deren Ort mit dem im Kameradenprofil hinterlegten Ort übereinstimmt. Beim Erfassen wird dieser Ort vorbelegt und ist für Hydrantenwarte nicht änderbar; fehlt der Ort im Profil, muss er dort zuerst ergänzt werden. Die Rolle `uebergreifend` sieht und bearbeitet Hydranten aller Orte und Standorte.
+
+Bereits vor dieser Erweiterung erfasste Hydranten haben zunächst keinen Ort. Ein übergreifender Bearbeiter muss ihnen einmalig den zutreffenden Ort zuweisen, bevor örtliche Hydrantenwarte sie sehen können.
+
+Bei aktivem **Locations** vor dem Erfassen den gewünschten Standort auswählen. Neue Hydranten und neue Jahreskontrollen gehören zum aktuellen Standort; **Öffnen / ergänzen** nimmt nur dessen aktive Hydranten am eigenen Ort auf. Sichtbare Jahre werden mit Standort angezeigt. Standortlose Datensätze bleiben nach dem Fork-Muster gemeinsam sichtbar; dies ist keine vollständige Mandantentrennung.
 
 ### Hydrantenbestand erfassen
 
@@ -54,6 +58,7 @@ Unter **Hydranten → Hydrant erfassen** (`/hydrantenkontrolle/hydranten/neu`) f
 
 | Feld | Regel |
 |---|---|
+| Ort | Pflichtfeld, höchstens 255 Zeichen. Bei `hydrantenwart` wird der Ort aus dem Kameradenprofil übernommen; `uebergreifend` kann ihn frei eintragen. |
 | Nummer | Pflichtfeld, Text mit höchstens 100 Zeichen; pro Standort eindeutig, auch bei archivierten Hydranten. Führende Nullen sind möglich. |
 | Straße | Optional, höchstens 255 Zeichen; kann zusammen mit der Hausnummer die Adresse beschreiben. |
 | Hausnummer | Optional, höchstens 50 Zeichen, auch mit Buchstaben; allein keine ausreichende Ortsangabe. |
@@ -63,7 +68,7 @@ Unter **Hydranten → Hydrant erfassen** (`/hydrantenkontrolle/hydranten/neu`) f
 
 Mindestens **Straße oder Lagebeschreibung oder ein vollständiges Koordinatenpaar** muss vorhanden sein. Es gibt keine automatische Adresssuche oder Kartenpositionierung.
 
-In der Bestandsliste nach Nummer, Straße oder Lagebeschreibung suchen und zwischen **Aktiv**, **Archiviert** und **Alle** wechseln. Ein Klick auf den Hydranten öffnet die Stammdatenbearbeitung; **Historie** zeigt alle gespeicherten Jahreskontrollen. Der Standort lässt sich dort nicht nachträglich ändern.
+In der Bestandsliste nach Ort, Nummer, Straße oder Lagebeschreibung suchen und zwischen **Aktiv**, **Archiviert** und **Alle** wechseln. Ein Klick auf den Hydranten öffnet die Stammdatenbearbeitung; **Historie** zeigt alle gespeicherten Jahreskontrollen. Ort und Standort lassen sich bei einem Hydrantenwart nicht nachträglich ändern.
 
 ### Ein Jahr beginnen und an weiteren Tagen fortsetzen
 

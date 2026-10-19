@@ -17,19 +17,20 @@ class HydrantForm extends Component
     public ?int $version = null;
 
     public array $form = [
-        'number' => '', 'street' => '', 'house_number' => '', 'location_description' => '',
+        'city' => '', 'number' => '', 'street' => '', 'house_number' => '', 'location_description' => '',
         'latitude' => '', 'longitude' => '', 'active' => true,
     ];
 
     public function mount(?Hydrant $hydrant = null): void
     {
         Gate::authorize('manage-hydrantenkontrolle');
+        $this->form['city'] = auth()->user()->city ?? '';
         if ($hydrant?->exists) {
             $hydrant = Hydrant::findOrFail($hydrant->id);
             $this->hydrantId = $hydrant->id;
             $this->version = $hydrant->version;
             foreach (array_keys($this->form) as $key) {
-                $this->form[$key] = $hydrant->{$key} ?? '';
+                $this->form[$key] = $hydrant->{$key} ?? ($key === 'city' ? auth()->user()->city : '');
             }
         }
     }

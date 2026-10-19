@@ -17,13 +17,45 @@ use Livewire\Livewire;
 beforeEach(function () {
     Module::where('key', 'hydrantenkontrolle')->update(['is_active' => true]);
     Cache::flush();
-    $this->wart = User::factory()->create(['name' => 'Hanna Hydrant']);
+    $this->station = Location::create(['name' => 'Wache Hydranten', 'slug' => 'hc-integration']);
+    $this->wart = User::factory()->create(['name' => 'Hanna Hydrant', 'ext_location_id' => $this->station->id, 'city' => 'Musterstadt']);
     $this->wart->moduleAccess()->create(['module' => 'hydrantenkontrolle', 'role' => 'hydrantenwart']);
     $this->actingAs($this->wart);
 });
 
+it('limits local hydrantenwarte to their profile city and lets cross-location users see all cities', function () {
+    $service = app(InspectionService::class);
+    $localHydrant = $service->saveHydrant($this->wart, ['number' => 'M-1', 'street' => 'Musterstraße']);
+    $year = $service->openYear($this->wart, 2026);
+
+    auth()->logout();
+    $otherWart = User::factory()->create(['name' => 'Bernd Blaulicht', 'ext_location_id' => $this->station->id, 'city' => 'Beispielstadt']);
+    $otherWart->moduleAccess()->create(['module' => 'hydrantenkontrolle', 'role' => 'hydrantenwart']);
+    $otherHydrant = $service->saveHydrant($otherWart, ['number' => 'B-1', 'street' => 'Beispielweg']);
+    $service->openYear($otherWart, 2026);
+    $this->actingAs($otherWart)->get(route('hydrantenkontrolle.hydrants'))
+        ->assertOk()->assertSee('B-1')->assertDontSee('M-1');
+    $this->get(route('hydrantenkontrolle.year', $year))
+        ->assertOk()->assertSee('B-1')->assertDontSee('M-1');
+    $this->get(route('hydrantenkontrolle.edit', $localHydrant))->assertNotFound();
+
+    auth()->logout();
+    $crossLocation = User::factory()->create(['name' => 'Kommune Musterstadt']);
+    $crossLocation->moduleAccess()->create([
+        'module' => 'hydrantenkontrolle', 'role' => InspectionService::ROLE_CROSS_LOCATION,
+    ]);
+    expect(InspectionService::canManage($crossLocation))->toBeTrue();
+    $this->actingAs($crossLocation)->get(route('hydrantenkontrolle.hydrants'))
+        ->assertOk()->assertSee('M-1')->assertSee('B-1');
+    $this->get(route('hydrantenkontrolle.year', $year))
+        ->assertOk()->assertSee('M-1')->assertSee('B-1');
+    $this->get(route('hydrantenkontrolle.edit', $otherHydrant))->assertOk();
+});
+
 it('registers navigation and renders the German module pages', function () {
-    expect(app(ModuleRegistry::class)->get('hydrantenkontrolle')['roles'])->toBe(['hydrantenwart']);
+    expect(app(ModuleRegistry::class)->get('hydrantenkontrolle')['roles'])->toBe([
+        'hydrantenwart', InspectionService::ROLE_CROSS_LOCATION,
+    ]);
     $this->get(route('hydrantenkontrolle.index'))->assertOk()->assertSee('Jahreskontrollen');
     $this->get(route('hydrantenkontrolle.hydrants'))->assertOk()->assertSee('Hydrant erfassen');
     $this->get(route('hydrantenkontrolle.create'))->assertOk()->assertSee('Lagebeschreibung');
@@ -34,7 +66,7 @@ it('denies guests and members without the hydrantenwart role including direct Li
     $member = User::factory()->create();
     $member->moduleAccess()->create(['module' => 'hydrantenkontrolle']);
     $this->actingAs($member)->get(route('hydrantenkontrolle.index'))->assertForbidden();
-    $this->get(route('hydrantenkontrolle.history', $hydrant))->assertForbidden();
+    $this->get(route('hydrantenkontrolle.history', $hydrant))->assertNotFound();
     Livewire::actingAs($member)->test(HydrantForm::class)->assertForbidden();
     Livewire::actingAs($member)->test(HydrantHistory::class, ['hydrant' => $hydrant])->assertForbidden();
     Livewire::actingAs($member)->test(YearOverview::class)->assertForbidden();
@@ -135,7 +167,7 @@ it('exports real PDF bytes with safe content headers and all annual results', fu
         'defects' => \Extensions\Hydrantenkontrolle\Support\Checklist::DEFECTS,
         'createdAt' => now()->timezone('Europe/Berlin'),
     ])->render();
-    expect($html)->toContain('FF Musterstadt', '2026', 'PDF-1', 'Am Musterplatz', 'Ungeprüft');
+    expect($html)->toContain('FF Musterstadt', '2026', 'PDF-1', 'Musterstadt', 'Am Musterplatz', 'Ungeprüft');
 
     $member = User::factory()->create();
     $member->moduleAccess()->create(['module' => 'hydrantenkontrolle']);
@@ -161,7 +193,7 @@ it('protects year views PDFs and inspection editing across locations', function 
     DB::table('x_location_user')->insert(['location_id' => $south->id, 'user_id' => $this->wart->id, 'role' => 'member']);
     $this->wart->forceFill(['ext_location_id' => $south->id])->save();
     auth()->logout();
-    $admin = User::factory()->create(['is_admin' => true, 'ext_location_id' => $north->id]);
+    $admin = User::factory()->create(['is_admin' => true, 'ext_location_id' => $north->id, 'city' => 'Nordstadt']);
     $this->actingAs($admin);
     $service = app(InspectionService::class);
     $service->saveHydrant($admin, ['number' => 'N-1', 'street' => 'Beispielweg', 'active' => true]);

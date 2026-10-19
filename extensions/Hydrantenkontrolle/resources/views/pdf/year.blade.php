@@ -35,7 +35,7 @@
             @forelse($inspections as $inspection)
                 <tr>
                     <td>{{ $inspection->snapshot['number'] }}</td>
-                    <td>{{ $inspection->snapshot['street'] ?? 'Siehe Lagebeschreibung' }} {{ $inspection->snapshot['house_number'] ?? '' }}</td>
+                    <td>{{ $inspection->snapshot['city'] ?? '–' }}<br>{{ $inspection->snapshot['street'] ?? 'Siehe Lagebeschreibung' }} {{ $inspection->snapshot['house_number'] ?? '' }}</td>
                     <td>{{ $inspection->checked_at?->format('d.m.Y') ?? '–' }}</td>
                     <td>{{ $inspection->statusLabel() }}</td>
                 </tr>
@@ -47,7 +47,7 @@
     @foreach($inspections as $inspection)
         <h2>Hydrant Nr. {{ $inspection->snapshot['number'] }}</h2>
         <table>
-            <tr><th>Adresse</th><td>{{ $inspection->snapshot['street'] ?? '–' }} {{ $inspection->snapshot['house_number'] ?? '' }}</td></tr>
+            <tr><th>Ort / Adresse</th><td>{{ $inspection->snapshot['city'] ?? '–' }}<br>{{ $inspection->snapshot['street'] ?? '–' }} {{ $inspection->snapshot['house_number'] ?? '' }}</td></tr>
             <tr><th>Koordinaten</th><td>{{ $inspection->snapshot['latitude'] ?? '–' }} / {{ $inspection->snapshot['longitude'] ?? '–' }}</td></tr>
             <tr><th>Prüfung</th><td>{{ $inspection->checked_at?->format('d.m.Y') ?? 'Ungeprüft' }} · Prüfer: {{ $inspection->inspector_name ?? '–' }}</td></tr>
             <tr><th>Ergebnis</th><td>{{ $inspection->statusLabel() }}</td></tr>

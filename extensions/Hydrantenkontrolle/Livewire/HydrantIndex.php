@@ -37,7 +37,7 @@ class HydrantIndex extends Component
         }
         if ($this->search !== '') {
             $term = '%'.$this->search.'%';
-            $query->where(fn ($q) => $q->where('number', 'ilike', $term)->orWhere('street', 'ilike', $term)->orWhere('location_description', 'ilike', $term));
+            $query->where(fn ($q) => $q->where('city', 'ilike', $term)->orWhere('number', 'ilike', $term)->orWhere('street', 'ilike', $term)->orWhere('location_description', 'ilike', $term));
         }
 
         return view('hydrantenkontrolle::livewire.hydrant-index', [

@@ -21,7 +21,7 @@ beforeEach(function () {
     Module::where('key', 'hydrantenkontrolle')->firstOrFail()->update(['is_active' => true]);
     Cache::forget('modules_active_keys');
     $this->station = Location::create(['name' => 'Wache Süd', 'slug' => 'hc-sued']);
-    $this->manager = User::factory()->create(['name' => 'Hanna Hydrant', 'ext_location_id' => $this->station->id]);
+    $this->manager = User::factory()->create(['name' => 'Hanna Hydrant', 'ext_location_id' => $this->station->id, 'city' => 'Musterstadt']);
     $this->manager->moduleAccess()->create(['module' => 'hydrantenkontrolle', 'role' => 'hydrantenwart']);
     $this->actingAs($this->manager);
     $this->service = app(InspectionService::class);
@@ -55,11 +55,24 @@ it('trims hydrant fields and supports an address description or coordinate pair'
     ]);
     expect($hydrant->number)->toBe('H-1')->and($hydrant->street)->toBe('Musterweg')
         ->and($hydrant->house_number)->toBe('12a')->and($hydrant->location_description)->toBeNull()
+        ->and($hydrant->city)->toBe('Musterstadt')
         ->and($hydrant->version)->toBe(1)->and($hydrant->active)->toBeTrue()
         ->and($hydrant->ext_location_id)->toBe($this->station->id);
     $this->service->saveHydrant($this->manager, ['number' => 'H-2', 'location_description' => 'Am Übungsplatz']);
     $coords = $this->service->saveHydrant($this->manager, ['number' => 'H-3', 'latitude' => '0', 'longitude' => '0']);
     expect((float) $coords->latitude)->toBe(0.0)->and(Hydrant::count())->toBe(3);
+});
+
+it('assigns local hydrants to the editor city and requires an editor city', function () {
+    $hydrant = $this->service->saveHydrant($this->manager, [
+        'city' => 'Andere Stadt', 'number' => 'H-1', 'street' => 'Musterweg',
+    ]);
+    expect($hydrant->city)->toBe('Musterstadt');
+
+    $noCity = User::factory()->create(['city' => null]);
+    $noCity->moduleAccess()->create(['module' => 'hydrantenkontrolle', 'role' => 'hydrantenwart']);
+    expect(fn () => $this->service->saveHydrant($noCity, ['number' => 'H-2', 'street' => 'Beispielweg']))
+        ->toThrow(ValidationException::class);
 });
 
 it('rejects invalid hydrant data', function (array $data) {
@@ -113,6 +126,7 @@ it('opens independent years and only appends newly active hydrants without chang
     $old = $this->service->openYear($this->manager, 2026);
     $inspection = $old->inspections()->sole();
     $snapshot = $inspection->snapshot;
+    expect($snapshot['city'])->toBe('Musterstadt');
     $inspection = $this->service->saveInspection($this->manager, $inspection, ['checked_at' => '2026-10-10', 'is_ok' => true, 'notes' => 'Erledigt'], 1);
     $this->service->saveHydrant($this->manager, ['number' => 'H-99', 'street' => 'Neuer Weg', 'active' => false], $hydrant, 1);
     $this->service->saveHydrant($this->manager, ['number' => 'H-2', 'street' => 'Musterweg', 'active' => true], $inactive, 1);
@@ -189,7 +203,7 @@ it('prevents cross-location hydrant and inspection writes and location reassignm
     $south = $this->service->saveHydrant($this->manager, ['number' => 'H-1', 'street' => 'Musterweg']);
     $north = Location::create(['name' => 'Wache Nord', 'slug' => 'hc-nord']);
     auth()->logout();
-    $other = User::factory()->create(['ext_location_id' => $north->id]);
+    $other = User::factory()->create(['ext_location_id' => $north->id, 'city' => 'Nordstadt']);
     $other->moduleAccess()->create(['module' => 'hydrantenkontrolle', 'role' => 'hydrantenwart']);
     $this->actingAs($other);
     $foreign = $this->service->saveHydrant($other, ['number' => 'H-1', 'street' => 'Nordweg']);

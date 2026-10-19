@@ -1,9 +1,11 @@
 @php($input = 'mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2')
+@php($canChooseCity = \Extensions\Hydrantenkontrolle\Services\InspectionService::canSeeAll(auth()->user()))
 <form wire:submit="save" class="mx-auto max-w-3xl space-y-4">
     <h1 class="text-xl font-bold">{{ $hydrantId ? 'Hydrant bearbeiten' : 'Hydrant erfassen' }}</h1>
     @include('hydrantenkontrolle::partials.errors')
     <p class="text-sm text-gray-600">Bitte Straße, Lagebeschreibung oder Koordinaten angeben. Bereits angelegte Jahreskontrollen behalten ihre ursprünglichen Stammdaten.</p>
     <div class="grid gap-4 rounded-2xl border bg-white p-4 sm:grid-cols-2">
+        <label>Ort <span aria-hidden="true">*</span><input wire:model="form.city" required maxlength="255" @readonly(! $canChooseCity) class="{{ $input }}"></label>
         <label>Nummer <span aria-hidden="true">*</span><input wire:model="form.number" required maxlength="100" class="{{ $input }}"></label>
         <label>Straße<input wire:model="form.street" maxlength="255" class="{{ $input }}"></label>
         <label>Hausnummer<input wire:model="form.house_number" maxlength="50" class="{{ $input }}"></label>
