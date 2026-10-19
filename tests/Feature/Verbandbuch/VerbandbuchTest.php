@@ -64,11 +64,11 @@ test('a Kamerad writes and signs an entry; managers and the injured Kamerad are 
     expect($raw->description)->not->toContain('Schlauch')->and($raw->injury)->not->toContain('Quetschung')
         ->and($entry->fresh()->injury)->toBe('Quetschung linker Zeigefinger');
 
-    Notification::assertSentTo([$this->safety, $this->chief], EntryRecordedNotification::class, function ($n, $channels, $notifiable) {
+    Notification::assertSentTo([$this->safety, $this->chief], EntryRecordedNotification::class, function ($n, $channels, $notifiable) use ($entry) {
         $mail = $n->toMail($notifiable);
         $text = $mail->subject.' '.implode(' ', $mail->introLines);
 
-        return ! str_contains($text, 'Quetschung') && ! str_contains($text, 'Hanna') && $mail->actionUrl === route('verbandbuch.show', 1);
+        return ! str_contains($text, 'Quetschung') && ! str_contains($text, 'Hanna') && $mail->actionUrl === route('verbandbuch.show', $entry);
     });
     Notification::assertNotSentTo($this->helper, EntryRecordedNotification::class);
     Notification::assertSentTo($this->hurt, EntryAboutYouNotification::class);

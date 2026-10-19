@@ -13,6 +13,8 @@ use Extensions\Hydrantenkontrolle\Models\Hydrant;
 use Extensions\Hydrantenkontrolle\Models\Inspection;
 use Extensions\Hydrantenkontrolle\Services\InspectionService;
 use Extensions\Locations\Models\Location;
+use Extensions\Vereinsverwaltung\Models\MembershipApplication;
+use Extensions\Vereinsverwaltung\Models\Association;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -126,6 +128,7 @@ class ScreenshotSeeder extends Seeder
         $this->gefahrstoffe();
         $this->dateien();
         $this->locations();
+        $this->vereinsverwaltung();
     }
 
     /** Every registered module (upstream modules and fork extensions) is switched on for the screenshots */
@@ -536,6 +539,57 @@ class ScreenshotSeeder extends Seeder
         // The migration creates the default Standort; it becomes Musterstadt-Mitte, plus a second one
         Location::default()->update(['name' => 'Musterstadt-Mitte', 'short_name' => 'Mitte']);
         Location::firstOrCreate(['slug' => 'musterstadt-nord'], ['name' => 'Musterstadt-Nord', 'short_name' => 'Nord', 'is_default' => false, 'is_active' => true, 'sort_order' => 2]);
+    }
+
+    private function vereinsverwaltung(): void
+    {
+        if (! app(ModuleRegistry::class)->isActive('verein')) {
+            return;
+        }
+
+        $association = Association::query()->withoutGlobalScopes()->first();
+        if (! $association) {
+            $location = Location::default();
+            $association = Association::query()->withoutGlobalScopes()->firstOrCreate(
+                ['location_id' => $location->id],
+                ['name' => config('vereinsverwaltung.association_name', 'Feuerwehrverein')],
+            );
+        }
+
+        $exists = MembershipApplication::query()
+            ->where('status', 'pending')
+            ->get()
+            ->contains(fn (MembershipApplication $application) => $application->displayName() === 'Mara Muster');
+
+        if (! $exists) {
+            MembershipApplication::create([
+                'association_id' => $association->id,
+                'status' => 'pending',
+                'title' => null,
+                'first_name' => 'Mara',
+                'last_name' => 'Muster',
+                'birth_date' => '1992-04-12',
+                'marital_status' => null,
+                'phone' => null,
+                'mobile' => '01501234567',
+                'email' => 'mara.muster@example.com',
+                'street' => 'Musterstraße 12',
+                'postal_code' => '12345',
+                'city' => 'Musterstadt',
+                'account_holder' => 'Mara Muster',
+                'bank_name' => 'Musterbank',
+                'bic' => 'MUSTDEFF',
+                'iban' => 'DE89370400440532013000',
+                'consent_version' => '1',
+                'consented_at' => now(),
+                'submitted_at' => now()->subDays(2),
+                'youth_member' => false,
+                'photo_consent' => false,
+                'youth_photo_consent' => false,
+                'photo_consent_version' => '1',
+                'photo_consent_recorded_at' => now()->subDays(2),
+            ]);
+        }
     }
 
     /** A signature as the signature pad sends it (PNG data URL) */

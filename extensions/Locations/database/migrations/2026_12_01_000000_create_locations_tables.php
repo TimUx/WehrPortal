@@ -10,7 +10,7 @@ return new class extends Migration
     /** Upstream tables that get a nullable ext_location_id */
     private const TABLES = [
         'users', 'groups', 'member_functions', 'vehicles', 'ar_equipment', 'ar_categories',
-        'kk_items', 'eb_reports', 'mm_defects', 'kal_events',
+        'kk_items', 'eb_reports', 'mm_defects', 'kal_events', 'x_vv_members',
     ];
 
     public function up(): void
@@ -57,6 +57,10 @@ return new class extends Migration
                 Schema::table($name, function (Blueprint $table) {
                     $table->foreignId('ext_location_id')->nullable()->constrained('x_locations')->nullOnDelete();
                 });
+            } elseif (! $this->hasLocationForeignKey($name)) {
+                Schema::table($name, function (Blueprint $table) {
+                    $table->foreign('ext_location_id')->references('id')->on('x_locations')->nullOnDelete();
+                });
             }
 
             DB::table($name)->whereNull('ext_location_id')->update(['ext_location_id' => $default]);
@@ -73,5 +77,14 @@ return new class extends Migration
 
         Schema::dropIfExists('x_location_user');
         Schema::dropIfExists('x_locations');
+    }
+
+    private function hasLocationForeignKey(string $table): bool
+    {
+        return DB::table('information_schema.table_constraints')
+            ->where('table_name', $table)
+            ->where('constraint_name', $table.'_ext_location_id_foreign')
+            ->where('constraint_type', 'FOREIGN KEY')
+            ->exists();
     }
 };

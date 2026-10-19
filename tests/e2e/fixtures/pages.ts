@@ -51,6 +51,8 @@ export const pages: ScreenshotPage[] = [
     { module: 'gefahrstoffe', name: 'datenbank', path: '/gefahrstoffe', ready: 'Dieselkraftstoff' },
 
     // Fork extensions
+    { module: 'vereinsverwaltung', name: 'beitritt', path: '/vereinsbeitritt', ready: 'Persönliche Angaben' },
+    { module: 'vereinsverwaltung', name: 'antraege', path: '/verein', ready: 'Mara Muster' },
     { module: 'anwesenheit', name: 'listen', path: '/anwesenheit', ready: 'Übungsdienst Technische Hilfe' },
     { module: 'hydrantenkontrolle', name: 'jahreskontrollen', path: '/hydrantenkontrolle', ready: 'Musterstadt-Mitte' },
     { module: 'hydrantenkontrolle', name: 'hydranten', path: '/hydrantenkontrolle/hydranten', ready: 'H-001' },

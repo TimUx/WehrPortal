@@ -37,7 +37,8 @@ Alle Bilder der letzten Erzeugung (Ordner `docs-extended/screenshots/`, Klick ö
 | <a href="screenshots/gefahrenmatrix/matrix.png"><img src="screenshots/gefahrenmatrix/matrix.png" alt="gefahrenmatrix: matrix" width="400"></a><br>`gefahrenmatrix/matrix` · `/gefahrenmatrix` | <a href="screenshots/gefahrstoffe/datenbank.png"><img src="screenshots/gefahrstoffe/datenbank.png" alt="gefahrstoffe: datenbank" width="400"></a><br>`gefahrstoffe/datenbank` · `/gefahrstoffe` |
 | <a href="screenshots/anwesenheit/listen.png"><img src="screenshots/anwesenheit/listen.png" alt="anwesenheit: listen" width="400"></a><br>`anwesenheit/listen` · `/anwesenheit` | <a href="screenshots/hydrantenkontrolle/jahreskontrollen.png"><img src="screenshots/hydrantenkontrolle/jahreskontrollen.png" alt="hydrantenkontrolle: jahreskontrollen" width="400"></a><br>`hydrantenkontrolle/jahreskontrollen` · `/hydrantenkontrolle` |
 | <a href="screenshots/hydrantenkontrolle/hydranten.png"><img src="screenshots/hydrantenkontrolle/hydranten.png" alt="hydrantenkontrolle: hydranten" width="400"></a><br>`hydrantenkontrolle/hydranten` · `/hydrantenkontrolle/hydranten` | <a href="screenshots/dateien/bereiche.png"><img src="screenshots/dateien/bereiche.png" alt="dateien: bereiche" width="400"></a><br>`dateien/bereiche` · `/dateien` |
-| <a href="screenshots/locations/standorte.png"><img src="screenshots/locations/standorte.png" alt="locations: standorte" width="400"></a><br>`locations/standorte` · `/admin/standorte` |   |
+| <a href="screenshots/locations/standorte.png"><img src="screenshots/locations/standorte.png" alt="locations: standorte" width="400"></a><br>`locations/standorte` · `/admin/standorte` | <a href="screenshots/vereinsverwaltung/beitritt.png"><img src="screenshots/vereinsverwaltung/beitritt.png" alt="vereinsverwaltung: beitritt" width="400"></a><br>`vereinsverwaltung/beitritt` · `/vereinsbeitritt` |
+| <a href="screenshots/vereinsverwaltung/antraege.png"><img src="screenshots/vereinsverwaltung/antraege.png" alt="vereinsverwaltung: antraege" width="400"></a><br>`vereinsverwaltung/antraege` · `/verein` |   |
 
 ## Ablauf
 
@@ -68,9 +69,9 @@ Die Seitenliste steht in `tests/e2e/fixtures/pages.ts` (Modul, Name, Pfad, erwar
 | Wasserkarte, Objektpläne | `wasserkarte/karte`, `objektplaene/objekte` |
 | Personalverwaltung, Schlüssel | `personalverwaltung/kameraden`, `schluessel/schluessel` |
 | Gefahrenmatrix, Gefahrstoffe | `gefahrenmatrix/matrix`, `gefahrstoffe/datenbank` |
-| Fork-Erweiterungen | `anwesenheit/listen`, `hydrantenkontrolle/jahreskontrollen`, `hydrantenkontrolle/hydranten`, `dateien/bereiche`, `locations/standorte` (`/admin/standorte`) |
+| Fork-Erweiterungen | `anwesenheit/listen`, `hydrantenkontrolle/jahreskontrollen`, `hydrantenkontrolle/hydranten`, `dateien/bereiche`, `locations/standorte` (`/admin/standorte`), `vereinsverwaltung/beitritt` (`/vereinsbeitritt`), `vereinsverwaltung/antraege` (`/verein`) |
 
-`ScreenshotSeeder` ruft die Demo-Seeder (Fahrzeuge, Abteilungen, Admin `admin@example.com`, Kameraden, Kleiderkammer) auf, schaltet **alle** registrierten Module und Erweiterungen ein (`ScreenshotSeeder::modules()`, mit automatischer Freischaltung) und legt pro Modul ein paar Datensätze an (Buchungen, Mitteilungen, Termine, Mängel, Einsatzberichte, Hydranten mit laufender Jahreskontrolle, zweiter Standort …). Er ist wiederholbar (`firstOrCreate`/`updateOrCreate`). Nur erfundene Personen; nie auf einer echten Datenbank ausführen – `migrate:fresh` löscht alles.
+`ScreenshotSeeder` ruft die Demo-Seeder (Fahrzeuge, Abteilungen, Admin `admin@example.com`, Kameraden, Kleiderkammer) auf, schaltet **alle** registrierten Module und Erweiterungen ein (`ScreenshotSeeder::modules()`, mit automatischer Freischaltung) und legt pro Modul ein paar Datensätze an (Buchungen, Mitteilungen, Termine, Mängel, Einsatzberichte, Hydranten mit laufender Jahreskontrolle, offener Vereinsantrag, zweiter Standort …). Er ist wiederholbar (`firstOrCreate`/`updateOrCreate`). Nur erfundene Personen; nie auf einer echten Datenbank ausführen – `migrate:fresh` löscht alles.
 
 Nicht fotografiert: `/personalakte/nachweise` (der QR-Code hängt vom zufälligen `APP_KEY` ab).
 

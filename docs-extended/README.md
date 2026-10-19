@@ -14,6 +14,7 @@ Die Erweiterungen ergänzen die 25 Module des Upstreams. Sie werden über den Er
 
 | Erweiterung | Zweck | Zugang, Aktivierung und wichtige Grenzen |
 |---|---|---|
+| Vereinsverwaltung | Öffentlicher Beitrittsantrag mit Vereinsauswahl, Datenschutz- und optionaler Fotoeinwilligung, kostenfreie Jugend-/Kinderfeuerwehr-Mitgliedschaft, Beitrags- und SEPA-Mandatsdokumentation; Kameraden können aus der Personalakte übernommen werden, ohne Kontaktdaten doppelt zu speichern. | System-Admins verwalten unter Admin → Vereine Namen, Standort und Vorstandszuordnungen. Jeder Vorstand verwaltet nur den zugewiesenen Verein; relevante Personaldaten sind auf dessen Standort begrenzt. Beitritt unter `/vereinsbeitritt`. Bank- und Personendaten verschlüsselt; keine SEPA-Dateien oder Zahlungsabwicklung. Ab 14 Jahren wird für Jugendfotos zusätzlich die eigene Zustimmung verlangt. Weitere Einstellungen über `VEREIN_*`; `VEREINSVERWALTUNG_ENABLED=false` schaltet die Erweiterung ab. |
 | [Hydrantenkontrolle](#hydrantenkontrolle-bedienungsanleitung) | Stammdaten, fortsetzbare Jahreskontrollen, Kontrollhistorie je Hydrant, Mängelcheckliste und echte PDF-Berichte. | Unter Admin → Module aktivieren und Rolle `hydrantenwart` vergeben (Admins ebenfalls berechtigt). `HYDRANTENKONTROLLE_ENABLED=false` lädt die Erweiterung nicht. Jahresbezogene Stammdatenkopien, Konfliktschutz beim Speichern, optionale Standortbegrenzung; keine automatische Wasserkarte-/Excel-Synchronisierung. |
 | [Locations](LOCATIONS.md) | Mitglieder und ausgewählte Datensätze Standorten zuordnen. | `LOCATIONS_ENABLED=false` deaktiviert Scope und Standortverwaltung. Nur konfigurierte Modelle werden begrenzt; Standortloses (`NULL`) bleibt gemeinsam sichtbar. Keine vollständige Mandantentrennung. |
 | [Offline/PWA](OFFLINE.md) | Offline-Fallback sowie lokale Entwürfe ausdrücklich markierter Formulare. | `OFFLINE_ENABLED=false` schaltet Statusanzeige und Entwürfe ab, aber nicht Manifest, Service Worker und Fallback-Seite. Keine automatische Übermittlung oder Synchronisierung von Formularen; Objektpläne nutzen einen separaten Worker. |
@@ -21,6 +22,11 @@ Die Erweiterungen ergänzen die 25 Module des Upstreams. Sie werden über den Er
 | [Anwesenheit](ANWESENHEIT.md) | Eigenständige Anwesenheitslisten, Vorlagen, PDF und E-Mail. | Modul nach Migration zunächst inaktiv; `ANWESENHEIT_ENABLED=false` schaltet die Erweiterung ab. Optional: Kalender zur Vorbelegung, Locations zur Standortbegrenzung und Offline für lokale Formularentwürfe. |
 | [Dateien](DATEIEN.md) | Private Dateiablagen mit ACL, Versionen, Suche und optionaler Office-Bearbeitung bzw. öffentlicher Lesefreigabe. | Modul nach Migration zunächst inaktiv. Es gibt keinen `DATEIEN_ENABLED`-Schalter. Zugriff wird zusätzlich zu Modulzugang pro Ablage/Eintrag vergeben; öffentliche Links sind standardmäßig aus. Online-Office benötigt einen separat betriebenen Server. |
 | [EinsatzberichtPlus](EINSATZBERICHT.md) | Zusätzliche Einsatzangaben und ein nicht blockierender Sollbesatzungshinweis. | `EINSATZBERICHT_PLUS_ENABLED=false` schaltet die Erweiterung ab. Nutzt die Rollen und Standortgrenzen des Einsatzberichts; Zusatzangaben sind derzeit nicht Teil von Druck oder Statistik. |
+
+![Screenshot: Öffentlicher Vereinsbeitritt](screenshots/vereinsverwaltung/beitritt.png)
+![Screenshot: Vereinsantrag im Vorstandsbereich](screenshots/vereinsverwaltung/antraege.png)
+
+System-Admins legen Vereine unter **Admin → Vereine** an, ordnen jedem Verein einen Standort zu und weisen dessen Vorstand zu. Diese Zuweisung erteilt zugleich den Modulzugang. Die öffentliche Beitrittsseite `/vereinsbeitritt` lässt Antragstellende einen konfigurierten Verein auswählen. Ein Vorstand sieht und verwaltet ausschließlich Mitglieder und Anträge seines Vereins; Personaldaten aktiver Kameraden sind auf den zugeordneten Standort begrenzt. Der Vorstand bearbeitet keine Vereins- oder Vorstandszuordnungen.
 
 ## Hydrantenkontrolle: Bedienungsanleitung
 
