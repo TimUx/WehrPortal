@@ -33,6 +33,9 @@ function membershipApplicationData(array $overrides = []): array
         'bank_name' => 'Beispielbank',
         'bic' => 'EXAMPLE1',
         'iban' => 'DE89370400440532013000',
+        'youth_member' => '0',
+        'photo_consent' => '0',
+        'youth_photo_consent' => '0',
         'privacy_consent' => '1',
         'sepa_notice' => '1',
     ], $overrides);
@@ -52,7 +55,106 @@ it('accepts public applications while encrypting personal and bank data', functi
         ->and($raw->email)->not->toContain('alex@example.com')
         ->and($raw->iban)->not->toContain('DE89370400440532013000')
         ->and($application->consented_at)->not->toBeNull()
-        ->and($application->consent_version)->toBe('1');
+        ->and($application->consent_version)->toBe('1')
+        ->and($application->photo_consent)->toBeFalse();
+});
+
+it('accepts youth applications without SEPA details and records free membership', function () {
+    $data = membershipApplicationData([
+        'birth_date' => now()->subYears(12)->toDateString(),
+        'youth_member' => '1',
+        'account_holder' => '',
+        'bank_name' => '',
+        'bic' => '',
+        'iban' => '',
+    ]);
+    unset($data['sepa_notice']);
+
+    $this->post(route('verein.application.store'), $data)
+        ->assertRedirect(route('verein.application'))
+        ->assertSessionHas('submitted', true);
+
+    $application = MembershipApplication::firstOrFail();
+    expect($application->youth_member)->toBeTrue()
+        ->and($application->iban)->toBeNull()
+        ->and($application->account_holder)->toBeNull();
+
+    $board = User::factory()->create();
+    $board->moduleAccess()->create(['module' => 'verein', 'role' => 'vereinsvorstand']);
+    app(\Extensions\Vereinsverwaltung\Services\MembershipService::class)->approveApplication($board, $application->id);
+    $member = Member::firstOrFail();
+    expect($member->youth_member)->toBeTrue()
+        ->and($member->annual_fee_cents)->toBe(0)
+        ->and($member->mandate_status)->toBe('not_required')
+        ->and($member->iban)->toBeNull();
+});
+
+it('requires a separate youth photo consent from applicants aged fourteen or older', function () {
+    $data = membershipApplicationData([
+        'birth_date' => now()->subYears(14)->toDateString(),
+        'youth_member' => '1',
+        'photo_consent' => '1',
+        'youth_photo_consent' => '0',
+    ]);
+    unset($data['sepa_notice']);
+
+    $this->post(route('verein.application.store'), $data)
+        ->assertRedirect(route('verein.application'))
+        ->assertSessionHasErrors('youth_photo_consent');
+    expect(MembershipApplication::count())->toBe(0);
+
+    $this->post(route('verein.application.store'), [...$data, 'youth_photo_consent' => '1'])
+        ->assertRedirect(route('verein.application'))
+        ->assertSessionHas('submitted', true);
+    $application = MembershipApplication::firstOrFail();
+    expect($application->photo_consent)->toBeTrue()
+        ->and($application->youth_photo_consent)->toBeTrue()
+        ->and($application->photo_consent_recorded_at)->not->toBeNull();
+});
+
+it('allows photo consent for children under fourteen with the guardian consent alone', function () {
+    $data = membershipApplicationData([
+        'birth_date' => now()->subYears(10)->toDateString(),
+        'youth_member' => '1',
+        'photo_consent' => '1',
+        'youth_photo_consent' => '0',
+    ]);
+    unset($data['sepa_notice']);
+
+    $this->post(route('verein.application.store'), $data)
+        ->assertRedirect(route('verein.application'))
+        ->assertSessionHas('submitted', true);
+
+    $application = MembershipApplication::firstOrFail();
+    expect($application->photo_consent)->toBeTrue()
+        ->and($application->youth_photo_consent)->toBeFalse();
+});
+
+it('allows a youth application when the guardian declines photo consent', function () {
+    $data = membershipApplicationData([
+        'birth_date' => now()->subYears(15)->toDateString(),
+        'youth_member' => '1',
+        'photo_consent' => '0',
+        'youth_photo_consent' => '0',
+    ]);
+    unset($data['sepa_notice']);
+
+    $this->post(route('verein.application.store'), $data)
+        ->assertRedirect(route('verein.application'))
+        ->assertSessionHas('submitted', true);
+
+    expect(MembershipApplication::firstOrFail()->photo_consent)->toBeFalse();
+});
+
+it('requires the SEPA acknowledgement for non-youth applicants', function () {
+    $data = membershipApplicationData();
+    unset($data['sepa_notice']);
+
+    $this->post(route('verein.application.store'), $data)
+        ->assertRedirect(route('verein.application'))
+        ->assertSessionHasErrors('sepa_notice');
+
+    expect(MembershipApplication::count())->toBe(0);
 });
 
 it('does not flash submitted bank details when validation fails', function () {
@@ -123,6 +225,34 @@ it('lets the board document a mandate without creating a payment', function () {
         ->and($member->iban)->toBe('DE89370400440532013000')
         ->and(DB::table('x_vv_members')->where('id', $member->id)->value('iban'))->not->toContain('DE89370400440532013000')
         ->and(DB::table('x_vv_members')->count())->toBe(1);
+});
+
+it('removes mandate data and fees when the board marks a member as youth', function () {
+    $board = User::factory()->create();
+    $board->moduleAccess()->create(['module' => 'verein', 'role' => 'vereinsvorstand']);
+    $member = Member::create([
+        'first_name' => 'Alex',
+        'last_name' => 'Example',
+        'joined_at' => now()->toDateString(),
+        'annual_fee_cents' => 1500,
+        'mandate_status' => 'documented',
+        'account_holder' => 'Alex Example',
+        'iban' => 'DE89370400440532013000',
+        'mandate_reference' => 'VV-001',
+        'mandate_signed_at' => '2026-10-01',
+    ]);
+
+    Livewire::actingAs($board)->test(Board::class)
+        ->call('edit', $member->id)
+        ->set('form.youth_member', true)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($member->refresh()->youth_member)->toBeTrue()
+        ->and($member->annual_fee_cents)->toBe(0)
+        ->and($member->mandate_status)->toBe('not_required')
+        ->and($member->iban)->toBeNull()
+        ->and($member->mandate_reference)->toBeNull();
 });
 
 it('redacts rejected application data and permits active and passive board membership separately', function () {

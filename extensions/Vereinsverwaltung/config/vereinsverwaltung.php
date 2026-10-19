@@ -8,4 +8,5 @@ return [
     'billing_year_offset' => (int) env('VEREIN_BILLING_YEAR_OFFSET', 1),
     'creditor_id' => env('VEREIN_CREDITOR_ID'),
     'privacy_notice_version' => env('VEREIN_PRIVACY_NOTICE_VERSION', '1'),
+    'photo_consent_version' => env('VEREIN_PHOTO_CONSENT_VERSION', '1'),
 ];

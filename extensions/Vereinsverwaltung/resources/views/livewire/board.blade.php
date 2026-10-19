@@ -31,10 +31,13 @@
                     <div>
                         <h3 class="font-semibold">{{ $application->displayName() }}</h3>
                         <p class="text-sm text-gray-700">{{ $application->email }} · eingegangen {{ $application->submitted_at->timezone('Europe/Berlin')->format('d.m.Y H:i') }}</p>
-                        <p class="mt-1 text-xs text-gray-600">Personen- und Bankdaten sind verschlüsselt gespeichert. Die Bankverbindung wird nach Annahme als Mandat „Unterschrift ausstehend“ übernommen.</p>
+                        <p class="mt-1 text-xs text-gray-600">
+                            {{ $application->youth_member ? 'Jugend-/Kinderfeuerwehr: beitragsfrei, ohne Bankdaten oder SEPA-Mandat.' : 'Personen- und Bankdaten sind verschlüsselt gespeichert. Die Bankverbindung wird nach Annahme als Mandat „Unterschrift ausstehend“ übernommen.' }}
+                            Fotoeinwilligung: {{ $application->photo_consent ? 'erteilt' : 'nicht erteilt' }}{{ $application->youth_photo_consent ? ' (zusätzliche Zustimmung des Jugendlichen dokumentiert)' : '' }}.
+                        </p>
                     </div>
                     <div class="flex gap-2">
-                        <button type="button" wire:click="approve({{ $application->id }})" wire:confirm="Antrag annehmen und als passives Mitglied anlegen?" class="rounded bg-green-700 px-3 py-2 text-sm font-semibold text-white">Annehmen</button>
+                        <button type="button" wire:click="approve({{ $application->id }})" wire:confirm="Antrag annehmen und als {{ $application->youth_member ? 'kostenfreies Jugend-/Kinderfeuerwehrmitglied' : 'passives Mitglied' }} anlegen?" class="rounded bg-green-700 px-3 py-2 text-sm font-semibold text-white">Annehmen</button>
                         <button type="button" wire:click="reject({{ $application->id }})" wire:confirm="Antrag ablehnen und alle persönlichen Angaben unwiderruflich löschen?" class="rounded border border-red-700 px-3 py-2 text-sm font-semibold text-red-800">Ablehnen</button>
                     </div>
                 </article>
@@ -66,10 +69,12 @@
                                         <div class="text-xs text-gray-600">App-Konto verknüpft</div>
                                     @endif
                                 </td>
-                                <td class="px-4 py-3">{{ $member->membership_type === 'active' ? 'Aktiv' : 'Passiv' }}</td>
+                                <td class="px-4 py-3">
+                                    {{ $member->youth_member ? 'Jugend-/Kinderfeuerwehr' : ($member->membership_type === 'active' ? 'Aktiv' : 'Passiv') }}
+                                </td>
                                 <td class="px-4 py-3">{{ $member->status === 'member' ? 'Mitglied' : 'Ausgetreten' }}</td>
                                 <td class="px-4 py-3">{{ number_format($member->annual_fee_cents / 100, 2, ',', '.') }} €</td>
-                                <td class="px-4 py-3">{{ match ($member->mandate_status) { 'documented' => 'Dokumentiert', 'revoked' => 'Widerrufen', default => 'Unterschrift ausstehend' } }}</td>
+                                <td class="px-4 py-3">{{ match ($member->mandate_status) { 'documented' => 'Dokumentiert', 'revoked' => 'Widerrufen', 'not_required' => 'Nicht erforderlich', default => 'Unterschrift ausstehend' } }}</td>
                                 <td class="px-4 py-3 text-right"><button type="button" wire:click="edit({{ $member->id }})" class="font-semibold text-fw-navy underline">Bearbeiten</button></td>
                             </tr>
                         @empty
@@ -90,10 +95,14 @@
                     <button type="button" wire:click="closeEditor" class="rounded px-3 py-2 text-gray-700">Schließen</button>
                 </header>
 
-                <form wire:submit="save" class="space-y-6">
+                <form x-data="{ youth: @js((bool) ($form['youth_member'] ?? false)) }" wire:submit="save" class="space-y-6">
                     <fieldset class="space-y-4">
                         <legend class="font-semibold">Mitgliedschaft</legend>
                         <div class="grid gap-4 sm:grid-cols-2">
+                            <label class="flex items-start gap-3 sm:col-span-2">
+                                <input type="checkbox" wire:model="form.youth_member" x-model="youth" class="mt-1 rounded border-gray-300">
+                                <span>Mitglied der Jugend-/Kinderfeuerwehr (beitragsfrei, ohne SEPA-Mandat)</span>
+                            </label>
                             <label class="block">Mitgliedsart
                                 <select wire:model="form.membership_type" class="mt-1 block w-full rounded border-gray-300">
                                     <option value="active">Aktiv</option><option value="passive">Passiv</option>
@@ -114,7 +123,7 @@
                             </label>
                             <label class="block">Beitrittsdatum <input type="date" wire:model="form.joined_at" required class="mt-1 block w-full rounded border-gray-300"></label>
                             <label class="block">Austrittsdatum <input type="date" wire:model="form.left_at" class="mt-1 block w-full rounded border-gray-300"></label>
-                            <label class="block">Jahresbeitrag in Euro <input type="number" min="0" max="100000" step="0.01" wire:model="form.annual_fee" required class="mt-1 block w-full rounded border-gray-300"></label>
+                            <label class="block">Jahresbeitrag in Euro <input type="number" min="0" max="100000" step="0.01" wire:model="form.annual_fee" x-bind:disabled="youth" required class="mt-1 block w-full rounded border-gray-300"></label>
                             @error('form.annual_fee')<p class="text-sm text-red-700">{{ $message }}</p>@enderror
                         </div>
                     </fieldset>
@@ -139,12 +148,14 @@
                     <fieldset class="space-y-4">
                         <legend class="font-semibold">SEPA-Mandat – Dokumentation</legend>
                         <p class="text-sm text-gray-700">Bank- und Mandatsdaten werden verschlüsselt gespeichert. Die App erzeugt keine Lastschriften oder Dateien und führt keine Zahlungen aus.</p>
-                        <div class="grid gap-4 sm:grid-cols-2">
+                        <p x-cloak x-show="youth" class="font-medium text-gray-700">Für Jugend- und Kinderfeuerwehrmitglieder nicht erforderlich.</p>
+                        <div x-cloak x-show="!youth" class="grid gap-4 sm:grid-cols-2">
                             <label class="block">Mandatsstatus
                                 <select wire:model="form.mandate_status" class="mt-1 block w-full rounded border-gray-300">
                                     <option value="awaiting_signature">Unterschrift ausstehend</option>
                                     <option value="documented">Mandat dokumentiert</option>
                                     <option value="revoked">Widerrufen</option>
+                                    <option value="not_required">Nicht erforderlich (Jugend-/Kinderfeuerwehr)</option>
                                 </select>
                             </label>
                             <label class="block">Unterschriftsdatum <input type="date" wire:model="form.mandate_signed_at" class="mt-1 block w-full rounded border-gray-300"></label>
@@ -157,6 +168,21 @@
                         @foreach (['user_id', 'membership_type', 'status', 'title', 'first_name', 'last_name', 'birth_date', 'marital_status', 'phone', 'mobile', 'email', 'street', 'postal_code', 'city', 'joined_at', 'left_at', 'annual_fee_cents', 'mandate_status', 'account_holder', 'bank_name', 'bic', 'iban', 'mandate_reference', 'mandate_signed_at'] as $field)
                             @error($field)<p class="text-sm text-red-700">{{ $message }}</p>@enderror
                         @endforeach
+                    </fieldset>
+
+                    <fieldset class="space-y-2 rounded border border-gray-200 p-4">
+                        <legend class="font-semibold">Fotoeinwilligung</legend>
+                        @if ($form['photo_consent'] ?? false)
+                            <p>Erziehungsberechtigte beziehungsweise Mitglied haben der Foto-/Videoveröffentlichung zugestimmt.</p>
+                        @else
+                            <p>Keine Einwilligung zur Foto-/Videoveröffentlichung erfasst.</p>
+                        @endif
+                        @if ($form['youth_photo_consent'] ?? false)
+                            <p>Zusätzliche Zustimmung des Jugendlichen ab 14 Jahren erfasst.</p>
+                        @endif
+                        @if ($form['photo_consent_recorded_at'] ?? false)
+                            <p class="text-sm text-gray-600">Im Online-Antrag dokumentiert am {{ $form['photo_consent_recorded_at'] }}.</p>
+                        @endif
                     </fieldset>
 
                     <div class="flex justify-end gap-3">

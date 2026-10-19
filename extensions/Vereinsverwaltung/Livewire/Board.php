@@ -53,6 +53,7 @@ class Board extends Component
         $this->form = [
             'user_id' => $member->user_id,
             'membership_type' => $member->membership_type,
+            'youth_member' => $member->youth_member,
             'status' => $member->status,
             'title' => $member->title ?? '',
             'first_name' => $member->first_name,
@@ -75,6 +76,9 @@ class Board extends Component
             'iban' => $member->iban ?? '',
             'mandate_reference' => $member->mandate_reference ?? '',
             'mandate_signed_at' => $member->mandate_signed_at?->format('Y-m-d') ?? '',
+            'photo_consent' => $member->photo_consent,
+            'youth_photo_consent' => $member->youth_photo_consent,
+            'photo_consent_recorded_at' => $member->photo_consent_recorded_at?->timezone('Europe/Berlin')->format('d.m.Y H:i') ?? '',
         ];
         $this->resetValidation();
     }
@@ -87,6 +91,7 @@ class Board extends Component
         $this->form = [
             'user_id' => '',
             'membership_type' => 'passive',
+            'youth_member' => false,
             'status' => 'member',
             'title' => '',
             'first_name' => '',
@@ -109,6 +114,9 @@ class Board extends Component
             'iban' => '',
             'mandate_reference' => '',
             'mandate_signed_at' => '',
+            'photo_consent' => false,
+            'youth_photo_consent' => false,
+            'photo_consent_recorded_at' => '',
         ];
         $this->resetValidation();
     }
@@ -137,6 +145,24 @@ class Board extends Component
         session()->flash('flash', 'Mitgliedsdaten gespeichert.');
     }
 
+    public function updatedForm($value, string $key): void
+    {
+        if ($key !== 'youth_member') {
+            return;
+        }
+
+        if (filter_var($value, FILTER_VALIDATE_BOOLEAN)) {
+            $this->form['annual_fee'] = '0.00';
+            $this->form['mandate_status'] = 'not_required';
+            foreach (['account_holder', 'bank_name', 'bic', 'iban', 'mandate_reference', 'mandate_signed_at'] as $field) {
+                $this->form[$field] = '';
+            }
+        } else {
+            $this->form['annual_fee'] = number_format(config('vereinsverwaltung.annual_fee_cents', 1500) / 100, 2, '.', '');
+            $this->form['mandate_status'] = 'awaiting_signature';
+        }
+    }
+
     public function updatedTab(): void
     {
         $this->resetPage();
@@ -151,7 +177,7 @@ class Board extends Component
                 ->select(['id', 'status', 'title', 'first_name', 'last_name', 'email', 'submitted_at'])
                 ->where('status', 'pending')->oldest('submitted_at')->get(),
             'members' => Member::query()
-                ->select(['id', 'user_id', 'membership_type', 'status', 'title', 'first_name', 'last_name', 'annual_fee_cents', 'mandate_status'])
+                ->select(['id', 'user_id', 'membership_type', 'youth_member', 'status', 'title', 'first_name', 'last_name', 'annual_fee_cents', 'mandate_status', 'photo_consent', 'youth_photo_consent'])
                 ->with('user:id,name')->orderByDesc('id')->paginate(20),
             'users' => User::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'editing' => $this->memberId ? Member::query()->findOrFail($this->memberId) : null,

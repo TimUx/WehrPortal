@@ -21,11 +21,22 @@ class MembershipService
 
     public function submitApplication(array $data): MembershipApplication
     {
+        if ($data['youth_member'] ?? false) {
+            $data = array_merge($data, [
+                'account_holder' => null,
+                'bank_name' => null,
+                'bic' => null,
+                'iban' => null,
+            ]);
+        }
+
         return MembershipApplication::create([
             ...$data,
             'status' => 'pending',
             'consent_version' => (string) config('vereinsverwaltung.privacy_notice_version', '1'),
             'consented_at' => now(),
+            'photo_consent_version' => (string) config('vereinsverwaltung.photo_consent_version', '1'),
+            'photo_consent_recorded_at' => now(),
             'submitted_at' => now(),
         ]);
     }
@@ -42,12 +53,13 @@ class MembershipService
                 ...$application->only([
                     'title', 'first_name', 'last_name', 'birth_date', 'marital_status', 'phone', 'mobile',
                     'email', 'street', 'postal_code', 'city', 'account_holder', 'bank_name', 'bic', 'iban',
+                    'youth_member', 'photo_consent', 'youth_photo_consent', 'photo_consent_version', 'photo_consent_recorded_at',
                 ]),
                 'membership_type' => 'passive',
                 'status' => 'member',
                 'joined_at' => now()->toDateString(),
-                'annual_fee_cents' => (int) config('vereinsverwaltung.annual_fee_cents', 1500),
-                'mandate_status' => 'awaiting_signature',
+                'annual_fee_cents' => $application->youth_member ? 0 : (int) config('vereinsverwaltung.annual_fee_cents', 1500),
+                'mandate_status' => $application->youth_member ? 'not_required' : 'awaiting_signature',
             ]);
 
             $application->forceFill([
@@ -86,7 +98,8 @@ class MembershipService
                 'first_name' => '',
                 'last_name' => '',
                 'joined_at' => now()->toDateString(),
-                'annual_fee_cents' => (int) config('vereinsverwaltung.annual_fee_cents', 1500),
+                'annual_fee_cents' => ! empty($data['youth_member']) ? 0 : (int) config('vereinsverwaltung.annual_fee_cents', 1500),
+                'mandate_status' => ! empty($data['youth_member']) ? 'not_required' : 'awaiting_signature',
             ]);
 
             return $this->updateMember($by, $member->id, $data);
@@ -105,9 +118,26 @@ class MembershipService
         }
         $data['iban'] = filled($data['iban'] ?? null) ? strtoupper(preg_replace('/\s+/', '', $data['iban'])) : null;
         $data['bic'] = filled($data['bic'] ?? null) ? strtoupper($data['bic']) : null;
+        $data['youth_member'] = filter_var($data['youth_member'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if ($data['youth_member']) {
+            $data = array_merge($data, [
+                'annual_fee_cents' => 0,
+                'mandate_status' => 'not_required',
+                'account_holder' => null,
+                'bank_name' => null,
+                'bic' => null,
+                'iban' => null,
+                'mandate_reference' => null,
+                'mandate_signed_at' => null,
+            ]);
+        } elseif ($member->youth_member && $data['mandate_status'] === 'not_required') {
+            $data['mandate_status'] = 'awaiting_signature';
+            $data['annual_fee_cents'] = (int) config('vereinsverwaltung.annual_fee_cents', 1500);
+        }
         $data = Validator::make($data, [
             'membership_type' => ['required', Rule::in(['active', 'passive'])],
             'status' => ['required', Rule::in(['member', 'left'])],
+            'youth_member' => ['required', 'boolean'],
             'user_id' => ['nullable', 'integer', 'exists:users,id', Rule::unique('x_vv_members', 'user_id')->ignore($member->id)],
             'title' => ['nullable', 'string', 'max:30'],
             'first_name' => ['required', 'string', 'max:100'],
@@ -123,7 +153,7 @@ class MembershipService
             'joined_at' => ['required', 'date'],
             'left_at' => ['nullable', 'required_if:status,left', 'date', 'after_or_equal:joined_at'],
             'annual_fee_cents' => ['required', 'integer', 'between:0,10000000'],
-            'mandate_status' => ['required', Rule::in(['awaiting_signature', 'documented', 'revoked'])],
+            'mandate_status' => ['required', Rule::in(['awaiting_signature', 'documented', 'revoked', 'not_required'])],
             'account_holder' => ['nullable', 'string', 'max:200'],
             'bank_name' => ['nullable', 'string', 'max:200'],
             'bic' => ['nullable', 'string', 'max:11', 'regex:/^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/i'],
@@ -151,6 +181,9 @@ class MembershipService
 
         if ($data['status'] === 'member') {
             $data['left_at'] = null;
+        }
+        if (! $data['youth_member'] && $data['mandate_status'] === 'not_required') {
+            throw ValidationException::withMessages(['mandate_status' => 'Bei einer regulären Vereinsmitgliedschaft muss der Mandatsstatus dokumentiert werden.']);
         }
         $member->fill($data)->save();
 

@@ -14,7 +14,8 @@ class Member extends Model
         'user_id', 'membership_type', 'status', 'title', 'first_name', 'last_name', 'birth_date',
         'marital_status', 'phone', 'mobile', 'email', 'street', 'postal_code', 'city', 'joined_at',
         'left_at', 'annual_fee_cents', 'mandate_status', 'account_holder', 'bank_name', 'bic', 'iban',
-        'mandate_reference', 'mandate_signed_at',
+        'mandate_reference', 'mandate_signed_at', 'youth_member', 'photo_consent', 'youth_photo_consent',
+        'photo_consent_version', 'photo_consent_recorded_at',
     ];
 
     protected function casts(): array
@@ -40,6 +41,10 @@ class Member extends Model
             'left_at' => 'date',
             'mandate_signed_at' => 'date',
             'annual_fee_cents' => 'integer',
+            'youth_member' => 'boolean',
+            'photo_consent' => 'boolean',
+            'youth_photo_consent' => 'boolean',
+            'photo_consent_recorded_at' => 'immutable_datetime',
         ];
     }
 
