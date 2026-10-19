@@ -14,7 +14,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Schema as DatabaseSchema;
 
 class AssociationResource extends Resource
 {
@@ -34,7 +34,7 @@ class AssociationResource extends Resource
 
     public static function canAccess(): bool
     {
-        return (bool) auth()->user()?->is_admin && Schema::hasTable('x_locations') && parent::canAccess();
+        return (bool) auth()->user()?->is_admin && DatabaseSchema::hasTable('x_locations') && parent::canAccess();
     }
 
     public static function canCreate(): bool
