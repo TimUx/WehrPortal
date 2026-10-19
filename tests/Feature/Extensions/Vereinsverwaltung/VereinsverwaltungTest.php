@@ -98,7 +98,7 @@ it('requires a separate youth photo consent from applicants aged fourteen or old
     ]);
     unset($data['sepa_notice']);
 
-    $this->post(route('verein.application.store'), $data)
+    $this->from(route('verein.application'))->post(route('verein.application.store'), $data)
         ->assertRedirect(route('verein.application'))
         ->assertSessionHasErrors('youth_photo_consent');
     expect(MembershipApplication::count())->toBe(0);
@@ -150,7 +150,7 @@ it('requires the SEPA acknowledgement for non-youth applicants', function () {
     $data = membershipApplicationData();
     unset($data['sepa_notice']);
 
-    $this->post(route('verein.application.store'), $data)
+    $this->from(route('verein.application'))->post(route('verein.application.store'), $data)
         ->assertRedirect(route('verein.application'))
         ->assertSessionHasErrors('sepa_notice');
 
@@ -158,7 +158,7 @@ it('requires the SEPA acknowledgement for non-youth applicants', function () {
 });
 
 it('does not flash submitted bank details when validation fails', function () {
-    $this->post(route('verein.application.store'), membershipApplicationData(['privacy_consent' => null]))
+    $this->from(route('verein.application'))->post(route('verein.application.store'), membershipApplicationData(['privacy_consent' => null]))
         ->assertRedirect(route('verein.application'))
         ->assertSessionHasErrors('privacy_consent')
         ->assertSessionMissing('_old_input.iban');
@@ -182,7 +182,7 @@ it('only lets an assigned active board member open the management page', functio
     $this->actingAs($board)->get(route('verein.index'))->assertOk();
     $this->actingAs($other)->get(route('verein.index'))->assertForbidden();
     auth()->logout();
-    $this->get(route('verein.index'))->assertRedirect(route('login'));
+    $this->get(route('verein.index'))->assertRedirect(route('auth.magic-link.form'));
 });
 
 it('approves applications as passive members and removes the duplicate application data', function () {
