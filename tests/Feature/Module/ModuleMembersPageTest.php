@@ -14,8 +14,8 @@ beforeEach(function () {
     $this->admin = User::factory()->admin()->create(['name' => 'Anna Admin']);
     Module::where('key', 'lehrgaenge')->update(['is_active' => true, 'auto_assign' => false]);
 
-    $this->hanna = User::factory()->create(['name' => 'Hanna Hydrant']);
-    $this->bernd = User::factory()->create(['name' => 'Bernd Blaulicht']);
+    $this->hanna = User::factory()->create(['name' => 'Hanna Hydrant', 'email' => 'hanna.hydrant@example.com']);
+    $this->bernd = User::factory()->create(['name' => 'Bernd Blaulicht', 'email' => 'bernd.blaulicht@example.com']);
     $this->hanna->moduleAccess()->create(['module' => 'lehrgaenge', 'role' => 'ausbildungsleiter']);
 });
 
