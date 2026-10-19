@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\User;
 use App\Models\Group;
+use App\Models\User;
 use Extensions\Locations\Filament\Resources\LocationResource\Pages\EditLocation;
 use Extensions\Locations\Filament\Resources\LocationResource\RelationManagers\GroupsRelationManager;
 use Extensions\Locations\Filament\Resources\LocationResource\RelationManagers\MembersRelationManager;
@@ -129,7 +129,6 @@ it('lets Standort-Admins manage Abteilungen for their Standort', function () {
 
     Livewire::actingAs($northAdmin)
         ->test(GroupsRelationManager::class, ['ownerRecord' => $north, 'pageClass' => EditLocation::class])
-        ->assertCanSeeTableRecords([])
         ->assertDontSee('Einsatzabteilung');
 });
 

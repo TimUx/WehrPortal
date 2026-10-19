@@ -2,12 +2,11 @@
 
 namespace Extensions\Locations\Models;
 
-use App\Models\User;
 use App\Models\Group;
+use App\Models\User;
 use App\Services\ActivityRecorder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Validation\ValidationException;
 use Modules\Ausruestung\src\Models\Equipment;

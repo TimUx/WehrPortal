@@ -41,6 +41,6 @@ Standort-Admins erreichen `/admin` über `MyLocationPage` (`ModuleArea`), `User:
 
 - `DB::table(...)`-Abfragen umgehen den Scope; bei Upstream-Syncs prüfen.
 - Eindeutige Schlüssel sind global (`eb_reports.number`, `ar_equipment.code`).
-- Standortfilter in den Upstream-Formularen und -Tabellen gibt es nicht; die Zuordnung läuft über Admin → Standorte.
+- Standortfilter in den übrigen Upstream-Formularen und -Tabellen gibt es nicht; Mitglieder und Abteilungen lassen sich unter Admin → Standorte zuordnen.
 - Der Umschalter erscheint nur im Admin-Menü; für globale Admins steuert er nur, wo neue Datensätze landen.
 - Weitere Modelle (Verbandbuch, Mitteilungen …) lassen sich über `config/locations.php` ergänzen, sobald eine Migration die Spalte anlegt.
