@@ -4,6 +4,8 @@
 
 Eigenständiges Modul für Übungen, Dienste und Besprechungen. Eine Liste braucht **keinen** Kalendertermin; Vorlagen und Kalendertermine sind nur eine optionale Vorbelegung (Titel, Art, Ort, Zeiten), danach ist die Liste ein eigener Datensatz.
 
+![Screenshot: Anwesenheit – Listen](screenshots/anwesenheit/listen.png)
+
 ## Inhalt
 
 - [Funktionen](#funktionen)

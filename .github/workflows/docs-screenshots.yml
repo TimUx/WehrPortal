@@ -1,0 +1,60 @@
+name: Docs Screenshots
+
+# Fork: keeps the screenshots in the documentation (docs-extended/screenshots/, embedded in README.md
+# and docs-extended) current. Runs the E2E screenshot workflow and commits the pictures back to
+# `extended` when they changed. The run is deterministic (frozen clock, fixed data), so a commit only
+# happens when the UI or the example data changed. Pushes with GITHUB_TOKEN start no new workflow runs.
+on:
+  workflow_dispatch:
+  push:
+    branches: [extended]
+    paths-ignore:
+      - 'docs/**'
+      - 'docs-extended/screenshots/**'
+      - '**/*.md'
+
+concurrency:
+  group: docs-screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: E2E Screenshots
+    uses: ./.github/workflows/screenshots.yml
+
+  commit:
+    name: Commit Screenshots
+    needs: e2e
+    if: github.ref == 'refs/heads/extended'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Replace the whole folder, so pages removed from tests/e2e/fixtures/pages.ts disappear too
+      - name: Replace Screenshots
+        run: rm -rf docs-extended/screenshots && mkdir -p docs-extended/screenshots
+
+      - name: Download Screenshots
+        uses: actions/download-artifact@v4
+        with:
+          name: screenshots
+          path: docs-extended/screenshots
+
+      - name: Commit and Push
+        run: |
+          git add -A docs-extended/screenshots
+          if git diff --cached --quiet; then
+            echo "Screenshots unchanged."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update documentation screenshots"
+          git pull --rebase origin extended
+          git push origin HEAD:extended
