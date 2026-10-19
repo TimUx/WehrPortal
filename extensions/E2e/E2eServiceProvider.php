@@ -7,7 +7,7 @@ use Illuminate\Support\ServiceProvider;
 
 /**
  * Freezes the clock for the E2E screenshot run, so the example data and every date on the pages are the
- * same in each run and the committed screenshots only change when the UI does. Does nothing unless
+ * same in each run and the screenshots only change when the UI does. Does nothing unless
  * E2E_FROZEN_NOW is set, and never in production or in the Pest tests.
  */
 class E2eServiceProvider extends ServiceProvider
