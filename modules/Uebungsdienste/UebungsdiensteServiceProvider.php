@@ -19,8 +19,7 @@ use Modules\Uebungsdienste\src\Models\Service;
 use Modules\Uebungsdienste\src\Services\ServicePlan;
 
 /**
- * Übungsdienstplaner: who runs which Übungsdienst with which topic. Only the Vorstand gets access,
- * so members don't just come to the "exciting" Dienste.
+ * Übungsdienstplaner for the Feuerwehr: the Wehrführung plans services for the Einsatzabteilung.
  */
 class UebungsdiensteServiceProvider extends ServiceProvider
 {
@@ -51,24 +50,24 @@ class UebungsdiensteServiceProvider extends ServiceProvider
         Livewire::component('uebungsdienste.planner', Planner::class);
         Livewire::component('uebungsdienste.service-form', ServiceForm::class);
 
-        Gate::define('plan-uebungsdienste', fn (User $user) => $user->is_admin || ($user->canUseModule('uebungsdienste') && $user->isVorstand()));
+        Gate::define('plan-uebungsdienste', fn (User $user) => $user->is_admin || ($user->canUseModule('uebungsdienste') && $user->hasModuleRole('einsatzbericht', 'wehrführung')));
 
         app(ModuleRegistry::class)->register(
             'uebungsdienste',
             'Übungsdienstplaner',
-            'Wer welchen Übungsdienst mit welchem Thema übernimmt – nur für den Vorstand',
+            'Übungsdienste der Einsatzabteilung planen – für die Wehrführung',
             provider: self::class,
             route: 'uebungsdienste.index',
-            // Vorstand incl. its sub-functions, and admins; anyone else only after a confirmation
-            audience: fn (User $user) => $user->isVorstand(),
-            audienceLabel: 'Vorstand',
+            // Wehrführung and admins; other users can only be unlocked by explicit confirmation
+            audience: fn (User $user) => $user->hasModuleRole('einsatzbericht', 'wehrführung'),
+            audienceLabel: 'Wehrführung',
         );
 
-        // Start page: the next Übungsdienst. The Vorstand (module access) sees topic and who is responsible,
+        // Start page: the next Übungsdienst. The Wehrführung (module access) sees topic and who is responsible,
         // every other Kamerad of the target group date, time and place – like the Kalender, never the topic
         app(DashboardRegistry::class)->register('uebungsdienste', 'next', function (User $user) {
             $planner = $user->canUseModule('uebungsdienste');
-            $next = $planner ? app(ServicePlan::class)->next() : app(ServicePlan::class)->nextFor($user);
+            $next = $planner ? app(ServicePlan::class)->nextForPlanner($user) : app(ServicePlan::class)->nextFor($user);
 
             return $next ? view('uebungsdienste::cards.next', ['service' => $next, 'planner' => $planner])->render() : null;
         }, everyone: true);

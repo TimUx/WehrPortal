@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * An Übungsdienst goes into the Kalender of its target group: end time, saved place, Kleidung,
- * Abteilungen and Funktionen of the target group, and the event it is kept in sync with. The
+ * Einsatzabteilungen of the target Standorte, and the event it is kept in sync with. The
  * topic stays in the plan.
  */
 return new class extends Migration

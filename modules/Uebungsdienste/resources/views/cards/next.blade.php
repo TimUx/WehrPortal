@@ -1,4 +1,4 @@
-{{-- Start page: the next Übungsdienst. The Vorstand opens the plan and sees topic and who is responsible;
+{{-- Start page: the next Übungsdienst. The Wehrführung opens the plan and sees topic and who is responsible;
      every other Kamerad sees date, time and place (the topic stays in the plan, like in the Kalender). --}}
 @php($tag = $planner ? 'a' : 'div')
 <{{ $tag }} @if($planner) href="{{ route('uebungsdienste.index') }}" @endif class="block bg-white rounded-2xl border border-gray-100 shadow-sm p-5 {{ $planner ? 'hover:border-fw-navy' : '' }}">

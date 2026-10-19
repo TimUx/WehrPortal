@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Module;
+use App\Models\Group;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -28,6 +29,7 @@ beforeEach(function () {
     $this->travelTo(Carbon::parse('2027-06-01 10:00', 'Europe/Berlin'));
 
     $this->admin = User::factory()->admin()->create(['name' => 'Anna Admin']);
+    Group::create(['name' => 'Einsatzabteilung']);
     $this->hanna = User::factory()->create(['name' => 'Hanna Hydrant']);
     $this->bernd = User::factory()->create(['name' => 'Bernd Blaulicht']);
     foreach (['schichtplan', 'kalender'] as $module) {
@@ -143,11 +145,12 @@ test('a booking changed by an admin or Entscheider reaches its owner, own change
 
 test('whoever is made responsible for a coming Übungsdienst hears about it', function () {
     Notification::fake();
-    $board = User::factory()->create(['name' => 'Vera Vorstand']);
+    $board = User::factory()->create(['name' => 'Vera Wehrführerin']);
     $board->moduleAccess()->create(['module' => 'uebungsdienste']);
+    $board->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'wehrführung']);
     $plan = app(ServicePlan::class);
     $service = $plan->add($this->admin, '2027-06-08', '19:00', 'Gerätehaus');
-    $plan->setTopic($service, 'Knoten und Stiche');
+    $plan->setTopic($this->admin, $service, 'Knoten und Stiche');
 
     $plan->addResponsible($service, $this->hanna, $board);
     $plan->addResponsible($service, $this->hanna, $board);
@@ -157,7 +160,7 @@ test('whoever is made responsible for a coming Übungsdienst hears about it', fu
     Notification::assertSentTo($this->hanna, ResponsibleNotification::class, function ($n, $c, $u) {
         $mail = $n->toMail($u);
 
-        return $mail->actionUrl === null && str_contains(implode(' ', $mail->introLines), 'Vera Vorstand hat dich für den Übungsdienst am Di, 08.06.2027, 19:00 Uhr, Gerätehaus als verantwortlich eingetragen.')
+        return $mail->actionUrl === null && str_contains(implode(' ', $mail->introLines), 'Vera Wehrführerin hat dich für den Übungsdienst am Di, 08.06.2027, 19:00 Uhr, Gerätehaus als verantwortlich eingetragen.')
             && $n->toDatabase($u)['url'] === route('home');
     });
     Notification::assertNotSentTo($board, ResponsibleNotification::class);

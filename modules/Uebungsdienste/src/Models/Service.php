@@ -3,12 +3,13 @@
 namespace Modules\Uebungsdienste\src\Models;
 
 use App\Models\Group;
-use App\Models\MemberFunction;
 use App\Models\Place;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\Schema;
+use Extensions\Locations\Models\Location;
 
 /**
  * One Übungsdienst: date, start and end (Berlin time), place, Kleidung, target group, topic and who
@@ -42,10 +43,14 @@ class Service extends Model
     /** "Jugendfeuerwehr, Maschinist" or null for everyone */
     public function audienceLabel(): ?string
     {
-        $names = [
-            ...Group::whereIn('id', $this->group_ids ?? [])->orderBy('name')->pluck('name')->all(),
-            ...MemberFunction::whereIn('id', $this->function_ids ?? [])->orderBy('name')->pluck('name')->all(),
-        ];
+        $locationsEnabled = config('locations.enabled') && Schema::hasTable('x_locations');
+        $groups = Group::whereIn('id', $this->group_ids ?? [])
+            ->whereRaw('lower(name) = ?', ['einsatzabteilung'])->orderBy('name')
+            ->get($locationsEnabled ? ['name', 'ext_location_id'] : ['name']);
+        $locations = $locationsEnabled
+            ? Location::whereIn('id', $groups->pluck('ext_location_id')->filter())->pluck('name', 'id')
+            : collect();
+        $names = $groups->map(fn (Group $group) => $group->name.($locations->get($group->ext_location_id) ? ' · '.$locations->get($group->ext_location_id) : ''))->all();
 
         return $names === [] ? null : implode(', ', $names);
     }

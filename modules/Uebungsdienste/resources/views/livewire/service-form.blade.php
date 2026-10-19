@@ -3,7 +3,7 @@
     <div>
         <a href="{{ route('uebungsdienste.index') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Übungsdienstplaner</a>
         <h1 class="mt-1 text-xl font-bold text-gray-900">{{ $service ? 'Dienst am '.$service->dateLabel().' ändern' : 'Übungsdienst anlegen' }}</h1>
-        <p class="text-sm text-gray-500">{{ $service ? 'Datum, Zeit, Ort, Kleidung und Teilnehmer. Thema und Verantwortliche ändert der Vorstand direkt im Plan.' : 'Einzeln oder als Serie, z. B. alle zwei Wochen bis Jahresende. Thema und Verantwortliche trägt der Vorstand danach im Plan ein.' }}</p>
+        <p class="text-sm text-gray-500">{{ $service ? 'Datum, Zeit, Treffpunkt und Kleidung. Thema und Verantwortliche pflegt die Wehrführung direkt im Plan.' : 'Einzeln oder als Serie, z. B. alle zwei Wochen bis Jahresende. Thema und Verantwortliche pflegt die Wehrführung danach im Plan.' }}</p>
     </div>
 
     @error('plan')<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{ $message }}</p>@enderror
@@ -43,23 +43,23 @@
         @include('partials.place-dress-fields', ['input' => $input, 'places' => $places, 'dressCodes' => $dressCodes, 'placeId' => $placeId, 'manageUrl' => route('uebungsdienste.places')])
 
         <div class="space-y-2">
-            <p class="text-sm font-medium text-gray-700">Für welche Orte / Abteilungen? <span class="font-normal text-gray-500">(leer = alle Kameraden)</span></p>
-            @if($groups->isNotEmpty())
+            <p class="text-sm font-medium text-gray-700">Für welche Standorte? <span class="font-normal text-gray-500">(jeweils die Einsatzabteilung)</span></p>
+            @if($locationsEnabled && $targetLocations->isNotEmpty())
                 <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-700">
-                    @foreach($groups as $id => $name)<label class="flex items-center gap-2"><input type="checkbox" value="{{ $id }}" wire:model="groupIds" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> {{ $name }}</label>@endforeach
+                    @foreach($targetLocations as $id => $name)<label class="flex items-center gap-2"><input type="checkbox" value="{{ $id }}" wire:model="targetLocationIds" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> {{ $name }}</label>@endforeach
                 </div>
+            @elseif(! $locationsEnabled && $targetGroups->isNotEmpty())
+                <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-700">
+                    @foreach($targetGroups as $id => $name)<label class="flex items-center gap-2"><input type="checkbox" value="{{ $id }}" wire:model="targetGroupIds" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> {{ $name }}</label>@endforeach
+                </div>
+            @else
+                <p class="text-sm text-amber-800">Bitte zuerst je Standort die Abteilung „Einsatzabteilung“ anlegen.</p>
             @endif
-            @if($functions->isNotEmpty())
-                <details class="text-sm text-gray-700"><summary class="cursor-pointer text-gray-600">Funktionen</summary>
-                    <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                        @foreach($functions as $id => $name)<label class="flex items-center gap-2"><input type="checkbox" value="{{ $id }}" wire:model="functionIds" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> {{ $name }}</label>@endforeach
-                    </div>
-                </details>
-            @endif
+            @error('targetLocationIds')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
         </div>
 
         @if($inCalendar)
-            <p class="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-900">Der Dienst erscheint als „Übungsdienst“ im Kalender der gewählten Kameraden – mit Zeit, Ort und Kleidung, <strong>ohne Thema und Verantwortliche</strong>.</p>
+            <p class="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-900">Der Dienst erscheint als „Übungsdienst“ im Kalender der gewählten Einsatzabteilungen – mit Zeit, Treffpunkt und Kleidung, <strong>ohne Thema und Verantwortliche</strong>.</p>
         @endif
 
         <div class="flex flex-wrap items-center gap-3 pt-2">

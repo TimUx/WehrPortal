@@ -9,7 +9,7 @@ use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Modules\Uebungsdienste\src\Models\Service;
 
-/** Someone of the Vorstand made the Kamerad responsible for an Übungsdienst */
+/** The Wehrführung made the Kamerad responsible for an Übungsdienst */
 class ResponsibleNotification extends Notification
 {
     use InApp;
@@ -27,7 +27,7 @@ class ResponsibleNotification extends Notification
             ->line(($this->by ? $this->by->name.' hat dich' : 'Du bist').' für den Übungsdienst am '.$when.' als verantwortlich eingetragen.')
             ->line($service->topic ? 'Thema: '.$service->topic : 'Ein Thema steht noch nicht fest.');
 
-        // The plan is for the Vorstand; others get the details in the mail only
+        // The plan is restricted to the Wehrführung; others get the details in the mail only
         if ($this->mayOpen($notifiable)) {
             $mail->action('Übungsdienstplan ansehen', route('uebungsdienste.index'));
         }

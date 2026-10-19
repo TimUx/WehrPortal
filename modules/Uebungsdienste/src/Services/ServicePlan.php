@@ -4,15 +4,14 @@ namespace Modules\Uebungsdienste\src\Services;
 
 use App\Models\DressCode;
 use App\Models\Group;
-use App\Models\MemberFunction;
 use App\Models\Place;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
-use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\LocationAccess;
+use Extensions\Locations\Models\Location;
 use Modules\Uebungsdienste\src\Models\Service;
 use Modules\Uebungsdienste\src\Notifications\ResponsibleNotification;
 use Throwable;
@@ -28,12 +27,6 @@ class ServicePlan
     public static function today(): Carbon
     {
         return Carbon::parse(now('Europe/Berlin')->toDateString());
-    }
-
-    /** The next Dienst from today on */
-    public function next(): ?Service
-    {
-        return Service::with('responsible')->whereDate('date', '>=', self::today())->orderBy('date')->orderBy('starts_at')->first();
     }
 
     /** The next Übungsdienst for a Kamerad in one of their Einsatzabteilungen */
@@ -99,8 +92,25 @@ class ServicePlan
             ->values();
     }
 
+    public function nextForPlanner(User $user): ?Service
+    {
+        $groupIds = $this->targetGroupIds($user);
+
+        return Service::with('responsible')->whereDate('date', '>=', self::today())->orderBy('date')->orderBy('starts_at')->get()
+            ->first(fn (Service $service) => $user->is_admin || array_intersect($groupIds, array_map('intval', $service->group_ids ?? [])) !== []);
+    }
+
+    public function yearsForPlanner(User $user): Collection
+    {
+        $groupIds = $this->targetGroupIds($user);
+
+        return Service::query()->get(['date', 'group_ids'])
+            ->filter(fn (Service $service) => $user->is_admin || array_intersect($groupIds, array_map('intval', $service->group_ids ?? [])) !== [])
+            ->map(fn (Service $service) => $service->date->year)->unique()->sort()->values();
+    }
+
     /**
-     * @param  array{ends_at?: ?string, place_id?: ?int, dress_code_ids?: list<int>, group_ids?: list<int>, function_ids?: list<int>}  $details
+     * @param  array{ends_at?: ?string, place_id?: ?int, dress_code_ids?: list<int>, target_location_ids?: list<int>, group_ids?: list<int>}  $details
      */
     public function add(User $by, string $date, ?string $time, ?string $location, array $details = []): Service
     {
@@ -136,7 +146,7 @@ class ServicePlan
         $this->assertCanManage($by, $service);
         // Callers that don't know the details keep them
         $details ??= ['ends_at' => $service->ends_at, 'place_id' => $service->place_id, 'dress_code_ids' => $service->dress_code_ids ?? [],
-            'group_ids' => $service->group_ids ?? [], 'function_ids' => $service->function_ids ?? []];
+            'target_location_ids' => $this->targetIdsForGroups($service->group_ids ?? []), 'group_ids' => $service->group_ids ?? []];
         $service->update($this->schedule($by, $date, $time, $location, $details));
         app(CalendarLink::class)->sync($service->refresh(), $by);
     }
@@ -161,11 +171,9 @@ class ServicePlan
     }
 
     /** Whoever is added to a coming Übungsdienst hears about it, unless they added themselves */
-    public function addResponsible(Service $service, User $user, ?User $by = null): void
+    public function addResponsible(Service $service, User $user, User $by): void
     {
-        if ($by) {
-            $this->assertCanManage($by, $service);
-        }
+        $this->assertCanManage($by, $service);
         if (! $user->is_active) {
             throw ValidationException::withMessages(['responsible' => 'Nur aktive Kameraden können verantwortlich sein.']);
         }
@@ -200,7 +208,8 @@ class ServicePlan
             throw ValidationException::withMessages(['time' => 'Bitte das Ende als HH:MM angeben, und nur mit Beginn.']);
         }
         $targetIds = array_map('intval', $details['target_location_ids'] ?? $this->defaultTargetIds($by));
-        $groupIds = $this->selectedGroupIds($by, $targetIds, array_map('intval', $details['group_ids'] ?? []));
+        $fallbackIds = array_map('intval', $details['group_ids'] ?? ($this->locationsEnabled() ? [] : $targetIds));
+        $groupIds = $this->selectedGroupIds($by, $targetIds, $fallbackIds);
         $ids = fn (string $key, string $class) => array_values(array_map('intval', $class::whereIn('id', array_map('intval', $details[$key] ?? []))->pluck('id')->all()));
         $place = filled($details['place_id'] ?? null) ? Place::find((int) $details['place_id']) : null;
 
@@ -225,23 +234,33 @@ class ServicePlan
 
     private function assertPlanner(User $user): void
     {
-        if (! $user->is_admin && ! ($user->canUseModule('uebungsdienste') && $user->hasModuleRole('einsatzbericht', 'wehrführung'))) {
+        if (! $user->is_active || (! $user->is_admin && ! ($user->canUseModule('uebungsdienste') && $user->hasModuleRole('einsatzbericht', 'wehrführung')))) {
             throw ValidationException::withMessages(['date' => 'Übungsdienste planen nur die Wehrführung und Admins.']);
         }
     }
 
     private function assertCanManage(User $user, Service $service): void
     {
-        $this->assertPlanner($user);
-
-        if ($user->is_admin) {
-            return;
-        }
-
-        $visible = $this->targetGroupIds($user);
-        if (array_intersect($visible, array_map('intval', $service->group_ids ?? [])) === []) {
+        if (! $this->canManageService($user, $service)) {
             throw ValidationException::withMessages(['date' => 'Für diesen Standort darfst du den Übungsdienst nicht ändern.']);
         }
+    }
+
+    public function canManageService(User $user, Service $service): bool
+    {
+        if (! $user->is_active) {
+            return false;
+        }
+        if ($user->is_admin) {
+            return true;
+        }
+        if (! $user->canUseModule('uebungsdienste') || ! $user->hasModuleRole('einsatzbericht', 'wehrführung')) {
+            return false;
+        }
+
+        $serviceGroups = array_map('intval', $service->group_ids ?? []);
+
+        return $serviceGroups !== [] && array_diff($serviceGroups, $this->targetGroupIds($user)) === [];
     }
 
     /** @return list<int> */
@@ -289,7 +308,7 @@ class ServicePlan
         return $groups;
     }
 
-    private function locationsEnabled(): bool
+    public function locationsEnabled(): bool
     {
         return config('locations.enabled') && Schema::hasTable('x_locations');
     }

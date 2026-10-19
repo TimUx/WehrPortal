@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/** The Übungsdienste of the year for the Vorstand: date, start, topic, place and who is responsible */
+/** Übungsdienste for the Einsatzabteilung: date, start, topic, place and who is responsible */
 return new class extends Migration
 {
     public function up(): void
@@ -26,7 +26,7 @@ return new class extends Migration
             $table->primary(['service_id', 'user_id']);
         });
 
-        // Only for the Vorstand: switched off, nobody gets it automatically
+        // Restricted to Wehrführung: switched off and nobody gets access automatically
         DB::table('modules')->upsert(
             [['key' => 'uebungsdienste', 'is_active' => false, 'auto_assign' => false, 'created_at' => now(), 'updated_at' => now()]],
             ['key'],

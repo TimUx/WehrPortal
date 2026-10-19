@@ -17,13 +17,13 @@ Route::prefix('uebungsdienste')->name('uebungsdienste.')
             return view('uebungsdienste::pages.print', [
                 'year' => $year,
                 'upcoming' => $upcoming,
-                'services' => Service::with('responsible')->whereYear('date', $year)
-                    ->when($upcoming, fn ($q) => $q->whereDate('date', '>=', ServicePlan::today()))
-                    ->orderBy('date')->orderBy('starts_at')->get(),
+                'services' => app(ServicePlan::class)->forPlanner(auth()->user(), $year)
+                    ->when($upcoming, fn ($services) => $services->filter(fn (Service $service) => $service->date->gte(ServicePlan::today())))
+                    ->values(),
             ]);
         })->name('print');
 
-        // The Vorstand and admins plan date, time and place
+        // The Wehrführung and admins plan date, time and place
         Route::middleware('can:plan-uebungsdienste')->group(function () {
             Route::get('/anlegen', fn () => view('uebungsdienste::pages.form', ['service' => null]))->name('create');
             // Orte & Kleidung: the same lists as in the Kalender and every other module

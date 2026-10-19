@@ -4,7 +4,6 @@ namespace Modules\Uebungsdienste\src\Livewire;
 
 use App\Models\DressCode;
 use App\Models\Group;
-use App\Models\MemberFunction;
 use App\Models\Place;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
@@ -12,7 +11,7 @@ use Modules\Uebungsdienste\src\Models\Service;
 use Modules\Uebungsdienste\src\Services\CalendarLink;
 use Modules\Uebungsdienste\src\Services\ServicePlan;
 
-/** Vorstand or admin: a new Übungsdienst (single or series) or changing date, time and place */
+/** Wehrführung or admin: plan services for one or more Einsatzabteilungen */
 class ServiceForm extends Component
 {
     public ?Service $service = null;
@@ -34,19 +33,21 @@ class ServiceForm extends Component
     /** @var list<string> */
     public array $dressCodeIds = [];
 
-    /** @var list<string> Abteilungen of the target group; with the Funktionen empty = all */
-    public array $groupIds = [];
+    /** @var list<string> Standorte invited to the service */
+    public array $targetLocationIds = [];
 
-    /** @var list<string> */
-    public array $functionIds = [];
+    /** @var list<string> Einsatzabteilungen when the Locations extension is disabled */
+    public array $targetGroupIds = [];
 
     public bool $series = false;
 
     public function mount(?Service $service = null): void
     {
+        $plan = app(ServicePlan::class);
         $this->authorize('plan-uebungsdienste');
 
         if ($service?->exists) {
+            abort_unless($plan->canManageService(auth()->user(), $service), 403);
             $this->service = $service;
             $this->date = $service->date->toDateString();
             $this->time = (string) $service->starts_at;
@@ -54,8 +55,11 @@ class ServiceForm extends Component
             $this->location = (string) $service->location;
             $this->placeId = (string) ($service->place_id ?? '');
             $this->dressCodeIds = array_map('strval', $service->dress_code_ids ?? []);
-            $this->groupIds = array_map('strval', $service->group_ids ?? []);
-            $this->functionIds = array_map('strval', $service->function_ids ?? []);
+            if ($plan->locationsEnabled()) {
+                $this->targetLocationIds = $plan->targetIdsForGroups($service->group_ids ?? []);
+            } else {
+                $this->targetGroupIds = array_map('strval', $service->group_ids ?? []);
+            }
         } elseif ($first = Place::options()->keys()->first()) {
             // A new Dienst starts at the first saved place
             $this->placeId = (string) $first;
@@ -63,7 +67,11 @@ class ServiceForm extends Component
         }
 
         if (! $service?->exists) {
-            $this->groupIds = auth()->user()->groups()->pluck('groups.id')->map(fn ($id) => (string) $id)->all();
+            if ($plan->locationsEnabled()) {
+                $this->targetLocationIds = $plan->defaultTargetIds(auth()->user());
+            } else {
+                $this->targetGroupIds = $plan->defaultTargetIds(auth()->user());
+            }
         }
     }
 
@@ -77,7 +85,7 @@ class ServiceForm extends Component
     private function details(): array
     {
         return ['ends_at' => $this->endTime, 'place_id' => $this->placeId ?: null, 'dress_code_ids' => $this->dressCodeIds,
-            'group_ids' => $this->groupIds, 'function_ids' => $this->functionIds];
+            'target_location_ids' => $this->targetLocationIds, 'group_ids' => $this->targetGroupIds];
     }
 
     public function save(ServicePlan $plan)
@@ -117,11 +125,14 @@ class ServiceForm extends Component
 
     public function render()
     {
+        $plan = app(ServicePlan::class);
+
         return view('uebungsdienste::livewire.service-form', [
             'places' => Place::options(),
             'dressCodes' => DressCode::options(),
-            'groups' => Group::orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
-            'functions' => MemberFunction::with('parent')->orderBy('sort_order')->orderBy('name')->get()->mapWithKeys(fn (MemberFunction $f) => [$f->id => $f->fullLabel()])->sort(),
+            'targetLocations' => $plan->locationOptions(auth()->user()),
+            'targetGroups' => Group::whereRaw('lower(name) = ?', ['einsatzabteilung'])->orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
+            'locationsEnabled' => $plan->locationsEnabled(),
             'inCalendar' => CalendarLink::available(),
         ]);
     }
