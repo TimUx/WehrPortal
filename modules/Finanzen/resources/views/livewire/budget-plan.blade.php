@@ -3,18 +3,19 @@
 <div class="space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-            <h1 class="text-xl font-bold text-gray-900">Budget & Kostenstellen</h1>
-            <p class="text-sm text-gray-500">Für jede Kostenstelle den Betrag festlegen, der im Jahr ausgegeben werden darf. Alle Kameraden sehen auf der Übersicht, wie viel davon schon verplant ist.</p>
+            <h1 class="text-xl font-bold text-gray-900">{{ $budgetOn ? 'Budget & Kostenstellen' : 'Kostenstellen & Einstellungen' }}</h1>
+            <p class="text-sm text-gray-500">@if($budgetOn)Für jede Kostenstelle den Betrag festlegen, der im Jahr ausgegeben werden darf.@else Kostenstellen, auf die Ausgaben eingereicht werden.@endif Unten: welche Teile des Moduls die Wehr nutzt.</p>
         </div>
-        <select wire:model.live="year" class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-fw-red focus:ring-fw-red" aria-label="Jahr">
+        @if($budgetOn)<select wire:model.live="year" class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-fw-red focus:ring-fw-red" aria-label="Jahr">
             @foreach($years as $y)<option value="{{ $y }}">{{ $y }}</option>@endforeach
-        </select>
+        </select>@endif
     </div>
 
     @if($flash)<p class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{{ $flash }}</p>@endif
     @foreach(['center', 'year', 'budget', 'name'] as $field)@error($field)<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{ $message }}</p>@enderror @endforeach
 
     {{-- Budget of the year --}}
+    @if($budgetOn)
     <section>
         <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
             <h2 class="text-sm font-semibold text-gray-700">Budget {{ $year }}{{ $closed ? ' (abgeschlossen)' : '' }}</h2>
@@ -39,6 +40,7 @@
             @endif
         </form>
     </section>
+    @endif
 
     {{-- Kostenstellen --}}
     <section class="space-y-2">
@@ -69,5 +71,19 @@
                 </li>
             @endforeach
         </ul>
+    </section>
+
+    {{-- What the Wehr uses --}}
+    <section class="space-y-2">
+        <h2 class="text-sm font-semibold text-gray-700">Einstellungen</h2>
+        <form wire:submit="saveSettings" class="space-y-3 rounded-2xl border border-gray-100 bg-white p-4 text-sm shadow-sm">
+            <label class="flex items-start gap-2"><input type="checkbox" wire:model="settings.budget" class="mt-0.5 rounded border-gray-300 text-fw-red focus:ring-fw-red">
+                <span><span class="font-medium text-gray-900">Budget</span><span class="block text-xs text-gray-500">Budgets je Kostenstelle und Jahr mit „verfügbar“. Ausgeschaltet bleiben Kostenstellen, Einreichen, Genehmigen und Bezahlen; gespeicherte Budgets bleiben erhalten.</span></span></label>
+            <label class="flex items-start gap-2"><input type="checkbox" wire:model="settings.report" class="mt-0.5 rounded border-gray-300 text-fw-red focus:ring-fw-red">
+                <span><span class="font-medium text-gray-900">Jahresabschluss</span><span class="block text-xs text-gray-500">Seite „Jahresabschluss“ mit Druck und Jahr abschließen. Ausgeschaltet stehen CSV- und Beleg-Export unter „Buchungen“.</span></span></label>
+            <label class="flex items-start gap-2"><input type="checkbox" wire:model="settings.public" class="mt-0.5 rounded border-gray-300 text-fw-red focus:ring-fw-red">
+                <span><span class="font-medium text-gray-900">Übersicht für alle Kameraden</span><span class="block text-xs text-gray-500">Alle Kameraden sehen den Stand je Kostenstelle und alle genehmigten und bezahlten Ausgaben (ohne Belege). Aus: Kameraden sehen nur ihre eigenen Ausgaben mit Status; die Gesamtübersicht haben Kassenwart, Wehrführung und Admins.</span></span></label>
+            <button type="submit" class="rounded-lg bg-fw-navy px-4 py-2 text-sm font-semibold text-white">Einstellungen speichern</button>
+        </form>
     </section>
 </div>

@@ -3,7 +3,7 @@
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
             <h1 class="text-xl font-bold text-gray-900">Jahresabschluss {{ $year }}</h1>
-            <p class="text-sm text-gray-500">Budget und Ist je Kostenstelle, Einnahmen und Saldo. Export für Steuerberater und Behörden: alle genehmigten und bezahlten Buchungen als CSV (Excel) und alle Belege als ZIP.</p>
+            <p class="text-sm text-gray-500">{{ $budgetOn ? 'Budget und Ist' : 'Ist' }} je Kostenstelle, Einnahmen und Saldo. Export für Steuerberater und Behörden: alle genehmigten und bezahlten Buchungen als CSV (Excel) und alle Belege als ZIP.</p>
         </div>
         <select wire:model.live="year" class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-fw-red focus:ring-fw-red" aria-label="Jahr">
             @foreach($years as $y)<option value="{{ $y }}">{{ $y }}</option>@endforeach
@@ -22,16 +22,16 @@
     <div class="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
         <table class="w-full min-w-[40rem] text-sm">
             <thead class="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
-                <tr><th class="px-3 py-2">Kostenstelle</th><th class="px-3 py-2 text-right">Budget</th><th class="px-3 py-2 text-right">Ausgegeben</th><th class="px-3 py-2 text-right">Genehmigt, offen</th><th class="px-3 py-2 text-right">Rest</th><th class="px-3 py-2 text-right">Einnahmen</th></tr>
+                <tr><th class="px-3 py-2">Kostenstelle</th>@if($budgetOn)<th class="px-3 py-2 text-right">Budget</th>@endif<th class="px-3 py-2 text-right">Ausgegeben</th><th class="px-3 py-2 text-right">Genehmigt, offen</th>@if($budgetOn)<th class="px-3 py-2 text-right">Rest</th>@endif<th class="px-3 py-2 text-right">Einnahmen</th></tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 @foreach($overview as $row)
                     <tr wire:key="y-{{ $row['center']->id }}">
                         <td class="px-3 py-2">{{ $row['center']->label() }}</td>
-                        <td class="px-3 py-2 text-right">{{ $money($row['budget']) }}</td>
+                        @if($budgetOn)<td class="px-3 py-2 text-right">{{ $money($row['budget']) }}</td>@endif
                         <td class="px-3 py-2 text-right">{{ $money($row['paid']) }}</td>
                         <td class="px-3 py-2 text-right">{{ $row['approved'] ? $money($row['approved']) : '–' }}</td>
-                        <td class="px-3 py-2 text-right {{ $row['available'] < 0 ? 'font-semibold text-red-700' : '' }}">{{ $money($row['available']) }}</td>
+                        @if($budgetOn)<td class="px-3 py-2 text-right {{ $row['available'] < 0 ? 'font-semibold text-red-700' : '' }}">{{ $money($row['available']) }}</td>@endif
                         <td class="px-3 py-2 text-right text-green-700">{{ $row['income'] ? $money($row['income']) : '–' }}</td>
                     </tr>
                 @endforeach
@@ -39,10 +39,10 @@
             <tfoot class="border-t-2 border-gray-200 font-semibold">
                 <tr>
                     <td class="px-3 py-2">Summe</td>
-                    <td class="px-3 py-2 text-right">{{ $money($totals['budget']) }}</td>
+                    @if($budgetOn)<td class="px-3 py-2 text-right">{{ $money($totals['budget']) }}</td>@endif
                     <td class="px-3 py-2 text-right">{{ $money($totals['paid']) }}</td>
                     <td class="px-3 py-2 text-right">{{ $money($totals['approved']) }}</td>
-                    <td class="px-3 py-2 text-right {{ $totals['available'] < 0 ? 'text-red-700' : '' }}">{{ $money($totals['available']) }}</td>
+                    @if($budgetOn)<td class="px-3 py-2 text-right {{ $totals['available'] < 0 ? 'text-red-700' : '' }}">{{ $money($totals['available']) }}</td>@endif
                     <td class="px-3 py-2 text-right text-green-700">{{ $money($totals['income']) }}</td>
                 </tr>
             </tfoot>
