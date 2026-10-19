@@ -4,6 +4,7 @@ use App\Models\Module;
 use App\Models\User;
 use App\Services\ModuleRegistry;
 use Extensions\Hydrantenkontrolle\Livewire\HydrantForm;
+use Extensions\Hydrantenkontrolle\Livewire\HydrantHistory;
 use Extensions\Hydrantenkontrolle\Livewire\YearOverview;
 use Extensions\Hydrantenkontrolle\Models\Hydrant;
 use Extensions\Hydrantenkontrolle\Models\Inspection;
@@ -29,10 +30,13 @@ it('registers navigation and renders the German module pages', function () {
 });
 
 it('denies guests and members without the hydrantenwart role including direct Livewire access', function () {
+    $hydrant = app(InspectionService::class)->saveHydrant($this->wart, ['number' => 'H-1', 'street' => 'Musterstraße']);
     $member = User::factory()->create();
     $member->moduleAccess()->create(['module' => 'hydrantenkontrolle']);
     $this->actingAs($member)->get(route('hydrantenkontrolle.index'))->assertForbidden();
+    $this->get(route('hydrantenkontrolle.history', $hydrant))->assertForbidden();
     Livewire::actingAs($member)->test(HydrantForm::class)->assertForbidden();
+    Livewire::actingAs($member)->test(HydrantHistory::class, ['hydrant' => $hydrant])->assertForbidden();
     Livewire::actingAs($member)->test(YearOverview::class)->assertForbidden();
     auth()->logout();
     $this->get(route('hydrantenkontrolle.index'))->assertRedirect();
