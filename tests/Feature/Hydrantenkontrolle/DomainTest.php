@@ -126,6 +126,7 @@ it('opens independent years and only appends newly active hydrants without chang
     $old = $this->service->openYear($this->manager, 2026);
     $inspection = $old->inspections()->sole();
     $snapshot = $inspection->snapshot;
+    expect($snapshot['city'])->toBe('Musterstadt');
     $inspection = $this->service->saveInspection($this->manager, $inspection, ['checked_at' => '2026-10-10', 'is_ok' => true, 'notes' => 'Erledigt'], 1);
     $this->service->saveHydrant($this->manager, ['number' => 'H-99', 'street' => 'Neuer Weg', 'active' => false], $hydrant, 1);
     $this->service->saveHydrant($this->manager, ['number' => 'H-2', 'street' => 'Musterweg', 'active' => true], $inactive, 1);
@@ -202,7 +203,7 @@ it('prevents cross-location hydrant and inspection writes and location reassignm
     $south = $this->service->saveHydrant($this->manager, ['number' => 'H-1', 'street' => 'Musterweg']);
     $north = Location::create(['name' => 'Wache Nord', 'slug' => 'hc-nord']);
     auth()->logout();
-    $other = User::factory()->create(['ext_location_id' => $north->id]);
+    $other = User::factory()->create(['ext_location_id' => $north->id, 'city' => 'Nordstadt']);
     $other->moduleAccess()->create(['module' => 'hydrantenkontrolle', 'role' => 'hydrantenwart']);
     $this->actingAs($other);
     $foreign = $this->service->saveHydrant($other, ['number' => 'H-1', 'street' => 'Nordweg']);

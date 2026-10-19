@@ -48,6 +48,8 @@ Modulzugang allein genügt nicht: Auch das Lesen der Übersichten und der PDF-Ex
 
 Die Rolle **Hydrantenwart** sieht und bearbeitet nur Hydranten, deren Ort mit dem im Kameradenprofil hinterlegten Ort übereinstimmt. Beim Erfassen wird dieser Ort vorbelegt und ist für Hydrantenwarte nicht änderbar; fehlt der Ort im Profil, muss er dort zuerst ergänzt werden. Die Rolle `uebergreifend` sieht und bearbeitet Hydranten aller Orte und Standorte.
 
+Bereits vor dieser Erweiterung erfasste Hydranten haben zunächst keinen Ort. Ein übergreifender Bearbeiter muss ihnen einmalig den zutreffenden Ort zuweisen, bevor örtliche Hydrantenwarte sie sehen können.
+
 Bei aktivem **Locations** vor dem Erfassen den gewünschten Standort auswählen. Neue Hydranten und neue Jahreskontrollen gehören zum aktuellen Standort; **Öffnen / ergänzen** nimmt nur dessen aktive Hydranten am eigenen Ort auf. Sichtbare Jahre werden mit Standort angezeigt. Standortlose Datensätze bleiben nach dem Fork-Muster gemeinsam sichtbar; dies ist keine vollständige Mandantentrennung.
 
 ### Hydrantenbestand erfassen
