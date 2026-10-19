@@ -9,6 +9,7 @@ use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\LocationAccess;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
@@ -28,6 +29,10 @@ function memberAt(Location $location, string $role = 'member', bool $admin = fal
 }
 
 it('always has a default Standort', function () {
+    if (Schema::hasTable('x_vv_associations')) {
+        DB::table('x_vv_associations')->delete();
+    }
+
     DB::table('x_locations')->delete();
 
     $default = Location::default();
