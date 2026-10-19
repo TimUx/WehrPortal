@@ -224,6 +224,7 @@ it('lets the board document a mandate without creating a payment', function () {
     expect($member->refresh()->mandate_status)->toBe('documented')
         ->and($member->iban)->toBe('DE89370400440532013000')
         ->and(DB::table('x_vv_members')->where('id', $member->id)->value('iban'))->not->toContain('DE89370400440532013000')
+        ->and($member->photo_consent_recorded_at)->toBeNull()
         ->and(DB::table('x_vv_members')->count())->toBe(1);
 });
 

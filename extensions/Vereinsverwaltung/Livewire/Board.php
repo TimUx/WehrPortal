@@ -136,6 +136,7 @@ class Board extends Component
         $data = $this->form;
         $data['annual_fee_cents'] = (int) round((float) $data['annual_fee'] * 100);
         unset($data['annual_fee']);
+        unset($data['photo_consent_recorded_at']);
         if ($this->creating) {
             $service->createMember(auth()->user(), $data);
         } else {
@@ -174,7 +175,7 @@ class Board extends Component
 
         return view('vereinsverwaltung::livewire.board', [
             'applications' => MembershipApplication::query()
-                ->select(['id', 'status', 'title', 'first_name', 'last_name', 'email', 'submitted_at'])
+                ->select(['id', 'status', 'title', 'first_name', 'last_name', 'email', 'submitted_at', 'youth_member', 'photo_consent', 'youth_photo_consent'])
                 ->where('status', 'pending')->oldest('submitted_at')->get(),
             'members' => Member::query()
                 ->select(['id', 'user_id', 'membership_type', 'youth_member', 'status', 'title', 'first_name', 'last_name', 'annual_fee_cents', 'mandate_status', 'photo_consent', 'youth_photo_consent'])
