@@ -12,7 +12,7 @@ use Modules\Uebungsdienste\src\Models\Service;
 use Modules\Uebungsdienste\src\Services\CalendarLink;
 use Modules\Uebungsdienste\src\Services\ServicePlan;
 
-/** Admin: a new Übungsdienst (single or series) or changing date, time and place of one */
+/** Vorstand or admin: a new Übungsdienst (single or series) or changing date, time and place */
 class ServiceForm extends Component
 {
     public ?Service $service = null;

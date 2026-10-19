@@ -23,7 +23,7 @@ Route::prefix('uebungsdienste')->name('uebungsdienste.')
             ]);
         })->name('print');
 
-        // Date, time and place are planned by admins only
+        // The Vorstand and admins plan date, time and place
         Route::middleware('can:plan-uebungsdienste')->group(function () {
             Route::get('/anlegen', fn () => view('uebungsdienste::pages.form', ['service' => null]))->name('create');
             // Orte & Kleidung: the same lists as in the Kalender and every other module

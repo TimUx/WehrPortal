@@ -12,8 +12,7 @@ use Modules\Uebungsdienste\src\Services\ServicePlan;
 
 /**
  * The Übungsdienstplan of a year: the next Dienst on top, the coming ones below (past ones on
- * request). Topic and responsible people: every Vorstand member, right in the list; date, time
- * and place: admins on their own page.
+ * request). The Vorstand plans and edits services; admins can do the same.
  */
 class Planner extends Component
 {
