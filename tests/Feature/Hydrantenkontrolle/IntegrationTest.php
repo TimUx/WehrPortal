@@ -66,7 +66,7 @@ it('denies guests and members without the hydrantenwart role including direct Li
     $member = User::factory()->create();
     $member->moduleAccess()->create(['module' => 'hydrantenkontrolle']);
     $this->actingAs($member)->get(route('hydrantenkontrolle.index'))->assertForbidden();
-    $this->get(route('hydrantenkontrolle.history', $hydrant))->assertForbidden();
+    $this->get(route('hydrantenkontrolle.history', $hydrant))->assertNotFound();
     Livewire::actingAs($member)->test(HydrantForm::class)->assertForbidden();
     Livewire::actingAs($member)->test(HydrantHistory::class, ['hydrant' => $hydrant])->assertForbidden();
     Livewire::actingAs($member)->test(YearOverview::class)->assertForbidden();
