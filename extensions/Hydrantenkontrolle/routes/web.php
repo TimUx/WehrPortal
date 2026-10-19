@@ -16,6 +16,8 @@ Route::prefix('hydrantenkontrolle')->name('hydrantenkontrolle.')
         Route::get('/', fn () => $page('year-overview', 'Hydrantenkontrolle'))->name('index');
         Route::get('/hydranten', fn () => $page('hydrant-index', 'Hydranten'))->name('hydrants');
         Route::get('/hydranten/neu', fn () => $page('hydrant-form', 'Hydrant erfassen'))->name('create');
+        Route::get('/hydranten/{hydrant}/historie', fn (Hydrant $hydrant) => $page('hydrant-history', 'Kontrollhistorie', ['hydrant' => $hydrant]))
+            ->whereNumber('hydrant')->name('history');
         Route::get('/hydranten/{hydrant}/bearbeiten', fn (Hydrant $hydrant) => $page('hydrant-form', 'Hydrant bearbeiten', ['hydrant' => $hydrant]))
             ->whereNumber('hydrant')->name('edit');
         Route::get('/jahr/{year}', fn (InspectionYear $year) => $page('year-overview', 'Hydrantenkontrolle '.$year->year, ['year' => $year]))
