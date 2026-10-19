@@ -70,9 +70,10 @@ class MagicLinkService
             ]);
         }
 
+        /** @var User $user */
         $user = $loginToken->user;
 
-        if (! $user->is_active) {
+        if (! $user->is_active || ! $user->hasLogin()) {
             throw ValidationException::withMessages([
                 'token' => ['Dein Konto wurde deaktiviert. Bitte wende dich an den Administrator.'],
             ]);

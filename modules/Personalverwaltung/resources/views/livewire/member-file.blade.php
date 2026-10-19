@@ -15,7 +15,9 @@
                     <p class="text-sm text-gray-500">{{ $member->rank ?: 'ohne Dienstgrad' }} · {{ $member->status?->label() }}@if($years !== null) · {{ $years.' Dienstjahre' }}@endif</p>
                 </div>
             </div>
-            @if($canEdit && $member->is_active)
+            @if(! $member->hasLogin())
+                <span class="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600" title="Ohne E-Mail-Adresse angelegt: in den Modulen geführt, aber kein Login und keine Mails">ohne Login</span>
+            @elseif($canEdit && $member->is_active)
                 <span class="flex flex-wrap gap-2">
                     @if($isAdmin || (! $member->is_admin && ! $member->last_login_at))<button type="button" wire:click="invite" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">Einladung (QR-Code)</button>@endif
                     <button type="button" wire:click="mailInvite" wire:confirm="Einladung an {{ $member->email }} schicken?" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">Einladung per Mail</button>

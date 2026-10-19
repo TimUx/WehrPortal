@@ -42,6 +42,12 @@ class NewMembers extends Component
 
             return;
         }
+        if (! $member->hasLogin()) {
+            $this->member = ['name' => '', 'email' => '', 'group_ids' => [], 'joined_at' => '', 'rank' => '', 'gender' => ''];
+            $this->flash = $member->name.' ist ohne E-Mail-Adresse angelegt – ohne Login, aber in allen Modulen auswählbar (z. B. Kleidung, Unterweisungen, Verbandbuch).';
+
+            return;
+        }
         $link = $invitation->createForScreen($member, auth()->user());
         $this->invite = ['id' => $member->id, 'name' => $member->name, 'url' => $link['url'], 'until' => $link['expires_at']->setTimezone('Europe/Berlin')->format('d.m.Y H:i')];
         $this->member = ['name' => '', 'email' => '', 'group_ids' => [], 'joined_at' => '', 'rank' => '', 'gender' => ''];
