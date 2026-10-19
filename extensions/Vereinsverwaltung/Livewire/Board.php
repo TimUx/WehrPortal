@@ -192,7 +192,7 @@ class Board extends Component
                 ->select(['id', 'status', 'association_name', 'title', 'first_name', 'last_name', 'email', 'submitted_at', 'youth_member', 'photo_consent', 'youth_photo_consent'])
                 ->where('status', 'pending')->oldest('submitted_at')->get(),
             'members' => Member::query()
-                ->select(['id', 'user_id', 'membership_type', 'youth_member', 'status', 'title', 'first_name', 'last_name', 'annual_fee_cents', 'mandate_status', 'photo_consent', 'youth_photo_consent'])
+                ->select(['id', 'user_id', 'association_name', 'membership_type', 'youth_member', 'status', 'title', 'first_name', 'last_name', 'annual_fee_cents', 'mandate_status', 'photo_consent', 'youth_photo_consent'])
                 ->with('user:id,name')->orderByDesc('id')->paginate(20),
             'users' => User::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'editing' => $this->memberId ? Member::query()->findOrFail($this->memberId) : null,
