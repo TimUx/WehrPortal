@@ -11,6 +11,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\ValidationException;
 
 class MembersRelationManager extends RelationManager
 {
@@ -37,6 +38,7 @@ class MembersRelationManager extends RelationManager
             ->columns([
                 Tables\Columns\TextColumn::make('name')->label('Name')->searchable(),
                 Tables\Columns\TextColumn::make('email')->label('E-Mail'),
+                Tables\Columns\TextColumn::make('groups.name')->label('Abteilungen'),
                 Tables\Columns\TextColumn::make('pivot.role')->label('Rolle')->badge()
                     ->formatStateUsing(fn ($state) => $state === 'admin' ? 'Standort-Admin' : 'Mitglied'),
             ])
@@ -56,6 +58,41 @@ class MembersRelationManager extends RelationManager
                     ->action(function (User $record) {
                         $this->getOwnerRecord()->members()->updateExistingPivot($record->getKey(), ['role' => $record->pivot->role === 'admin' ? 'member' : 'admin']);
                         app(LocationAccess::class)->forget();
+                    }),
+                Actions\Action::make('assignGroups')
+                    ->label('Abteilungen zuordnen')
+                    ->icon('heroicon-o-user-group')
+                    ->form([
+                        Forms\Components\Select::make('groups')
+                            ->label('Abteilungen')
+                            ->multiple()
+                            ->searchable()
+                            ->options(fn () => $this->getOwnerRecord()->groups()->orderBy('sort_order')->orderBy('name')->pluck('name', 'id'))
+                            ->helperText('Es werden nur Abteilungen dieses Standorts geändert.'),
+                    ])
+                    ->fillForm(fn (User $record): array => [
+                        'groups' => $record->groups()
+                            ->where('groups.ext_location_id', $this->getOwnerRecord()->getKey())
+                            ->pluck('groups.id')
+                            ->all(),
+                    ])
+                    ->action(function (User $record, array $data): void {
+                        $locationGroupIds = $this->getOwnerRecord()->groups()
+                            ->pluck('groups.id')
+                            ->map(fn ($id) => (int) $id);
+                        $selectedGroupIds = collect($data['groups'] ?? [])
+                            ->map(fn ($id) => (int) $id)
+                            ->unique()
+                            ->values();
+
+                        if ($selectedGroupIds->diff($locationGroupIds)->isNotEmpty()) {
+                            throw ValidationException::withMessages([
+                                'groups' => 'Bitte nur Abteilungen dieses Standorts wählen.',
+                            ]);
+                        }
+
+                        $record->groups()->detach($locationGroupIds->diff($selectedGroupIds)->all());
+                        $record->groups()->syncWithoutDetaching($selectedGroupIds->all());
                     }),
                 Actions\DetachAction::make()->after(fn () => app(LocationAccess::class)->forget()),
             ]);

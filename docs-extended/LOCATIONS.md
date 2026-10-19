@@ -18,7 +18,7 @@ Für Gemeinden mit mehreren Feuerwehrhäusern. Code: `extensions/Locations/`, Ab
 | Rolle | Wie | Sieht / darf |
 |---|---|---|
 | Globaler Admin | `users.is_admin` (unverändert) | alles, alle Standorte, legt Standorte an |
-| Standort-Admin | `x_location_user.role = admin` | nur den eigenen Standort: Name, Mitglieder, Zuordnung von Fahrzeugen und Ausrüstung (Admin → Standorte) |
+| Standort-Admin | `x_location_user.role = admin` | nur den eigenen Standort: Name, Mitglieder, Abteilungen und Zuordnung von Fahrzeugen und Ausrüstung (Admin → Standorte) |
 | Mitglied | `x_location_user` oder `users.ext_location_id` | nur Daten des eigenen Standorts |
 
 Standort-Admins erreichen `/admin` über `MyLocationPage` (`ModuleArea`), `User::canAccessPanel` bleibt unverändert. Core-Ressourcen (`AdminOnly`) bleiben globalen Admins vorbehalten.
@@ -33,6 +33,7 @@ Standort-Admins erreichen `/admin` über `MyLocationPage` (`ModuleArea`), `User:
 
 - `LocationScope` (globaler Scope) filtert die konfigurierten Modelle auf die Standorte des angemeldeten Nutzers. Ohne angemeldeten Nutzer (Konsole, Queue, Scheduler, Login, Magic Link) und für globale Admins ist er aus.
 - Neue Datensätze erhalten den aktuellen Standort (Umschalter im Benutzermenü, sonst eigener, sonst Hauptstandort); Schreiben in einen fremden Standort wirft `AuthorizationException`.
+- Abteilungen gehören zu einem Standort. Standort-Admins legen sie in **Admin → Standorte → Standort bearbeiten** an und ordnen Mitglieder dort mehreren Abteilungen zu; dabei bleiben Zuordnungen zu anderen Standorten unverändert.
 - `PersonnelService::visibleMembers()` und alle Listen, die über Eloquent laufen, sind damit automatisch standortbezogen.
 - Bei Benutzern bleiben zusätzlich das eigene Konto und Mitglieder sichtbar, die über `x_location_user` einem der eigenen Standorte zugeordnet sind.
 
@@ -40,6 +41,6 @@ Standort-Admins erreichen `/admin` über `MyLocationPage` (`ModuleArea`), `User:
 
 - `DB::table(...)`-Abfragen umgehen den Scope; bei Upstream-Syncs prüfen.
 - Eindeutige Schlüssel sind global (`eb_reports.number`, `ar_equipment.code`).
-- Standortfilter in den Upstream-Formularen und -Tabellen gibt es nicht; die Zuordnung läuft über Admin → Standorte.
+- Standortfilter in den übrigen Upstream-Formularen und -Tabellen gibt es nicht; Mitglieder und Abteilungen lassen sich unter Admin → Standorte zuordnen.
 - Der Umschalter erscheint nur im Admin-Menü; für globale Admins steuert er nur, wo neue Datensätze landen.
 - Weitere Modelle (Verbandbuch, Mitteilungen …) lassen sich über `config/locations.php` ergänzen, sobald eine Migration die Spalte anlegt.

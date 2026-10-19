@@ -2,6 +2,7 @@
 
 namespace Extensions\Locations\Models;
 
+use App\Models\Group;
 use App\Models\User;
 use App\Services\ActivityRecorder;
 use Illuminate\Database\Eloquent\Model;
@@ -70,6 +71,11 @@ class Location extends Model
     public function members(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'x_location_user', 'location_id', 'user_id')->withPivot('role')->orderBy('name');
+    }
+
+    public function groups(): HasMany
+    {
+        return $this->hasMany(Group::class, 'ext_location_id');
     }
 
     public function vehicles(): HasMany
