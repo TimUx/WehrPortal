@@ -26,6 +26,8 @@ Die Erweiterungen ergänzen die 25 Module des Upstreams. Sie werden über den Er
 
 [Kurzüberblick in der README](../README.md#hydrantenkontrolle)
 
+![Screenshot: Hydrantenkontrolle – Jahreskontrollen](screenshots/hydrantenkontrolle/jahreskontrollen.png)
+
 Die Hydrantenkontrolle ist ein eigenes Fork-Modul für die jährliche Prüfung von Unterflurhydranten. Sie führt einen eigenen Bestand und ist unabhängig vom Modul **Wasserkarte & Hydranten**.
 
 ### Einrichtung und Rechte

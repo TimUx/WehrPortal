@@ -3,7 +3,8 @@ import path from 'node:path';
 import { frozenNow } from '../fixtures/env';
 import { pages } from '../fixtures/pages';
 
-const outputDir = path.resolve(__dirname, '..', process.env.E2E_SCREENSHOT_DIR ?? 'screenshots');
+// Default: straight into the documentation (README.md and docs-extended embed these files)
+const outputDir = path.resolve(__dirname, '..', process.env.E2E_SCREENSHOT_DIR ?? '../../docs-extended/screenshots');
 
 /** Waits until nothing loads or moves any more: network idle, web fonts, images and Livewire done */
 async function settle(page: Page): Promise<void> {

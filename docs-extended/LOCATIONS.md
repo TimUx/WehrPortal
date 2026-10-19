@@ -4,6 +4,8 @@
 
 Für Gemeinden mit mehreren Feuerwehrhäusern. Code: `extensions/Locations/`, Abschaltung mit `LOCATIONS_ENABLED=false`.
 
+![Screenshot: Standorte im Admin-Bereich](screenshots/locations/standorte.png)
+
 ## Inhalt
 
 - [Rollen](#rollen)

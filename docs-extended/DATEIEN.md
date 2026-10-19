@@ -6,6 +6,8 @@ Die Fork-Extension `extensions/Dateien/` ergänzt eine interne Dateiablage. Sie 
 
 Die Erweiterung hat keinen eigenen `DATEIEN_ENABLED`-Schalter: Sie wird geladen, wenn der Fork-Erweiterungs-Provider aktiv ist. Die Freischaltung des Moduls unter **Admin → Module** steuert den Kameradenzugang; sie ersetzt nicht die unten beschriebenen Rechte pro Ablage und Eintrag.
 
+![Screenshot: Dateien – Ablagen](screenshots/dateien/bereiche.png)
+
 ## Inhalt
 
 - [Einrichtung und Bedienung](#einrichtung-und-bedienung)
