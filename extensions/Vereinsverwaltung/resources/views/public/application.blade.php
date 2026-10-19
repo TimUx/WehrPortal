@@ -1,7 +1,8 @@
-<x-layouts.app :title="'Beitritt – '.config('vereinsverwaltung.association_name')">
+<x-layouts.app title="Vereinsbeitritt">
     <main x-data="{ youth: false, birthDate: '', isFourteen() { const birth = new Date(this.birthDate + 'T00:00:00'); const today = new Date(); let age = today.getFullYear() - birth.getFullYear(); if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) age--; return age >= 14; } }" class="mx-auto max-w-3xl space-y-6 px-4 py-8">
         <header>
-            <h1 class="text-2xl font-bold text-fw-navy">Beitritt zu {{ config('vereinsverwaltung.association_name') }}</h1>
+            <h1 class="text-2xl font-bold text-fw-navy">Vereinsbeitritt</h1>
+            <p class="mt-2 text-sm text-gray-700">Wählen Sie den Verein aus, dem Sie beitreten möchten.</p>
             <p x-show="!youth" class="mt-2 text-sm text-gray-700">
                 Der Jahresbeitrag beträgt {{ number_format(config('vereinsverwaltung.annual_fee_cents', 1500) / 100, 2, ',', '.') }} €.
                 Er wird üblicherweise im {{ config('vereinsverwaltung.billing_month', 12) }}. Monat für das
@@ -29,6 +30,16 @@
                 <label for="website">Website</label>
                 <input id="website" name="website" type="text" tabindex="-1" autocomplete="off">
             </div>
+
+            <label class="block">Verein *
+                <select name="association_name" required class="mt-1 block w-full rounded border-gray-300">
+                    <option value="">Bitte Verein auswählen</option>
+                    @foreach ($associationNames as $associationName)
+                        <option value="{{ $associationName }}">{{ $associationName }}</option>
+                    @endforeach
+                </select>
+            </label>
+            @error('association_name')<p class="text-sm text-red-700">{{ $message }}</p>@enderror
 
             <fieldset class="space-y-4 rounded-lg border border-gray-300 p-4">
                 <legend class="px-2 font-semibold">Persönliche Angaben</legend>

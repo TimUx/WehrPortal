@@ -11,7 +11,7 @@ class MembershipApplication extends Model
     protected $fillable = [
         'status', 'title', 'first_name', 'last_name', 'birth_date', 'marital_status', 'phone', 'mobile',
         'email', 'street', 'postal_code', 'city', 'account_holder', 'bank_name', 'bic', 'iban',
-        'consent_version', 'consented_at', 'submitted_at', 'decided_at', 'decided_by', 'youth_member',
+        'association_name', 'consent_version', 'consented_at', 'submitted_at', 'decided_at', 'decided_by', 'youth_member',
         'photo_consent', 'youth_photo_consent', 'photo_consent_version', 'photo_consent_recorded_at',
     ];
 

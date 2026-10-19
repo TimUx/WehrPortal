@@ -1,7 +1,7 @@
 <div class="mx-auto max-w-6xl space-y-6 px-4 py-6">
     <header class="flex flex-wrap items-end justify-between gap-3">
         <div>
-            <h1 class="text-2xl font-bold text-fw-navy">{{ $associationName }} – Vereinsverwaltung</h1>
+            <h1 class="text-2xl font-bold text-fw-navy">Vereinsverwaltung</h1>
             <p class="mt-1 text-sm text-gray-600">Mitgliederdaten und SEPA-Mandate werden hier dokumentiert. Die App zieht keine Beiträge ein.</p>
             @if (config('vereinsverwaltung.creditor_id'))
                 <p class="mt-1 text-sm text-gray-600">Gläubiger-Identifikationsnummer: {{ config('vereinsverwaltung.creditor_id') }}</p>
@@ -9,6 +9,18 @@
         </div>
         <button type="button" wire:click="newMember" class="rounded bg-fw-navy px-4 py-2 font-semibold text-white">Mitglied hinzufügen</button>
     </header>
+
+    <section class="space-y-3 rounded-lg border border-gray-200 p-4">
+        <div>
+            <h2 class="font-semibold">Vereine für Beitrittsanträge</h2>
+            <p class="text-sm text-gray-600">Einen Vereinsnamen pro Zeile eintragen. Diese Auswahl erscheint im öffentlichen Beitrittsformular.</p>
+        </div>
+        <form wire:submit="saveAssociationNames" class="space-y-3">
+            <textarea wire:model="associationNamesText" rows="3" maxlength="8000" required class="block w-full rounded border-gray-300"></textarea>
+            @error('associationNamesText')<p class="text-sm text-red-700">{{ $message }}</p>@enderror
+            <button type="submit" class="rounded border border-fw-navy px-4 py-2 font-semibold text-fw-navy">Vereinsnamen speichern</button>
+        </form>
+    </section>
 
     @if (session('flash'))
         <div role="status" class="rounded-lg bg-green-50 p-4 text-green-900">{{ session('flash') }}</div>
@@ -31,6 +43,7 @@
                     <div>
                         <h3 class="font-semibold">{{ $application->displayName() }}</h3>
                         <p class="text-sm text-gray-700">{{ $application->email }} · eingegangen {{ $application->submitted_at->timezone('Europe/Berlin')->format('d.m.Y H:i') }}</p>
+                        <p class="text-sm text-gray-700">Gewählter Verein: {{ $application->association_name }}</p>
                         <p class="mt-1 text-xs text-gray-600">
                             {{ $application->youth_member ? 'Jugend-/Kinderfeuerwehr: beitragsfrei, ohne Bankdaten oder SEPA-Mandat.' : 'Personen- und Bankdaten sind verschlüsselt gespeichert. Die Bankverbindung wird nach Annahme als Mandat „Unterschrift ausstehend“ übernommen.' }}
                             Fotoeinwilligung: {{ $application->photo_consent ? 'erteilt' : 'nicht erteilt' }}{{ $application->youth_photo_consent ? ' (zusätzliche Zustimmung des Jugendlichen dokumentiert)' : '' }}.
@@ -53,6 +66,7 @@
                     <thead class="bg-gray-50">
                         <tr>
                             <th scope="col" class="px-4 py-3">Name</th>
+                            <th scope="col" class="px-4 py-3">Verein</th>
                             <th scope="col" class="px-4 py-3">Mitgliedsart</th>
                             <th scope="col" class="px-4 py-3">Status</th>
                             <th scope="col" class="px-4 py-3">Jahresbeitrag</th>
@@ -69,6 +83,7 @@
                                         <div class="text-xs text-gray-600">App-Konto verknüpft</div>
                                     @endif
                                 </td>
+                                <td class="px-4 py-3">{{ $member->association_name }}</td>
                                 <td class="px-4 py-3">
                                     {{ $member->youth_member ? 'Jugend-/Kinderfeuerwehr' : ($member->membership_type === 'active' ? 'Aktiv' : 'Passiv') }}
                                 </td>
@@ -78,7 +93,7 @@
                                 <td class="px-4 py-3 text-right"><button type="button" wire:click="edit({{ $member->id }})" class="font-semibold text-fw-navy underline">Bearbeiten</button></td>
                             </tr>
                         @empty
-                            <tr><td colspan="6" class="px-4 py-6 text-center text-gray-600">Noch keine Mitglieder erfasst.</td></tr>
+                            <tr><td colspan="7" class="px-4 py-6 text-center text-gray-600">Noch keine Mitglieder erfasst.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -99,6 +114,15 @@
                     <fieldset class="space-y-4">
                         <legend class="font-semibold">Mitgliedschaft</legend>
                         <div class="grid gap-4 sm:grid-cols-2">
+                            <label class="block sm:col-span-2">Verein
+                                <select wire:model="form.association_name" required class="mt-1 block w-full rounded border-gray-300">
+                                    @foreach (array_unique([...$associationNames, $form['association_name'] ?? null]) as $associationName)
+                                        @if (filled($associationName))
+                                            <option value="{{ $associationName }}">{{ $associationName }}</option>
+                                        @endif
+                                    @endforeach
+                                </select>
+                            </label>
                             <label class="flex items-start gap-3 sm:col-span-2">
                                 <input type="checkbox" wire:model="form.youth_member" x-model="youth" class="mt-1 rounded border-gray-300">
                                 <span>Mitglied der Jugend-/Kinderfeuerwehr (beitragsfrei, ohne SEPA-Mandat)</span>

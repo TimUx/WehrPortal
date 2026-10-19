@@ -25,9 +25,21 @@ class Board extends Component
 
     public array $form = [];
 
-    public function mount(): void
+    public string $associationNamesText = '';
+
+    public function mount(MembershipService $service): void
     {
         Gate::authorize('manage-verein');
+        $this->associationNamesText = implode("\n", $service->associationNames());
+    }
+
+    public function saveAssociationNames(MembershipService $service): void
+    {
+        Gate::authorize('manage-verein');
+        $this->validate(['associationNamesText' => ['required', 'string', 'max:8000']]);
+        $names = $service->saveAssociationNames($this->associationNamesText);
+        $this->associationNamesText = implode("\n", $names);
+        session()->flash('flash', 'Vereinsnamen gespeichert.');
     }
 
     public function approve(int $applicationId, MembershipService $service): void
@@ -52,6 +64,7 @@ class Board extends Component
         $this->creating = false;
         $this->form = [
             'user_id' => $member->user_id,
+            'association_name' => $member->association_name,
             'membership_type' => $member->membership_type,
             'youth_member' => $member->youth_member,
             'status' => $member->status,
@@ -90,6 +103,7 @@ class Board extends Component
         $this->creating = true;
         $this->form = [
             'user_id' => '',
+            'association_name' => app(MembershipService::class)->associationNames()[0],
             'membership_type' => 'passive',
             'youth_member' => false,
             'status' => 'member',
@@ -175,14 +189,14 @@ class Board extends Component
 
         return view('vereinsverwaltung::livewire.board', [
             'applications' => MembershipApplication::query()
-                ->select(['id', 'status', 'title', 'first_name', 'last_name', 'email', 'submitted_at', 'youth_member', 'photo_consent', 'youth_photo_consent'])
+                ->select(['id', 'status', 'association_name', 'title', 'first_name', 'last_name', 'email', 'submitted_at', 'youth_member', 'photo_consent', 'youth_photo_consent'])
                 ->where('status', 'pending')->oldest('submitted_at')->get(),
             'members' => Member::query()
                 ->select(['id', 'user_id', 'membership_type', 'youth_member', 'status', 'title', 'first_name', 'last_name', 'annual_fee_cents', 'mandate_status', 'photo_consent', 'youth_photo_consent'])
                 ->with('user:id,name')->orderByDesc('id')->paginate(20),
             'users' => User::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'editing' => $this->memberId ? Member::query()->findOrFail($this->memberId) : null,
-            'associationName' => config('vereinsverwaltung.association_name'),
+            'associationNames' => app(MembershipService::class)->associationNames(),
         ]);
     }
 }

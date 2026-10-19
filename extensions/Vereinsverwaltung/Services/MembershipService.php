@@ -3,6 +3,7 @@
 namespace Extensions\Vereinsverwaltung\Services;
 
 use App\Enums\MemberStatus;
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\ModuleRegistry;
 use Extensions\Vereinsverwaltung\Models\Member;
@@ -15,6 +16,40 @@ use Illuminate\Validation\ValidationException;
 
 class MembershipService
 {
+    /** @return list<string> */
+    public function associationNames(): array
+    {
+        $stored = Setting::get('ext_vv_association_names');
+        $names = is_string($stored) ? preg_split('/\R/u', $stored) : [];
+        $names = array_values(array_unique(array_filter(array_map('trim', $names ?: []))));
+
+        return $names ?: [config('vereinsverwaltung.association_name', 'Feuerwehrverein')];
+    }
+
+    /** @return list<string> */
+    public function saveAssociationNames(string $input): array
+    {
+        $names = array_values(array_filter(array_map('trim', preg_split('/\R/u', $input) ?: [])));
+
+        Validator::make(['names' => $names], [
+            'names' => ['required', 'array', 'min:1', 'max:50'],
+            'names.*' => ['required', 'string', 'max:150'],
+        ], [
+            'names.required' => 'Mindestens ein Vereinsname ist erforderlich.',
+            'names.min' => 'Mindestens ein Vereinsname ist erforderlich.',
+            'names.max' => 'Es können höchstens 50 Vereine eingetragen werden.',
+            'names.*.max' => 'Ein Vereinsname darf höchstens 150 Zeichen lang sein.',
+        ])->validate();
+
+        if (count(array_unique(array_map(mb_strtolower(...), $names))) !== count($names)) {
+            throw ValidationException::withMessages(['associationNamesText' => 'Jeder Vereinsname darf nur einmal eingetragen werden.']);
+        }
+
+        Setting::set('ext_vv_association_names', implode("\n", $names));
+
+        return $names;
+    }
+
     public function isLinkedMember(User $user): bool
     {
         return Member::query()
@@ -61,6 +96,7 @@ class MembershipService
                 Member::create([
                     ...$contactFields,
                     'user_id' => $user->id,
+                    'association_name' => $this->associationNames()[0],
                     'membership_type' => 'active',
                     'status' => 'member',
                     'joined_at' => now()->toDateString(),
@@ -90,6 +126,11 @@ class MembershipService
 
     public function submitApplication(array $data): MembershipApplication
     {
+        $data['association_name'] ??= $this->associationNames()[0];
+        Validator::make($data, [
+            'association_name' => ['required', 'string', Rule::in($this->associationNames())],
+        ])->validate();
+
         if ($data['youth_member'] ?? false) {
             $data = array_merge($data, [
                 'account_holder' => null,
@@ -120,7 +161,7 @@ class MembershipService
 
             $member = Member::create([
                 ...$application->only([
-                    'title', 'first_name', 'last_name', 'birth_date', 'marital_status', 'phone', 'mobile',
+                    'association_name', 'title', 'first_name', 'last_name', 'birth_date', 'marital_status', 'phone', 'mobile',
                     'email', 'street', 'postal_code', 'city', 'account_holder', 'bank_name', 'bic', 'iban',
                     'youth_member', 'photo_consent', 'youth_photo_consent', 'photo_consent_version', 'photo_consent_recorded_at',
                 ]),
@@ -166,6 +207,7 @@ class MembershipService
             $member = Member::create([
                 'first_name' => '',
                 'last_name' => '',
+                'association_name' => $data['association_name'] ?? $this->associationNames()[0],
                 'joined_at' => now()->toDateString(),
                 'annual_fee_cents' => ! empty($data['youth_member']) ? 0 : (int) config('vereinsverwaltung.annual_fee_cents', 1500),
                 'mandate_status' => ! empty($data['youth_member']) ? 'not_required' : 'awaiting_signature',
@@ -186,6 +228,7 @@ class MembershipService
             }
         }
         $linkedUser = filled($data['user_id'] ?? null) ? User::query()->findOrFail($data['user_id']) : null;
+        $data['association_name'] ??= $member->association_name ?: $this->associationNames()[0];
         if ($linkedUser) {
             $data = array_merge($data, [
                 'title' => null,
@@ -222,6 +265,7 @@ class MembershipService
         }
         $data = Validator::make($data, [
             'membership_type' => ['required', Rule::in(['active', 'passive'])],
+            'association_name' => ['required', 'string', 'max:150', Rule::in(array_unique([...$this->associationNames(), $member->association_name]))],
             'status' => ['required', Rule::in(['member', 'left'])],
             'youth_member' => ['required', 'boolean'],
             'user_id' => ['nullable', 'integer', 'exists:users,id', Rule::unique('x_vv_members', 'user_id')->ignore($member->id)],

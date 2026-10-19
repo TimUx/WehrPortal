@@ -12,12 +12,18 @@ use Livewire\Livewire;
 beforeEach(function () {
     Module::where('key', 'verein')->update(['is_active' => true]);
     Cache::forget('modules_active_keys');
+    Cache::forget('setting_ext_vv_association_names');
     config(['vereinsverwaltung.annual_fee_cents' => 1500]);
+});
+
+afterEach(function () {
+    Cache::forget('setting_ext_vv_association_names');
 });
 
 function membershipApplicationData(array $overrides = []): array
 {
     return array_replace([
+        'association_name' => config('vereinsverwaltung.association_name', 'Feuerwehrverein'),
         'title' => '',
         'first_name' => 'Alex',
         'last_name' => 'Example',
@@ -57,6 +63,41 @@ it('accepts public applications while encrypting personal and bank data', functi
         ->and($application->consented_at)->not->toBeNull()
         ->and($application->consent_version)->toBe('1')
         ->and($application->photo_consent)->toBeFalse();
+});
+
+it('lets the board configure associations and applicants choose one', function () {
+    $board = User::factory()->create();
+    $board->moduleAccess()->create(['module' => 'verein', 'role' => 'vereinsvorstand']);
+    $service = app(\Extensions\Vereinsverwaltung\Services\MembershipService::class);
+
+    Livewire::actingAs($board)->test(Board::class)
+        ->set('associationNamesText', "Förderverein Nord\nFörderverein Süd")
+        ->call('saveAssociationNames')
+        ->assertHasNoErrors();
+
+    $this->get(route('verein.application'))
+        ->assertOk()
+        ->assertSee('Förderverein Nord')
+        ->assertSee('Förderverein Süd');
+
+    $this->post(route('verein.application.store'), membershipApplicationData(['association_name' => 'Förderverein Süd']))
+        ->assertRedirect(route('verein.application'))
+        ->assertSessionHas('submitted', true);
+
+    $application = MembershipApplication::firstOrFail();
+    expect($application->association_name)->toBe('Förderverein Süd');
+
+    $member = $service->approveApplication($board, $application->id);
+    expect($member->association_name)->toBe('Förderverein Süd');
+});
+
+it('rejects an application for an association not configured by the board', function () {
+    $this->from(route('verein.application'))
+        ->post(route('verein.application.store'), membershipApplicationData(['association_name' => 'Unbekannter Verein']))
+        ->assertRedirect(route('verein.application'))
+        ->assertSessionHasErrors('association_name');
+
+    expect(MembershipApplication::count())->toBe(0);
 });
 
 it('accepts youth applications without SEPA details and records free membership', function () {

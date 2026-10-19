@@ -8,12 +8,15 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
+use Illuminate\Validation\Rule;
 
 class MembershipApplicationController
 {
-    public function create(): View
+    public function create(MembershipService $service): View
     {
-        return view('vereinsverwaltung::public.application');
+        return view('vereinsverwaltung::public.application', [
+            'associationNames' => $service->associationNames(),
+        ]);
     }
 
     public function store(Request $request, MembershipService $service): RedirectResponse
@@ -49,6 +52,7 @@ class MembershipApplicationController
             'street' => ['required', 'string', 'max:255'],
             'postal_code' => ['required', 'string', 'max:20'],
             'city' => ['required', 'string', 'max:100'],
+            'association_name' => ['required', 'string', 'max:150', Rule::in($service->associationNames())],
             'youth_member' => ['required', 'boolean'],
             'account_holder' => [$input['youth_member'] === true ? 'nullable' : 'required', 'string', 'max:200'],
             'bank_name' => [$input['youth_member'] === true ? 'nullable' : 'required', 'string', 'max:200'],
@@ -66,6 +70,7 @@ class MembershipApplicationController
             'street' => 'Straße und Hausnummer',
             'postal_code' => 'Postleitzahl',
             'city' => 'Wohnort',
+            'association_name' => 'Verein',
             'account_holder' => 'Kontoinhaber',
             'bank_name' => 'Kreditinstitut',
             'bic' => 'BIC',
