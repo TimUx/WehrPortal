@@ -10,22 +10,23 @@
         <button type="button" wire:click="newMember" class="rounded bg-fw-navy px-4 py-2 font-semibold text-white">Mitglied hinzufügen</button>
     </header>
 
-    <section class="space-y-3 rounded-lg border border-gray-200 p-4">
-        <div>
-            <h2 class="font-semibold">Vereine für Beitrittsanträge</h2>
-            <p class="text-sm text-gray-600">Einen Vereinsnamen pro Zeile eintragen. Diese Auswahl erscheint im öffentlichen Beitrittsformular.</p>
-        </div>
-        <form wire:submit="saveAssociationNames" class="space-y-3">
-            <textarea wire:model="associationNamesText" rows="3" maxlength="8000" required class="block w-full rounded border-gray-300"></textarea>
-            @error('associationNamesText')<p class="text-sm text-red-700">{{ $message }}</p>@enderror
-            <button type="submit" class="rounded border border-fw-navy px-4 py-2 font-semibold text-fw-navy">Vereinsnamen speichern</button>
-        </form>
-    </section>
+    @if ($associations->count() > 1)
+        <label class="block max-w-xl">Verein
+            <select wire:model.live="associationId" class="mt-1 block w-full rounded border-gray-300">
+                @foreach ($associations as $availableAssociation)
+                    <option value="{{ $availableAssociation->id }}">{{ $availableAssociation->name }} – {{ $availableAssociation->location?->name }}</option>
+                @endforeach
+            </select>
+        </label>
+    @endif
 
     @if (session('flash'))
         <div role="status" class="rounded-lg bg-green-50 p-4 text-green-900">{{ session('flash') }}</div>
     @endif
 
+    @if (! $association)
+        <p class="rounded-lg bg-gray-50 p-4 text-gray-700">Ihnen ist kein Verein zur Verwaltung zugewiesen.</p>
+    @else
     <nav class="flex gap-2 border-b border-gray-200" aria-label="Vereinsverwaltung">
         <button type="button" wire:click="$set('tab', 'applications')" class="border-b-2 px-3 py-2 {{ $tab === 'applications' ? 'border-fw-navy font-semibold text-fw-navy' : 'border-transparent text-gray-600' }}">
             Beitrittsanträge ({{ $applications->count() }})
@@ -43,7 +44,7 @@
                     <div>
                         <h3 class="font-semibold">{{ $application->displayName() }}</h3>
                         <p class="text-sm text-gray-700">{{ $application->email }} · eingegangen {{ $application->submitted_at->timezone('Europe/Berlin')->format('d.m.Y H:i') }}</p>
-                        <p class="text-sm text-gray-700">Gewählter Verein: {{ $application->association_name }}</p>
+                        <p class="text-sm text-gray-700">Gewählter Verein: {{ $application->association?->name }}</p>
                         <p class="mt-1 text-xs text-gray-600">
                             {{ $application->youth_member ? 'Jugend-/Kinderfeuerwehr: beitragsfrei, ohne Bankdaten oder SEPA-Mandat.' : 'Personen- und Bankdaten sind verschlüsselt gespeichert. Die Bankverbindung wird nach Annahme als Mandat „Unterschrift ausstehend“ übernommen.' }}
                             Fotoeinwilligung: {{ $application->photo_consent ? 'erteilt' : 'nicht erteilt' }}{{ $application->youth_photo_consent ? ' (zusätzliche Zustimmung des Jugendlichen dokumentiert)' : '' }}.
@@ -80,10 +81,12 @@
                                 <td class="px-4 py-3">
                                     <div class="font-medium">{{ $member->displayName() }}</div>
                                     @if ($member->user)
-                                        <div class="text-xs text-gray-600">App-Konto verknüpft</div>
+                                        <div class="text-xs text-gray-600">
+                                            {{ $member->user->email }}{{ $member->user->phone ? ' · '.$member->user->phone : '' }}
+                                        </div>
                                     @endif
                                 </td>
-                                <td class="px-4 py-3">{{ $member->association_name }}</td>
+                                <td class="px-4 py-3">{{ $association->name }}</td>
                                 <td class="px-4 py-3">
                                     {{ $member->youth_member ? 'Jugend-/Kinderfeuerwehr' : ($member->membership_type === 'active' ? 'Aktiv' : 'Passiv') }}
                                 </td>
@@ -114,15 +117,7 @@
                     <fieldset class="space-y-4">
                         <legend class="font-semibold">Mitgliedschaft</legend>
                         <div class="grid gap-4 sm:grid-cols-2">
-                            <label class="block sm:col-span-2">Verein
-                                <select wire:model="form.association_name" required class="mt-1 block w-full rounded border-gray-300">
-                                    @foreach (array_unique([...$associationNames, $form['association_name'] ?? null]) as $associationName)
-                                        @if (filled($associationName))
-                                            <option value="{{ $associationName }}">{{ $associationName }}</option>
-                                        @endif
-                                    @endforeach
-                                </select>
-                            </label>
+                            <p class="sm:col-span-2 rounded bg-gray-50 p-3 text-sm">Verein: {{ $association->name }} · Standort: {{ $association->location?->name }}</p>
                             <label class="flex items-start gap-3 sm:col-span-2">
                                 <input type="checkbox" wire:model="form.youth_member" x-model="youth" class="mt-1 rounded border-gray-300">
                                 <span>Mitglied der Jugend-/Kinderfeuerwehr (beitragsfrei, ohne SEPA-Mandat)</span>

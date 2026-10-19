@@ -3,19 +3,19 @@
 namespace Extensions\Vereinsverwaltung\Http\Controllers;
 
 use Extensions\Vereinsverwaltung\Services\MembershipService;
-use Illuminate\Support\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\View\View;
 use Illuminate\Validation\Rule;
+use Illuminate\View\View;
 
 class MembershipApplicationController
 {
     public function create(MembershipService $service): View
     {
         return view('vereinsverwaltung::public.application', [
-            'associationNames' => $service->associationNames(),
+            'associationOptions' => $service->associationOptions(),
         ]);
     }
 
@@ -52,7 +52,7 @@ class MembershipApplicationController
             'street' => ['required', 'string', 'max:255'],
             'postal_code' => ['required', 'string', 'max:20'],
             'city' => ['required', 'string', 'max:100'],
-            'association_name' => ['required', 'string', 'max:150', Rule::in($service->associationNames())],
+            'association_id' => ['required', 'integer', Rule::in(array_keys($service->associationOptions()))],
             'youth_member' => ['required', 'boolean'],
             'account_holder' => [$input['youth_member'] === true ? 'nullable' : 'required', 'string', 'max:200'],
             'bank_name' => [$input['youth_member'] === true ? 'nullable' : 'required', 'string', 'max:200'],
@@ -70,7 +70,7 @@ class MembershipApplicationController
             'street' => 'Straße und Hausnummer',
             'postal_code' => 'Postleitzahl',
             'city' => 'Wohnort',
-            'association_name' => 'Verein',
+            'association_id' => 'Verein',
             'account_holder' => 'Kontoinhaber',
             'bank_name' => 'Kreditinstitut',
             'bic' => 'BIC',

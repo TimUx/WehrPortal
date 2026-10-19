@@ -7,11 +7,14 @@ use App\Services\ModuleRegistry;
 use App\Services\AssociationRegistry;
 use App\Support\ModuleNav;
 use Extensions\Vereinsverwaltung\Http\Controllers\MembershipApplicationController;
+use Extensions\Vereinsverwaltung\Filament\VereinPlugin;
 use Extensions\Vereinsverwaltung\Livewire\Board;
+use Extensions\Vereinsverwaltung\Services\AssociationAccess;
 use Extensions\Vereinsverwaltung\Services\MembershipService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Filament\Facades\Filament;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -23,6 +26,12 @@ class VereinsverwaltungServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/config/vereinsverwaltung.php', 'vereinsverwaltung');
         $this->app->singleton(MembershipService::class);
+        $this->app->singleton(AssociationAccess::class);
+        $this->app->booting(function () {
+            if (config('vereinsverwaltung.enabled')) {
+                Filament::getPanel('admin')?->plugin(VereinPlugin::make());
+            }
+        });
     }
 
     public function boot(): void
@@ -35,7 +44,7 @@ class VereinsverwaltungServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom($base.'/database/migrations');
         $this->loadViewsFrom($base.'/resources/views', 'vereinsverwaltung');
 
-        Gate::define('manage-verein', fn (User $user) => MembershipService::canManage($user));
+        Gate::define('manage-verein', fn (User $user) => app(AssociationAccess::class)->canManage($user));
         Livewire::component('vereinsverwaltung.board', Board::class);
 
         RateLimiter::for('vereinsverwaltung-application', fn (Request $request) => Limit::perMinute(3)->by($request->ip()));

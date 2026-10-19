@@ -3,6 +3,7 @@
 namespace Extensions\Vereinsverwaltung\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class MembershipApplication extends Model
 {
@@ -11,7 +12,7 @@ class MembershipApplication extends Model
     protected $fillable = [
         'status', 'title', 'first_name', 'last_name', 'birth_date', 'marital_status', 'phone', 'mobile',
         'email', 'street', 'postal_code', 'city', 'account_holder', 'bank_name', 'bic', 'iban',
-        'association_name', 'consent_version', 'consented_at', 'submitted_at', 'decided_at', 'decided_by', 'youth_member',
+        'association_id', 'consent_version', 'consented_at', 'submitted_at', 'decided_at', 'decided_by', 'youth_member',
         'photo_consent', 'youth_photo_consent', 'photo_consent_version', 'photo_consent_recorded_at',
     ];
 
@@ -41,6 +42,11 @@ class MembershipApplication extends Model
             'submitted_at' => 'immutable_datetime',
             'decided_at' => 'immutable_datetime',
         ];
+    }
+
+    public function association(): BelongsTo
+    {
+        return $this->belongsTo(Association::class, 'association_id');
     }
 
     public function displayName(): string

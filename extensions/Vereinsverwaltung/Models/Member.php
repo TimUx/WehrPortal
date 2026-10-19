@@ -11,7 +11,7 @@ class Member extends Model
     protected $table = 'x_vv_members';
 
     protected $fillable = [
-        'user_id', 'association_name', 'membership_type', 'status', 'title', 'first_name', 'last_name', 'birth_date',
+        'user_id', 'association_id', 'membership_type', 'status', 'title', 'first_name', 'last_name', 'birth_date',
         'marital_status', 'phone', 'mobile', 'email', 'street', 'postal_code', 'city', 'joined_at',
         'left_at', 'annual_fee_cents', 'mandate_status', 'account_holder', 'bank_name', 'bic', 'iban',
         'mandate_reference', 'mandate_signed_at', 'youth_member', 'photo_consent', 'youth_photo_consent',
@@ -42,6 +42,7 @@ class Member extends Model
             'mandate_signed_at' => 'date',
             'annual_fee_cents' => 'integer',
             'ext_location_id' => 'integer',
+            'association_id' => 'integer',
             'youth_member' => 'boolean',
             'photo_consent' => 'boolean',
             'youth_photo_consent' => 'boolean',
@@ -52,6 +53,11 @@ class Member extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function association(): BelongsTo
+    {
+        return $this->belongsTo(Association::class, 'association_id');
     }
 
     public function displayName(): string

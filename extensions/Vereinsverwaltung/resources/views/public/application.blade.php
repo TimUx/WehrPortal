@@ -32,14 +32,14 @@
             </div>
 
             <label class="block">Verein *
-                <select name="association_name" required class="mt-1 block w-full rounded border-gray-300">
+                <select name="association_id" required class="mt-1 block w-full rounded border-gray-300">
                     <option value="">Bitte Verein auswählen</option>
-                    @foreach ($associationNames as $associationName)
-                        <option value="{{ $associationName }}">{{ $associationName }}</option>
+                    @foreach ($associationOptions as $associationId => $associationLabel)
+                        <option value="{{ $associationId }}">{{ $associationLabel }}</option>
                     @endforeach
                 </select>
             </label>
-            @error('association_name')<p class="text-sm text-red-700">{{ $message }}</p>@enderror
+            @error('association_id')<p class="text-sm text-red-700">{{ $message }}</p>@enderror
 
             <fieldset class="space-y-4 rounded-lg border border-gray-300 p-4">
                 <legend class="px-2 font-semibold">Persönliche Angaben</legend>

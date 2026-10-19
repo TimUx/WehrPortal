@@ -3,56 +3,34 @@
 namespace Extensions\Vereinsverwaltung\Services;
 
 use App\Enums\MemberStatus;
-use App\Models\Setting;
 use App\Models\User;
 use App\Services\ModuleRegistry;
+use Extensions\Vereinsverwaltung\Models\Association;
 use Extensions\Vereinsverwaltung\Models\Member;
 use Extensions\Vereinsverwaltung\Models\MembershipApplication;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class MembershipService
 {
-    /** @return list<string> */
-    public function associationNames(): array
+    public function moduleIsActive(): bool
     {
-        $stored = Setting::get('ext_vv_association_names');
-        $names = is_string($stored) ? preg_split('/\R/u', $stored) : [];
-        $names = array_values(array_unique(array_filter(array_map('trim', $names ?: []))));
-
-        return $names ?: [config('vereinsverwaltung.association_name', 'Feuerwehrverein')];
+        return app(ModuleRegistry::class)->isActive('verein');
     }
 
-    /** @return list<string> */
-    public function saveAssociationNames(string $input): array
+    /** @return array<int, string> */
+    public function associationOptions(): array
     {
-        $names = array_values(array_filter(array_map('trim', preg_split('/\R/u', $input) ?: [])));
-
-        Validator::make(['names' => $names], [
-            'names' => ['required', 'array', 'min:1', 'max:50'],
-            'names.*' => ['required', 'string', 'max:150'],
-        ], [
-            'names.required' => 'Mindestens ein Vereinsname ist erforderlich.',
-            'names.min' => 'Mindestens ein Vereinsname ist erforderlich.',
-            'names.max' => 'Es können höchstens 50 Vereine eingetragen werden.',
-            'names.*.max' => 'Ein Vereinsname darf höchstens 150 Zeichen lang sein.',
-        ])->validate();
-
-        if (count(array_unique(array_map(mb_strtolower(...), $names))) !== count($names)) {
-            throw ValidationException::withMessages(['associationNamesText' => 'Jeder Vereinsname darf nur einmal eingetragen werden.']);
-        }
-
-        Setting::set('ext_vv_association_names', implode("\n", $names));
-
-        return $names;
+        return Association::query()->withoutGlobalScopes()->whereNotNull('location_id')->with('location')->orderBy('name')
+            ->get()->mapWithKeys(fn (Association $association) => [$association->id => $association->name.' – '.($association->location?->name ?? 'Standort nicht zugewiesen')])
+            ->all();
     }
 
     public function isLinkedMember(User $user): bool
     {
-        return Member::query()
+        return Member::query()->withoutGlobalScopes()
             ->where('user_id', $user->id)
             ->where('status', 'member')
             ->exists();
@@ -60,24 +38,26 @@ class MembershipService
 
     public function setPersonnelMembership(User $user, bool $isMember): void
     {
-        abort_unless(app(ModuleRegistry::class)->isActive('verein'), 404);
+        abort_unless($this->moduleIsActive(), 404);
 
         if ($isMember) {
             abort_unless($user->status === MemberStatus::Active, 422);
         }
 
         DB::transaction(function () use ($user, $isMember) {
-            $member = Member::query()->where('user_id', $user->id)->lockForUpdate()->first();
+            $locationId = $user->getAttribute('ext_location_id');
+            $association = app(AssociationAccess::class)->associationForLocation($locationId);
+            abort_if($isMember && ! $association, 422, 'Für den Standort dieses Kameraden ist kein Verein zugewiesen.');
+            $member = Member::query()->withoutGlobalScopes()->where('user_id', $user->id)->lockForUpdate()->first();
 
             if (! $isMember) {
-                if ($member && $member->status === 'member') {
+                if ($member && $member->status === 'member' && (! $association || $member->association_id === $association->id)) {
                     $member->forceFill(['status' => 'left', 'left_at' => now()->toDateString()])->save();
                 }
 
                 return;
             }
 
-            $locationId = $user->getAttribute('ext_location_id');
             $contactFields = [
                 'title' => null,
                 'first_name' => null,
@@ -96,7 +76,7 @@ class MembershipService
                 Member::create([
                     ...$contactFields,
                     'user_id' => $user->id,
-                    'association_name' => $this->associationNames()[0],
+                    'association_id' => $association->id,
                     'membership_type' => 'active',
                     'status' => 'member',
                     'joined_at' => now()->toDateString(),
@@ -111,6 +91,7 @@ class MembershipService
             $member->forceFill([
                 ...$contactFields,
                 'membership_type' => 'active',
+                'association_id' => $association->id,
                 'status' => 'member',
                 'left_at' => null,
                 'ext_location_id' => $locationId,
@@ -118,18 +99,12 @@ class MembershipService
         });
     }
 
-    public static function canManage(User $user): bool
-    {
-        return $user->is_active && $user->canUseModule('verein')
-            && ($user->is_admin || $user->hasModuleRole('verein', 'vereinsvorstand'));
-    }
-
     public function submitApplication(array $data): MembershipApplication
     {
-        $data['association_name'] ??= $this->associationNames()[0];
         Validator::make($data, [
-            'association_name' => ['required', 'string', Rule::in($this->associationNames())],
+            'association_id' => ['required', 'integer', Rule::in(array_keys($this->associationOptions()))],
         ])->validate();
+        abort_unless(Association::query()->withoutGlobalScopes()->whereKey($data['association_id'])->whereNotNull('location_id')->exists(), 422);
 
         if ($data['youth_member'] ?? false) {
             $data = array_merge($data, [
@@ -151,20 +126,22 @@ class MembershipService
         ]);
     }
 
-    public function approveApplication(User $by, int $applicationId): Member
+    public function approveApplication(User $by, int $associationId, int $applicationId): Member
     {
-        Gate::forUser($by)->authorize('manage-verein');
+        $association = app(AssociationAccess::class)->association($by, $associationId);
 
-        return DB::transaction(function () use ($by, $applicationId) {
-            $application = MembershipApplication::query()->lockForUpdate()->findOrFail($applicationId);
+        return DB::transaction(function () use ($by, $association, $applicationId) {
+            $application = MembershipApplication::query()->withoutGlobalScopes()->where('association_id', $association->id)->lockForUpdate()->findOrFail($applicationId);
             abort_unless($application->status === 'pending', 404);
 
             $member = Member::create([
                 ...$application->only([
-                    'association_name', 'title', 'first_name', 'last_name', 'birth_date', 'marital_status', 'phone', 'mobile',
+                    'title', 'first_name', 'last_name', 'birth_date', 'marital_status', 'phone', 'mobile',
                     'email', 'street', 'postal_code', 'city', 'account_holder', 'bank_name', 'bic', 'iban',
                     'youth_member', 'photo_consent', 'youth_photo_consent', 'photo_consent_version', 'photo_consent_recorded_at',
                 ]),
+                'association_id' => $association->id,
+                'ext_location_id' => $association->location_id,
                 'membership_type' => 'passive',
                 'status' => 'member',
                 'joined_at' => now()->toDateString(),
@@ -183,12 +160,12 @@ class MembershipService
         });
     }
 
-    public function rejectApplication(User $by, int $applicationId): void
+    public function rejectApplication(User $by, int $associationId, int $applicationId): void
     {
-        Gate::forUser($by)->authorize('manage-verein');
+        $association = app(AssociationAccess::class)->association($by, $associationId);
 
-        DB::transaction(function () use ($by, $applicationId) {
-            $application = MembershipApplication::query()->lockForUpdate()->findOrFail($applicationId);
+        DB::transaction(function () use ($by, $association, $applicationId) {
+            $application = MembershipApplication::query()->withoutGlobalScopes()->where('association_id', $association->id)->lockForUpdate()->findOrFail($applicationId);
             abort_unless($application->status === 'pending', 404);
             $application->forceFill([
                 'status' => 'rejected',
@@ -199,36 +176,40 @@ class MembershipService
         });
     }
 
-    public function createMember(User $by, array $data): Member
+    public function createMember(User $by, int $associationId, array $data): Member
     {
-        Gate::forUser($by)->authorize('manage-verein');
+        $association = app(AssociationAccess::class)->association($by, $associationId);
 
-        return DB::transaction(function () use ($by, $data) {
+        return DB::transaction(function () use ($by, $association, $data) {
             $member = Member::create([
+                'association_id' => $association->id,
+                'ext_location_id' => $association->location_id,
                 'first_name' => '',
                 'last_name' => '',
-                'association_name' => $data['association_name'] ?? $this->associationNames()[0],
                 'joined_at' => now()->toDateString(),
                 'annual_fee_cents' => ! empty($data['youth_member']) ? 0 : (int) config('vereinsverwaltung.annual_fee_cents', 1500),
                 'mandate_status' => ! empty($data['youth_member']) ? 'not_required' : 'awaiting_signature',
             ]);
 
-            return $this->updateMember($by, $member->id, $data);
+            return $this->updateMember($by, $association->id, $member->id, $data);
         });
     }
 
-    public function updateMember(User $by, int $memberId, array $data): Member
+    public function updateMember(User $by, int $associationId, int $memberId, array $data): Member
     {
-        Gate::forUser($by)->authorize('manage-verein');
-        $member = Member::query()->findOrFail($memberId);
+        $association = app(AssociationAccess::class)->association($by, $associationId);
+        $member = Member::query()->withoutGlobalScopes()->where('association_id', $association->id)->findOrFail($memberId);
+        $data['association_id'] = $association->id;
+        $data['ext_location_id'] = $association->location_id;
         $data = array_map(fn ($value) => is_string($value) ? trim($value) : $value, $data);
         foreach (['user_id', 'title', 'birth_date', 'marital_status', 'phone', 'mobile', 'email', 'street', 'postal_code', 'city', 'left_at', 'account_holder', 'bank_name', 'bic', 'iban', 'mandate_reference', 'mandate_signed_at'] as $field) {
             if (($data[$field] ?? null) === '') {
                 $data[$field] = null;
             }
         }
-        $linkedUser = filled($data['user_id'] ?? null) ? User::query()->findOrFail($data['user_id']) : null;
-        $data['association_name'] ??= $member->association_name ?: $this->associationNames()[0];
+        $linkedUser = filled($data['user_id'] ?? null)
+            ? User::query()->withoutGlobalScopes()->where('is_active', true)->where('ext_location_id', $association->location_id)->findOrFail($data['user_id'])
+            : null;
         if ($linkedUser) {
             $data = array_merge($data, [
                 'title' => null,
@@ -242,7 +223,8 @@ class MembershipService
                 'street' => null,
                 'postal_code' => null,
                 'city' => null,
-                'ext_location_id' => $linkedUser->getAttribute('ext_location_id'),
+                'association_id' => $association->id,
+                'ext_location_id' => $association->location_id,
             ]);
         }
         $data['iban'] = filled($data['iban'] ?? null) ? strtoupper(preg_replace('/\s+/', '', $data['iban'])) : null;
@@ -265,11 +247,11 @@ class MembershipService
         }
         $data = Validator::make($data, [
             'membership_type' => ['required', Rule::in(['active', 'passive'])],
-            'association_name' => ['required', 'string', 'max:150', Rule::in(array_unique([...$this->associationNames(), $member->association_name]))],
             'status' => ['required', Rule::in(['member', 'left'])],
             'youth_member' => ['required', 'boolean'],
             'user_id' => ['nullable', 'integer', 'exists:users,id', Rule::unique('x_vv_members', 'user_id')->ignore($member->id)],
-            'ext_location_id' => ['nullable', 'integer'],
+            'association_id' => ['required', 'integer', Rule::in([$association->id])],
+            'ext_location_id' => ['required', 'integer', Rule::in([$association->location_id])],
             'title' => ['nullable', 'string', 'max:30'],
             'first_name' => [$linkedUser ? 'nullable' : 'required', 'string', 'max:100'],
             'last_name' => [$linkedUser ? 'nullable' : 'required', 'string', 'max:100'],
@@ -319,5 +301,19 @@ class MembershipService
         $member->fill($data)->save();
 
         return $member;
+    }
+
+    public function memberForAssociation(User $by, int $associationId, int $memberId): Member
+    {
+        $association = app(AssociationAccess::class)->association($by, $associationId);
+
+        return Member::query()->withoutGlobalScopes()->where('association_id', $association->id)->findOrFail($memberId);
+    }
+
+    /** @return \Illuminate\Database\Eloquent\Collection<int, User> */
+    public function personnelForAssociation(Association $association)
+    {
+        return User::query()->withoutGlobalScopes()->where('is_active', true)
+            ->where('ext_location_id', $association->location_id)->orderBy('name')->get();
     }
 }

@@ -2,9 +2,9 @@
 
 namespace Extensions\Vereinsverwaltung\Livewire;
 
-use App\Models\User;
 use Extensions\Vereinsverwaltung\Models\Member;
 use Extensions\Vereinsverwaltung\Models\MembershipApplication;
+use Extensions\Vereinsverwaltung\Services\AssociationAccess;
 use Extensions\Vereinsverwaltung\Services\MembershipService;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Locked;
@@ -17,6 +17,8 @@ class Board extends Component
 
     public string $tab = 'applications';
 
+    public ?int $associationId = null;
+
     #[Locked]
     public ?int $memberId = null;
 
@@ -25,46 +27,38 @@ class Board extends Component
 
     public array $form = [];
 
-    public string $associationNamesText = '';
-
-    public function mount(MembershipService $service): void
+    public function mount(AssociationAccess $access): void
     {
         Gate::authorize('manage-verein');
-        $this->associationNamesText = implode("\n", $service->associationNames());
+        $this->associationId = $access->associationsFor(auth()->user())->value('id');
     }
 
-    public function saveAssociationNames(MembershipService $service): void
+    public function updatedAssociationId(AssociationAccess $access): void
     {
-        Gate::authorize('manage-verein');
-        $this->validate(['associationNamesText' => ['required', 'string', 'max:8000']]);
-        $names = $service->saveAssociationNames($this->associationNamesText);
-        $this->associationNamesText = implode("\n", $names);
-        session()->flash('flash', 'Vereinsnamen gespeichert.');
+        $access->association(auth()->user(), (int) $this->associationId);
+        $this->resetPage();
     }
 
     public function approve(int $applicationId, MembershipService $service): void
     {
-        Gate::authorize('manage-verein');
-        $service->approveApplication(auth()->user(), $applicationId);
+        $service->approveApplication(auth()->user(), (int) $this->associationId, $applicationId);
         session()->flash('flash', 'Der Antrag wurde angenommen und als Mitglied angelegt.');
     }
 
     public function reject(int $applicationId, MembershipService $service): void
     {
-        Gate::authorize('manage-verein');
-        $service->rejectApplication(auth()->user(), $applicationId);
+        $service->rejectApplication(auth()->user(), (int) $this->associationId, $applicationId);
         session()->flash('flash', 'Der Antrag wurde abgelehnt; die personenbezogenen Angaben wurden gelöscht.');
     }
 
     public function edit(int $memberId): void
     {
-        Gate::authorize('manage-verein');
-        $member = Member::query()->findOrFail($memberId);
+        $member = app(MembershipService::class)->memberForAssociation(auth()->user(), (int) $this->associationId, $memberId);
         $this->memberId = $member->id;
         $this->creating = false;
         $this->form = [
             'user_id' => $member->user_id,
-            'association_name' => $member->association_name,
+            'association_id' => $member->association_id,
             'membership_type' => $member->membership_type,
             'youth_member' => $member->youth_member,
             'status' => $member->status,
@@ -98,12 +92,12 @@ class Board extends Component
 
     public function newMember(): void
     {
-        Gate::authorize('manage-verein');
+        $association = app(AssociationAccess::class)->association(auth()->user(), (int) $this->associationId);
         $this->memberId = null;
         $this->creating = true;
         $this->form = [
             'user_id' => '',
-            'association_name' => app(MembershipService::class)->associationNames()[0],
+            'association_id' => $association->id,
             'membership_type' => 'passive',
             'youth_member' => false,
             'status' => 'member',
@@ -145,16 +139,16 @@ class Board extends Component
 
     public function save(MembershipService $service): void
     {
-        Gate::authorize('manage-verein');
+        $association = app(AssociationAccess::class)->association(auth()->user(), (int) $this->associationId);
         $this->validate(['form.annual_fee' => ['required', 'numeric', 'between:0,100000']]);
         $data = $this->form;
         $data['annual_fee_cents'] = (int) round((float) $data['annual_fee'] * 100);
         unset($data['annual_fee']);
         unset($data['photo_consent_recorded_at']);
         if ($this->creating) {
-            $service->createMember(auth()->user(), $data);
+            $service->createMember(auth()->user(), $association->id, $data);
         } else {
-            $service->updateMember(auth()->user(), $this->memberId, $data);
+            $service->updateMember(auth()->user(), $association->id, $this->memberId, $data);
         }
         $this->closeEditor();
         session()->flash('flash', 'Mitgliedsdaten gespeichert.');
@@ -186,17 +180,33 @@ class Board extends Component
     public function render()
     {
         Gate::authorize('manage-verein');
+        $service = app(MembershipService::class);
+        $access = app(AssociationAccess::class);
+        $associations = $access->associationsFor(auth()->user())->get();
+        $association = $associations->firstWhere('id', $this->associationId);
+        if (! $association && $associations->isNotEmpty()) {
+            $association = $associations->first();
+            $this->associationId = $association->id;
+        }
 
         return view('vereinsverwaltung::livewire.board', [
-            'applications' => MembershipApplication::query()
-                ->select(['id', 'status', 'association_name', 'title', 'first_name', 'last_name', 'email', 'submitted_at', 'youth_member', 'photo_consent', 'youth_photo_consent'])
+            'association' => $association,
+            'associations' => $associations,
+            'applications' => $association ? MembershipApplication::query()->withoutGlobalScopes()
+                ->with('association')
+                ->select(['id', 'association_id', 'status', 'title', 'first_name', 'last_name', 'email', 'submitted_at', 'youth_member', 'photo_consent', 'youth_photo_consent'])
+                ->where('association_id', $association->id)
                 ->where('status', 'pending')->oldest('submitted_at')->get(),
-            'members' => Member::query()
-                ->select(['id', 'user_id', 'association_name', 'membership_type', 'youth_member', 'status', 'title', 'first_name', 'last_name', 'annual_fee_cents', 'mandate_status', 'photo_consent', 'youth_photo_consent'])
-                ->with('user:id,name')->orderByDesc('id')->paginate(20),
-            'users' => User::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
-            'editing' => $this->memberId ? Member::query()->findOrFail($this->memberId) : null,
-            'associationNames' => app(MembershipService::class)->associationNames(),
+                : collect(),
+            'members' => $association ? Member::query()->withoutGlobalScopes()
+                ->select(['id', 'user_id', 'association_id', 'membership_type', 'youth_member', 'status', 'title', 'first_name', 'last_name', 'annual_fee_cents', 'mandate_status', 'photo_consent', 'youth_photo_consent'])
+                ->where('association_id', $association->id)
+                ->with('association')
+                ->with(['user' => fn ($query) => $query->withoutGlobalScopes()->select(['id', 'name', 'email', 'phone', 'mobile'])])
+                ->orderByDesc('id')->paginate(20)
+                : Member::query()->whereRaw('1 = 0')->paginate(20),
+            'users' => $association ? $service->personnelForAssociation($association) : collect(),
+            'editing' => $this->memberId && $association ? $service->memberForAssociation(auth()->user(), $association->id, $this->memberId) : null,
         ]);
     }
 }
