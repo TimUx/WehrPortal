@@ -43,7 +43,7 @@
         @include('partials.place-dress-fields', ['input' => $input, 'places' => $places, 'dressCodes' => $dressCodes, 'placeId' => $placeId, 'manageUrl' => route('uebungsdienste.places')])
 
         <div class="space-y-2">
-            <p class="text-sm font-medium text-gray-700">Für wen? <span class="font-normal text-gray-500">(leer = alle Kameraden)</span></p>
+            <p class="text-sm font-medium text-gray-700">Für welche Orte / Abteilungen? <span class="font-normal text-gray-500">(leer = alle Kameraden)</span></p>
             @if($groups->isNotEmpty())
                 <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-700">
                     @foreach($groups as $id => $name)<label class="flex items-center gap-2"><input type="checkbox" value="{{ $id }}" wire:model="groupIds" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> {{ $name }}</label>@endforeach

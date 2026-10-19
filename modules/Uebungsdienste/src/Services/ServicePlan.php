@@ -16,7 +16,7 @@ use Throwable;
 
 /**
  * Changes to the Übungsdienstplan. Date, time and place are planned at the start of the year and
- * only admins change them; topic and responsible people every Vorstand member.
+ * admins and the Vorstand change them; topic and responsible people every Vorstand member.
  */
 class ServicePlan
 {
@@ -167,8 +167,8 @@ class ServicePlan
 
     private function assertAdmin(User $user): void
     {
-        if (! $user->is_admin) {
-            throw ValidationException::withMessages(['date' => 'Datum, Uhrzeit und Ort ändern nur Admins.']);
+        if (! $user->is_admin && ! ($user->canUseModule('uebungsdienste') && $user->isVorstand())) {
+            throw ValidationException::withMessages(['date' => 'Datum, Uhrzeit und Ort ändern nur der Vorstand und Admins.']);
         }
     }
 }

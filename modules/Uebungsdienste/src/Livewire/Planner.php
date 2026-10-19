@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Modules\Kalender\src\Models\Event;
 use Modules\Uebungsdienste\src\Models\Service;
 use Modules\Uebungsdienste\src\Services\ServicePlan;
 
@@ -53,11 +54,18 @@ class Planner extends Component
     {
         $today = ServicePlan::today();
         $all = Service::with('responsible')->whereYear('date', $this->year)->orderBy('date')->orderBy('starts_at')->get();
+        $rsvpCounts = Event::whereIn('id', $all->pluck('event_id')->filter())->where('rsvp', true)->with('responses')->get()
+            ->mapWithKeys(fn (Event $event) => [$event->id => [
+                'yes' => $event->responses->where('status', 'yes')->count(),
+                'maybe' => $event->responses->where('status', 'maybe')->count(),
+                'no' => $event->responses->where('status', 'no')->count(),
+            ]]);
         $past = $all->filter(fn (Service $s) => $s->date->lt($today));
         $years = Service::selectRaw('distinct extract(year from date)::int as y')->pluck('y')->push($today->year)->push($this->year)->unique()->sort()->values();
 
         return view('uebungsdienste::livewire.planner', [
             'services' => $this->showPast ? $all : $all->diff($past)->values(),
+            'rsvpCounts' => $rsvpCounts,
             'pastCount' => $past->count(),
             'years' => $years,
             'next' => $plan->next(),

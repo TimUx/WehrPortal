@@ -5,7 +5,7 @@
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
             <h1 class="text-xl font-bold text-gray-900">Übungsdienstplaner</h1>
-            <p class="text-sm text-gray-500">Thema und Verantwortliche kann jedes Vorstandsmitglied ändern{{ $admin ? '.' : '; Datum, Uhrzeit und Ort legen die Admins fest.' }}</p>
+            <p class="text-sm text-gray-500">Der Vorstand plant die Dienste und kann Thema und Verantwortliche ändern.</p>
         </div>
         <div class="flex flex-wrap gap-2">
             <a href="{{ route('uebungsdienste.print', ['jahr' => $year]) }}" target="_blank" rel="noopener" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Drucken / PDF</a>
@@ -26,6 +26,10 @@
             @if($next->location)<p class="text-sm text-gray-600">{{ $next->location }}</p>@endif
             <p class="mt-2 text-base text-gray-900 whitespace-pre-line">{{ $next->topic ?: 'Thema noch offen' }}</p>
             <p class="mt-1 text-sm text-gray-700"><span class="text-gray-500">Verantwortlich:</span> {{ $next->responsible->isNotEmpty() ? $next->responsible->pluck('name')->implode(', ') : 'noch niemand' }}</p>
+            @if($rsvpCounts->has($next->event_id))
+                @php($counts = $rsvpCounts->get($next->event_id))
+                <p class="mt-1 text-sm text-gray-700">{{ $counts['yes'] }} zugesagt · {{ $counts['maybe'] }} vielleicht · {{ $counts['no'] }} abgesagt</p>
+            @endif
         </section>
     @endif
 
@@ -56,6 +60,10 @@
                         @if($admin)<a href="{{ route('uebungsdienste.edit', $service) }}" class="shrink-0 text-sm text-fw-navy underline md:mt-1 md:inline-block md:text-xs">Ändern</a>@endif
                         @php($extras = array_filter([\App\Models\DressCode::names($service->dress_code_ids) ? 'Kleidung: '.implode(', ', \App\Models\DressCode::names($service->dress_code_ids)) : null, $service->audienceLabel() ? 'Für: '.$service->audienceLabel() : null]))
                         @if($extras)<p class="text-xs text-gray-500">{{ implode(' · ', $extras) }}</p>@endif
+                        @if($rsvpCounts->has($service->event_id))
+                            @php($counts = $rsvpCounts->get($service->event_id))
+                            <p class="text-xs text-gray-600">{{ $counts['yes'] }} zugesagt · {{ $counts['maybe'] }} vielleicht · {{ $counts['no'] }} abgesagt</p>
+                        @endif
                     </div>
                     <p class="hidden md:block text-gray-700">{{ $service->timeLabel() ?? '–' }}</p>
                     <div class="mt-2 md:mt-0">

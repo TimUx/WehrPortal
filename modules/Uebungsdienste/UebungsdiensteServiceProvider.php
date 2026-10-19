@@ -51,7 +51,7 @@ class UebungsdiensteServiceProvider extends ServiceProvider
         Livewire::component('uebungsdienste.planner', Planner::class);
         Livewire::component('uebungsdienste.service-form', ServiceForm::class);
 
-        Gate::define('plan-uebungsdienste', fn (User $user) => $user->is_admin);
+        Gate::define('plan-uebungsdienste', fn (User $user) => $user->is_admin || ($user->canUseModule('uebungsdienste') && $user->isVorstand()));
 
         app(ModuleRegistry::class)->register(
             'uebungsdienste',

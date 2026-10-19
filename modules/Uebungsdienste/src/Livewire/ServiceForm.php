@@ -61,6 +61,10 @@ class ServiceForm extends Component
             $this->placeId = (string) $first;
             $this->location = (string) Place::find($first)?->name;
         }
+
+        if (! $service?->exists) {
+            $this->groupIds = auth()->user()->groups()->pluck('groups.id')->map(fn ($id) => (string) $id)->all();
+        }
     }
 
     public function updatedPlaceId(string $value): void

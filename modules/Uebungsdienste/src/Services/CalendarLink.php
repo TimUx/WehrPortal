@@ -44,7 +44,7 @@ class CalendarLink
         $data = [
             'title' => self::TITLE, 'type' => 'uebung', 'starts_at' => $start, 'ends_at' => $end, 'all_day' => ! $service->starts_at,
             'location' => $service->place?->name ?? $service->location, 'place_id' => $service->place_id,
-            'dress_code_ids' => $service->dress_code_ids ?: null, 'description' => null, 'managed_by' => 'uebungsdienste',
+            'dress_code_ids' => $service->dress_code_ids ?: null, 'description' => null, 'rsvp' => true, 'managed_by' => 'uebungsdienste',
         ];
         $groups = array_map('intval', $service->group_ids ?? []);
         $functions = array_map('intval', $service->function_ids ?? []);
