@@ -70,11 +70,11 @@ test('the return link of a reminder sent before the change still works', functio
     $this->get($old)->assertOk();
 });
 
-test('Abteilungen and Funktionen are a sub-menu of Kameraden; the Kleiderkammer messages are called Mängelmanagement', function () {
+test('Abteilungen and Funktionen are a sub-menu of Kameraden; the Kleiderkammer messages are called Mängel & Wäsche', function () {
     expect(GroupResource::getNavigationParentItem())->toBe('Kameraden')
         ->and(MemberFunctionResource::getNavigationParentItem())->toBe('Kameraden')
-        ->and(EquipmentMessageResource::getPluralModelLabel())->toBe('Mängelmanagement')
-        ->and(EquipmentMessageResource::getNavigationLabel())->toBe('Mängelmanagement');
+        ->and(EquipmentMessageResource::getPluralModelLabel())->toBe('Mängel & Wäsche')
+        ->and(EquipmentMessageResource::getNavigationLabel())->toBe('Mängel & Wäsche');
 
     $this->get('/admin/modules')->assertRedirect('/admin/module');
     $this->get('/admin/kleiderkammer/messages')->assertRedirect('/admin/kleiderkammer/maengelmanagement');
