@@ -10,9 +10,10 @@ use Extensions\Hydrantenkontrolle\Livewire\HydrantHistory;
 use Extensions\Hydrantenkontrolle\Livewire\HydrantIndex;
 use Extensions\Hydrantenkontrolle\Livewire\YearOverview;
 use Extensions\Hydrantenkontrolle\Models\Hydrant;
+use Extensions\Hydrantenkontrolle\Models\Inspection;
 use Extensions\Hydrantenkontrolle\Models\InspectionYear;
+use Extensions\Hydrantenkontrolle\Scopes\HydrantenkontrolleScope;
 use Extensions\Hydrantenkontrolle\Services\InspectionService;
-use Extensions\Locations\Scopes\LocationScope;
 use Extensions\Locations\Support\AssignsLocation;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -39,9 +40,12 @@ class HydrantenkontrolleServiceProvider extends ServiceProvider
             Route::middleware('web')->group(__DIR__.'/routes/web.php');
         }
 
+        foreach ([Hydrant::class, InspectionYear::class, Inspection::class] as $class) {
+            $class::addGlobalScope(new HydrantenkontrolleScope);
+        }
+
         if (config('locations.enabled')) {
             foreach ([Hydrant::class, InspectionYear::class] as $class) {
-                $class::addGlobalScope(new LocationScope);
                 $class::creating(fn ($model) => AssignsLocation::creating($model));
                 $class::updating(fn ($model) => AssignsLocation::updating($model));
             }
@@ -57,7 +61,7 @@ class HydrantenkontrolleServiceProvider extends ServiceProvider
             'hydrantenkontrolle',
             'Hydrantenkontrolle',
             'Hydrantenstammdaten, fortlaufende Jahreskontrollen und PDF-Berichte',
-            roles: ['hydrantenwart'],
+            roles: ['hydrantenwart', InspectionService::ROLE_CROSS_LOCATION],
             provider: self::class,
             route: 'hydrantenkontrolle.index',
         );

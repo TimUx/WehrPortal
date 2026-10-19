@@ -9,7 +9,7 @@ class Hydrant extends Model
 {
     protected $table = 'x_hc_hydrants';
 
-    protected $fillable = ['ext_location_id', 'number', 'street', 'house_number', 'location_description', 'latitude', 'longitude', 'active', 'version'];
+    protected $fillable = ['ext_location_id', 'city', 'number', 'street', 'house_number', 'location_description', 'latitude', 'longitude', 'active', 'version'];
 
     protected $attributes = ['active' => true, 'version' => 1];
 

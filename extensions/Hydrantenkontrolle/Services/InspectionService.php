@@ -7,6 +7,7 @@ use App\Services\ActivityRecorder;
 use Extensions\Hydrantenkontrolle\Models\Hydrant;
 use Extensions\Hydrantenkontrolle\Models\Inspection;
 use Extensions\Hydrantenkontrolle\Models\InspectionYear;
+use Extensions\Hydrantenkontrolle\Scopes\HydrantenkontrolleScope;
 use Extensions\Hydrantenkontrolle\Support\Checklist;
 use Extensions\Locations\Services\LocationAccess;
 use Illuminate\Database\Eloquent\Builder;
@@ -22,7 +23,10 @@ use Illuminate\Validation\ValidationException;
 
 class InspectionService
 {
+    public const ROLE_CROSS_LOCATION = 'uebergreifend';
+
     private const ATTRIBUTES = [
+        'city' => 'Ort',
         'number' => 'Nummer',
         'street' => 'Straße',
         'house_number' => 'Hausnummer',
@@ -41,7 +45,13 @@ class InspectionService
     public static function canManage(User $user): bool
     {
         return $user->is_active && $user->canUseModule('hydrantenkontrolle')
-            && ($user->is_admin || $user->hasModuleRole('hydrantenkontrolle', 'hydrantenwart'));
+            && ($user->is_admin || $user->hasModuleRole('hydrantenkontrolle', 'hydrantenwart')
+                || $user->hasModuleRole('hydrantenkontrolle', self::ROLE_CROSS_LOCATION));
+    }
+
+    public static function canSeeAll(User $user): bool
+    {
+        return $user->is_admin || $user->hasModuleRole('hydrantenkontrolle', self::ROLE_CROSS_LOCATION);
     }
 
     public static function locationsOn(): bool
@@ -63,9 +73,18 @@ class InspectionService
                     }
                 }
 
-                $values = $this->trimmed($data, ['number', 'street', 'house_number', 'location_description', 'latitude', 'longitude']);
+                $data['city'] ??= $hydrant?->city ?? $by->city;
+                $values = $this->trimmed($data, ['city', 'number', 'street', 'house_number', 'location_description', 'latitude', 'longitude']);
+                if (! self::canSeeAll($by)) {
+                    $city = trim((string) $by->city);
+                    if ($city === '') {
+                        throw ValidationException::withMessages(['city' => 'Bitte zuerst den Ort im Kameradenprofil hinterlegen.']);
+                    }
+                    $values['city'] = $city;
+                }
                 $values['active'] = $data['active'] ?? $hydrant?->active ?? true;
                 $values = Validator::make($values, [
+                    'city' => ['required', 'string', 'max:255'],
                     'number' => ['required', 'string', 'max:100'],
                     'street' => ['nullable', 'string', 'max:255'],
                     'house_number' => ['nullable', 'string', 'max:50'],
@@ -122,7 +141,7 @@ class InspectionService
                 $inspection = new Inspection([
                     'inspection_year_id' => $record->id,
                     'hydrant_id' => $hydrant->id,
-                    'snapshot' => $hydrant->only(['number', 'street', 'house_number', 'location_description', 'latitude', 'longitude']),
+                    'snapshot' => $hydrant->only(['city', 'number', 'street', 'house_number', 'location_description', 'latitude', 'longitude']),
                 ]);
                 $this->persist($inspection, $by, $year.' / '.$hydrant->number);
             }
@@ -136,7 +155,9 @@ class InspectionService
         Gate::forUser($by)->authorize('manage-hydrantenkontrolle');
 
         return DB::transaction(function () use ($by, $inspection, $data, $expectedVersion) {
-            $inspection = Inspection::query()->whereHas('year', fn (Builder $query) => $this->scoped($query, $by))
+            $inspection = Inspection::query()->withoutGlobalScope(HydrantenkontrolleScope::class)
+                ->whereHas('year', fn (Builder $query) => $this->scoped($query, $by))
+                ->whereHas('hydrant', fn (Builder $query) => $this->scoped($query, $by))
                 ->lockForUpdate()->findOrFail($inspection->getKey());
             $this->assertVersion($inspection, $expectedVersion);
             $values = $this->trimmed($data, ['checked_at', 'notes']);
@@ -199,7 +220,22 @@ class InspectionService
 
     private function scoped(Builder $query, User $user): Builder
     {
-        if (self::locationsOn() && ! $user->is_admin) {
+        $query->withoutGlobalScope(HydrantenkontrolleScope::class);
+
+        if (self::canSeeAll($user)) {
+            return $query;
+        }
+
+        if ($query->getModel() instanceof Hydrant) {
+            $city = trim((string) $user->city);
+            if ($city === '') {
+                return $query->whereRaw('1 = 0');
+            }
+            $column = $query->getModel()->qualifyColumn('city');
+            $query->whereRaw('LOWER(TRIM('.$column.')) = ?', [mb_strtolower($city)]);
+        }
+
+        if (self::locationsOn()) {
             $column = $query->getModel()->qualifyColumn('ext_location_id');
             $query->where(fn (Builder $q) => $q->whereNull($column)->orWhereIn($column, app(LocationAccess::class)->visibleLocationIds($user)));
         }

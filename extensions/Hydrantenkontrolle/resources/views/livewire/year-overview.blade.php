@@ -31,7 +31,7 @@
         </div>
         @if($editing)
             <form wire:submit="save" wire:key="inspection-editor-{{ $editing->id }}" class="space-y-4 rounded-2xl border bg-white p-4">
-                <h2 class="font-bold">Nr. {{ $editing->snapshot['number'] }} · {{ $editing->snapshot['street'] ?? '' }} {{ $editing->snapshot['house_number'] ?? '' }}</h2>
+                <h2 class="font-bold">{{ $editing->snapshot['city'] ?? '' }} · Nr. {{ $editing->snapshot['number'] }} · {{ $editing->snapshot['street'] ?? '' }} {{ $editing->snapshot['house_number'] ?? '' }}</h2>
                 <p class="text-sm text-gray-600">{{ $editing->snapshot['location_description'] ?? '' }}</p>
                 @if(isset($editing->snapshot['latitude']))<p class="text-sm text-gray-600">{{ $editing->snapshot['latitude'] }}, {{ $editing->snapshot['longitude'] }}</p>@endif
                 <label class="block">Prüfdatum <input wire:model="form.checked_at" type="date" min="{{ $year->year }}-01-01" max="{{ $year->year }}-12-31" class="{{ $input }}"></label>
@@ -51,7 +51,7 @@
             </form>
         @endif
         <div class="flex flex-wrap gap-3">
-            <input wire:model.live.debounce.300ms="search" type="search" class="{{ $input }}" aria-label="Hydrant oder Straße suchen" placeholder="Nummer oder Straße">
+            <input wire:model.live.debounce.300ms="search" type="search" class="{{ $input }}" aria-label="Ort, Hydrant oder Straße suchen" placeholder="Ort, Nummer oder Straße">
             <select wire:model.live="status" class="{{ $input }}" aria-label="Prüfstatus">
                 <option value="">Alle Prüfstände</option><option value="unchecked">Ungeprüft</option><option value="ok">In Ordnung</option><option value="defects">Mit Mängeln</option>
             </select>
@@ -60,7 +60,7 @@
             @forelse($inspections as $inspection)
                 <div wire:key="inspection-{{ $inspection->id }}" class="flex flex-wrap items-center justify-between gap-3 p-4">
                     <div>
-                        <p class="font-semibold">Nr. {{ $inspection->snapshot['number'] }} · {{ $inspection->snapshot['street'] ?? '' }} {{ $inspection->snapshot['house_number'] ?? '' }}</p>
+                        <p class="font-semibold">{{ $inspection->snapshot['city'] ?? '' }} · Nr. {{ $inspection->snapshot['number'] }} · {{ $inspection->snapshot['street'] ?? '' }} {{ $inspection->snapshot['house_number'] ?? '' }}</p>
                         <p class="text-sm text-gray-600">{{ $inspection->snapshot['location_description'] ?? '' }}</p>
                         <p class="text-sm">{{ $inspection->statusLabel() }} · {{ $inspection->checked_at?->format('d.m.Y') ?? 'Kein Prüfdatum' }} · {{ $inspection->inspector_name ?? 'Noch kein Prüfer' }}</p>
                     </div>

@@ -114,7 +114,7 @@ class YearOverview extends Component
         ] : [];
         if ($query && $this->search !== '') {
             $term = '%'.$this->search.'%';
-            $query->where(fn ($q) => $q->where('snapshot->number', 'ilike', $term)->orWhere('snapshot->street', 'ilike', $term));
+            $query->where(fn ($q) => $q->where('snapshot->city', 'ilike', $term)->orWhere('snapshot->number', 'ilike', $term)->orWhere('snapshot->street', 'ilike', $term));
         }
         if ($query) {
             match ($this->status) {
@@ -127,7 +127,7 @@ class YearOverview extends Component
 
         return view('hydrantenkontrolle::livewire.year-overview', [
             'year' => $year,
-            'years' => InspectionYear::with('location')->orderByDesc('year')->get(),
+            'years' => InspectionYear::whereHas('inspections')->with('location')->orderByDesc('year')->get(),
             'counts' => $counts,
             'inspections' => $query?->orderBy('snapshot->number')->paginate(25),
             'editing' => $this->inspectionId && $year ? $year->inspections()->findOrFail($this->inspectionId) : null,

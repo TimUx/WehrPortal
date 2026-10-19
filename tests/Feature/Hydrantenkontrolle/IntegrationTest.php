@@ -17,9 +17,33 @@ use Livewire\Livewire;
 beforeEach(function () {
     Module::where('key', 'hydrantenkontrolle')->update(['is_active' => true]);
     Cache::flush();
-    $this->wart = User::factory()->create(['name' => 'Hanna Hydrant']);
+    $this->station = Location::create(['name' => 'Wache Hydranten', 'slug' => 'hc-integration']);
+    $this->wart = User::factory()->create(['name' => 'Hanna Hydrant', 'ext_location_id' => $this->station->id, 'city' => 'Musterstadt']);
     $this->wart->moduleAccess()->create(['module' => 'hydrantenkontrolle', 'role' => 'hydrantenwart']);
     $this->actingAs($this->wart);
+});
+
+it('limits local hydrantenwarte to their profile city and lets cross-location users see all cities', function () {
+    $service = app(InspectionService::class);
+    $localHydrant = $service->saveHydrant($this->wart, ['number' => 'M-1', 'street' => 'Musterstraße']);
+
+    auth()->logout();
+    $otherWart = User::factory()->create(['name' => 'Bernd Blaulicht', 'ext_location_id' => $this->station->id, 'city' => 'Beispielstadt']);
+    $otherWart->moduleAccess()->create(['module' => 'hydrantenkontrolle', 'role' => 'hydrantenwart']);
+    $otherHydrant = $service->saveHydrant($otherWart, ['number' => 'B-1', 'street' => 'Beispielweg']);
+    $this->actingAs($otherWart)->get(route('hydrantenkontrolle.hydrants'))
+        ->assertOk()->assertSee('B-1')->assertDontSee('M-1');
+    $this->get(route('hydrantenkontrolle.edit', $localHydrant))->assertNotFound();
+
+    auth()->logout();
+    $crossLocation = User::factory()->create(['name' => 'Kommune Musterstadt']);
+    $crossLocation->moduleAccess()->create([
+        'module' => 'hydrantenkontrolle', 'role' => InspectionService::ROLE_CROSS_LOCATION,
+    ]);
+    expect(InspectionService::canManage($crossLocation))->toBeTrue();
+    $this->actingAs($crossLocation)->get(route('hydrantenkontrolle.hydrants'))
+        ->assertOk()->assertSee('M-1')->assertSee('B-1');
+    $this->get(route('hydrantenkontrolle.edit', $otherHydrant))->assertOk();
 });
 
 it('registers navigation and renders the German module pages', function () {
