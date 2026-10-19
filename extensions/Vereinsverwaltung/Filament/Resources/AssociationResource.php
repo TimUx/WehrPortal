@@ -14,6 +14,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema;
 
 class AssociationResource extends Resource
 {
@@ -33,7 +34,7 @@ class AssociationResource extends Resource
 
     public static function canAccess(): bool
     {
-        return (bool) auth()->user()?->is_admin && parent::canAccess();
+        return (bool) auth()->user()?->is_admin && Schema::hasTable('x_locations') && parent::canAccess();
     }
 
     public static function canCreate(): bool
@@ -48,7 +49,9 @@ class AssociationResource extends Resource
 
     public static function canDelete(Model $record): bool
     {
-        return (bool) auth()->user()?->is_admin;
+        return (bool) auth()->user()?->is_admin
+            && ! $record->members()->exists()
+            && ! $record->applications()->exists();
     }
 
     public static function getEloquentQuery(): Builder

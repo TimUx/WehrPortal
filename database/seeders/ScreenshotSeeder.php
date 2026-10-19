@@ -14,6 +14,7 @@ use Extensions\Hydrantenkontrolle\Models\Inspection;
 use Extensions\Hydrantenkontrolle\Services\InspectionService;
 use Extensions\Locations\Models\Location;
 use Extensions\Vereinsverwaltung\Models\MembershipApplication;
+use Extensions\Vereinsverwaltung\Models\Association;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -546,6 +547,15 @@ class ScreenshotSeeder extends Seeder
             return;
         }
 
+        $association = Association::query()->withoutGlobalScopes()->first();
+        if (! $association) {
+            $location = Location::default();
+            $association = Association::query()->withoutGlobalScopes()->firstOrCreate(
+                ['location_id' => $location->id],
+                ['name' => config('vereinsverwaltung.association_name', 'Feuerwehrverein')],
+            );
+        }
+
         $exists = MembershipApplication::query()
             ->where('status', 'pending')
             ->get()
@@ -553,6 +563,7 @@ class ScreenshotSeeder extends Seeder
 
         if (! $exists) {
             MembershipApplication::create([
+                'association_id' => $association->id,
                 'status' => 'pending',
                 'title' => null,
                 'first_name' => 'Mara',
