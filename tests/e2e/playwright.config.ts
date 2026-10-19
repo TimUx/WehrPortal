@@ -29,6 +29,8 @@ export default defineConfig({
         timezoneId: 'Europe/Berlin',
         colorScheme: 'light',
         reducedMotion: 'reduce',
+        // Software rendering without partial raster: anti-aliasing of rounded corners is the same in every run
+        launchOptions: { args: ['--disable-gpu', '--disable-partial-raster', '--disable-skia-runtime-opts', '--force-color-profile=srgb', '--font-render-hinting=none'] },
         trace: 'retain-on-failure',
         screenshot: 'only-on-failure',
     },

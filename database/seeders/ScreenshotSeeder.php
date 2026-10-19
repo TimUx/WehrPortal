@@ -10,9 +10,12 @@ use Extensions\Anwesenheit\Models\AttendanceList;
 use Extensions\Dateien\Models\Space;
 use Extensions\Dateien\Services\FileService;
 use Extensions\Hydrantenkontrolle\Models\Hydrant;
+use Extensions\Hydrantenkontrolle\Models\Inspection;
+use Extensions\Hydrantenkontrolle\Services\InspectionService;
 use Extensions\Locations\Models\Location;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Modules\Atemschutz\src\Models\Training;
 use Modules\Atemschutz\src\Models\Wearer;
 use Modules\Ausruestung\src\Models\Category;
@@ -74,9 +77,7 @@ class ScreenshotSeeder extends Seeder
 
     private User $bernd;
 
-    private User $klara;
-
-    /** @var \Illuminate\Support\Collection<string, Vehicle> by short name */
+    /** @var Collection<string, Vehicle> by short name */
     private $vehicles;
 
     public function run(): void
@@ -92,7 +93,6 @@ class ScreenshotSeeder extends Seeder
         $this->admin = User::where('email', 'admin@example.com')->firstOrFail();
         $this->hanna = User::where('email', 'hanna.hydrant@example.com')->firstOrFail();
         $this->bernd = User::where('email', 'bernd.blaulicht@example.com')->firstOrFail();
-        $this->klara = User::where('email', 'klara.loesch@example.com')->firstOrFail();
         $this->vehicles = Vehicle::orderBy('sort_order')->get()->keyBy('short_name');
 
         // The Übungsdienstplaner is only meant for the Vorstand
@@ -173,6 +173,18 @@ class ScreenshotSeeder extends Seeder
         foreach ($hydrants as $hydrant) {
             Hydrant::firstOrCreate(['number' => $hydrant['number']], $hydrant);
         }
+
+        // A running Jahreskontrolle: one hydrant in order, one with a defect, one still open
+        $service = app(InspectionService::class);
+        $year = $service->openYear($this->admin, now('Europe/Berlin')->year);
+        $results = ['H-001' => ['is_ok' => true, 'defects' => []], 'H-002' => ['is_ok' => false, 'defects' => ['cover_stuck']]];
+        /** @var Inspection $inspection */
+        foreach ($year->inspections()->get() as $inspection) {
+            $result = $results[$inspection->snapshot['number'] ?? ''] ?? null;
+            if ($result && $inspection->checked_at === null) {
+                $service->saveInspection($this->admin, $inspection, [...$result, 'checked_at' => now()->subDays(2)->toDateString()], $inspection->version);
+            }
+        }
     }
 
     private function anwesenheit(): void
@@ -194,7 +206,7 @@ class ScreenshotSeeder extends Seeder
     private function mitteilungen(): void
     {
         Announcement::updateOrCreate(['title' => 'Neue Einsatzjacken eingetroffen'], [
-            'body' => "Die neuen Einsatzjacken sind da. Bitte bis Monatsende in der Kleiderkammer abholen und die alte Jacke mitbringen.",
+            'body' => 'Die neuen Einsatzjacken sind da. Bitte bis Monatsende in der Kleiderkammer abholen und die alte Jacke mitbringen.',
             'important' => true, 'needs_ack' => true, 'visible_from' => now()->subDays(2), 'created_by' => $this->admin->id,
         ]);
         Announcement::updateOrCreate(['title' => 'Grillfest der Jugendfeuerwehr'], [
@@ -228,7 +240,7 @@ class ScreenshotSeeder extends Seeder
             'reporter_id' => $this->hanna->id, 'assigned_to' => $this->bernd->id,
         ]);
         Defect::firstOrCreate(['title' => 'Blaulicht vorne links defekt'], [
-            'vehicle_id' => $this->vehicle('MTW-N')->id, 'description' => 'Rundumkennleuchte flackert nur noch.', 'urgency' => 'normal', 'status' => 'open',
+            'vehicle_id' => $this->vehicle('MTW-N')->id, 'description' => 'Rundumkennleuchte flackert nur noch.', 'urgency' => 'medium', 'status' => 'open',
             'reporter_id' => $this->admin->id,
         ]);
     }
@@ -303,7 +315,7 @@ class ScreenshotSeeder extends Seeder
             $service = Service::updateOrCreate(['date' => $this->at($day, '00:00')->setTimezone('Europe/Berlin')->toDateString()], [
                 'starts_at' => '19:00', 'ends_at' => '21:00', 'location' => 'Gerätehaus', 'topic' => $topic,
             ]);
-            $service->users()->sync($users);
+            $service->responsible()->sync($users);
         }
     }
 
@@ -330,6 +342,7 @@ class ScreenshotSeeder extends Seeder
             $centers[$code] = CostCenter::firstOrCreate(['name' => $name], ['code' => $code, 'is_active' => true, 'sort_order' => $i]);
             Budget::firstOrCreate(['cost_center_id' => $centers[$code]->id, 'year' => $year], ['amount_cents' => $amount]);
         }
+        /** @var list<array{int, string, string, string, string, ?string, int}> $entries */
         $entries = [
             [1, 'expense', 'paid', 'EA', 'Bindemittel 10 Sack', 'Feuerwehrbedarf Muster', 189_90],
             [2, 'expense', 'submitted', 'JF', 'Zeltlager Verpflegung', 'Großmarkt Musterstadt', 342_50],
@@ -368,7 +381,9 @@ class ScreenshotSeeder extends Seeder
     private function fuehrerscheine(): void
     {
         foreach ([[$this->hanna, ['B', 'BE', 'C1', 'FW75']], [$this->bernd, ['B', 'C', 'CE']], [$this->admin, ['B', 'FW475']]] as [$user, $classes]) {
-            License::firstOrCreate(['user_id' => $user->id], [
+            // C classes run out after five years (License::LIMITED); the others are unlimited
+            $classes = array_map(fn (string $class) => ['class' => $class, 'valid_until' => in_array($class, License::LIMITED, true) ? now()->addYears(3)->toDateString() : null], $classes);
+            License::updateOrCreate(['user_id' => $user->id], [
                 'classes' => $classes, 'status' => 'validated', 'submitted_at' => now()->subMonths(2), 'validated_at' => now()->subMonths(2),
                 'validated_by' => $this->admin->id, 'next_check_on' => now()->addMonths(4)->toDateString(),
                 'document_valid_until' => now()->addYears(5)->toDateString(),
@@ -518,7 +533,8 @@ class ScreenshotSeeder extends Seeder
         if (! config('locations.enabled')) {
             return;
         }
-        Location::firstOrCreate(['slug' => 'musterstadt-mitte'], ['name' => 'Musterstadt-Mitte', 'short_name' => 'Mitte', 'is_default' => true, 'is_active' => true, 'sort_order' => 1]);
+        // The migration creates the default Standort; it becomes Musterstadt-Mitte, plus a second one
+        Location::default()->update(['name' => 'Musterstadt-Mitte', 'short_name' => 'Mitte']);
         Location::firstOrCreate(['slug' => 'musterstadt-nord'], ['name' => 'Musterstadt-Nord', 'short_name' => 'Nord', 'is_default' => false, 'is_active' => true, 'sort_order' => 2]);
     }
 

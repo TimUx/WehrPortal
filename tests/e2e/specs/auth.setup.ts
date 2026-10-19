@@ -1,4 +1,4 @@
-import { expect, test as setup } from '@playwright/test';
+import { type Browser, expect, test as setup } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -34,7 +34,27 @@ function tokenAfter(offset: number): string | null {
     }
 }
 
-setup('log in with a magic link', async ({ page }) => {
+/** True if the session of an earlier run is still logged in (same database, cookie not expired) */
+async function sessionStillValid(browser: Browser, baseURL: string): Promise<boolean> {
+    if (!fs.existsSync(authFile)) {
+        return false;
+    }
+    const context = await browser.newContext({ baseURL, storageState: authFile });
+    try {
+        const response = await context.request.get('/personalakte', { maxRedirects: 0 });
+
+        return response.status() === 200;
+    } finally {
+        await context.close();
+    }
+}
+
+setup('log in with a magic link', async ({ page, browser, baseURL }) => {
+    // Reruns against the same database keep their session: the login rate limit (5 links per hour)
+    // never decays while the server clock is frozen, and every login adds an entry to the admin dashboard
+    if (await sessionStillValid(browser, baseURL!)) {
+        return;
+    }
     const offset = logSize();
 
     await page.goto('/anmelden');

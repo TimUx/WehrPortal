@@ -1,5 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import path from 'node:path';
+import { frozenNow } from '../fixtures/env';
 import { pages } from '../fixtures/pages';
 
 const outputDir = path.resolve(__dirname, '..', process.env.E2E_SCREENSHOT_DIR ?? 'screenshots');
@@ -19,6 +20,19 @@ async function settle(page: Page): Promise<void> {
     // Two animation frames: layout changes from the last script run are painted
     await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 }
+
+const now = frozenNow();
+
+test.beforeEach(async ({ page, baseURL }) => {
+    // The browser shows the same day as the server (FullCalendar, relative dates in scripts)
+    if (now) {
+        await page.clock.setFixedTime(now);
+    }
+    // Only the app itself: external requests (map tiles, avatars of other services) would make the
+    // pictures depend on the network
+    const origin = new URL(baseURL!).origin;
+    await page.route('**/*', (route) => (new URL(route.request().url()).origin === origin ? route.continue() : route.abort()));
+});
 
 for (const target of pages) {
     test(`${target.module}: ${target.name}`, async ({ page }) => {
@@ -40,7 +54,7 @@ for (const target of pages) {
             animations: 'disabled',
             caret: 'hide',
             // The floating Offline status panel (extensions/Offline) would cover page content
-            style: '.offline-pwa { visibility: hidden !important; }',
+            style: '.offline-pwa { visibility: hidden !important; } *, *::before, *::after { transition: none !important; }',
         });
     });
 }
