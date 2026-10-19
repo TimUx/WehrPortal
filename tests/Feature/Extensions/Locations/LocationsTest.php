@@ -1,11 +1,16 @@
 <?php
 
 use App\Models\User;
+use App\Models\Group;
+use Extensions\Locations\Filament\Resources\LocationResource\Pages\EditLocation;
+use Extensions\Locations\Filament\Resources\LocationResource\RelationManagers\GroupsRelationManager;
+use Extensions\Locations\Filament\Resources\LocationResource\RelationManagers\MembersRelationManager;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\LocationAccess;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Livewire\Livewire;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 
 function station(string $name): Location
@@ -106,6 +111,46 @@ it('lets only Standort-Admins manage their own Standort', function () {
         ->and($access->isLocationAdmin($admin))->toBeTrue()
         ->and($access->canManage(User::factory()->create(['is_admin' => true]), $north))->toBeTrue()
         ->and($access->isLocationAdmin(memberAt($north)))->toBeFalse();
+});
+
+it('lets Standort-Admins manage Abteilungen for their Standort', function () {
+    $south = station('Wache Süd');
+    $north = station('Wache Nord');
+    $admin = memberAt($south, 'admin');
+    $northAdmin = memberAt($north, 'admin');
+
+    Livewire::actingAs($admin)
+        ->test(GroupsRelationManager::class, ['ownerRecord' => $south, 'pageClass' => EditLocation::class])
+        ->callTableAction('create', data: ['name' => 'Einsatzabteilung', 'sort_order' => 1])
+        ->assertHasNoTableActionErrors();
+
+    $group = Group::where('name', 'Einsatzabteilung')->sole();
+    expect($group->ext_location_id)->toBe($south->id);
+
+    Livewire::actingAs($northAdmin)
+        ->test(GroupsRelationManager::class, ['ownerRecord' => $north, 'pageClass' => EditLocation::class])
+        ->assertCanSeeTableRecords([])
+        ->assertDontSee('Einsatzabteilung');
+});
+
+it('lets Standort-Admins assign members to multiple local Abteilungen without changing other Standorte', function () {
+    $south = station('Wache Süd');
+    $north = station('Wache Nord');
+    $admin = memberAt($south, 'admin');
+    $member = memberAt($south);
+    $first = $south->groups()->create(['name' => 'Einsatzabteilung', 'sort_order' => 1]);
+    $second = $south->groups()->create(['name' => 'Jugendfeuerwehr', 'sort_order' => 2]);
+    $outside = $north->groups()->create(['name' => 'Einsatzabteilung', 'sort_order' => 1]);
+    $member->groups()->attach([$second->id, $outside->id]);
+
+    Livewire::actingAs($admin)
+        ->test(MembersRelationManager::class, ['ownerRecord' => $south, 'pageClass' => EditLocation::class])
+        ->callTableAction('assignGroups', $member, data: ['groups' => [$first->id, $second->id]])
+        ->assertHasNoTableActionErrors();
+
+    auth()->logout();
+    expect($member->fresh()->groups()->pluck('groups.id')->all())
+        ->toEqualCanonicalizing([$first->id, $second->id, $outside->id]);
 });
 
 it('blocks writing into a foreign Standort', function () {
