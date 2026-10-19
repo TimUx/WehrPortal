@@ -15,7 +15,7 @@ class Member extends Model
         'marital_status', 'phone', 'mobile', 'email', 'street', 'postal_code', 'city', 'joined_at',
         'left_at', 'annual_fee_cents', 'mandate_status', 'account_holder', 'bank_name', 'bic', 'iban',
         'mandate_reference', 'mandate_signed_at', 'youth_member', 'photo_consent', 'youth_photo_consent',
-        'photo_consent_version', 'photo_consent_recorded_at',
+        'photo_consent_version', 'photo_consent_recorded_at', 'ext_location_id',
     ];
 
     protected function casts(): array
@@ -41,6 +41,7 @@ class Member extends Model
             'left_at' => 'date',
             'mandate_signed_at' => 'date',
             'annual_fee_cents' => 'integer',
+            'ext_location_id' => 'integer',
             'youth_member' => 'boolean',
             'photo_consent' => 'boolean',
             'youth_photo_consent' => 'boolean',
@@ -55,6 +56,10 @@ class Member extends Model
 
     public function displayName(): string
     {
+        if ($this->user) {
+            return $this->user->name;
+        }
+
         return trim(($this->title ? $this->title.' ' : '').$this->first_name.' '.$this->last_name);
     }
 }

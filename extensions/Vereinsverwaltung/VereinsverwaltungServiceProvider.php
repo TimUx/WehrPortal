@@ -4,6 +4,7 @@ namespace Extensions\Vereinsverwaltung;
 
 use App\Models\User;
 use App\Services\ModuleRegistry;
+use App\Services\AssociationRegistry;
 use App\Support\ModuleNav;
 use Extensions\Vereinsverwaltung\Http\Controllers\MembershipApplicationController;
 use Extensions\Vereinsverwaltung\Livewire\Board;
@@ -54,5 +55,9 @@ class VereinsverwaltungServiceProvider extends ServiceProvider
         app(ModuleRegistry::class)->navigation('verein', fn (User $user) => [
             'tabs' => [ModuleNav::tab('Mitglieder & Anträge', 'verein.index')],
         ]);
+        app(AssociationRegistry::class)->register(
+            fn (User $user) => app(MembershipService::class)->isLinkedMember($user),
+            fn (User $user, bool $isMember) => app(MembershipService::class)->setPersonnelMembership($user, $isMember),
+        );
     }
 }

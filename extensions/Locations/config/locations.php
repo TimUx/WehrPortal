@@ -10,6 +10,7 @@ return [
         \App\Models\User::class,
         \App\Models\Group::class,
         \App\Models\MemberFunction::class,
+        \Extensions\Vereinsverwaltung\Models\Member::class,
         \Modules\Fahrzeugbuchung\src\Models\Vehicle::class,
         \Modules\Ausruestung\src\Models\Equipment::class,
         \Modules\Ausruestung\src\Models\Category::class,

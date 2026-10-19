@@ -4,8 +4,10 @@ namespace Modules\Personalverwaltung\src\Livewire;
 
 use App\Livewire\Profile\Hours;
 use App\Models\User;
+use App\Services\AssociationRegistry;
 use App\Services\HoursRegistry;
 use App\Services\Invitation;
+use App\Services\ModuleRegistry;
 use App\Support\QrCode;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
@@ -59,6 +61,17 @@ class MemberFile extends Component
     public function savePersonalData(PersonnelService $personnel): void
     {
         $this->run(fn () => $personnel->savePersonalData(auth()->user(), $this->member, $this->data), 'Persönliche Daten gespeichert.');
+    }
+
+    public function setAssociationMembership(bool $isMember, AssociationRegistry $associations): void
+    {
+        abort_unless(PersonnelService::mayView(auth()->user(), $this->member), 403);
+        abort_unless($associations->supportsMembership(), 404);
+
+        $this->run(
+            fn () => $associations->setMembership($this->member, $isMember),
+            $isMember ? 'Als Vereinsmitglied eingetragen.' : 'Vereinsmitgliedschaft beendet.',
+        );
     }
 
     public function saveIdCard(PersonnelService $personnel): void
@@ -180,6 +193,7 @@ class MemberFile extends Component
     public function render(PersonnelService $personnel)
     {
         $member = $this->member->load(['groups', 'functions.parent']);
+        $associations = app(AssociationRegistry::class);
         $year = (int) now('Europe/Berlin')->year;
 
         return view('personalverwaltung::livewire.member-file', [
@@ -197,6 +211,9 @@ class MemberFile extends Component
             'inviteQr' => $this->invite ? QrCode::dataUri($this->invite['url'], 220) : null,
             'guardians' => $member->guardians()->get(),
             'fields' => PersonnelService::activeFields(),
+            'associationMembershipSupported' => $associations->supportsMembership()
+                && app(ModuleRegistry::class)->isActive('verein'),
+            'isAssociationMember' => $associations->isMember($member),
         ]);
     }
 }

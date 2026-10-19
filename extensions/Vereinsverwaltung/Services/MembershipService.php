@@ -2,7 +2,9 @@
 
 namespace Extensions\Vereinsverwaltung\Services;
 
+use App\Enums\MemberStatus;
 use App\Models\User;
+use App\Services\ModuleRegistry;
 use Extensions\Vereinsverwaltung\Models\Member;
 use Extensions\Vereinsverwaltung\Models\MembershipApplication;
 use Illuminate\Support\Facades\DB;
@@ -13,6 +15,73 @@ use Illuminate\Validation\ValidationException;
 
 class MembershipService
 {
+    public function isLinkedMember(User $user): bool
+    {
+        return Member::query()
+            ->where('user_id', $user->id)
+            ->where('status', 'member')
+            ->exists();
+    }
+
+    public function setPersonnelMembership(User $user, bool $isMember): void
+    {
+        abort_unless(app(ModuleRegistry::class)->isActive('verein'), 404);
+
+        if ($isMember) {
+            abort_unless($user->status === MemberStatus::Active, 422);
+        }
+
+        DB::transaction(function () use ($user, $isMember) {
+            $member = Member::query()->where('user_id', $user->id)->lockForUpdate()->first();
+
+            if (! $isMember) {
+                if ($member && $member->status === 'member') {
+                    $member->forceFill(['status' => 'left', 'left_at' => now()->toDateString()])->save();
+                }
+
+                return;
+            }
+
+            $locationId = $user->getAttribute('ext_location_id');
+            $contactFields = [
+                'title' => null,
+                'first_name' => null,
+                'last_name' => null,
+                'birth_date' => null,
+                'marital_status' => null,
+                'phone' => null,
+                'mobile' => null,
+                'email' => null,
+                'street' => null,
+                'postal_code' => null,
+                'city' => null,
+            ];
+
+            if (! $member) {
+                Member::create([
+                    ...$contactFields,
+                    'user_id' => $user->id,
+                    'membership_type' => 'active',
+                    'status' => 'member',
+                    'joined_at' => now()->toDateString(),
+                    'annual_fee_cents' => (int) config('vereinsverwaltung.annual_fee_cents', 1500),
+                    'mandate_status' => 'awaiting_signature',
+                    'ext_location_id' => $locationId,
+                ]);
+
+                return;
+            }
+
+            $member->forceFill([
+                ...$contactFields,
+                'membership_type' => 'active',
+                'status' => 'member',
+                'left_at' => null,
+                'ext_location_id' => $locationId,
+            ])->save();
+        });
+    }
+
     public static function canManage(User $user): bool
     {
         return $user->is_active && $user->canUseModule('verein')
@@ -116,6 +185,23 @@ class MembershipService
                 $data[$field] = null;
             }
         }
+        $linkedUser = filled($data['user_id'] ?? null) ? User::query()->findOrFail($data['user_id']) : null;
+        if ($linkedUser) {
+            $data = array_merge($data, [
+                'title' => null,
+                'first_name' => null,
+                'last_name' => null,
+                'birth_date' => null,
+                'marital_status' => null,
+                'phone' => null,
+                'mobile' => null,
+                'email' => null,
+                'street' => null,
+                'postal_code' => null,
+                'city' => null,
+                'ext_location_id' => $linkedUser->getAttribute('ext_location_id'),
+            ]);
+        }
         $data['iban'] = filled($data['iban'] ?? null) ? strtoupper(preg_replace('/\s+/', '', $data['iban'])) : null;
         $data['bic'] = filled($data['bic'] ?? null) ? strtoupper($data['bic']) : null;
         $data['youth_member'] = filter_var($data['youth_member'] ?? false, FILTER_VALIDATE_BOOLEAN);
@@ -139,9 +225,10 @@ class MembershipService
             'status' => ['required', Rule::in(['member', 'left'])],
             'youth_member' => ['required', 'boolean'],
             'user_id' => ['nullable', 'integer', 'exists:users,id', Rule::unique('x_vv_members', 'user_id')->ignore($member->id)],
+            'ext_location_id' => ['nullable', 'integer'],
             'title' => ['nullable', 'string', 'max:30'],
-            'first_name' => ['required', 'string', 'max:100'],
-            'last_name' => ['required', 'string', 'max:100'],
+            'first_name' => [$linkedUser ? 'nullable' : 'required', 'string', 'max:100'],
+            'last_name' => [$linkedUser ? 'nullable' : 'required', 'string', 'max:100'],
             'birth_date' => ['nullable', 'date'],
             'marital_status' => ['nullable', 'string', 'max:100'],
             'phone' => ['nullable', 'string', 'max:50'],

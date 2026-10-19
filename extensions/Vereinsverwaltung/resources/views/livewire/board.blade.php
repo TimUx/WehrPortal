@@ -130,19 +130,25 @@
 
                     <fieldset class="space-y-4">
                         <legend class="font-semibold">Persönliche Angaben</legend>
-                        <div class="grid gap-4 sm:grid-cols-2">
-                            <label class="block">Titel <input wire:model="form.title" maxlength="30" class="mt-1 block w-full rounded border-gray-300"></label>
-                            <label class="block">Vorname * <input wire:model="form.first_name" required maxlength="100" class="mt-1 block w-full rounded border-gray-300"></label>
-                            <label class="block">Nachname * <input wire:model="form.last_name" required maxlength="100" class="mt-1 block w-full rounded border-gray-300"></label>
-                            <label class="block">Geburtsdatum <input type="date" wire:model="form.birth_date" class="mt-1 block w-full rounded border-gray-300"></label>
-                            <label class="block">Familienstand <input wire:model="form.marital_status" maxlength="100" class="mt-1 block w-full rounded border-gray-300"></label>
-                            <label class="block">Telefon <input wire:model="form.phone" maxlength="50" class="mt-1 block w-full rounded border-gray-300"></label>
-                            <label class="block">Mobiltelefon <input wire:model="form.mobile" maxlength="50" class="mt-1 block w-full rounded border-gray-300"></label>
-                            <label class="block">E-Mail <input type="email" wire:model="form.email" maxlength="254" class="mt-1 block w-full rounded border-gray-300"></label>
-                            <label class="block sm:col-span-2">Straße und Hausnummer <input wire:model="form.street" maxlength="255" class="mt-1 block w-full rounded border-gray-300"></label>
-                            <label class="block">Postleitzahl <input wire:model="form.postal_code" maxlength="20" class="mt-1 block w-full rounded border-gray-300"></label>
-                            <label class="block">Wohnort <input wire:model="form.city" maxlength="100" class="mt-1 block w-full rounded border-gray-300"></label>
-                        </div>
+                        @if (filled($form['user_id'] ?? null))
+                            <p class="rounded bg-blue-50 p-3 text-sm text-blue-900">
+                                Dieses Mitglied ist mit einem Kameradenkonto verknüpft. Name und Kontaktdaten werden aus der Personalverwaltung angezeigt und dort gepflegt; hier werden keine persönlichen Kontaktdaten gespeichert.
+                            </p>
+                        @else
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <label class="block">Titel <input wire:model="form.title" maxlength="30" class="mt-1 block w-full rounded border-gray-300"></label>
+                                <label class="block">Vorname * <input wire:model="form.first_name" required maxlength="100" class="mt-1 block w-full rounded border-gray-300"></label>
+                                <label class="block">Nachname * <input wire:model="form.last_name" required maxlength="100" class="mt-1 block w-full rounded border-gray-300"></label>
+                                <label class="block">Geburtsdatum <input type="date" wire:model="form.birth_date" class="mt-1 block w-full rounded border-gray-300"></label>
+                                <label class="block">Familienstand <input wire:model="form.marital_status" maxlength="100" class="mt-1 block w-full rounded border-gray-300"></label>
+                                <label class="block">Telefon <input wire:model="form.phone" maxlength="50" class="mt-1 block w-full rounded border-gray-300"></label>
+                                <label class="block">Mobiltelefon <input wire:model="form.mobile" maxlength="50" class="mt-1 block w-full rounded border-gray-300"></label>
+                                <label class="block">E-Mail <input type="email" wire:model="form.email" maxlength="254" class="mt-1 block w-full rounded border-gray-300"></label>
+                                <label class="block sm:col-span-2">Straße und Hausnummer <input wire:model="form.street" maxlength="255" class="mt-1 block w-full rounded border-gray-300"></label>
+                                <label class="block">Postleitzahl <input wire:model="form.postal_code" maxlength="20" class="mt-1 block w-full rounded border-gray-300"></label>
+                                <label class="block">Wohnort <input wire:model="form.city" maxlength="100" class="mt-1 block w-full rounded border-gray-300"></label>
+                            </div>
+                        @endif
                     </fieldset>
 
                     <fieldset class="space-y-4">

@@ -256,6 +256,31 @@ it('removes mandate data and fees when the board marks a member as youth', funct
         ->and($member->mandate_reference)->toBeNull();
 });
 
+it('links personnel records to the Verein without copying contact data', function () {
+    $person = User::factory()->create(['phone' => '0123456789', 'email' => 'kamerad@example.com']);
+    $locationId = $person->getAttribute('ext_location_id');
+
+    $service = app(\Extensions\Vereinsverwaltung\Services\MembershipService::class);
+    $service->setPersonnelMembership($person, true);
+
+    $member = Member::query()->where('user_id', $person->id)->firstOrFail();
+    $stored = DB::table('x_vv_members')->where('id', $member->id)->first();
+    expect($member->displayName())->toBe($person->name)
+        ->and($member->membership_type)->toBe('active')
+        ->and($member->status)->toBe('member')
+        ->and($member->ext_location_id)->toBe($locationId)
+        ->and($member->first_name)->toBeNull()
+        ->and($member->phone)->toBeNull()
+        ->and($member->email)->toBeNull()
+        ->and($stored->first_name)->toBeNull()
+        ->and($stored->phone)->toBeNull()
+        ->and($stored->email)->toBeNull();
+
+    $service->setPersonnelMembership($person, false);
+    expect($member->refresh()->status)->toBe('left')
+        ->and($member->left_at)->not->toBeNull();
+});
+
 it('redacts rejected application data and permits active and passive board membership separately', function () {
     $board = User::factory()->create();
     $board->moduleAccess()->create(['module' => 'verein', 'role' => 'vereinsvorstand']);

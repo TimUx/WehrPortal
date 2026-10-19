@@ -32,6 +32,19 @@
         <p class="text-xs text-gray-500">Dienstgrad, Abteilungen, Funktionen und Status ändern Admins unter Admin → Kameraden, Beförderungen und Funktionen auch Personalverwalter über die Sammelverarbeitung in der Liste; jede Änderung landet hier von selbst in der Diensthistorie.</p>
     </section>
 
+    @if($associationMembershipSupported && $canEdit && $member->is_active)
+        <section class="{{ $card }}">
+            <h2 class="text-sm font-semibold text-gray-900">Vereinsmitgliedschaft</h2>
+            <label class="flex items-start gap-3 text-sm">
+                <input type="checkbox" @checked($isAssociationMember) wire:change="setAssociationMembership($event.target.checked)" wire:loading.attr="disabled" class="mt-1 rounded border-gray-300">
+                <span>
+                    <span class="font-medium text-gray-900">Vereinsmitglied</span>
+                    <span class="block text-xs text-gray-500">Die Kontaktdaten werden aus der Personalverwaltung übernommen und nicht erneut im Verein gespeichert. Der zugehörige Verein wird dem Standort dieses Kameraden zugeordnet.</span>
+                </span>
+            </label>
+        </section>
+    @endif
+
     @if($inviteQr)
         <section class="space-y-2 rounded-2xl border border-fw-navy bg-white p-4 text-center shadow-sm">
             <img src="{{ $inviteQr }}" alt="QR-Code der Einladung" class="mx-auto h-48 w-48">

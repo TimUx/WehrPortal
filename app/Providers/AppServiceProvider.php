@@ -6,6 +6,7 @@ use App\Http\Middleware\EnsureModuleAccess;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Models\User;
 use App\Services\ActivityRecorder;
+use App\Services\AssociationRegistry;
 use App\Services\AnnualReportRegistry;
 use App\Services\BadgeRegistry;
 use App\Services\CredentialRegistry;
@@ -41,6 +42,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(DashboardRegistry::class);
         $this->app->singleton(AnnualReportRegistry::class);
         $this->app->singleton(ActivityRecorder::class);
+        $this->app->singleton(AssociationRegistry::class);
         $this->app->singleton(PersonnelFileRegistry::class);
         $this->app->singleton(VehicleBlockRegistry::class);
         $this->app->singleton(PushService::class);
