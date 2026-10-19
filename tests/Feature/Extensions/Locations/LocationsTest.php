@@ -145,11 +145,13 @@ it('lets Standort-Admins assign members to multiple local Abteilungen without ch
     Livewire::actingAs($admin)
         ->test(MembersRelationManager::class, ['ownerRecord' => $south, 'pageClass' => EditLocation::class])
         ->callTableAction('assignGroups', $member, data: ['groups' => [$first->id, $second->id]])
+        ->assertHasNoTableActionErrors()
+        ->callTableAction('assignGroups', $member, data: ['groups' => [$first->id]])
         ->assertHasNoTableActionErrors();
 
     auth()->logout();
     expect($member->fresh()->groups()->pluck('groups.id')->all())
-        ->toEqualCanonicalizing([$first->id, $second->id, $outside->id]);
+        ->toEqualCanonicalizing([$first->id, $outside->id]);
 });
 
 it('blocks writing into a foreign Standort', function () {
