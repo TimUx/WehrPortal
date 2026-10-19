@@ -14,6 +14,7 @@ use Modules\Kleiderkammer\src\Filament\Pages\KleiderkammerDashboard;
 use Modules\Kleiderkammer\src\Filament\Resources\ItemResource;
 use Modules\Kleiderkammer\src\Filament\Resources\MemberResource;
 use Modules\Kleiderkammer\src\Livewire\EquipmentMessageForm;
+use Modules\Kleiderkammer\src\Livewire\WashingRequestForm;
 use Modules\Kleiderkammer\src\Models\IssuedItem;
 use Modules\Kleiderkammer\src\Models\Item;
 use Modules\Kleiderkammer\src\Models\MemberSize;
@@ -58,6 +59,7 @@ class KleiderkammerServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom($base.'/database/migrations');
 
         Livewire::component('kleiderkammer.equipment-message-form', EquipmentMessageForm::class);
+        Livewire::component('kleiderkammer.washing-request-form', WashingRequestForm::class);
 
         app(ModuleRegistry::class)->register(
             'kleiderkammer',

@@ -55,7 +55,7 @@ test('a Kamerad writes and signs an entry; managers and the injured Kamerad are 
 
     expect($entry)->year->toBe(now('Europe/Berlin')->year)->number->toBe(1)
         ->injured_name->toBe('Hanna Hydrant')->first_aider_name->toBe('Bernd Blaulicht')->recorded_by_name->toBe('Bernd Blaulicht')
-        ->retain_until->toDateString()->toBe(now('Europe/Berlin')->addYears(5)->endOfYear()->toDateString())
+        ->retain_until->toDateString()->toBe(now('Europe/Berlin')->addYears(10)->endOfYear()->toDateString())
         ->and($entry->signatures()->pluck('role')->sort()->values()->all())->toBe(['injured', 'recorder'])
         ->and($this->vb->verify($entry))->toBeTrue();
 
@@ -221,4 +221,18 @@ test('the pages open, and not while the module is off', function () {
     Module::where('key', 'verbandbuch')->update(['is_active' => false]);
     Cache::forget('modules_active_keys');
     $this->actingAs($this->safety)->get(route('verbandbuch.index'))->assertNotFound();
+});
+
+test('the retention can be extended but never shortened, also not in the database', function () {
+    $entry = injuryEntry($this->helper);
+    $until = $entry->fresh()->retain_until;
+
+    DB::table('vb_entries')->where('id', $entry->id)->update(['retain_until' => $until->copy()->addYear()->toDateString()]);
+    expect($entry->fresh()->retain_until->toDateString())->toBe($until->copy()->addYear()->toDateString())
+        ->and(fn () => DB::table('vb_entries')->where('id', $entry->id)->update(['retain_until' => '2020-12-31']))->toThrow(QueryException::class)
+        ->and(fn () => DB::table('vb_entries')->where('id', $entry->id)->update(['location' => 'anders']))->toThrow(QueryException::class);
+});
+
+test('someone without a profile in the app, e.g. a child of the Jugendfeuerwehr, is entered by name', function () {
+    $this->actingAs($this->helper)->get(route('verbandbuch.create'))->assertOk()->assertSee('Person ohne Profil – Namen eintragen');
 });

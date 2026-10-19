@@ -7,6 +7,8 @@
             Dir ist zurzeit keine Ausrüstung ausgegeben.
         </div>
     @else
+        <livewire:kleiderkammer.washing-request-form />
+
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100">
             @foreach($items as $issued)
                 @php($type = $issued->item?->itemType ?? $issued->itemType)
@@ -28,6 +30,7 @@
                         </span>
                         <span class="text-right text-sm text-gray-500 whitespace-nowrap">
                             seit {{ $issued->issued_at->setTimezone('Europe/Berlin')->format('d.m.Y') }}
+                            @if($issued->messages->contains(fn ($m) => $m->isWashing() && ! $m->isHandled()))<span class="block text-xs text-amber-700">Wäsche angefordert</span>@endif
                             <span class="block text-xs text-fw-red">Mängel melden</span>
                         </span>
                     </button>

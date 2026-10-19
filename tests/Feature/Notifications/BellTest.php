@@ -106,3 +106,21 @@ test('mail to a bare address (new e-mail) stays mail only; entries go after 180 
     $this->artisan('model:prune', ['--model' => [UserNotification::class]])->assertSuccessful();
     expect(UserNotification::count())->toBe(0);
 });
+
+test('marking all read in the bell or the list redraws the other one', function () {
+    interest();
+
+    Livewire::actingAs($this->leader)->test(Bell::class)->call('markAllRead')->assertDispatched('notifications-read');
+    expect($this->leader->unreadNotifications()->count())->toBe(0);
+
+    // The other component listens and redraws without the dot
+    Livewire::actingAs($this->leader)->test(NotificationList::class)->dispatch('notifications-read')
+        ->assertDontSee('aria-label="ungelesen"', false)->assertDontSee('Alle als gelesen markieren');
+});
+
+test('an admin looking as the Kamerad sees why the entries stay unread instead of a button that does nothing', function () {
+    interest();
+
+    session([Impersonation::SESSION_KEY => User::factory()->create(['is_admin' => true])->id]);
+    Livewire::actingAs($this->leader)->test(Bell::class)->assertSee('Als Kamerad angesehen – bleibt ungelesen')->assertDontSee('Alle als gelesen markieren');
+});

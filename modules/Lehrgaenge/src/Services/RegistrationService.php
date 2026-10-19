@@ -3,6 +3,7 @@
 namespace Modules\Lehrgaenge\src\Services;
 
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Carbon;
@@ -20,15 +21,16 @@ use Modules\Lehrgaenge\src\Notifications\RegisteredByManagerNotification;
 use Modules\Lehrgaenge\src\Notifications\RegistrationCancelledNotification;
 use Modules\Lehrgaenge\src\Notifications\RegistrationRejectedNotification;
 use Modules\Lehrgaenge\src\Notifications\RequestReceivedNotification;
+use Modules\Lehrgaenge\src\Notifications\WaitlistedNotification;
 use Throwable;
 
 /**
  * The Lehrgang process, and the only place that changes it:
  * 1. the Kamerad reports Interesse (the Ausbildungsleiter are told),
- * 2. the Ausbildungsleiter registers the Kamerad by hand in fox112 and, once confirmed, enters the
- *    days with time and place (the Kamerad is told),
+ * 2. the Ausbildungsleiter registers the Kamerad by hand in fox112 (Warteliste, the Kamerad is told)
+ *    and, once confirmed, enters the days with time and place (the Kamerad is told),
  * 3. 14 days before the first day the Kamerad is reminded,
- * 4. the Kamerad can cancel with a reason (the Ausbildungsleiter are told and sign off in fox112),
+ * 4. the Kamerad can cancel with a reason (the Ausbildungsleiter are told, sign off in fox112 and mark it done),
  * 5. after the Lehrgang the Ausbildungsleiter sets it absolviert.
  * Admin and Ausbildungsleiter can also decline a registration with a comment.
  */
@@ -131,6 +133,35 @@ class RegistrationService
         $this->notify(collect([$record->user]), new CourseConfirmedNotification($record->fresh(['course', 'sessions']), $changed));
     }
 
+    /**
+     * The Ausbildungsleiter has registered the Interesse in fox112: the Kamerad is on the Warteliste and
+     * no longer counts as open Interesse. $on = false takes it back (e.g. clicked by mistake).
+     */
+    public function waitlist(Record $record, bool $on = true): void
+    {
+        $this->assertStatus($record, ['requested']);
+        if ($on === ($record->waitlisted_at !== null)) {
+            return;
+        }
+        $record->update(['waitlisted_at' => $on ? now() : null]);
+        if ($on) {
+            $this->notify(collect([$record->user]), new WaitlistedNotification($record->fresh(['course', 'user'])));
+        }
+    }
+
+    /** The Ausbildungsleiter has signed an Absage off in fox112: it no longer shows red on the start page */
+    public function markCancelSeen(Record $record, bool $seen = true): void
+    {
+        $this->assertStatus($record, ['cancelled']);
+        $record->update(['cancel_seen_at' => $seen ? now() : null]);
+    }
+
+    /** @return Builder<Record> Absagen of the last 90 days the Ausbildungsleiter still have to sign off in fox112 */
+    public static function unseenCancellations(): Builder
+    {
+        return Record::where('status', 'cancelled')->whereNull('cancel_seen_at')->where('cancelled_at', '>=', now()->subDays(90));
+    }
+
     /** The Kamerad cancels; the reason is kept and the Ausbildungsleiter are told */
     public function cancel(Record $record, string $reason): void
     {
@@ -175,7 +206,7 @@ class RegistrationService
         $done = Record::where('user_id', $member->id)->where('course_id', $course->id)->where('status', 'completed')->first();
         if ($done) {
             // A Lehrgang with a refresher interval: a later date is the Auffrischung
-            if ($course->repeat_months && $done->completed_on && $date->gt($done->completed_on)) {
+            if ($course->repeat_months && $date && (! $done->completed_on || $date->gt($done->completed_on))) {
                 $done->update(['completed_on' => $date, 'refresh_reminded_on' => null]);
 
                 return $done;
@@ -230,16 +261,53 @@ class RegistrationService
         });
     }
 
-    /** @return array{0: Course, 1: Carbon} the Lehrgang (created by name when unknown) and the date of an absolvierter Lehrgang */
+    /**
+     * Ausbildungsleiter: one Lehrgang absolviert by many Kameraden at once, e.g. when the old Lehrgänge
+     * go in for the first time. The date is optional (null = not known); Kameraden who already have it
+     * are skipped.
+     *
+     * @param  list<int>  $memberIds
+     * @return array{added: list<string>, skipped: list<string>} names
+     */
+    public function recordCompletedMany(User $by, string $courseName, array $memberIds, ?string $completedOn = null, ?string $note = null): array
+    {
+        if (! $by->canManageLehrgaenge()) {
+            throw ValidationException::withMessages(['entry_course' => 'Nachtragen können die Ausbildungsleiter.']);
+        }
+        $this->completedEntry($courseName, $completedOn);
+        $members = User::whereIn('id', array_map('intval', $memberIds))->orderBy('name')->get();
+        if ($members->isEmpty()) {
+            throw ValidationException::withMessages(['entry_members' => 'Bitte mindestens einen Kameraden wählen.']);
+        }
+        $result = ['added' => [], 'skipped' => []];
+        DB::transaction(function () use ($members, $courseName, $completedOn, $note, &$result) {
+            foreach ($members as $member) {
+                try {
+                    $this->recordCompleted($member, $courseName, $completedOn, $note);
+                    $result['added'][] = $member->name;
+                } catch (ValidationException) {
+                    $result['skipped'][] = $member->name;
+                }
+            }
+        });
+
+        return $result;
+    }
+
+    /** @return array{0: Course, 1: ?Carbon} the Lehrgang (created by name when unknown) and the date of an absolvierter Lehrgang (null = not known) */
     private function completedEntry(string $courseName, ?string $completedOn): array
     {
         $name = trim(preg_replace('/\s+/u', ' ', $courseName));
         if ($name === '' || mb_strlen($name) > 150) {
             throw ValidationException::withMessages(['entry_course' => 'Bitte den Lehrgang angeben (höchstens 150 Zeichen).']);
         }
-        $date = filled($completedOn) ? rescue(fn () => Carbon::createFromFormat('!Y-m-d', $completedOn), null, false) : null;
-        if (! $date || $date->gt(self::today()) || $date->year < 1950) {
-            throw ValidationException::withMessages(['entry_date' => 'Bitte das Datum angeben, an dem der Lehrgang absolviert wurde (nicht in der Zukunft).']);
+        // Without a date the Lehrgang counts as absolviert at an unknown time (old Lehrgänge entered afterwards)
+        $date = null;
+        if (filled($completedOn)) {
+            $date = rescue(fn () => Carbon::createFromFormat('!Y-m-d', $completedOn), null, false);
+            if (! $date || $date->gt(self::today()) || $date->year < 1950) {
+                throw ValidationException::withMessages(['entry_date' => 'Das Datum ist ungültig oder liegt in der Zukunft (leer lassen, wenn es nicht bekannt ist).']);
+            }
         }
 
         return [Course::whereRaw('lower(name) = ?', [mb_strtolower($name)])->first() ?? Course::create(['name' => $name]), $date];

@@ -15,7 +15,7 @@
         <p class="text-sm font-semibold text-gray-900">Neues Mitglied aufnehmen</p>
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label class="block text-sm text-gray-700">Name<input type="text" wire:model="member.name" maxlength="150" class="{{ $input }}"></label>
-            <label class="block text-sm text-gray-700">E-Mail<input type="email" wire:model="member.email" maxlength="255" class="{{ $input }}"></label>
+            <label class="block text-sm text-gray-700">E-Mail <span class="text-gray-500">(leer = ohne Login, z. B. Jugendfeuerwehr, Musikzug)</span><input type="email" wire:model="member.email" maxlength="255" class="{{ $input }}"></label>
             <label class="block text-sm text-gray-700">Eintritt<input type="date" wire:model="member.joined_at" class="{{ $input }}"></label>
             <label class="block text-sm text-gray-700">Dienstgrad (optional)<input type="text" wire:model="member.rank" maxlength="100" class="{{ $input }}"></label>
             <label class="block text-sm text-gray-700">Geschlecht (für die Dienstgrade)<select wire:model="member.gender" class="{{ $input }}"><option value="">–</option><option value="male">männlich</option><option value="female">weiblich</option><option value="diverse">divers</option></select></label>

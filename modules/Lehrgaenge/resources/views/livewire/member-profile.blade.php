@@ -16,10 +16,10 @@
         @if($canManage)
             <form wire:submit="addCompleted" class="mt-3 space-y-2 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
                 <p class="text-sm font-semibold text-gray-900">Absolvierten Lehrgang nachtragen</p>
-                <p class="text-xs text-gray-500">Für Lehrgänge aus der Zeit vor der App, aus einem anderen Kreis oder von der Landesfeuerwehrschule. Ein Lehrgang, der nicht in der Liste steht, wird mit seinem Namen angelegt.</p>
+                <p class="text-xs text-gray-500">Für Lehrgänge aus der Zeit vor der App, aus einem anderen Kreis oder von der Landesfeuerwehrschule. Ein Lehrgang, der nicht in der Liste steht, wird mit seinem Namen angelegt. Das Datum ist freiwillig – ohne Datum gibt es keine Erinnerung an eine Auffrischung. Viele Kameraden auf einmal: unter <a href="{{ route('lehrgaenge.members') }}" class="underline">Lehrgänge der Kameraden</a>.</p>
                 <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
                     <input type="text" wire:model="entry.course" list="lq-course-names" maxlength="150" placeholder="Lehrgang" class="sm:col-span-2 w-full rounded-lg border-gray-300 text-sm">
-                    <input type="date" wire:model="entry.completed_on" max="{{ now('Europe/Berlin')->toDateString() }}" class="w-full rounded-lg border-gray-300 text-sm">
+                    <input type="date" wire:model="entry.completed_on" max="{{ now('Europe/Berlin')->toDateString() }}" class="w-full rounded-lg border-gray-300 text-sm" aria-label="absolviert am (optional)" title="Leer lassen, wenn das Datum nicht bekannt ist">
                 </div>
                 <datalist id="lq-course-names">@foreach($courseNames as $name)<option value="{{ $name }}">@endforeach</datalist>
                 <input type="text" wire:model="entry.note" maxlength="500" placeholder="Bemerkung, z. B. Ort oder Nachweis (optional)" class="w-full rounded-lg border-gray-300 text-sm">
@@ -47,7 +47,7 @@
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100 text-sm">
                 @foreach($open as $record)
                     <div class="p-3">
-                        <p><span class="font-medium text-gray-900">{{ $record->course->name }}</span> <span class="text-gray-500">· {{ $record->statusLabel() }}{{ $record->status === 'requested' ? ' am '.$record->created_at->setTimezone('Europe/Berlin')->format('d.m.Y') : '' }}</span></p>
+                        <p><span class="font-medium text-gray-900">{{ $record->course->name }}</span> <span class="text-gray-500">· {{ $record->statusLabel() }}{{ $record->status === 'requested' ? ' seit '.($record->waitlisted_at ?? $record->created_at)->setTimezone('Europe/Berlin')->format('d.m.Y') : '' }}</span></p>
                         @if($record->sessions->isNotEmpty())<ul class="text-xs text-gray-600">@foreach($record->sessions as $session)<li>{{ $session->label() }}</li>@endforeach</ul>@endif
                     </div>
                 @endforeach

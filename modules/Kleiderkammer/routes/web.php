@@ -7,7 +7,7 @@ Route::prefix('kleiderkammer')->name('kleiderkammer.')
     ->group(function () {
         Route::get('/', function () {
             $items = auth()->user()->kleiderkammerItems()
-                ->with(['item.itemType', 'item.size', 'item.group', 'itemType', 'size', 'group'])
+                ->with(['item.itemType', 'item.size', 'item.group', 'itemType', 'size', 'group', 'messages'])
                 ->orderByDesc('issued_at')
                 ->get();
 

@@ -181,7 +181,16 @@ class User extends Authenticatable implements FilamentUser
     public function canAccessPanel(Panel $panel): bool
     {
         // One panel: admins see all of it, module managers (Kleiderwarte …) only their module's area
-        return $this->is_active && ($this->is_admin || ModuleAreas::for($this) !== []);
+        return $this->is_active && $this->hasLogin() && ($this->is_admin || ModuleAreas::for($this) !== []);
+    }
+
+    /**
+     * Members without an e-mail address (e.g. Jugendfeuerwehr children, Musikzug) have no login: they are
+     * listed and handled in the modules like everyone else, but get no login link, Einladung or mail.
+     */
+    public function hasLogin(): bool
+    {
+        return filled($this->email);
     }
 
     /** Erziehungsberechtigte, e.g. of a member of the Jugendfeuerwehr */

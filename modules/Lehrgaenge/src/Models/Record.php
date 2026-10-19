@@ -12,6 +12,7 @@ use Modules\Lehrgaenge\src\Services\RegistrationService;
 /**
  * A Kamerad and one Lehrgang: Interesse gemeldet → bestätigt (the Ausbildungsleiter has entered the
  * days) → absolviert. Until then the Kamerad can cancel; the cancellation is kept with its reason.
+ * An Interesse the Ausbildungsleiter has registered in fox112 stays 'requested' with waitlisted_at (Warteliste).
  */
 class Record extends Model
 {
@@ -28,11 +29,11 @@ class Record extends Model
 
     protected $table = 'lq_records';
 
-    protected $fillable = ['user_id', 'course_id', 'status', 'notes', 'starts_on', 'confirmed_at', 'start_reminded_at', 'completed_on', 'cancelled_at', 'cancel_reason', 'entered_manually', 'refresh_reminded_on'];
+    protected $fillable = ['user_id', 'course_id', 'status', 'notes', 'starts_on', 'confirmed_at', 'start_reminded_at', 'completed_on', 'cancelled_at', 'cancel_reason', 'entered_manually', 'refresh_reminded_on', 'waitlisted_at', 'cancel_seen_at'];
 
     protected function casts(): array
     {
-        return ['starts_on' => 'date', 'completed_on' => 'date', 'confirmed_at' => 'datetime', 'start_reminded_at' => 'datetime', 'cancelled_at' => 'datetime', 'entered_manually' => 'boolean', 'refresh_reminded_on' => 'date'];
+        return ['starts_on' => 'date', 'completed_on' => 'date', 'confirmed_at' => 'datetime', 'start_reminded_at' => 'datetime', 'cancelled_at' => 'datetime', 'entered_manually' => 'boolean', 'refresh_reminded_on' => 'date', 'waitlisted_at' => 'datetime', 'cancel_seen_at' => 'datetime'];
     }
 
     public function user(): BelongsTo
@@ -72,8 +73,14 @@ class Record extends Model
         };
     }
 
+    /** Interesse registered in fox112, waiting for a place */
+    public function isWaitlisted(): bool
+    {
+        return $this->status === 'requested' && $this->waitlisted_at !== null;
+    }
+
     public function statusLabel(): string
     {
-        return self::STATUSES[$this->status] ?? $this->status;
+        return $this->isWaitlisted() ? 'Warteliste' : (self::STATUSES[$this->status] ?? $this->status);
     }
 }

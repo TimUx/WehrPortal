@@ -11,10 +11,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Carbon;
 
 /**
- * @property \Illuminate\Support\Carbon $starts_at
- * @property \Illuminate\Support\Carbon $ends_at
+ * @property Carbon $starts_at
+ * @property Carbon $ends_at
  */
 class Booking extends Model
 {
