@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\ModuleRegistry;
 use App\Support\ModuleNav;
 use Extensions\Hydrantenkontrolle\Livewire\HydrantForm;
+use Extensions\Hydrantenkontrolle\Livewire\HydrantHistory;
 use Extensions\Hydrantenkontrolle\Livewire\HydrantIndex;
 use Extensions\Hydrantenkontrolle\Livewire\YearOverview;
 use Extensions\Hydrantenkontrolle\Models\Hydrant;
@@ -47,7 +48,7 @@ class HydrantenkontrolleServiceProvider extends ServiceProvider
         }
 
         Gate::define('manage-hydrantenkontrolle', fn (User $user) => InspectionService::canManage($user));
-        foreach (['hydrant-index' => HydrantIndex::class, 'hydrant-form' => HydrantForm::class, 'year-overview' => YearOverview::class] as $name => $class) {
+        foreach (['hydrant-index' => HydrantIndex::class, 'hydrant-form' => HydrantForm::class, 'hydrant-history' => HydrantHistory::class, 'year-overview' => YearOverview::class] as $name => $class) {
             Livewire::component('hydrantenkontrolle.'.$name, $class);
         }
 

@@ -12,6 +12,7 @@ use Extensions\Locations\Services\LocationAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
@@ -169,6 +170,19 @@ class InspectionService
 
             return $inspection;
         });
+    }
+
+    public function inspectionHistory(User $by, Hydrant $hydrant): Collection
+    {
+        Gate::forUser($by)->authorize('manage-hydrantenkontrolle');
+        $hydrant = $this->scoped(Hydrant::query(), $by)->findOrFail($hydrant->getKey());
+
+        return $hydrant->inspections()
+            ->whereHas('year', fn (Builder $query) => $this->scoped($query, $by))
+            ->with('year')
+            ->get()
+            ->sortByDesc(fn (Inspection $inspection) => $inspection->year->year)
+            ->values();
     }
 
     private function assertVersion(Model $model, ?int $expected): void

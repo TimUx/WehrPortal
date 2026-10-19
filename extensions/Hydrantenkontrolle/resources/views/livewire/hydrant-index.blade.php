@@ -13,11 +13,14 @@
     </div>
     <div class="divide-y rounded-2xl border bg-white">
         @forelse($hydrants as $hydrant)
-            <a wire:key="hydrant-{{ $hydrant->id }}" href="{{ route('hydrantenkontrolle.edit', $hydrant) }}" class="block space-y-1 p-4 hover:bg-gray-50">
+        <div wire:key="hydrant-{{ $hydrant->id }}" class="flex flex-wrap items-center justify-between gap-3 p-4 hover:bg-gray-50">
+            <a href="{{ route('hydrantenkontrolle.edit', $hydrant) }}" class="min-w-0 flex-1 space-y-1">
                 <p class="font-semibold">Nr. {{ $hydrant->number }} · {{ $hydrant->street }} {{ $hydrant->house_number }} @unless($hydrant->active)<span class="text-gray-500">(Archiviert)</span>@endunless</p>
                 <p class="text-sm text-gray-600">{{ $hydrant->location_description }}</p>
                 @if($hydrant->latitude !== null)<p class="text-sm text-gray-600">{{ $hydrant->latitude }}, {{ $hydrant->longitude }}</p>@endif
             </a>
+            <a href="{{ route('hydrantenkontrolle.history', $hydrant) }}" class="rounded-lg border px-3 py-2 text-fw-navy">Historie</a>
+        </div>
         @empty
             <p class="p-4 text-gray-600">Keine Hydranten gefunden.</p>
         @endforelse

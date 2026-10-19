@@ -64,7 +64,10 @@
                         <p class="text-sm text-gray-600">{{ $inspection->snapshot['location_description'] ?? '' }}</p>
                         <p class="text-sm">{{ $inspection->statusLabel() }} · {{ $inspection->checked_at?->format('d.m.Y') ?? 'Kein Prüfdatum' }} · {{ $inspection->inspector_name ?? 'Noch kein Prüfer' }}</p>
                     </div>
-                    <button type="button" wire:click="edit({{ $inspection->id }})" class="rounded-lg border px-3 py-2 text-fw-navy">Bearbeiten</button>
+                    <div class="flex gap-2">
+                        <a href="{{ route('hydrantenkontrolle.history', $inspection->hydrant_id) }}" class="rounded-lg border px-3 py-2 text-fw-navy">Historie</a>
+                        <button type="button" wire:click="edit({{ $inspection->id }})" class="rounded-lg border px-3 py-2 text-fw-navy">Bearbeiten</button>
+                    </div>
                 </div>
             @empty
                 <p class="p-4 text-gray-600">Keine Kontrollen gefunden. Falls Hydranten fehlen: das Jahr oben erneut öffnen / ergänzen.</p>
