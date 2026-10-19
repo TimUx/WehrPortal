@@ -11,6 +11,7 @@ use Illuminate\Support\HtmlString;
 use Modules\Kleiderkammer\src\Filament\Concerns\KleiderkammerArea;
 use Modules\Kleiderkammer\src\Filament\Resources\EquipmentMessageResource\Pages;
 use Modules\Kleiderkammer\src\Models\EquipmentMessage;
+use Modules\Kleiderkammer\src\Services\EquipmentMessageService;
 
 class EquipmentMessageResource extends Resource
 {
@@ -22,11 +23,11 @@ class EquipmentMessageResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chat-bubble-left-right';
 
-    protected static ?string $navigationLabel = 'Mängelmanagement';
+    protected static ?string $navigationLabel = 'Mängel & Wäsche';
 
-    protected static ?string $modelLabel = 'Nachricht';
+    protected static ?string $modelLabel = 'Meldung';
 
-    protected static ?string $pluralModelLabel = 'Mängelmanagement';
+    protected static ?string $pluralModelLabel = 'Mängel & Wäsche';
 
     protected static ?int $navigationSort = 11;
 
@@ -62,12 +63,18 @@ class EquipmentMessageResource extends Resource
                     ->searchable()
                     ->url(fn (EquipmentMessage $record) => MemberResource::getUrl('edit', ['record' => $record->user_id])),
 
+                Tables\Columns\TextColumn::make('kind')
+                    ->label('Art')
+                    ->badge()
+                    ->formatStateUsing(fn (string $state) => EquipmentMessage::KINDS[$state] ?? $state)
+                    ->color(fn (string $state) => $state === 'washing' ? 'info' : 'warning'),
+
                 Tables\Columns\TextColumn::make('item_label')
                     ->label('Artikel')
                     ->searchable(),
 
                 Tables\Columns\TextColumn::make('body')
-                    ->label('Nachricht')
+                    ->label('Nachricht / Begründung')
                     ->limit(60),
 
                 Tables\Columns\IconColumn::make('handled_at')
@@ -77,6 +84,7 @@ class EquipmentMessageResource extends Resource
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
+                Tables\Filters\SelectFilter::make('kind')->label('Art')->options(EquipmentMessage::KINDS),
                 Tables\Filters\TernaryFilter::make('handled')
                     ->label('Status')
                     ->placeholder('Alle')
@@ -95,16 +103,24 @@ class EquipmentMessageResource extends Resource
                     ->label('Lesen')
                     ->icon('heroicon-o-envelope-open')
                     ->color('gray')
-                    ->modalHeading(fn (EquipmentMessage $record) => $record->item_label)
+                    ->modalHeading(fn (EquipmentMessage $record) => $record->kindLabel().': '.$record->item_label)
                     ->modalDescription(fn (EquipmentMessage $record) => $record->user->name.' · '.$record->created_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i'))
                     ->modalContent(fn (EquipmentMessage $record) => new HtmlString('<p style="white-space:pre-line">'.e($record->body).'</p>'))
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Schließen'),
 
+                Actions\Action::make('washed')
+                    ->label('Gewaschen')
+                    ->icon('heroicon-o-sparkles')
+                    ->visible(fn (EquipmentMessage $record) => $record->isWashing() && ! $record->isHandled())
+                    ->requiresConfirmation()
+                    ->modalDescription('Das Mitglied bekommt Bescheid; ein Artikel mit Code bekommt die Wäsche in seine Pflegehistorie.')
+                    ->action(fn (EquipmentMessage $record) => app(EquipmentMessageService::class)->markWashed($record, auth()->user())),
+
                 Actions\Action::make('handle')
                     ->label('Erledigt')
                     ->icon('heroicon-o-check')
-                    ->visible(fn (EquipmentMessage $record) => ! $record->isHandled())
+                    ->visible(fn (EquipmentMessage $record) => ! $record->isWashing() && ! $record->isHandled())
                     ->action(fn (EquipmentMessage $record) => $record->update([
                         'handled_at' => now(),
                         'handled_by' => auth()->id(),

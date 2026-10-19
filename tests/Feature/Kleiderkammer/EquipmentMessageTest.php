@@ -7,15 +7,19 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 use Modules\Kleiderkammer\src\Enums\ItemStatus;
+use Modules\Kleiderkammer\src\Enums\TreatmentType;
 use Modules\Kleiderkammer\src\Filament\Resources\EquipmentMessageResource\Pages\ListEquipmentMessages;
 use Modules\Kleiderkammer\src\Filament\Resources\MemberResource\Pages\EditMember;
 use Modules\Kleiderkammer\src\Filament\Resources\MemberResource\RelationManagers\IssuancesRelationManager;
 use Modules\Kleiderkammer\src\Livewire\EquipmentMessageForm;
+use Modules\Kleiderkammer\src\Livewire\WashingRequestForm;
 use Modules\Kleiderkammer\src\Models\EquipmentMessage;
 use Modules\Kleiderkammer\src\Models\IssuedItem;
 use Modules\Kleiderkammer\src\Models\Item;
 use Modules\Kleiderkammer\src\Models\ItemType;
 use Modules\Kleiderkammer\src\Notifications\EquipmentMessageNotification;
+use Modules\Kleiderkammer\src\Notifications\WashingDoneNotification;
+use Modules\Kleiderkammer\src\Notifications\WashingRequestedNotification;
 use Modules\Kleiderkammer\src\Services\EquipmentMessageService;
 
 beforeEach(function () {
@@ -138,4 +142,33 @@ test('the message list shortens the text and opens the full message on click', f
         ->assertDontSee('ENDE')
         ->mountTableAction('open', $message)
         ->tap(fn ($c) => expect((string) $c->instance()->getMountedAction()->getModalContent())->toContain('ENDE'));
+});
+
+test('a member asks for Wäsche of several items with a reason; the Kleiderwart marks it washed', function () {
+    Notification::fake();
+    $pants = IssuedItem::create(['user_id' => $this->member->id, 'item_type_id' => ItemType::create(['name' => 'Einsatzhose'])->id, 'issued_at' => now()]);
+    $foreign = IssuedItem::create(['user_id' => $this->warden->id, 'item_type_id' => $pants->item_type_id, 'issued_at' => now()]);
+
+    $form = Livewire::actingAs($this->member)->test(WashingRequestForm::class)
+        ->assertSee('Einsatzjacke')->assertSee('Einsatzhose')
+        ->set('items', [(string) $this->issued->id, (string) $pants->id])->call('send')->assertHasErrors('reason')
+        ->set('reason', 'Nach Brandeinsatz – kontaminiert')->call('send')->assertHasNoErrors()->assertSee('Wäsche angefordert für');
+    expect(EquipmentMessage::where('kind', 'washing')->count())->toBe(2);
+    Notification::assertSentTo($this->warden, WashingRequestedNotification::class);
+
+    // Again for the same items: already waiting; somebody else's item is never taken
+    $form->set('items', [(string) $this->issued->id])->set('reason', 'nochmal')->call('send')->assertHasErrors('items');
+    $form->set('items', [(string) $foreign->id])->set('reason', 'fremd')->call('send')->assertHasErrors('items');
+    $this->actingAs($this->member)->get(route('kleiderkammer.index'))->assertSee('Wäsche angefordert');
+
+    // The Kleiderwart: Gewaschen – the tracked jacket gets it in its history, the member is told
+    $this->actingAs($this->warden);
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    $jacket = EquipmentMessage::where('issued_item_id', $this->issued->id)->sole();
+    Livewire::test(ListEquipmentMessages::class)->assertSee('Wäsche')->callTableAction('washed', $jacket);
+
+    expect($jacket->fresh()->isHandled())->toBeTrue()
+        ->and($this->item->treatments()->sole())->type->toBe(TreatmentType::Washing)->notes->toContain('Nach Brandeinsatz');
+    Notification::assertSentTo($this->member, WashingDoneNotification::class);
+    Livewire::actingAs($this->member)->test(EquipmentMessageForm::class, ['issuedItemId' => $this->issued->id])->assertSee('gewaschen');
 });
