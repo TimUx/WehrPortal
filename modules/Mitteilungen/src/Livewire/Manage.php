@@ -135,7 +135,14 @@ class Manage extends Component
             return;
         }
 
-        $this->flash = 'Mitteilung „'.$announcement->title.'“ gespeichert'.($this->mail ? ' und per E-Mail verschickt.' : ($this->push ? ' und als Push verschickt.' : '.'));
+        $this->flash = 'Mitteilung „'.$announcement->title.'“ gespeichert';
+        if ($this->mail || $this->push) {
+            $this->flash .= $announcements->isPublished($announcement)
+                ? ($this->mail ? ' und per E-Mail verschickt.' : ' und als Push verschickt.')
+                : ' – nicht gesendet, weil der Veröffentlichungszeitraum nicht aktuell ist.';
+        } else {
+            $this->flash .= '.';
+        }
         if ($announcements->externalStatus !== []) {
             $this->flash .= ' '.implode(' ', $announcements->externalStatus);
         }
@@ -164,6 +171,11 @@ class Manage extends Component
     {
         $announcement = Announcement::findOrFail($id);
         $announcements->assertCanManage(auth()->user(), $announcement);
+        if (! $announcements->isPublished($announcement)) {
+            $this->flash = 'Außerhalb des Veröffentlichungszeitraums wird nicht erinnert.';
+
+            return;
+        }
         $count = $announcements->remindUnacknowledged($announcement);
         $this->flash = $count ? $count.' Kameraden erinnert.' : 'Alle haben schon bestätigt.';
     }

@@ -51,10 +51,12 @@ class AnnouncementService
             return $announcement;
         });
 
-        if ($mail) {
-            $this->mail($announcement);
-        } elseif ($push) {
-            $this->mail($announcement, ['database']);
+        if ($this->isPublished($announcement)) {
+            if ($mail) {
+                $this->mail($announcement);
+            } elseif ($push) {
+                $this->mail($announcement, ['database']);
+            }
         }
 
         if ($ntfy || $matrix) {
@@ -76,6 +78,12 @@ class AnnouncementService
 
     /** @var list<string> */
     public array $externalStatus = [];
+
+    public function isPublished(Announcement $announcement): bool
+    {
+        return (! $announcement->visible_from || ! $announcement->visible_from->isFuture())
+            && (! $announcement->visible_until || ! $announcement->visible_until->isPast());
+    }
 
     /** Everyone it is meant for and who may open the Mitteilungen, so links don't end in "kein Zugriff" */
     public function recipients(Announcement $announcement): EloquentCollection
@@ -278,6 +286,10 @@ class AnnouncementService
      */
     public function mail(Announcement $announcement, ?array $only = null, ?EloquentCollection $to = null, bool $reminder = false): int
     {
+        if (! $this->isPublished($announcement)) {
+            return 0;
+        }
+
         $sent = 0;
         ($to ?? $this->recipients($announcement))->each(function (User $user) use ($announcement, $only, $reminder, &$sent) {
             try {
@@ -321,6 +333,10 @@ class AnnouncementService
     /** Who hasn't confirmed yet is asked again (bell, push, mail) */
     public function remindUnacknowledged(Announcement $announcement): int
     {
+        if (! $this->isPublished($announcement)) {
+            return 0;
+        }
+
         return $this->mail($announcement, null, $this->stats($announcement)['missing'], true);
     }
 

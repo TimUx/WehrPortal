@@ -37,7 +37,8 @@ class AnnouncementDelivery
             return $this->label($transport).': nicht gesendet – die Mitteilung ist noch nicht oder nicht mehr veröffentlicht.';
         }
 
-        if ($announcement->groups()->exists() || $announcement->functions()->exists()) {
+        if (DB::table('announcement_group')->where('announcement_id', $announcement->id)->exists()
+            || DB::table('announcement_function')->where('announcement_id', $announcement->id)->exists()) {
             return $this->label($transport).': nicht gesendet – Abteilungs- oder Funktionszielgruppen sind für gemeinsame Kanäle zu eng.';
         }
 
@@ -118,7 +119,15 @@ class AnnouncementDelivery
                 return ['claimed' => false, 'delivery' => $delivery, 'message' => 'dieser Nachrichtenstand wurde bereits gesendet.'];
             }
             if ($delivery->status === 'sending') {
-                return ['claimed' => false, 'delivery' => $delivery, 'message' => 'der Versand dieses Nachrichtenstands läuft bereits.'];
+                if ($delivery->updated_at?->gt(now()->subSeconds(30))) {
+                    return ['claimed' => false, 'delivery' => $delivery, 'message' => 'der Versand dieses Nachrichtenstands läuft bereits.'];
+                }
+                if ($transport === 'ntfy') {
+                    $delivery->update(['status' => 'failed', 'result' => 'Versandstatus unklar; aus Duplikatschutz nicht wiederholt.']);
+
+                    return ['claimed' => false, 'delivery' => $delivery->refresh(), 'message' => 'Versandstatus unklar; ntfy wurde aus Duplikatschutz nicht wiederholt.'];
+                }
+                $delivery->update(['status' => 'failed', 'result' => 'Abgelaufener Versandversuch; Matrix kann mit derselben Transaktions-ID sicher wiederholt werden.']);
             }
             $limit = $transport === 'matrix' ? 3 : 1;
             if ($delivery->attempts >= $limit) {
@@ -206,7 +215,9 @@ class AnnouncementDelivery
             in_array($status, [401, 403], true) => $transport === 'ntfy'
                 ? 'Zugriff abgelehnt; ntfy-Token und Topic-Berechtigung prüfen.'
                 : 'Zugriff abgelehnt; Matrix-Bot-Mitgliedschaft und Senderecht prüfen.',
-            $status === 429 => 'Der Zielserver begrenzt den Versand; später erneut versuchen.',
+            $status === 429 => $transport === 'ntfy'
+                ? 'Der ntfy-Server begrenzt den Versand; denselben Nachrichtenstand nicht erneut senden. Nach Prüfung bei Bedarf eine neue Mitteilung anlegen.'
+                : 'Der Matrix-Server begrenzt den Versand; nach Ende der Begrenzung kann ausdrücklich erneut versucht werden.',
             default => 'Der Zielserver antwortet mit HTTP '.$status.'; Server, Ziel und Berechtigung prüfen.',
         };
     }

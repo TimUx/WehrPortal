@@ -92,7 +92,7 @@ class ChannelSettings
             }
         }
 
-        if ($enabled && blank($typedToken) && ! $this->token($destination)) {
+        if ($enabled && ($removeToken || (blank($typedToken) && ! $this->token($destination)))) {
             throw ValidationException::withMessages(['data.'.$scopeKey.'.'.$transport.'.token' => 'Zum Aktivieren ist ein Zugriffstoken erforderlich.']);
         }
 
@@ -124,7 +124,7 @@ class ChannelSettings
         $destination = ChannelDestination::query()->where('scope_key', $scopeKey)
             ->where('transport', $transport)->where('enabled', true)->first();
 
-        if (! $destination || blank($destination->server_url) || blank($destination->target) || ! $this->token($destination)) {
+        if (! $destination || blank($destination->server_url) || blank($destination->target)) {
             return null;
         }
 

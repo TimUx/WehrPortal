@@ -11,6 +11,7 @@ use Extensions\Mitteilungen\Models\ChannelDestination;
 use Extensions\Mitteilungen\Services\ChannelSettings;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Validation\ValidationException;
 use Modules\Mitteilungen\src\Models\Announcement;
@@ -206,6 +207,27 @@ it('skips narrow audiences, future notices and missing destinations without send
     expect($service->externalStatus)->toContain('Matrix: nicht gesendet – für diesen Geltungsbereich ist kein aktives Ziel vollständig eingerichtet.');
 });
 
+it('does not send any channel notification before publication', function () {
+    Http::fake();
+    Notification::fake();
+    $admin = User::factory()->admin()->create();
+    $service = app(AnnouncementService::class);
+
+    $announcement = $service->save(null, [
+        'title' => 'Noch nicht veröffentlicht',
+        'important' => false,
+        'visible_from' => now()->addDay(),
+    ], [], $admin, mail: true, push: true, ntfy: true, matrix: true);
+
+    expect($announcement->exists)->toBeTrue()
+        ->and($service->externalStatus)->toContain(
+            'ntfy: nicht gesendet – die Mitteilung ist noch nicht oder nicht mehr veröffentlicht.',
+            'Matrix: nicht gesendet – die Mitteilung ist noch nicht oder nicht mehr veröffentlicht.',
+        );
+    Notification::assertNothingSent();
+    Http::assertNothingSent();
+});
+
 it('encodes Matrix room IDs, retries with a stable transaction ID, and refuses encrypted rooms', function () {
     $admin = User::factory()->admin()->create();
     app(ChannelSettings::class)->save($admin, 'general', 'matrix', [
@@ -267,7 +289,7 @@ it('reports ntfy authentication and rate-limit failures without retrying uncerta
     Http::fake(['https://notify.example.com/*' => Http::response([], 429)]);
     $announcement = $service->save(null, ['title' => 'Drosseltest', 'important' => false], [], $admin, ntfy: true);
 
-    expect($service->externalStatus)->toContain('ntfy: Der Zielserver begrenzt den Versand; später erneut versuchen.')
+    expect($service->externalStatus)->toContain('ntfy: Der ntfy-Server begrenzt den Versand; denselben Nachrichtenstand nicht erneut senden. Nach Prüfung bei Bedarf eine neue Mitteilung anlegen.')
         ->and(ChannelDelivery::query()->where('announcement_id', $announcement->id)->sole()->status)->toBe('failed');
     $service->save($announcement, ['title' => 'Drosseltest', 'important' => false], [], $admin, ntfy: true);
     Http::assertSentCount(1);
