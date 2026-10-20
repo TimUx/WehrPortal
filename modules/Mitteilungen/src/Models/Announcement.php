@@ -10,14 +10,20 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * A notice on the start page; important ones are highlighted and cannot be dismissed. Meant for Abteilungen
  * and/or Funktionen (empty = everyone), with attachments and, on request, a Lesebestätigung.
+ *
+ * @property Carbon|null $visible_from
+ * @property Carbon|null $visible_until
  */
 class Announcement extends Model
 {
-    protected $fillable = ['title', 'body', 'important', 'needs_ack', 'visible_from', 'visible_until', 'created_by'];
+    protected $fillable = ['title', 'body', 'important', 'needs_ack', 'visible_from', 'visible_until', 'created_by', 'ext_location_id'];
 
     protected function casts(): array
     {
@@ -66,13 +72,39 @@ class Announcement extends Model
     /** Meant for this Kamerad: no audience set, member of one of the Abteilungen, or holding one of the Funktionen */
     public function scopeFor(Builder $query, User $user): Builder
     {
-        $functions = $user->functions()->pluck('member_functions.id');
+        $groupIds = DB::table('group_user')->where('user_id', $user->id)->pluck('group_id')->all();
+        $functions = DB::table('member_function_user')->where('user_id', $user->id)->pluck('member_function_id')->all();
         // A Funktion of the audience also covers its sub-functions, so look one level up
-        $withParents = $functions->merge(MemberFunction::whereIn('id', $functions)->whereNotNull('parent_id')->pluck('parent_id'))->unique();
+        $withParents = array_values(array_unique([
+            ...array_map('intval', $functions),
+            ...DB::table('member_functions')->whereIn('id', $functions)->whereNotNull('parent_id')->pluck('parent_id')->map(fn ($id) => (int) $id)->all(),
+        ]));
 
-        return $query->where(fn ($q) => $q->where(fn ($all) => $all->doesntHave('groups')->doesntHave('functions'))
-            ->orWhereHas('groups', fn ($g) => $g->whereIn('groups.id', $user->groups()->pluck('groups.id')))
-            ->orWhereHas('functions', fn ($f) => $f->whereIn('member_functions.id', $withParents)));
+        $query->where(fn (Builder $audience) => $audience
+            ->where(fn ($all) => $all
+                ->whereNotExists(fn ($audience) => $audience->selectRaw('1')->from('announcement_group')
+                    ->whereColumn('announcement_group.announcement_id', 'announcements.id'))
+                ->whereNotExists(fn ($audience) => $audience->selectRaw('1')->from('announcement_function')
+                    ->whereColumn('announcement_function.announcement_id', 'announcements.id')))
+            ->orWhereExists(fn ($audience) => $audience->selectRaw('1')->from('announcement_group')
+                    ->whereColumn('announcement_group.announcement_id', 'announcements.id')
+                    ->whereIn('announcement_group.group_id', $groupIds))
+            ->orWhereExists(fn ($audience) => $audience->selectRaw('1')->from('announcement_function')
+                    ->whereColumn('announcement_function.announcement_id', 'announcements.id')
+                    ->whereIn('announcement_function.member_function_id', $withParents)));
+
+        if (! Schema::hasTable('x_location_user')) {
+            return $query->whereNull('announcements.ext_location_id');
+        }
+
+        $locationIds = DB::table('x_location_user')->where('user_id', $user->id)->pluck('location_id')
+            ->map(fn ($id) => (int) $id)->all();
+        if ($user->getAttribute('ext_location_id')) {
+            $locationIds[] = (int) $user->getAttribute('ext_location_id');
+        }
+
+        return $query->where(fn (Builder $location) => $location->whereNull('announcements.ext_location_id')
+            ->orWhereIn('announcements.ext_location_id', array_values(array_unique($locationIds))));
     }
 
     public function scopeVisibleTo(Builder $query, User $user): Builder

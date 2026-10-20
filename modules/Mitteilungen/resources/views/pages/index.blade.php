@@ -2,7 +2,7 @@
     <div class="space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <h1 class="text-xl font-bold text-gray-900">Mitteilungen</h1>
-            @can('post-announcements')
+            @can('manage-announcements')
                 <a href="{{ route('mitteilungen.manage') }}" class="inline-flex items-center rounded-lg bg-fw-red px-3 py-1.5 text-sm font-semibold text-white hover:bg-fw-red-dark">Mitteilungen verwalten</a>
             @endcan
         </div>

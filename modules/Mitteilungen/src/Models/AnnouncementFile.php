@@ -16,6 +16,7 @@ class AnnouncementFile extends Model
 
     protected $hidden = ['data'];
 
+    /** @return BelongsTo<Announcement, $this> */
     public function announcement(): BelongsTo
     {
         return $this->belongsTo(Announcement::class);

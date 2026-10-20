@@ -10,6 +10,16 @@
 
     <form wire:submit="save" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
         <h2 class="text-sm font-semibold text-gray-900">{{ $editingId ? 'Mitteilung bearbeiten' : 'Neue Mitteilung' }}</h2>
+        @if($locationsEnabled)
+            <label class="block text-sm text-gray-700">Geltungsbereich
+                <select wire:model.live="locationId" class="mt-1 {{ $input }}">
+                    <option value="">Allgemein – standortübergreifend</option>
+                    @foreach($locations as $id => $name)<option value="{{ $id }}">Nur {{ $name }}</option>@endforeach
+                </select>
+                <span class="mt-1 block text-xs text-gray-500">Standortmitteilungen sehen nur aktive Mitteilungensempfänger, die diesem Standort angehören.</span>
+                @error('locationId')<span class="text-sm text-red-600">{{ $message }}</span>@enderror
+            </label>
+        @endif
         <div>
             <input type="text" wire:model="title" maxlength="150" placeholder="Titel" class="{{ $input }}">
             @error('title')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
@@ -53,6 +63,12 @@
         <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="important" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> Wichtig (rot, oben, nicht ausblendbar)</label>
         <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="mail" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> Zusätzlich per E-Mail an alle Empfänger schicken (auch in die Glocke und als Push)</label>
         <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="push" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> Ohne E-Mail nur in die Glocke und als Push aufs Handy – für kurzfristige Ansagen</label>
+        <div class="rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <p class="text-sm font-medium text-amber-950">Zusätzliche externe Kanäle (nur bei ausdrücklicher Auswahl)</p>
+            <p class="text-xs text-amber-900">Titel und Text werden an das konfigurierte gemeinsame Ziel gesendet. Abteilungs- oder Funktionsmitteilungen werden aus Datenschutzgründen nicht extern verteilt.</p>
+            <label class="mt-2 flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="ntfy" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> Zusätzlich an ntfy senden</label>
+            <label class="mt-1 flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="matrix" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> Zusätzlich an Matrix senden</label>
+        </div>
         <div class="flex gap-3">
             <button type="submit" class="inline-flex items-center rounded-lg bg-fw-red px-4 py-2 text-sm font-semibold text-white hover:bg-fw-red-dark">{{ $editingId ? 'Speichern' : 'Veröffentlichen' }}</button>
             @if($editingId)<button type="button" wire:click="cancel" class="text-sm text-gray-500 underline">Abbrechen</button>@endif
@@ -65,7 +81,7 @@
             <div class="p-4 flex items-start justify-between gap-3" wire:key="a-{{ $a->id }}">
                 <div class="min-w-0">
                     <p class="font-semibold text-gray-900">@if($a->important)<span class="text-red-600">Wichtig:</span> @endif{{ $a->title }}</p>
-                    <p class="text-xs text-gray-500">{{ $state }}@if($a->visible_until) · bis {{ $a->visible_until->setTimezone('Europe/Berlin')->format('d.m.Y') }}@endif · {{ $a->groups->isEmpty() && $a->functions->isEmpty() ? 'alle' : $a->groups->pluck('name')->merge($a->functions->pluck('name'))->implode(', ') }} · {{ $a->author?->name }}@if($a->files->isNotEmpty()) · 📎 {{ $a->files->count() }}@endif</p>
+                    <p class="text-xs text-gray-500">{{ $state }}@if($a->visible_until) · bis {{ $a->visible_until->setTimezone('Europe/Berlin')->format('d.m.Y') }}@endif · {{ $a->ext_location_id ? 'Standort: '.($locations[$a->ext_location_id] ?? 'unbekannt') : 'Allgemein' }} · {{ $a->groups->isEmpty() && $a->functions->isEmpty() ? 'alle' : $a->groups->pluck('name')->merge($a->functions->pluck('name'))->implode(', ') }} · {{ $a->author?->name }}@if($a->files->isNotEmpty()) · 📎 {{ $a->files->count() }}@endif</p>
                     <button type="button" wire:click="showStats({{ $a->id }})" class="text-xs text-fw-navy underline">{{ $a->needs_ack ? 'Lesebestätigungen' : 'Gelesen von' }}</button>
                     @if($statsFor === $a->id && $stats)
                         <div class="mt-1 rounded-lg bg-gray-50 p-2 text-xs text-gray-700">
