@@ -150,17 +150,22 @@ it('sends one ntfy request for an explicitly requested published notice and stor
     expect($stored->getRawOriginal('token'))->not->toContain('tk_example-secret')
         ->and($settings->formValues('general', 'ntfy')['has_token'])->toBeTrue();
 
+    $service = app(AnnouncementService::class);
     $data = ['title' => 'Probe', 'body' => 'UTF-8: Grüße', 'important' => false];
-    $announcement = app(AnnouncementService::class)->save(null, $data, [], $admin, ntfy: true);
-    app(AnnouncementService::class)->save($announcement, $data, [], $admin, ntfy: true);
+    $announcement = $service->save(null, $data, [], $admin, ntfy: true);
+    $service->save($announcement, $data, [], $admin, ntfy: true);
+    $updated = ['title' => 'Probe aktualisiert', 'body' => 'UTF-8: Grüße', 'important' => false];
+    $service->save($announcement, $updated, [], $admin);
+    $service->save($announcement, $updated, [], $admin, ntfy: true);
+    $service->save($announcement, $updated, [], $admin, ntfy: true);
 
-    Http::assertSentCount(1);
+    Http::assertSentCount(2);
     Http::assertSent(fn ($request) => $request->method() === 'POST'
         && $request->url() === 'https://notify.example.com/wehr-allgemein'
         && $request->hasHeader('Authorization')
-        && $request->hasHeader('Title', 'Probe')
+        && $request->hasHeader('Title', 'Probe aktualisiert')
         && $request->body() === 'UTF-8: Grüße');
-    expect(ChannelDelivery::sole()->status)->toBe('sent');
+    expect(ChannelDelivery::query()->where('status', 'sent')->count())->toBe(2);
 });
 
 it('routes location notices only to their location target and does not fall back', function () {
@@ -257,13 +262,13 @@ it('reports ntfy authentication and rate-limit failures without retrying uncerta
     Http::fake(['https://notify.example.com/*' => Http::response([], 401)]);
     $service = app(AnnouncementService::class);
     $service->save(null, ['title' => 'Authfehler', 'important' => false], [], $admin, ntfy: true);
-    expect($service->externalStatus)->toContain('ntfy: Zugriff abgelehnt; ntfy-Token bzw. Matrix-Bot-Mitgliedschaft und Senderecht prüfen.');
+    expect($service->externalStatus)->toContain('ntfy: Zugriff abgelehnt; ntfy-Token und Topic-Berechtigung prüfen.');
 
     Http::fake(['https://notify.example.com/*' => Http::response([], 429)]);
     $announcement = $service->save(null, ['title' => 'Drosseltest', 'important' => false], [], $admin, ntfy: true);
 
     expect($service->externalStatus)->toContain('ntfy: Der Zielserver begrenzt den Versand; später erneut versuchen.')
-        ->and(ChannelDelivery::sole()->status)->toBe('failed');
+        ->and(ChannelDelivery::query()->where('announcement_id', $announcement->id)->sole()->status)->toBe('failed');
     $service->save($announcement, ['title' => 'Drosseltest', 'important' => false], [], $admin, ntfy: true);
     Http::assertSentCount(1);
 });

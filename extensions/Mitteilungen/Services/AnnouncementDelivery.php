@@ -203,7 +203,9 @@ class AnnouncementDelivery
     private function failureMessage(string $transport, int $status): string
     {
         return match (true) {
-            in_array($status, [401, 403], true) => 'Zugriff abgelehnt; ntfy-Token bzw. Matrix-Bot-Mitgliedschaft und Senderecht prüfen.',
+            in_array($status, [401, 403], true) => $transport === 'ntfy'
+                ? 'Zugriff abgelehnt; ntfy-Token und Topic-Berechtigung prüfen.'
+                : 'Zugriff abgelehnt; Matrix-Bot-Mitgliedschaft und Senderecht prüfen.',
             $status === 429 => 'Der Zielserver begrenzt den Versand; später erneut versuchen.',
             default => 'Der Zielserver antwortet mit HTTP '.$status.'; Server, Ziel und Berechtigung prüfen.',
         };
