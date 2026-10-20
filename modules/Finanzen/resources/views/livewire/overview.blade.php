@@ -2,8 +2,12 @@
 <div class="space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-            <h1 class="text-xl font-bold text-gray-900">Budget {{ $year }}</h1>
-            <p class="text-sm text-gray-500">Wie viel jede Kostenstelle geplant hat und was davon schon ausgegeben ist – für alle Kameraden sichtbar.@if($closed) <strong>Das Jahr ist abgeschlossen.</strong>@endif</p>
+            <h1 class="text-xl font-bold text-gray-900">{{ ! $full ? 'Meine Ausgaben' : ($budgetOn ? 'Budget' : 'Finanzen') }} {{ $year }}</h1>
+            <p class="text-sm text-gray-500">
+                @if(! $full)Was du für die Wehr ausgelegt und eingereicht hast, mit dem Stand der Bearbeitung.
+                @elseif($budgetOn)Wie viel jede Kostenstelle geplant hat und was davon schon ausgegeben ist{{ $canReview ? '' : ' – für alle Kameraden sichtbar' }}.
+                @else Was je Kostenstelle ausgegeben und eingenommen wurde.@endif
+                @if($closed) <strong>Das Jahr ist abgeschlossen.</strong>@endif</p>
         </div>
         <div class="flex items-center gap-2">
             <select wire:model.live="year" class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-fw-red focus:ring-fw-red" aria-label="Jahr">
@@ -17,9 +21,10 @@
         <a href="{{ route('finanzen.entries', ['status' => 'submitted']) }}" class="block rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900 hover:bg-amber-100">{{ $toReview }} Ausgabe{{ $toReview === 1 ? '' : 'n' }} {{ $toReview === 1 ? 'wartet' : 'warten' }} auf Genehmigung →</a>
     @endif
 
+    @if($full)
     {{-- Totals --}}
     <section class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        @foreach(['budget' => 'Budget', 'paid' => 'Ausgegeben', 'approved' => 'Genehmigt, offen', 'available' => 'Noch verfügbar'] as $key => $label)
+        @foreach($budgetOn ? ['budget' => 'Budget', 'paid' => 'Ausgegeben', 'approved' => 'Genehmigt, offen', 'available' => 'Noch verfügbar'] : ['paid' => 'Ausgegeben', 'approved' => 'Genehmigt, offen', 'income' => 'Einnahmen'] as $key => $label)
             <div class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
                 <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $label }}</p>
                 <p class="mt-1 text-lg font-bold {{ $key === 'available' && $totals['available'] < 0 ? 'text-red-700' : 'text-gray-900' }}">{{ $money($totals[$key]) }}</p>
@@ -31,21 +36,21 @@
     <section>
         <h2 class="mb-2 text-sm font-semibold text-gray-700">Kostenstellen</h2>
         @if($overview->isEmpty())
-            <p class="rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-500">Noch keine Kostenstellen angelegt.@if($canManage) <a href="{{ route('finanzen.budget') }}" class="text-fw-navy underline">Kostenstellen und Budget anlegen</a>@endif</p>
+            <p class="rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-500">Noch keine Kostenstellen angelegt.@if($canManage) <a href="{{ route('finanzen.budget') }}" class="text-fw-navy underline">Kostenstellen{{ $budgetOn ? ' und Budget' : '' }} anlegen</a>@endif</p>
         @else
             <ul class="grid grid-cols-1 gap-3 md:grid-cols-2">
                 @foreach($overview as $row)
                     <li class="space-y-2 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm" wire:key="cc-{{ $row['center']->id }}">
                         <div class="flex items-baseline justify-between gap-2">
                             <p class="font-semibold text-gray-900">{{ $row['center']->label() }}</p>
-                            <p class="text-sm text-gray-500">{{ $row['percent'] !== null ? $row['percent'].' %' : 'kein Budget' }}</p>
+                            @if($budgetOn)<p class="text-sm text-gray-500">{{ $row['percent'] !== null ? $row['percent'].' %' : 'kein Budget' }}</p>@endif
                         </div>
-                        @include('finanzen::partials.bar', ['row' => $row])
+                        @if($budgetOn)@include('finanzen::partials.bar', ['row' => $row])@endif
                         <dl class="grid grid-cols-2 gap-x-3 gap-y-0.5 text-sm">
-                            <dt class="text-gray-500">Budget</dt><dd class="text-right">{{ $money($row['budget']) }}</dd>
+                            @if($budgetOn)<dt class="text-gray-500">Budget</dt><dd class="text-right">{{ $money($row['budget']) }}</dd>@endif
                             <dt class="text-gray-500">Ausgegeben</dt><dd class="text-right">{{ $money($row['paid']) }}</dd>
                             @if($row['approved'])<dt class="text-gray-500">Genehmigt, offen</dt><dd class="text-right">{{ $money($row['approved']) }}</dd>@endif
-                            <dt class="text-gray-500">Verfügbar</dt><dd class="text-right font-semibold {{ $row['available'] < 0 ? 'text-red-700' : 'text-gray-900' }}">{{ $money($row['available']) }}</dd>
+                            @if($budgetOn)<dt class="text-gray-500">Verfügbar</dt><dd class="text-right font-semibold {{ $row['available'] < 0 ? 'text-red-700' : 'text-gray-900' }}">{{ $money($row['available']) }}</dd>@endif
                             @if($row['income'])<dt class="text-gray-500">Einnahmen</dt><dd class="text-right text-green-700">{{ $money($row['income']) }}</dd>@endif
                         </dl>
                     </li>
@@ -54,9 +59,11 @@
         @endif
     </section>
 
+    @endif
+
     {{-- Own Ausgaben --}}
     <section>
-        <h2 class="mb-2 text-sm font-semibold text-gray-700">Meine Ausgaben</h2>
+        @if($full)<h2 class="mb-2 text-sm font-semibold text-gray-700">Meine Ausgaben</h2>@endif
         <div class="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white shadow-sm">
             @forelse($mine as $entry)
                 <a href="{{ route('finanzen.entry', $entry) }}" class="flex flex-wrap items-center justify-between gap-2 p-3 text-sm hover:bg-gray-50" wire:key="m-{{ $entry->id }}">
@@ -72,7 +79,8 @@
         </div>
     </section>
 
-    {{-- Transparency: every approved and paid Ausgabe --}}
+    {{-- Every approved and paid Ausgabe: for the reviewers, or for everyone when made public --}}
+    @if($full)
     <section>
         <h2 class="mb-2 text-sm font-semibold text-gray-700">Ausgaben {{ $year }}</h2>
         <div class="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white shadow-sm">
@@ -89,4 +97,5 @@
             @endforelse
         </div>
     </section>
+@endif
 </div>

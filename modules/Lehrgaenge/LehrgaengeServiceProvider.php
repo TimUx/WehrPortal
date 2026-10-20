@@ -86,8 +86,9 @@ class LehrgaengeServiceProvider extends ServiceProvider
             $next = Record::with('course')->where('user_id', $user->id)->where('status', 'confirmed')
                 ->whereDate('starts_on', '>=', RegistrationService::today())->orderBy('starts_on')->first();
             $todo = $user->canManageLehrgaenge() && app(RegistrationService::class)->managers()->contains('id', $user->id) ? [
-                'requested' => Record::where('status', 'requested')->count(),
-                'cancelled' => Record::where('status', 'cancelled')->where('cancelled_at', '>=', now()->subDays(7))->count(),
+                // Open Interesse not yet registered in fox112, and Absagen not yet marked as signed off
+                'requested' => Record::where('status', 'requested')->whereNull('waitlisted_at')->count(),
+                'cancelled' => RegistrationService::unseenCancellations()->count(),
                 'suggested' => Course::whereNotNull('suggested_at')->count(),
                 'gone' => Course::onList()->whereNotNull('gone_since')->count(),
             ] : [];

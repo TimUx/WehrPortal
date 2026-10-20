@@ -6,7 +6,8 @@
         </div>
         <div class="flex items-center gap-4 text-sm">
             <label class="flex items-center gap-2 text-gray-700"><input type="checkbox" wire:model.live="onlyUnread" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> Nur ungelesene</label>
-            @if($unread)<button type="button" wire:click="markAllRead" class="text-fw-navy underline">Alle als gelesen markieren</button>@endif
+            @if($unread && $viewingAs)<span class="text-gray-500">Als Kamerad angesehen – bleibt ungelesen</span>
+            @elseif($unread)<button type="button" wire:click="markAllRead" class="text-fw-navy underline">Alle als gelesen markieren</button>@endif
         </div>
     </div>
 

@@ -44,7 +44,7 @@ class BookingResource extends Resource
                 ->label('Nutzer')
                 ->relationship('user', 'name')
                 ->searchable(['name', 'email'])
-                ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->name} ({$record->email})")
+                ->getOptionLabelFromRecordUsing(fn ($record) => $record->name.($record->email ? " ({$record->email})" : ''))
                 ->required(),
 
             Forms\Components\Select::make('group_id')

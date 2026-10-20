@@ -37,15 +37,15 @@
     <h1>Jahresabschluss {{ $year }} – {{ $org->name() }}</h1>
     <p class="meta">{{ $closed ? 'Abgeschlossen' : 'Vorläufig (Jahr noch nicht abgeschlossen)' }} · Stand {{ now('Europe/Berlin')->format('d.m.Y H:i') }}</p>
 
-    <h2>Budget und Ist je Kostenstelle</h2>
+    <h2>{{ $budgetOn ? 'Budget und Ist' : 'Ist' }} je Kostenstelle</h2>
     <table>
-        <thead><tr><th>Kostenstelle</th><th class="num">Budget</th><th class="num">Ausgegeben</th><th class="num">Genehmigt, offen</th><th class="num">Rest</th><th class="num">Einnahmen</th></tr></thead>
+        <thead><tr><th>Kostenstelle</th>@if($budgetOn)<th class="num">Budget</th>@endif<th class="num">Ausgegeben</th><th class="num">Genehmigt, offen</th>@if($budgetOn)<th class="num">Rest</th>@endif<th class="num">Einnahmen</th></tr></thead>
         <tbody>
             @foreach($overview as $row)
-                <tr><td>{{ $row['center']->label() }}</td><td class="num">{{ $money($row['budget']) }}</td><td class="num">{{ $money($row['paid']) }}</td><td class="num">{{ $money($row['approved']) }}</td><td class="num">{{ $money($row['available']) }}</td><td class="num">{{ $money($row['income']) }}</td></tr>
+                <tr><td>{{ $row['center']->label() }}</td>@if($budgetOn)<td class="num">{{ $money($row['budget']) }}</td>@endif<td class="num">{{ $money($row['paid']) }}</td><td class="num">{{ $money($row['approved']) }}</td>@if($budgetOn)<td class="num">{{ $money($row['available']) }}</td>@endif<td class="num">{{ $money($row['income']) }}</td></tr>
             @endforeach
         </tbody>
-        <tfoot><tr><td>Summe</td><td class="num">{{ $money($totals['budget']) }}</td><td class="num">{{ $money($totals['paid']) }}</td><td class="num">{{ $money($totals['approved']) }}</td><td class="num">{{ $money($totals['available']) }}</td><td class="num">{{ $money($totals['income']) }}</td></tr></tfoot>
+        <tfoot><tr><td>Summe</td>@if($budgetOn)<td class="num">{{ $money($totals['budget']) }}</td>@endif<td class="num">{{ $money($totals['paid']) }}</td><td class="num">{{ $money($totals['approved']) }}</td>@if($budgetOn)<td class="num">{{ $money($totals['available']) }}</td>@endif<td class="num">{{ $money($totals['income']) }}</td></tr></tfoot>
     </table>
     <p class="meta">Einnahmen {{ $money($totals['income']) }} − Ausgaben {{ $money($totals['paid'] + $totals['approved']) }} = <strong>Saldo {{ $money($totals['income'] - $totals['paid'] - $totals['approved']) }}</strong></p>
 

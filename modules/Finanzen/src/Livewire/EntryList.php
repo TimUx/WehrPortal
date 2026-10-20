@@ -65,6 +65,7 @@ class EntryList extends Component
             'years' => $finance->years(),
             'waiting' => Entry::where('status', 'submitted')->count(),
             'canManage' => FinanceService::canManage(auth()->user()),
+            'reportOn' => FinanceService::reportEnabled(),
         ]);
     }
 }

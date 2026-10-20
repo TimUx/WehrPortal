@@ -37,7 +37,7 @@ Route::prefix('lehrgaenge')->name('lehrgaenge.')
                     Csv::put($out, [$m->name, ...$t['courses']->map(function ($c) use ($t, $m) {
                         $r = $t['cells'][$m->id.'-'.$c->id] ?? null;
 
-                        return $r ? $r->completed_on?->format('d.m.Y').($r->refreshState() === 'expired' ? ' (Auffrischung überfällig)' : '') : '';
+                        return $r ? ($r->completed_on?->format('d.m.Y') ?? 'absolviert').($r->refreshState() === 'expired' ? ' (Auffrischung überfällig)' : '') : '';
                     })->all()], ';');
                 }
                 rewind($out);

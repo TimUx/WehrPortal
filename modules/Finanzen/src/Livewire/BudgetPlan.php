@@ -10,7 +10,7 @@ use Modules\Finanzen\src\Models\Budget;
 use Modules\Finanzen\src\Models\CostCenter;
 use Modules\Finanzen\src\Services\FinanceService;
 
-/** The Kassenwart plans the budget per Kostenstelle and year and keeps the Kostenstellen */
+/** The Kassenwart plans the budget per Kostenstelle and year, keeps the Kostenstellen and chooses what the Wehr uses */
 class BudgetPlan extends Component
 {
     #[Url(as: 'jahr')]
@@ -26,6 +26,9 @@ class BudgetPlan extends Component
 
     public ?string $flash = null;
 
+    /** @var array{budget: bool, report: bool, public: bool} */
+    public array $settings = ['budget' => true, 'report' => true, 'public' => false];
+
     public function boot(): void
     {
         abort_unless(FinanceService::canManage(auth()->user()), 403);
@@ -34,6 +37,7 @@ class BudgetPlan extends Component
     public function mount(): void
     {
         $this->year ??= FinanceService::today()->year;
+        $this->settings = FinanceService::settings();
         $this->loadAmounts();
     }
 
@@ -77,6 +81,15 @@ class BudgetPlan extends Component
             $count = $finance->copyBudgets(auth()->user(), $this->year);
             $this->flash = $count ? $count.' Budget'.($count === 1 ? '' : 's').' aus '.($this->year - 1).' übernommen.' : 'Nichts zu übernehmen: '.($this->year - 1).' hat keine Budgets, oder alle sind schon gesetzt.';
             $this->loadAmounts();
+        });
+    }
+
+    public function saveSettings(FinanceService $finance): void
+    {
+        $this->attempt(function () use ($finance) {
+            $finance->saveSettings(auth()->user(), $this->settings);
+            $this->settings = FinanceService::settings();
+            $this->flash = 'Einstellungen gespeichert.';
         });
     }
 
@@ -134,6 +147,7 @@ class BudgetPlan extends Component
             'centers' => CostCenter::ordered()->withCount('entries')->get(),
             'years' => collect($finance->years())->push(FinanceService::today()->year + 1)->unique()->sortDesc()->values(),
             'closed' => FinanceService::isClosed($this->year),
+            'budgetOn' => FinanceService::budgetEnabled(),
         ]);
     }
 }

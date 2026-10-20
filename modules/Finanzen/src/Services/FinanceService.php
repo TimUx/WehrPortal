@@ -2,6 +2,7 @@
 
 namespace Modules\Finanzen\src\Services;
 
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\ImageResizer;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -51,6 +52,47 @@ class FinanceService
     public static function canReview(User $user): bool
     {
         return self::canManage($user) || ($user->is_active && $user->canUseModule(self::MODULE) && $user->hasModuleRole(self::MODULE, 'wehrführung'));
+    }
+
+    // ─── settings ────────────────────────────────────────────────────────────
+
+    public const SETTINGS_KEY = 'finanzen.settings';
+
+    /**
+     * What the Wehr uses: budget (budgets per Kostenstelle), report (Jahresabschluss with closing the
+     * year), public (every Kamerad sees the budget status and all approved/paid Ausgaben; otherwise only
+     * their own – the full picture is for Kassenwart, Wehrführung and admins).
+     *
+     * @return array{budget: bool, report: bool, public: bool}
+     */
+    public static function settings(): array
+    {
+        $stored = json_decode((string) Setting::get(self::SETTINGS_KEY, ''), true) ?: [];
+
+        return ['budget' => (bool) ($stored['budget'] ?? true), 'report' => (bool) ($stored['report'] ?? true), 'public' => (bool) ($stored['public'] ?? false)];
+    }
+
+    /** @param  array{budget?: bool, report?: bool, public?: bool}  $settings */
+    public function saveSettings(User $by, array $settings): void
+    {
+        $this->assertManage($by);
+        Setting::set(self::SETTINGS_KEY, json_encode(array_map('boolval', array_intersect_key($settings + self::settings(), self::settings()))));
+    }
+
+    public static function budgetEnabled(): bool
+    {
+        return self::settings()['budget'];
+    }
+
+    public static function reportEnabled(): bool
+    {
+        return self::settings()['report'];
+    }
+
+    /** The budget status and every approved/paid Ausgabe: reviewers always, everyone else only when the Wehr wants it */
+    public static function canSeeOverview(User $user): bool
+    {
+        return self::canReview($user) || self::settings()['public'];
     }
 
     public static function canView(User $user, Entry $entry): bool
@@ -237,6 +279,7 @@ class FinanceService
     public function setBudget(User $by, CostCenter $center, int $year, ?int $cents, ?string $notes = null): void
     {
         $this->assertManage($by);
+        $this->assertBudget();
         $this->assertOpenYear($year);
         if ($cents === null || $cents < 0) {
             throw ValidationException::withMessages(['budget' => 'Bitte einen Betrag angeben, z. B. 1.500,00.']);
@@ -249,6 +292,7 @@ class FinanceService
     public function copyBudgets(User $by, int $year): int
     {
         $this->assertManage($by);
+        $this->assertBudget();
         $this->assertOpenYear($year);
         $count = 0;
 
@@ -299,6 +343,9 @@ class FinanceService
     public function closeYear(User $by, int $year): void
     {
         $this->assertManage($by);
+        if (! self::reportEnabled()) {
+            throw ValidationException::withMessages(['year' => 'Der Jahresabschluss ist ausgeschaltet.']);
+        }
         $open = Entry::where('year', $year)->whereIn('status', ['submitted', 'approved'])->count();
         if ($open > 0) {
             throw ValidationException::withMessages(['year' => $open.' Ausgabe'.($open === 1 ? '' : 'n').' aus '.$year.' '.($open === 1 ? 'ist' : 'sind').' noch nicht entschieden oder bezahlt.']);
@@ -429,6 +476,13 @@ class FinanceService
     {
         if (self::isClosed($year)) {
             throw ValidationException::withMessages(['year' => 'Das Jahr '.$year.' ist abgeschlossen.']);
+        }
+    }
+
+    private function assertBudget(): void
+    {
+        if (! self::budgetEnabled()) {
+            throw ValidationException::withMessages(['budget' => 'Das Budget ist ausgeschaltet.']);
         }
     }
 

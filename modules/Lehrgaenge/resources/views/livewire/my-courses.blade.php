@@ -19,13 +19,15 @@
                             <p class="text-xs text-gray-500">
                                 @if($record->status === 'confirmed')
                                     Bestätigt
+                                @elseif($record->isWaitlisted())
+                                    Interesse gemeldet am {{ $record->created_at->setTimezone('Europe/Berlin')->format('d.m.Y') }} – seit {{ $record->waitlisted_at->setTimezone('Europe/Berlin')->format('d.m.Y') }} in fox112 angemeldet, du stehst auf der Warteliste.
                                 @else
                                     Interesse gemeldet am {{ $record->created_at->setTimezone('Europe/Berlin')->format('d.m.Y') }} – die Anmeldung in fox112 läuft.
                                 @endif
                             </p>
                         </div>
                         <span class="flex items-center gap-3">
-                            <span class="rounded-full px-2 py-0.5 text-xs font-semibold {{ $record->status === 'confirmed' ? 'bg-green-100 text-green-800' : 'bg-blue-50 text-blue-700' }}">{{ $record->statusLabel() }}</span>
+                            <span class="rounded-full px-2 py-0.5 text-xs font-semibold {{ $record->status === 'confirmed' ? 'bg-green-100 text-green-800' : ($record->isWaitlisted() ? 'bg-amber-50 text-amber-800' : 'bg-blue-50 text-blue-700') }}">{{ $record->statusLabel() }}</span>
                             <button type="button" wire:click="startCancel({{ $record->id }})" class="text-xs text-gray-500 underline">Absagen</button>
                         </span>
                     </div>

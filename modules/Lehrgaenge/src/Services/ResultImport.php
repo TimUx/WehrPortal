@@ -106,7 +106,7 @@ class ResultImport
     /** By e-mail, or by the name as "Vorname Nachname" or "Nachname, Vorname" */
     private function match($users, string $email, string $name): ?User
     {
-        if ($email !== '' && ($u = $users->first(fn ($u) => mb_strtolower($u->email) === mb_strtolower($email)))) {
+        if ($email !== '' && ($u = $users->first(fn ($u) => mb_strtolower((string) $u->email) === mb_strtolower($email)))) {
             return $u;
         }
         $norm = fn (string $s) => mb_strtolower(trim(preg_replace('/\s+/u', ' ', $s)));

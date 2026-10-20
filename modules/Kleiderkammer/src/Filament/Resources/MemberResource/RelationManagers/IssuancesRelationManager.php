@@ -111,7 +111,7 @@ class IssuancesRelationManager extends RelationManager
                     ->modalCancelActionLabel('Schließen')
                     ->modalContent(fn (IssuedItem $record) => new HtmlString(
                         $record->messages()->latest()->get()->map(fn (EquipmentMessage $m) => '<div style="margin-bottom:1rem">'
-                            .'<p style="font-size:.75rem;opacity:.7">'.e($m->created_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i')).($m->isHandled() ? ' · erledigt' : ' · offen').'</p>'
+                            .'<p style="font-size:.75rem;opacity:.7">'.e($m->created_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i')).' · '.e($m->kindLabel()).' · '.e($m->stateLabel()).'</p>'
                             .'<p style="white-space:pre-line">'.e($m->body).'</p></div>')->implode('')
                     )),
                 Actions\Action::make('return')

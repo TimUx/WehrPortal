@@ -68,15 +68,16 @@ class UserResource extends Resource
             Forms\Components\TextInput::make('email')
                 ->label('E-Mail-Adresse')
                 ->email()
-                ->required()
                 ->unique(ignoreRecord: true)
                 ->maxLength(255)
+                ->requiredIf('is_admin', true)
+                ->validationMessages(['required_if' => 'Admins brauchen eine E-Mail-Adresse zum Anmelden.'])
                 ->helperText(function (?User $record) {
                     $pending = $record ? app(EmailChangeService::class)->pending($record) : null;
 
                     return $pending
                         ? 'Der Kamerad hat '.$pending->new_email.' beantragt, noch nicht bestätigt. Eine Änderung hier gilt sofort, ohne Bestätigung.'
-                        : 'Admins ändern die Adresse sofort, ohne Bestätigung. Login-Links gehen an diese Adresse.';
+                        : 'Admins ändern die Adresse sofort, ohne Bestätigung. Login-Links gehen an diese Adresse. Leer lassen für Mitglieder ohne Login (z. B. Kinder der Jugendfeuerwehr, Musikzug): Sie werden in den Modulen geführt (Kleidung, Unterweisungen, Verbandbuch …), können sich aber nicht anmelden und bekommen keine Mails.';
                 }),
 
             Forms\Components\TextInput::make('phone')
@@ -307,6 +308,7 @@ class UserResource extends Resource
 
                 Tables\Columns\TextColumn::make('email')
                     ->label('E-Mail')
+                    ->placeholder('ohne Login')
                     ->searchable()
                     ->sortable()
                     ->toggleable(),
@@ -407,7 +409,7 @@ class UserResource extends Resource
                     ->color('gray')
                     ->iconButton()
                     ->tooltip('Einladung (QR-Code)')
-                    ->visible(fn (User $record) => $record->is_active)
+                    ->visible(fn (User $record) => $record->is_active && $record->hasLogin())
                     ->modalHeading(fn (User $record) => 'Einladung für '.$record->name)
                     ->modalContent(fn (User $record) => view('filament.invite', ['user' => $record, 'invite' => app(Invitation::class)->create($record)]))
                     ->modalSubmitActionLabel('Per E-Mail schicken')
@@ -422,6 +424,7 @@ class UserResource extends Resource
                     ->color('gray')
                     ->iconButton()
                     ->tooltip('Login-Link senden')
+                    ->visible(fn (User $record) => $record->hasLogin())
                     ->action(function (User $record, MagicLinkService $service) {
                         if (! $record->is_active) {
                             Notification::make()
