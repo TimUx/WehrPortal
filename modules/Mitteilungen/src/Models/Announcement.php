@@ -3,18 +3,23 @@
 namespace Modules\Mitteilungen\src\Models;
 
 use App\Models\Group;
+use App\Models\MemberFunction;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
  * A notice on the start page; important ones are highlighted and cannot be dismissed. Meant for Abteilungen
  * and/or Funktionen (empty = everyone), with attachments and, on request, a Lesebestätigung.
+ *
+ * @property Carbon|null $visible_from
+ * @property Carbon|null $visible_until
  */
 class Announcement extends Model
 {
