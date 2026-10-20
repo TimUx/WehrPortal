@@ -6,13 +6,13 @@ use App\Models\User;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Modules\Kalender\src\Models\Event;
 use Modules\Uebungsdienste\src\Models\Service;
 use Modules\Uebungsdienste\src\Services\ServicePlan;
 
 /**
  * The Übungsdienstplan of a year: the next Dienst on top, the coming ones below (past ones on
- * request). Topic and responsible people: every Vorstand member, right in the list; date, time
- * and place: admins on their own page.
+ * request). The Wehrführung plans services for their Standort; admins can manage all Standorte.
  */
 class Planner extends Component
 {
@@ -32,7 +32,7 @@ class Planner extends Component
 
     public function saveTopic(int $serviceId, ?string $topic, ServicePlan $plan): void
     {
-        $this->attempt(fn () => $plan->setTopic(Service::findOrFail($serviceId), $topic));
+        $this->attempt(fn () => $plan->setTopic(auth()->user(), Service::findOrFail($serviceId), $topic));
     }
 
     public function addResponsible(int $serviceId, $userId, ServicePlan $plan): void
@@ -46,21 +46,31 @@ class Planner extends Component
 
     public function removeResponsible(int $serviceId, int $userId, ServicePlan $plan): void
     {
-        $plan->removeResponsible(Service::findOrFail($serviceId), $userId);
+        $plan->removeResponsible(auth()->user(), Service::findOrFail($serviceId), $userId);
     }
 
     public function render(ServicePlan $plan)
     {
         $today = ServicePlan::today();
-        $all = Service::with('responsible')->whereYear('date', $this->year)->orderBy('date')->orderBy('starts_at')->get();
+        $user = auth()->user();
+        $all = $plan->forPlanner($user, $this->year);
+        $editableIds = $all->filter(fn (Service $service) => $plan->canManageService($user, $service))->pluck('id');
+        $rsvpCounts = Event::whereIn('id', $all->pluck('event_id')->filter())->where('rsvp', true)->with('responses')->get()
+            ->mapWithKeys(fn (Event $event) => [$event->id => [
+                'yes' => $event->responses->where('status', 'yes')->count(),
+                'maybe' => $event->responses->where('status', 'maybe')->count(),
+                'no' => $event->responses->where('status', 'no')->count(),
+            ]]);
         $past = $all->filter(fn (Service $s) => $s->date->lt($today));
-        $years = Service::selectRaw('distinct extract(year from date)::int as y')->pluck('y')->push($today->year)->push($this->year)->unique()->sort()->values();
+        $years = $plan->yearsForPlanner($user)->push($today->year)->push($this->year)->unique()->sort()->values();
 
         return view('uebungsdienste::livewire.planner', [
             'services' => $this->showPast ? $all : $all->diff($past)->values(),
+            'editableIds' => $editableIds,
+            'rsvpCounts' => $rsvpCounts,
             'pastCount' => $past->count(),
             'years' => $years,
-            'next' => $plan->next(),
+            'next' => $all->first(fn (Service $service) => $service->date->gte($today)),
             'today' => $today,
             'people' => User::active()->orderBy('name')->pluck('name', 'id'),
             'admin' => auth()->user()->can('plan-uebungsdienste'),

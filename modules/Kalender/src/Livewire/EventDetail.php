@@ -17,6 +17,11 @@ class EventDetail extends Component
 
     public function mount(): void
     {
+        if (! auth()->user()->can('manage', $this->event)
+            && ! app(EventService::class)->audience($this->event)->contains('id', auth()->id())) {
+            abort(404);
+        }
+
         $this->comment = (string) $this->event->responses()->where('user_id', auth()->id())->value('comment');
     }
 

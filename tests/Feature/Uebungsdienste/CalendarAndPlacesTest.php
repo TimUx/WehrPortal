@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 use Modules\Kalender\src\Livewire\EventForm;
+use Modules\Kalender\src\Livewire\EventDetail;
 use Modules\Kalender\src\Models\Event;
 use Modules\Kalender\src\Models\Template;
 use Modules\Kalender\src\Notifications\EventCreatedNotification;
@@ -31,12 +32,13 @@ beforeEach(function () {
     $this->manager = User::factory()->create(['name' => 'Tina Terminverwalter']);
     $this->manager->moduleAccess()->create(['module' => 'kalender', 'role' => 'terminverwalter']);
     $this->youth = Group::create(['name' => 'Jugendfeuerwehr', 'sort_order' => 1]);
+    $this->activeGroup = Group::create(['name' => 'Einsatzabteilung', 'sort_order' => 2]);
     $this->hanna = User::factory()->create(['name' => 'Hanna Hydrant']);
     $this->bernd = User::factory()->create(['name' => 'Bernd Blaulicht']);
     foreach ([$this->hanna, $this->bernd] as $u) {
         $u->moduleAccess()->create(['module' => 'kalender']);
     }
-    $this->hanna->groups()->attach($this->youth);
+    $this->hanna->groups()->attach([$this->youth->id, $this->activeGroup->id]);
 
     $this->station = Place::create(['name' => 'Gerätehaus Musterstadt', 'address' => 'Hauptstraße 1, 12345 Musterstadt', 'sort_order' => 1]);
     $this->turnout = DressCode::create(['name' => 'Einsatzkleidung', 'sort_order' => 1]);
@@ -61,13 +63,13 @@ test('an Übungsdienst is a Termin in the Kalender of its target group – with 
     Livewire::actingAs($this->admin)->test(ServiceForm::class)
         ->assertSet('placeId', (string) $this->station->id)->assertSet('location', 'Gerätehaus Musterstadt')
         ->set('date', '2027-03-16')->set('time', '19:00')->set('endTime', '21:30')
-        ->set('dressCodeIds', [(string) $this->turnout->id])->set('groupIds', [(string) $this->youth->id])
+        ->set('dressCodeIds', [(string) $this->turnout->id])->set('targetLocationIds', $this->plan->defaultTargetIds($this->admin))
         ->call('save')->assertRedirect();
 
     $service = Service::sole();
-    $this->plan->setTopic($service, 'Geheimes Übungsszenario Bahnunfall');
+    $this->plan->setTopic($this->admin, $service, 'Geheimes Übungsszenario Bahnunfall');
     $event = Event::sole();
-    expect($event)->title->toBe('Übungsdienst')->type->toBe('uebung')->description->toBeNull()->managed_by->toBe('uebungsdienste')
+    expect($event)->title->toBe('Übungsdienst')->type->toBe('uebung')->rsvp->toBeTrue()->description->toBeNull()->managed_by->toBe('uebungsdienste')
         ->location->toBe('Gerätehaus Musterstadt')->place_id->toBe($this->station->id)->dress_code_ids->toBe([$this->turnout->id])
         ->and($event->starts_at->copy()->setTimezone('Europe/Berlin')->format('d.m. H:i'))->toBe('16.03. 19:00')
         ->and($event->ends_at->copy()->setTimezone('Europe/Berlin')->format('H:i'))->toBe('21:30')
@@ -76,7 +78,9 @@ test('an Übungsdienst is a Termin in the Kalender of its target group – with 
 
     Livewire::actingAs($this->hanna)->test(Home::class)->assertSee('Übungsdienst')->assertSee('Hauptstraße 1, 12345 Musterstadt')
         ->assertSee('Einsatzkleidung')->assertSee('google.com/maps/dir', false)->assertDontSee('Bahnunfall');
-    $this->actingAs($this->hanna)->get(route('kalender.show', $event))->assertOk()->assertSee('Kommt aus dem Übungsdienstplaner')->assertDontSee('Bahnunfall');
+    $this->actingAs($this->hanna)->get(route('kalender.show', $event))->assertOk()->assertSee('Kommt aus dem Übungsdienstplaner')->assertSee('Zusagen')->assertSee('Absagen')->assertDontSee('Bahnunfall');
+    Livewire::actingAs($this->hanna)->test(EventDetail::class, ['event' => $event])->call('respond', 'yes')->assertHasNoErrors();
+    expect($event->responses()->where('user_id', $this->hanna->id)->value('status'))->toBe('yes');
     expect(app(IcsExporter::class)->render(collect([$event->fresh()])))->not->toContain('Bahnunfall')->toContain('Hauptstraße 1');
 
     // Moving the Dienst moves the Termin; deleting it removes the Termin

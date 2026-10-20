@@ -6,6 +6,7 @@ use App\Filament\Resources\UserResource\Pages\ListUsers;
 use App\Models\MemberFunction;
 use App\Models\Module;
 use App\Models\User;
+use App\Services\ModuleRegistry;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +26,8 @@ beforeEach(function () {
     $this->hanna->functions()->attach($this->kassenwart);
     $this->bernd = User::factory()->create(['name' => 'Bernd Blaulicht', 'phone' => null]);  // Jugendwart only
     $this->bernd->functions()->attach($this->jugend);
+    $this->leader = User::factory()->create(['name' => 'Wilma Wehrführung', 'phone' => null]);
+    $this->leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'wehrführung']);
 });
 
 function planner(User $user): bool
@@ -36,15 +39,21 @@ test('the Vorstand includes its sub-functions', function () {
     expect($this->hanna->isVorstand())->toBeTrue()->and($this->bernd->isVorstand())->toBeFalse();
 });
 
-test('unlocking someone outside the Vorstand needs a confirmation on the module list', function () {
-    $page = Livewire::actingAs($this->admin)->test(ModuleMembers::class, ['module' => 'uebungsdienste'])
-        ->assertSee('Nicht im Vorstand')
-        ->assertTableActionVisible('grant_outside', $this->bernd)
-        ->assertTableActionHidden('grant_outside', $this->hanna);
+test('the Vereinsvorstand is not the Übungsdienstplaner audience', function () {
+    expect(app(ModuleRegistry::class)->isMeantFor('uebungsdienste', $this->hanna))->toBeFalse()
+        ->and(app(ModuleRegistry::class)->isMeantFor('uebungsdienste', $this->leader))->toBeTrue();
+});
 
-    // The bulk action unlocks only the Vorstand without the tick
-    $page->callTableBulkAction('grant', [$this->hanna, $this->bernd])->assertNotified();
-    expect(planner($this->hanna))->toBeTrue()->and(planner($this->bernd))->toBeFalse();
+test('unlocking someone outside the Wehrführung needs a confirmation on the module list', function () {
+    $page = Livewire::actingAs($this->admin)->test(ModuleMembers::class, ['module' => 'uebungsdienste'])
+        ->assertSee('Außerhalb der Zielgruppe „Wehrführung“')
+        ->assertTableActionVisible('grant_outside', $this->hanna)
+        ->assertTableActionVisible('grant_outside', $this->bernd)
+        ->assertTableActionHidden('grant_outside', $this->leader);
+
+    // The bulk action unlocks only Wehrführung without the tick
+    $page->callTableBulkAction('grant', [$this->leader, $this->hanna, $this->bernd])->assertNotified();
+    expect(planner($this->leader))->toBeTrue()->and(planner($this->bernd))->toBeFalse();
 
     $page->callTableAction('grant_outside', $this->bernd);
     expect(planner($this->bernd))->toBeTrue();
@@ -57,16 +66,17 @@ test('the bulk action unlocks others with the tick', function () {
     expect(planner($this->bernd))->toBeTrue();
 });
 
-test('"automatisch freischalten" covers only the Vorstand', function () {
+test('"automatisch freischalten" covers only the Wehrführung', function () {
     Module::where('key', 'uebungsdienste')->update(['auto_assign' => true]);
     Cache::flush();
 
-    expect($this->hanna->canUseModule('uebungsdienste'))->toBeTrue()
+    expect($this->leader->canUseModule('uebungsdienste'))->toBeTrue()
+        ->and($this->hanna->canUseModule('uebungsdienste'))->toBeFalse()
         ->and($this->bernd->canUseModule('uebungsdienste'))->toBeFalse()
         ->and($this->admin->canUseModule('uebungsdienste'))->toBeTrue();
 });
 
-test('the Kamerad form asks for a confirmation outside the Vorstand', function () {
+test('the Kamerad form asks for a confirmation outside the Wehrführung', function () {
     $this->actingAs($this->admin);
 
     Livewire::test(EditUser::class, ['record' => $this->bernd->getRouteKey()])
@@ -81,16 +91,16 @@ test('the Kamerad form asks for a confirmation outside the Vorstand', function (
         ->assertHasNoFormErrors();
     expect(planner($this->bernd))->toBeTrue();
 
-    Livewire::test(EditUser::class, ['record' => $this->hanna->getRouteKey()])
+    Livewire::test(EditUser::class, ['record' => $this->leader->getRouteKey()])
         ->fillForm(['module_access_uebungsdienste' => true])
         ->call('save')
         ->assertHasNoFormErrors();
-    expect(planner($this->hanna))->toBeTrue();
+    expect(planner($this->leader))->toBeTrue();
 });
 
 test('filtering the Kameraden by a function includes its sub-functions', function () {
     $this->actingAs($this->admin);
-    $chief = User::factory()->create(['name' => 'Wilma Wehrführer']);
+    $chief = User::factory()->create(['name' => 'Walter Wehrführer']);
     $chief->functions()->attach($this->vorstand);
 
     Livewire::test(ListUsers::class)

@@ -85,7 +85,7 @@ class ModuleMembers extends Page implements HasTable
         $registry = app(ModuleRegistry::class);
         $restricted = $registry->isRestricted($key);
         $audience = $this->definition()['audience_label'] ?? null;
-        // Outside the audience (e.g. not in the Vorstand): unlocking needs a confirmation
+        // Unlocking someone outside the intended audience needs confirmation
         $outside = fn (User $record) => $restricted && ! $registry->isMeantFor($key, $record);
 
         $columns = [
@@ -95,7 +95,7 @@ class ModuleMembers extends Page implements HasTable
                 ->sortable()
                 ->description(fn (User $record) => match (true) {
                     $record->is_admin => 'Admin – hat immer Zugang',
-                    $outside($record) => 'Nicht im '.$audience.($record->has_access ? ' – trotzdem freigeschaltet' : ''),
+                    $outside($record) => 'Außerhalb der Zielgruppe „'.$audience.'“'.($record->has_access ? ' – trotzdem freigeschaltet' : ''),
                     default => null,
                 }),
 
@@ -125,7 +125,7 @@ class ModuleMembers extends Page implements HasTable
                 ->sortable()
                 // Switching on for someone outside the audience goes through "Trotzdem freischalten"
                 ->disabled(fn (User $record) => $outside($record) && ! $record->has_access)
-                ->tooltip(fn (User $record) => $outside($record) && ! $record->has_access ? 'Nicht im '.$audience.' – über „Trotzdem freischalten“' : null)
+                ->tooltip(fn (User $record) => $outside($record) && ! $record->has_access ? 'Außerhalb der Zielgruppe „'.$audience.'“ – über „Trotzdem freischalten“' : null)
                 ->getStateUsing(fn (User $record) => (bool) $record->has_access)
                 ->updateStateUsing(function (User $record, bool $state) use ($key) {
                     if ($state) {
@@ -193,8 +193,8 @@ class ModuleMembers extends Page implements HasTable
                     ->color('warning')
                     ->visible(fn (User $record) => $outside($record) && ! $record->has_access)
                     ->requiresConfirmation()
-                    ->modalHeading(fn (User $record) => $record->name.' ist nicht im '.$audience)
-                    ->modalDescription('„'.$this->definition()['name'].'“ ist nur für den '.$audience.' (inkl. Unterfunktionen) und Admins gedacht. Trotzdem freischalten?')
+                    ->modalHeading(fn (User $record) => $record->name.' ist außerhalb der Zielgruppe „'.$audience.'“')
+                    ->modalDescription('„'.$this->definition()['name'].'“ ist nur für die Zielgruppe „'.$audience.'“ und Admins gedacht. Trotzdem freischalten?')
                     ->modalSubmitActionLabel('Ja, freischalten')
                     ->action(fn (User $record) => $this->grant(new Collection([$record]), null, true)),
             ])
@@ -204,8 +204,8 @@ class ModuleMembers extends Page implements HasTable
                     ->icon('heroicon-o-plus-circle')
                     ->schema(array_filter([
                         $roles ? Select::make("role_{$key}")->label('Rolle (optional)')->options($roleOptions) : null,
-                        $restricted ? Checkbox::make('confirm_outside')->label('Auch Kameraden freischalten, die nicht im '.$audience.' sind')
-                            ->helperText('„'.$this->definition()['name'].'“ ist nur für den '.$audience.' (inkl. Unterfunktionen) und Admins gedacht. Ohne Haken werden nur diese freigeschaltet.') : null,
+                        $restricted ? Checkbox::make('confirm_outside')->label('Auch Kameraden außerhalb der Zielgruppe „'.$audience.'“ freischalten')
+                            ->helperText('„'.$this->definition()['name'].'“ ist nur für die Zielgruppe „'.$audience.'“ und Admins gedacht. Ohne Haken werden nur diese freigeschaltet.') : null,
                     ]))
                     ->action(fn (Collection $records, array $data) => $this->grant($records, $data["role_{$key}"] ?? null, (bool) ($data['confirm_outside'] ?? false)))
                     ->deselectRecordsAfterCompletion(),
@@ -227,7 +227,7 @@ class ModuleMembers extends Page implements HasTable
 
     /**
      * Unlocks the module for the selection; existing roles stay unless a role is chosen. Kameraden outside
-     * the module's audience (e.g. not in the Vorstand) only with $confirmed.
+     * the module's intended audience only with $confirmed.
      */
     private function grant(Collection $records, ?string $role, bool $confirmed = false): void
     {

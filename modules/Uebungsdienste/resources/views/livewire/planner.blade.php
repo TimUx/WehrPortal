@@ -5,7 +5,7 @@
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
             <h1 class="text-xl font-bold text-gray-900">Übungsdienstplaner</h1>
-            <p class="text-sm text-gray-500">Thema und Verantwortliche kann jedes Vorstandsmitglied ändern{{ $admin ? '.' : '; Datum, Uhrzeit und Ort legen die Admins fest.' }}</p>
+            <p class="text-sm text-gray-500">Die Wehrführung plant die Dienste für die Einsatzabteilung an ihrem Standort.</p>
         </div>
         <div class="flex flex-wrap gap-2">
             <a href="{{ route('uebungsdienste.print', ['jahr' => $year]) }}" target="_blank" rel="noopener" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Drucken / PDF</a>
@@ -26,6 +26,10 @@
             @if($next->location)<p class="text-sm text-gray-600">{{ $next->location }}</p>@endif
             <p class="mt-2 text-base text-gray-900 whitespace-pre-line">{{ $next->topic ?: 'Thema noch offen' }}</p>
             <p class="mt-1 text-sm text-gray-700"><span class="text-gray-500">Verantwortlich:</span> {{ $next->responsible->isNotEmpty() ? $next->responsible->pluck('name')->implode(', ') : 'noch niemand' }}</p>
+            @if($rsvpCounts->has($next->event_id))
+                @php($counts = $rsvpCounts->get($next->event_id))
+                <p class="mt-1 text-sm text-gray-700">{{ $counts['yes'] }} zugesagt · {{ $counts['maybe'] }} vielleicht · {{ $counts['no'] }} abgesagt</p>
+            @endif
         </section>
     @endif
 
@@ -53,15 +57,23 @@
                     {{-- Date, time, place: one line on phones, own columns on wide screens --}}
                     <div class="flex items-start justify-between gap-2 md:block">
                         <p class="font-semibold text-gray-900">{{ $service->dateLabel() }}<span class="font-normal text-gray-600 md:hidden">{{ $service->timeLabel() ? ' · '.$service->timeLabel() : '' }}{{ $service->location ? ' · '.$service->location : '' }}</span></p>
-                        @if($admin)<a href="{{ route('uebungsdienste.edit', $service) }}" class="shrink-0 text-sm text-fw-navy underline md:mt-1 md:inline-block md:text-xs">Ändern</a>@endif
+                        @if($editableIds->contains($service->id))<a href="{{ route('uebungsdienste.edit', $service) }}" class="shrink-0 text-sm text-fw-navy underline md:mt-1 md:inline-block md:text-xs">Ändern</a>@endif
                         @php($extras = array_filter([\App\Models\DressCode::names($service->dress_code_ids) ? 'Kleidung: '.implode(', ', \App\Models\DressCode::names($service->dress_code_ids)) : null, $service->audienceLabel() ? 'Für: '.$service->audienceLabel() : null]))
                         @if($extras)<p class="text-xs text-gray-500">{{ implode(' · ', $extras) }}</p>@endif
+                        @if($rsvpCounts->has($service->event_id))
+                            @php($counts = $rsvpCounts->get($service->event_id))
+                            <p class="text-xs text-gray-600">{{ $counts['yes'] }} zugesagt · {{ $counts['maybe'] }} vielleicht · {{ $counts['no'] }} abgesagt</p>
+                        @endif
                     </div>
                     <p class="hidden md:block text-gray-700">{{ $service->timeLabel() ?? '–' }}</p>
                     <div class="mt-2 md:mt-0">
                         <label class="sr-only" for="topic-{{ $service->id }}">Thema</label>
-                        <textarea id="topic-{{ $service->id }}" rows="2" wire:change="saveTopic({{ $service->id }}, $event.target.value)" maxlength="1000" placeholder="Thema eintragen …"
-                                  class="{{ $input }} w-full resize-y">{{ $service->topic }}</textarea>
+                        @if($editableIds->contains($service->id))
+                            <textarea id="topic-{{ $service->id }}" rows="2" wire:change="saveTopic({{ $service->id }}, $event.target.value)" maxlength="1000" placeholder="Thema eintragen …"
+                                      class="{{ $input }} w-full resize-y">{{ $service->topic }}</textarea>
+                        @else
+                            <p class="whitespace-pre-line text-gray-700">{{ $service->topic }}</p>
+                        @endif
                     </div>
                     <p class="hidden md:block text-gray-700">{{ $service->location ?: '–' }}</p>
                     <div class="mt-2 md:mt-0">
@@ -70,15 +82,17 @@
                             @foreach($service->responsible as $person)
                                 <span class="inline-flex items-center gap-1 rounded-full bg-gray-100 py-1 pl-2.5 pr-1 text-sm text-gray-800" wire:key="r-{{ $service->id }}-{{ $person->id }}">
                                     {{ $person->name }}
-                                    <button type="button" wire:click="removeResponsible({{ $service->id }}, {{ $person->id }})" class="inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-500 hover:bg-gray-200 hover:text-red-600" aria-label="{{ $person->name }} entfernen">×</button>
+                                    @if($editableIds->contains($service->id))<button type="button" wire:click="removeResponsible({{ $service->id }}, {{ $person->id }})" class="inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-500 hover:bg-gray-200 hover:text-red-600" aria-label="{{ $person->name }} entfernen">×</button>@endif
                                 </span>
                             @endforeach
-                            <select wire:change="addResponsible({{ $service->id }}, $event.target.value)" wire:key="add-{{ $service->id }}-{{ $service->responsible->pluck('id')->implode('-') }}" class="{{ $input }} py-1 max-w-full" aria-label="Verantwortliche hinzufügen">
-                                <option value="">+ hinzufügen</option>
-                                @foreach($people as $id => $name)
-                                    @unless($service->responsible->contains('id', $id))<option value="{{ $id }}">{{ $name }}</option>@endunless
-                                @endforeach
-                            </select>
+                            @if($editableIds->contains($service->id))
+                                <select wire:change="addResponsible({{ $service->id }}, $event.target.value)" wire:key="add-{{ $service->id }}-{{ $service->responsible->pluck('id')->implode('-') }}" class="{{ $input }} py-1 max-w-full" aria-label="Verantwortliche hinzufügen">
+                                    <option value="">+ hinzufügen</option>
+                                    @foreach($people as $id => $name)
+                                        @unless($service->responsible->contains('id', $id))<option value="{{ $id }}">{{ $name }}</option>@endunless
+                                    @endforeach
+                                </select>
+                            @endif
                         </div>
                     </div>
                 </div>
