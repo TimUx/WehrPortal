@@ -250,7 +250,7 @@ it('encodes Matrix room IDs, retries with a stable transaction ID, and refuses e
     expect($puts)->toHaveCount(2)
         ->and($puts->map(fn ($pair) => $pair[0]->url())->unique()->count())->toBe(1)
         ->and($puts->first()[0]->url())->toContain('%21room-id%3Aexample.com')
-        ->and($puts->first()[0]->url())->toMatch('/send/m\.room\.message/ow[a-f0-9]{62}$/');
+        ->and($puts->first()[0]->url())->toMatch('#/send/m\.room\.message/ow[a-f0-9]{62}$#');
     $record = ChannelDelivery::sole();
     expect($record->status)->toBe('sent')->and($record->attempts)->toBe(2);
 
@@ -281,18 +281,19 @@ it('reports ntfy authentication and rate-limit failures without retrying uncerta
     app(ChannelSettings::class)->save($admin, 'general', 'ntfy', [
         'enabled' => true, 'server_url' => 'https://notify.example.com', 'target' => 'wehr-test', 'token' => 'fixture-token',
     ]);
-    Http::fake(['https://notify.example.com/*' => Http::response([], 401)]);
+    Http::fakeSequence('https://notify.example.com/*')
+        ->push([], 401)
+        ->push([], 429);
     $service = app(AnnouncementService::class);
     $service->save(null, ['title' => 'Authfehler', 'important' => false], [], $admin, ntfy: true);
     expect($service->externalStatus)->toContain('ntfy: Zugriff abgelehnt; ntfy-Token und Topic-Berechtigung prüfen.');
 
-    Http::fake(['https://notify.example.com/*' => Http::response([], 429)]);
     $announcement = $service->save(null, ['title' => 'Drosseltest', 'important' => false], [], $admin, ntfy: true);
 
     expect($service->externalStatus)->toContain('ntfy: Der ntfy-Server begrenzt den Versand; denselben Nachrichtenstand nicht erneut senden. Nach Prüfung bei Bedarf eine neue Mitteilung anlegen.')
         ->and(ChannelDelivery::query()->where('announcement_id', $announcement->id)->sole()->status)->toBe('failed');
     $service->save($announcement, ['title' => 'Drosseltest', 'important' => false], [], $admin, ntfy: true);
-    Http::assertSentCount(1);
+    Http::assertSentCount(2);
 });
 
 it('contains transport timeouts and keeps the saved announcement', function () {

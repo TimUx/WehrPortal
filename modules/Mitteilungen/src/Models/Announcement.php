@@ -80,33 +80,31 @@ class Announcement extends Model
             ...DB::table('member_functions')->whereIn('id', $functions)->whereNotNull('parent_id')->pluck('parent_id')->map(fn ($id) => (int) $id)->all(),
         ]));
 
-        return $query->where(function (Builder $q) use ($user, $groupIds, $withParents) {
-            $q->where(fn ($all) => $all
+        $query->where(fn (Builder $audience) => $audience
+            ->where(fn ($all) => $all
                 ->whereNotExists(fn ($audience) => $audience->selectRaw('1')->from('announcement_group')
                     ->whereColumn('announcement_group.announcement_id', 'announcements.id'))
                 ->whereNotExists(fn ($audience) => $audience->selectRaw('1')->from('announcement_function')
                     ->whereColumn('announcement_function.announcement_id', 'announcements.id')))
-                ->orWhereExists(fn ($audience) => $audience->selectRaw('1')->from('announcement_group')
+            ->orWhereExists(fn ($audience) => $audience->selectRaw('1')->from('announcement_group')
                     ->whereColumn('announcement_group.announcement_id', 'announcements.id')
                     ->whereIn('announcement_group.group_id', $groupIds))
-                ->orWhereExists(fn ($audience) => $audience->selectRaw('1')->from('announcement_function')
+            ->orWhereExists(fn ($audience) => $audience->selectRaw('1')->from('announcement_function')
                     ->whereColumn('announcement_function.announcement_id', 'announcements.id')
-                    ->whereIn('announcement_function.member_function_id', $withParents));
+                    ->whereIn('announcement_function.member_function_id', $withParents)));
 
-            if (Schema::hasTable('x_location_user')) {
-                $locationIds = DB::table('x_location_user')->where('user_id', $user->id)->pluck('location_id')
-                    ->map(fn ($id) => (int) $id)->all();
-                if ($user->getAttribute('ext_location_id')) {
-                    $locationIds[] = (int) $user->getAttribute('ext_location_id');
-                }
-                $q->where(function (Builder $location) use ($locationIds) {
-                    $location->whereNull('announcements.ext_location_id')
-                        ->orWhereIn('announcements.ext_location_id', $locationIds);
-                });
-            } else {
-                $q->whereNull('announcements.ext_location_id');
-            }
-        });
+        if (! Schema::hasTable('x_location_user')) {
+            return $query->whereNull('announcements.ext_location_id');
+        }
+
+        $locationIds = DB::table('x_location_user')->where('user_id', $user->id)->pluck('location_id')
+            ->map(fn ($id) => (int) $id)->all();
+        if ($user->getAttribute('ext_location_id')) {
+            $locationIds[] = (int) $user->getAttribute('ext_location_id');
+        }
+
+        return $query->where(fn (Builder $location) => $location->whereNull('announcements.ext_location_id')
+            ->orWhereIn('announcements.ext_location_id', array_values(array_unique($locationIds))));
     }
 
     public function scopeVisibleTo(Builder $query, User $user): Builder
