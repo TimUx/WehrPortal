@@ -115,8 +115,6 @@ it('requires an explicit tenant scope decision for each application table', func
         ->filter(fn (string $class) => class_exists($class))
         ->mapWithKeys(fn (string $class) => [(new $class)->getTable() => 'standortgebunden'])
         ->merge([
-            'x_att_lists' => 'standortgebunden',
-            'x_att_templates' => 'standortgebunden',
             'x_hc_hydrants' => 'hybrid',
             'x_hc_years' => 'hybrid',
             'x_hc_inspections' => 'hybrid',
