@@ -11,7 +11,7 @@ use Extensions\Mitteilungen\Models\ChannelDestination;
 use Extensions\Mitteilungen\Services\ChannelSettings;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Validation\ValidationException;
 use Modules\Mitteilungen\src\Models\Announcement;
 use Modules\Mitteilungen\src\Models\AnnouncementFile;
@@ -62,7 +62,7 @@ it('limits location notices to eligible members while general notices cross loca
     $adminOutside->forceFill(['ext_location_id' => null])->save();
 
     $general = Announcement::create(['title' => 'Allgemein']);
-    $northNotice = Announcement::create(['title' => 'Nur Nord', 'ext_location_id' => $north->id]);
+    Announcement::create(['title' => 'Nur Nord', 'ext_location_id' => $north->id]);
     $southNotice = Announcement::create(['title' => 'Nur Sued', 'ext_location_id' => $south->id]);
     $service = app(AnnouncementService::class);
 
@@ -90,6 +90,26 @@ it('rejects location-admin scope escalation and cross-location audience ids', fu
     expect(fn () => $service->save(null, ['title' => 'Fremde Abteilung', 'important' => false], [$otherGroup->id], $editor, locationId: (int) $north->id))
         ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
     expect(Announcement::count())->toBe(0);
+});
+
+it('keeps a general notice targeted to a foreign location hidden from that editors management and statistics', function () {
+    $north = Location::default();
+    $south = channelLocation('Wache Sued');
+    $northEditor = channelMember($north);
+    $northEditor->moduleAccess()->where('module', 'mitteilungen')->update(['role' => 'redakteur']);
+    $southMember = channelMember($south);
+    $group = Group::create(['name' => 'Sued intern']);
+    $group->forceFill(['ext_location_id' => $south->id])->save();
+    $southMember->groups()->attach($group);
+    $announcement = Announcement::create(['title' => 'Nur Sued, allgemein zugeordnet']);
+    $announcement->groups()->attach($group);
+    $service = app(AnnouncementService::class);
+
+    expect(Announcement::for($southMember)->whereKey($announcement->id)->exists())->toBeTrue()
+        ->and(Announcement::for($northEditor)->whereKey($announcement->id)->exists())->toBeFalse()
+        ->and($service->canManage($northEditor, $announcement))->toBeFalse()
+        ->and($service->managementQuery($northEditor)->whereKey($announcement->id)->exists())->toBeFalse()
+        ->and($service->recipients($announcement)->modelKeys())->toBe([$southMember->id]);
 });
 
 it('serves location attachments and acknowledgement only to that location', function () {
@@ -208,7 +228,7 @@ it('encodes Matrix room IDs, retries with a stable transaction ID, and refuses e
     expect($record->status)->toBe('sent')->and($record->attempts)->toBe(2);
 
     Http::fake(['https://matrix.example.com/*' => Http::response(['algorithm' => 'm.megolm.v1.aes-sha2'], 200)]);
-    $another = app(AnnouncementService::class)->save(null, ['title' => 'Verschlüsselt', 'important' => false], [], $admin, matrix: true);
+    app(AnnouncementService::class)->save(null, ['title' => 'Verschlüsselt', 'important' => false], [], $admin, matrix: true);
     expect(app(AnnouncementService::class)->externalStatus)->toContain('Matrix: nicht gesendet – der Raum ist verschlüsselt. Für E2EE-Versand ist diese Integration nicht geeignet.');
     Http::assertSentCount(1);
 });
@@ -234,12 +254,31 @@ it('reports ntfy authentication and rate-limit failures without retrying uncerta
     app(ChannelSettings::class)->save($admin, 'general', 'ntfy', [
         'enabled' => true, 'server_url' => 'https://notify.example.com', 'target' => 'wehr-test', 'token' => 'fixture-token',
     ]);
-    Http::fake(['https://notify.example.com/*' => Http::response([], 429)]);
+    Http::fake(['https://notify.example.com/*' => Http::response([], 401)]);
     $service = app(AnnouncementService::class);
+    $service->save(null, ['title' => 'Authfehler', 'important' => false], [], $admin, ntfy: true);
+    expect($service->externalStatus)->toContain('ntfy: Zugriff abgelehnt; ntfy-Token bzw. Matrix-Bot-Mitgliedschaft und Senderecht prüfen.');
+
+    Http::fake(['https://notify.example.com/*' => Http::response([], 429)]);
     $announcement = $service->save(null, ['title' => 'Drosseltest', 'important' => false], [], $admin, ntfy: true);
 
     expect($service->externalStatus)->toContain('ntfy: Der Zielserver begrenzt den Versand; später erneut versuchen.')
         ->and(ChannelDelivery::sole()->status)->toBe('failed');
     $service->save($announcement, ['title' => 'Drosseltest', 'important' => false], [], $admin, ntfy: true);
     Http::assertSentCount(1);
+});
+
+it('contains transport timeouts and keeps the saved announcement', function () {
+    $admin = User::factory()->admin()->create();
+    app(ChannelSettings::class)->save($admin, 'general', 'ntfy', [
+        'enabled' => true, 'server_url' => 'https://notify.example.com', 'target' => 'timeout', 'token' => 'fixture-token',
+    ]);
+    Http::fake(fn () => throw new ConnectionException('timeout'));
+
+    $service = app(AnnouncementService::class);
+    $announcement = $service->save(null, ['title' => 'Zeitüberschreitung', 'important' => false], [], $admin, ntfy: true);
+
+    expect($announcement->exists)->toBeTrue()
+        ->and($service->externalStatus)->toContain('ntfy: Verbindung fehlgeschlagen oder Server nicht zulässig. Einstellungen prüfen.')
+        ->and(ChannelDelivery::sole()->status)->toBe('failed');
 });

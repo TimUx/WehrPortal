@@ -4,6 +4,7 @@ namespace Modules\Mitteilungen\src\Livewire;
 
 use App\Models\Group;
 use App\Models\MemberFunction;
+use App\Models\User;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\LocationAccess;
 use Illuminate\Support\Carbon;
@@ -178,6 +179,8 @@ class Manage extends Component
     public function render(AnnouncementService $announcements)
     {
         $user = auth()->user();
+        abort_unless($user instanceof User, 403);
+        abort_unless($announcements->canManageAnything($user), 403);
         $access = config('locations.enabled') && app()->bound(LocationAccess::class) ? app(LocationAccess::class) : null;
         $locationIds = $access
             ? ($user->is_admin ? Location::query()->pluck('id')->all() : ($access->isLocationAdmin($user) ? $access->adminLocationIds($user) : $access->visibleLocationIds($user)))

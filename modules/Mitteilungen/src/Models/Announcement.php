@@ -3,7 +3,6 @@
 namespace Modules\Mitteilungen\src\Models;
 
 use App\Models\Group;
-use App\Models\MemberFunction;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -68,14 +67,26 @@ class Announcement extends Model
     /** Meant for this Kamerad: no audience set, member of one of the Abteilungen, or holding one of the Funktionen */
     public function scopeFor(Builder $query, User $user): Builder
     {
-        $functions = $user->functions()->pluck('member_functions.id');
+        $groupIds = DB::table('group_user')->where('user_id', $user->id)->pluck('group_id')->all();
+        $functions = DB::table('member_function_user')->where('user_id', $user->id)->pluck('member_function_id')->all();
         // A Funktion of the audience also covers its sub-functions, so look one level up
-        $withParents = $functions->merge(MemberFunction::whereIn('id', $functions)->whereNotNull('parent_id')->pluck('parent_id'))->unique();
+        $withParents = array_values(array_unique([
+            ...array_map('intval', $functions),
+            ...DB::table('member_functions')->whereIn('id', $functions)->whereNotNull('parent_id')->pluck('parent_id')->map(fn ($id) => (int) $id)->all(),
+        ]));
 
-        return $query->where(function (Builder $q) use ($user, $withParents) {
-            $q->where(fn ($all) => $all->doesntHave('groups')->doesntHave('functions'))
-            ->orWhereHas('groups', fn ($g) => $g->whereIn('groups.id', $user->groups()->pluck('groups.id')))
-            ->orWhereHas('functions', fn ($f) => $f->whereIn('member_functions.id', $withParents));
+        return $query->where(function (Builder $q) use ($user, $groupIds, $withParents) {
+            $q->where(fn ($all) => $all
+                ->whereNotExists(fn ($audience) => $audience->selectRaw('1')->from('announcement_group')
+                    ->whereColumn('announcement_group.announcement_id', 'announcements.id'))
+                ->whereNotExists(fn ($audience) => $audience->selectRaw('1')->from('announcement_function')
+                    ->whereColumn('announcement_function.announcement_id', 'announcements.id')))
+                ->orWhereExists(fn ($audience) => $audience->selectRaw('1')->from('announcement_group')
+                    ->whereColumn('announcement_group.announcement_id', 'announcements.id')
+                    ->whereIn('announcement_group.group_id', $groupIds))
+                ->orWhereExists(fn ($audience) => $audience->selectRaw('1')->from('announcement_function')
+                    ->whereColumn('announcement_function.announcement_id', 'announcements.id')
+                    ->whereIn('announcement_function.member_function_id', $withParents));
 
             if (Schema::hasTable('x_location_user')) {
                 $locationIds = DB::table('x_location_user')->where('user_id', $user->id)->pluck('location_id')

@@ -79,10 +79,17 @@ class ChannelSettings
         $typedToken = trim((string) ($data['token'] ?? ''));
         $destination = ChannelDestination::query()->firstOrNew(['scope_key' => $scopeKey, 'transport' => $transport]);
 
-        if ($enabled || $serverUrl !== '' || $target !== '') {
-            $serverUrl = $this->validateServerUrl($serverUrl);
+        if ($enabled) {
+            $serverUrl = $this->validateServerUrl($serverUrl, checkPublicHost: true);
             $this->validateTarget($transport, $target);
             $this->assertUniqueTarget($scopeKey, $transport, $serverUrl, $target);
+        } else {
+            if ($serverUrl !== '') {
+                $serverUrl = $this->validateServerUrl($serverUrl, checkPublicHost: false);
+            }
+            if ($target !== '') {
+                $this->validateTarget($transport, $target);
+            }
         }
 
         if ($enabled && blank($typedToken) && ! $this->token($destination)) {
@@ -138,7 +145,7 @@ class ChannelSettings
         }
     }
 
-    private function validateServerUrl(string $url): string
+    private function validateServerUrl(string $url, bool $checkPublicHost): string
     {
         $parts = parse_url($url);
         if (($parts['scheme'] ?? null) !== 'https'
@@ -150,10 +157,12 @@ class ChannelSettings
             throw ValidationException::withMessages(['data' => 'Der Server muss eine HTTPS-Adresse ohne Pfad, Zugangsdaten oder eigenen Port sein.']);
         }
 
-        try {
-            \App\Support\SafeUrl::check($url);
-        } catch (Throwable) {
-            throw ValidationException::withMessages(['data' => 'Der Server ist nicht erreichbar oder nicht zulässig. Erlaubt sind öffentliche HTTPS-Server.']);
+        if ($checkPublicHost) {
+            try {
+                \App\Support\SafeUrl::check($url);
+            } catch (Throwable) {
+                throw ValidationException::withMessages(['data' => 'Der Server ist nicht erreichbar oder nicht zulässig. Erlaubt sind öffentliche HTTPS-Server.']);
+            }
         }
 
         return rtrim($url, '/');
