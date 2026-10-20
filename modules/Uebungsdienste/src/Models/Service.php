@@ -8,12 +8,15 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 use Extensions\Locations\Models\Location;
 
 /**
  * One Übungsdienst: date, start and end (Berlin time), place, Kleidung, target group, topic and who
  * is responsible. Without the topic it is also a Termin in the Kalender of the target group.
+ *
+ * @property Carbon $date
  */
 class Service extends Model
 {
@@ -50,7 +53,11 @@ class Service extends Model
         $locations = $locationsEnabled
             ? Location::whereIn('id', $groups->pluck('ext_location_id')->filter())->pluck('name', 'id')
             : collect();
-        $names = $groups->map(fn (Group $group) => $group->name.($locations->get($group->ext_location_id) ? ' · '.$locations->get($group->ext_location_id) : ''))->all();
+        $names = $groups->map(function (Group $group) use ($locations) {
+            $location = $locations->get($group->getAttribute('ext_location_id'));
+
+            return $group->name.($location ? ' · '.$location : '');
+        })->all();
 
         return $names === [] ? null : implode(', ', $names);
     }

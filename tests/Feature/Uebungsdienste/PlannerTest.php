@@ -27,7 +27,7 @@ beforeEach(function () {
     $this->leader->moduleAccess()->create(['module' => 'uebungsdienste']);
     $this->leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'wehrführung']);
     $this->locationId = app(LocationAccess::class)->currentLocationId($this->leader);
-    $this->placeGroup = Group::create(['name' => 'Einsatzabteilung']);
+    $this->placeGroup = Location::findOrFail($this->locationId)->groups()->create(['name' => 'Einsatzabteilung']);
     $this->member = User::factory()->create(['name' => 'Hanna Hydrant']);
     $this->member->groups()->attach($this->placeGroup);
 
