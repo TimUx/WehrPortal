@@ -8,6 +8,13 @@
         </div>
         @if($canManage)<a href="{{ route('finanzen.book') }}" class="rounded-lg bg-fw-red px-4 py-2 text-sm font-semibold text-white hover:bg-fw-red-dark">Buchung erfassen</a>@endif
     </div>
+    {{-- Without the Jahresabschluss the export lives here --}}
+    @unless($reportOn)
+        <div class="flex flex-wrap gap-2 text-sm">
+            <a href="{{ route('finanzen.export.csv', $year) }}" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 font-semibold text-gray-700 hover:bg-gray-50">Buchungen {{ $year }} als CSV</a>
+            <a href="{{ route('finanzen.export.zip', $year) }}" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 font-semibold text-gray-700 hover:bg-gray-50">Belege {{ $year }} als ZIP</a>
+        </div>
+    @endunless
 
     <div class="flex flex-wrap items-center gap-2">
         <button type="button" wire:click="$set('status', 'submitted')" class="rounded-full px-3 py-1.5 text-sm {{ $status === 'submitted' ? 'bg-amber-500 text-white' : 'border border-amber-300 bg-amber-50 text-amber-900' }}">Zu genehmigen ({{ $waiting }})</button>

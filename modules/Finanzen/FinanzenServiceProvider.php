@@ -54,7 +54,7 @@ class FinanzenServiceProvider extends ServiceProvider
         app(ModuleRegistry::class)->register(
             'finanzen',
             'Budget & Finanzen',
-            'Budgets, Ausgaben mit Beleg und Genehmigung, Jahresabschluss – transparent für die ganze Mannschaft',
+            'Ausgaben mit Beleg und Genehmigung, auf Wunsch Budgets und Jahresabschluss',
             roles: ['kassenwart', 'wehrführung'],
             provider: self::class,
             route: 'finanzen.index',
@@ -74,10 +74,10 @@ class FinanzenServiceProvider extends ServiceProvider
         // The Modulleiste: tabs and Verwaltung, each only for who may use it
         app(ModuleRegistry::class)->navigation('finanzen', fn (User $u) => [
             'tabs' => [
-                ModuleNav::tab('Übersicht', 'finanzen.index', ['finanzen.entry', 'finanzen.edit']),
+                ModuleNav::tab(FinanceService::canSeeOverview($u) ? 'Übersicht' : 'Meine Ausgaben', 'finanzen.index', ['finanzen.entry', 'finanzen.edit']),
                 FinanceService::canReview($u) ? ModuleNav::tab('Buchungen', 'finanzen.entries', ['finanzen.book']) : null,
-                FinanceService::canManage($u) ? ModuleNav::tab('Budget & Kostenstellen', 'finanzen.budget') : null,
-                FinanceService::canReview($u) ? ModuleNav::tab('Jahresabschluss', 'finanzen.report') : null,
+                FinanceService::canManage($u) ? ModuleNav::tab(FinanceService::budgetEnabled() ? 'Budget & Kostenstellen' : 'Kostenstellen & Einstellungen', 'finanzen.budget') : null,
+                FinanceService::canReview($u) && FinanceService::reportEnabled() ? ModuleNav::tab('Jahresabschluss', 'finanzen.report') : null,
             ],
         ]);
     }

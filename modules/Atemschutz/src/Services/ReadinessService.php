@@ -280,7 +280,7 @@ class ReadinessService
             $rows = DB::table('lq_records')->join('lq_courses', 'lq_courses.id', '=', 'lq_records.course_id')
                 ->whereIn('lq_records.user_id', $userIds)->where('lq_records.status', 'completed')
                 ->where(fn ($q) => $q->where('lq_courses.name', 'ilike', 'Atemschutzgeräteträger%')->orWhere('lq_courses.name', 'ilike', '%Belastungsübung%'))
-                ->get(['lq_records.user_id', 'lq_records.completed_on', 'lq_records.updated_at', 'lq_courses.name']);
+                ->get(['lq_records.user_id', 'lq_records.completed_on', 'lq_courses.name']);
         } catch (Throwable $e) {
             report($e);
 
@@ -290,7 +290,8 @@ class ReadinessService
         $result = [];
         foreach ($rows as $row) {
             $key = stripos($row->name, 'Belastungsübung') !== false ? 'belastungsuebung' : 'agt';
-            $when = $row->completed_on ?? substr((string) $row->updated_at, 0, 10);
+            // Without a date (old Lehrgang entered afterwards) the Lehrgang counts, but gives no date
+            $when = (string) $row->completed_on;
             if (! isset($result[$row->user_id][$key]) || $when > $result[$row->user_id][$key]) {
                 $result[$row->user_id][$key] = $when;
             }

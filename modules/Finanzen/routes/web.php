@@ -42,14 +42,19 @@ Route::prefix('finanzen')->name('finanzen.')
         // Kassenwart, Wehrführung and admins: all Buchungen, Jahresabschluss and export
         Route::middleware('can:finanzen-review')->group(function () {
             Route::get('/buchungen', fn () => view('finanzen::pages.entries'))->name('entries');
-            Route::get('/jahresabschluss', fn () => view('finanzen::pages.report'))->name('report');
+            Route::get('/jahresabschluss', function () {
+                abort_unless(FinanceService::reportEnabled(), 404);
+
+                return view('finanzen::pages.report');
+            })->name('report');
 
             Route::get('/jahresabschluss/{year}/druck', function (int $year, FinanceService $finance, FinanceExport $export) {
+                abort_unless(FinanceService::reportEnabled(), 404);
                 $overview = $finance->overview($year, activeOnly: true);
 
                 return view('finanzen::pages.print', [
                     'year' => $year, 'overview' => $overview, 'totals' => $finance->totals($overview),
-                    'entries' => $export->entries($year), 'closed' => FinanceService::isClosed($year),
+                    'entries' => $export->entries($year), 'closed' => FinanceService::isClosed($year), 'budgetOn' => FinanceService::budgetEnabled(),
                 ]);
             })->whereNumber('year')->name('print');
 

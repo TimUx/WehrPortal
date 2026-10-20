@@ -174,6 +174,10 @@ class PersonnelService
                 'street' => $get('street'), 'postal_code' => $get('postal_code'), 'city' => $get('city'),
                 'group_names' => array_values(array_filter(array_map('trim', preg_split('/[,|]/', $get('groups')) ?: [])))], fn ($v) => $v !== '' && $v !== null && $v !== []);
             try {
+                // The import finds members by address, so it keeps needing one (members without login are created by hand)
+                if ($email === '') {
+                    throw ValidationException::withMessages(['member_email' => 'E-Mail-Adresse fehlt – Mitglieder ohne Login einzeln unter „Neues Mitglied“ anlegen.']);
+                }
                 $this->memberData($by, $data, $existing);
                 $action = $existing ? (self::mayView($by, $existing) ? 'update' : 'error') : 'new';
                 $label = ['new' => 'wird angelegt', 'update' => 'wird ergänzt', 'error' => 'gehört nicht zu deinen Abteilungen'][$action];
@@ -217,10 +221,11 @@ class PersonnelService
         if ($name === '' || mb_strlen($name) > 150) {
             throw ValidationException::withMessages(['member_name' => 'Bitte den Namen angeben.']);
         }
-        if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            throw ValidationException::withMessages(['member_email' => 'Bitte eine gültige E-Mail-Adresse angeben.']);
+        // Without an address the member is kept without login (e.g. Jugendfeuerwehr, Musikzug)
+        if ($email !== '' && ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw ValidationException::withMessages(['member_email' => 'Bitte eine gültige E-Mail-Adresse angeben (oder leer lassen: Mitglied ohne Login).']);
         }
-        if (! $existing && User::whereRaw('lower(email) = ?', [$email])->exists()) {
+        if (! $existing && $email !== '' && User::whereRaw('lower(email) = ?', [$email])->exists()) {
             throw ValidationException::withMessages(['member_email' => 'Diese E-Mail-Adresse gehört schon einem Kameraden.']);
         }
         $groupIds = collect($data['group_ids'] ?? [])->map(fn ($id) => (int) $id);
@@ -237,7 +242,7 @@ class PersonnelService
         $fields = self::activeFields();
 
         return [
-            'name' => $name, 'email' => $email, 'group_ids' => $groupIds->unique()->values()->all(),
+            'name' => $name, 'email' => $email !== '' ? $email : null, 'group_ids' => $groupIds->unique()->values()->all(),
             'rank' => filled($data['rank'] ?? null) ? mb_substr(trim($data['rank']), 0, 100) : null,
             'joined_at' => $date($data['joined_at'] ?? null), 'gender' => in_array($data['gender'] ?? null, ['male', 'female', 'diverse'], true) ? $data['gender'] : null,
             // Personal data only while the Personalverwaltung keeps it

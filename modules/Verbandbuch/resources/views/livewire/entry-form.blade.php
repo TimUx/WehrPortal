@@ -36,11 +36,11 @@
             <select wire:model.live="injuredUserId" class="{{ $input }} font-normal">
                 <option value="">– bitte wählen –</option>
                 @foreach($members as $member)<option value="{{ $member->id }}">{{ $member->name }}</option>@endforeach
-                <option value="{{ \Modules\Verbandbuch\src\Livewire\EntryForm::OTHER }}">Andere Person (kein Kamerad) …</option>
+                <option value="{{ \Modules\Verbandbuch\src\Livewire\EntryForm::OTHER }}">Person ohne Profil – Namen eintragen …</option>
             </select>
         </label>
         @if($injuredUserId === \Modules\Verbandbuch\src\Livewire\EntryForm::OTHER)
-            <label class="block text-sm text-gray-700">Name<input type="text" wire:model.blur="injuredName" maxlength="150" placeholder="Vor- und Nachname, z. B. Gast beim Tag der offenen Tür" class="{{ $input }}"></label>
+            <label class="block text-sm text-gray-700">Name<input type="text" wire:model.blur="injuredName" maxlength="150" placeholder="Vor- und Nachname" class="{{ $input }}"><span class="mt-1 block text-xs text-gray-500">Für alle ohne eigenes Profil in der App, z. B. Kind der Jugendfeuerwehr, Mitglied des Musikzugs, Gast beim Tag der offenen Tür.</span></label>
         @endif
         @error('injured_name')<p class="{{ $error }}">{{ $message }}</p>@enderror
 
@@ -61,7 +61,7 @@
                     <select wire:model.live="firstAiderUserId" class="{{ $input }}">
                         <option value="">– bitte wählen –</option>
                         @foreach($members as $member)<option value="{{ $member->id }}">{{ $member->name }}</option>@endforeach
-                        <option value="{{ \Modules\Verbandbuch\src\Livewire\EntryForm::OTHER }}">Andere Person …</option>
+                        <option value="{{ \Modules\Verbandbuch\src\Livewire\EntryForm::OTHER }}">Person ohne Profil – Namen eintragen …</option>
                     </select>
                 </label>
                 <label class="block text-sm text-gray-700">Wann? (leer = Zeitpunkt des Ereignisses)<input type="datetime-local" wire:model="firstAidAt" class="{{ $input }}"></label>

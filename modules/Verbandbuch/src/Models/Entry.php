@@ -25,8 +25,8 @@ class Entry extends Model
         'jugend' => 'Jugendfeuerwehr', 'veranstaltung' => 'Veranstaltung', 'sonstiges' => 'Sonstiges',
     ];
 
-    /** DGUV Vorschrift 1 § 24 (6): keep the documentation for five years */
-    public const RETENTION_YEARS = 5;
+    /** DGUV Vorschrift 1 § 24 (6) asks for five years; the Wehr keeps the documentation for ten */
+    public const RETENTION_YEARS = 10;
 
     protected $table = 'vb_entries';
 

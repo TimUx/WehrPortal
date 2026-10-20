@@ -18,10 +18,10 @@
         <ul class="mt-4 space-y-2">
             @foreach($messages as $message)
                 <li class="rounded-lg bg-gray-50 px-3 py-2 text-sm">
-                    <p class="text-gray-800 whitespace-pre-line">{{ $message->body }}</p>
+                    <p class="text-gray-800 whitespace-pre-line">@if($message->isWashing())<span class="font-medium">Wäsche angefordert:</span> @endif{{ $message->body }}</p>
                     <p class="mt-1 text-xs text-gray-500">
                         {{ $message->created_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }}
-                        · {{ $message->isHandled() ? 'erledigt' : 'offen' }}
+                        · {{ $message->stateLabel() }}
                     </p>
                 </li>
             @endforeach

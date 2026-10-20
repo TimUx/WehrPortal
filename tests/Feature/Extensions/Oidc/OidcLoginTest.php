@@ -126,6 +126,14 @@ test('inactive users are denied, by e-mail and by identity', function () {
     $this->assertGuest();
 });
 
+test('members without an e-mail address are denied even with a linked identity', function () {
+    $user = User::factory()->create(['email' => null]);
+    Identity::create(['user_id' => $user->id, 'issuer' => OIDC_ISSUER, 'subject' => 'subject-1']);
+
+    oidcFlow($this->idp)->assertSessionHasErrors('auth');
+    $this->assertGuest();
+});
+
 test('unknown users are not created by default', function () {
     oidcFlow($this->idp)->assertSessionHasErrors('auth');
 

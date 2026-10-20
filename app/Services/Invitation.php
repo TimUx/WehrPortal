@@ -24,6 +24,9 @@ class Invitation
         if (! $member->is_active) {
             throw ValidationException::withMessages(['invite' => 'Nur aktive Kameraden lassen sich einladen.']);
         }
+        if (! $member->hasLogin()) {
+            throw ValidationException::withMessages(['invite' => $member->name.' ist ohne E-Mail-Adresse angelegt und hat keinen Login. Für eine Einladung zuerst eine Adresse eintragen.']);
+        }
         $raw = Str::random(64);
         $expires = now()->addDays(self::DAYS);
         LoginToken::create(['user_id' => $member->id, 'token_hash' => hash('sha256', $raw), 'expires_at' => $expires, 'created_at' => now()]);

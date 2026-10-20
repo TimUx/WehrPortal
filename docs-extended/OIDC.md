@@ -54,7 +54,7 @@ Das Client-Secret wird verschlüsselt (APP_KEY) gespeichert und nie wieder angez
 - Standard: nur bestehende Konten verknüpfen. Ein Konto, das schon mit einer anderen Identität desselben IdP verknüpft ist, wird nie per E-Mail neu verknüpft.
 - Optional *automatisch anlegen (JIT)*: neues Konto ohne Admin-Rechte und ohne Modulzugänge.
 - **Admin-Rechte kommen nie aus Claims.** Gruppen-/Rollen-Claims werden nicht ausgewertet.
-- Inaktive Benutzer werden abgelehnt. Fehlerseiten nennen keine Details; im Log steht nur ein Grund-Code (kein Token, kein Secret, keine Claims).
+- Inaktive Benutzer und Mitglieder ohne E-Mail-Adresse („ohne Login“) werden abgelehnt – auch mit bereits verknüpfter Identität. Fehlerseiten nennen keine Details; im Log steht nur ein Grund-Code (kein Token, kein Secret, keine Claims).
 - Activity-Log: Eintrag `login` mit `method = oidc`.
 
 ## Lokaler System-Admin und Aussperr-Schutz

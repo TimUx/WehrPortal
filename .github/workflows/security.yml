@@ -10,13 +10,15 @@ on:
 permissions:
   contents: read
   security-events: write
+  # The image on ghcr.io is private: the scan logs in with the workflow token to pull it
+  packages: read
 
 jobs:
   audit:
     name: Dependency Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: shivammathur/setup-php@v2
         with:
@@ -27,7 +29,7 @@ jobs:
       - name: Composer Audit
         run: composer install --no-interaction --prefer-dist --no-scripts && composer audit --no-interaction
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -40,6 +42,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Scan ghcr.io/roberteinsle/openwehr:latest
+        env:
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0, pinned to the commit
         with:
           image-ref: ghcr.io/roberteinsle/openwehr:latest
@@ -49,6 +54,6 @@ jobs:
           output: trivy.sarif
 
       - name: Upload to the Security tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy.sarif

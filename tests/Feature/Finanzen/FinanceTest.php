@@ -147,7 +147,55 @@ test('the submitter changes or withdraws only while it waits; others see neither
     expect(Entry::find($waiting->id))->toBeNull();
 });
 
-test('everyone sees the budget status and the spent money, without Belege of others', function () {
+test('Kameraden see only their own Ausgaben; the full picture is for the reviewers unless made public', function () {
+    $mine = expense($this->member, 50000);
+    $this->f->decide($this->chief, $mine, true);
+    $theirs = expense($this->other, 12300);
+
+    Livewire::actingAs($this->member)->test(Overview::class)
+        ->assertSee('Meine Ausgaben 2027')->assertSee('500,00 €')->assertSee('Genehmigt')
+        ->assertDontSee('1.500,00 €')->assertDontSee('Noch verfügbar')->assertDontSee('123,00 €');
+    $this->actingAs($this->member)->get(route('finanzen.entry', $theirs))->assertForbidden();
+
+    foreach ([$this->kasse, $this->chief] as $reviewer) {
+        Livewire::actingAs($reviewer)->test(Overview::class)->assertSee('Budget 2027')->assertSee('1.500,00 €')->assertSee('Noch verfügbar');
+    }
+
+    // The Kassenwart can make it public again
+    Livewire::actingAs($this->kasse)->test(BudgetPlan::class)->set('settings.public', true)->call('saveSettings')->assertSee('Einstellungen gespeichert.');
+    Livewire::actingAs($this->member)->test(Overview::class)->assertSee('Budget 2027')->assertSee('1.500,00 €');
+});
+
+test('Budget and Jahresabschluss can be switched off; submitting and the Buchungen stay', function () {
+    $entry = expense($this->member, 2490);
+    Livewire::actingAs($this->kasse)->test(BudgetPlan::class)
+        ->set('settings.budget', false)->set('settings.report', false)->call('saveSettings');
+    expect(FinanceService::settings())->toBe(['budget' => false, 'report' => false, 'public' => false]);
+
+    Livewire::actingAs($this->kasse)->test(Overview::class)->assertSee('Finanzen 2027')->assertDontSee('Noch verfügbar')->assertDontSee('1.500,00 €')->assertSee('Einnahmen');
+    Livewire::actingAs($this->kasse)->test(BudgetPlan::class)->assertSee('Kostenstellen & Einstellungen')->assertDontSee('Budget speichern');
+    expect(fn () => $this->f->setBudget($this->kasse, $this->jf, 2027, 1000))->toThrow(ValidationException::class)
+        ->and(fn () => $this->f->closeYear($this->kasse, 2027))->toThrow(ValidationException::class);
+
+    $this->actingAs($this->kasse)->get('/finanzen/jahresabschluss')->assertNotFound();
+    $this->actingAs($this->kasse)->get('/finanzen/jahresabschluss/2027/druck')->assertNotFound();
+    $this->actingAs($this->kasse)->get('/finanzen/buchungen')->assertOk()->assertDontSee('>Jahresabschluss<', false)
+        ->assertSee('Buchungen 2027 als CSV')->assertSee('Verpflegung Zeltlager');
+
+    // Submitting, deciding and paying work as before
+    $this->f->decide($this->chief, $entry, true);
+    $this->f->pay($this->kasse, $entry->fresh());
+    expect($entry->fresh()->status)->toBe('paid');
+
+    // Switched on again, the stored budget is back
+    $this->f->saveSettings($this->kasse, ['budget' => true, 'report' => true]);
+    Livewire::actingAs($this->kasse)->test(Overview::class)->assertSee('1.500,00 €');
+    $this->actingAs($this->kasse)->get('/finanzen/jahresabschluss')->assertOk();
+    expect(fn () => $this->f->saveSettings($this->member, ['budget' => false]))->toThrow(ValidationException::class);
+});
+
+test('with the overview public everyone sees the budget status and the spent money, without Belege of others', function () {
+    $this->f->saveSettings($this->kasse, ['public' => true]);
     $entry = expense($this->member, 50000);
     $this->f->decide($this->chief, $entry, true);
     $paid = expense($this->member, 25000);

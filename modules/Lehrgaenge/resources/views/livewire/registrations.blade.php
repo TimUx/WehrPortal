@@ -50,15 +50,18 @@
     @if($cancelled->isNotEmpty())
         <section>
             <h2 class="text-sm font-semibold text-gray-700 mb-1">Absagen</h2>
-            <p class="text-xs text-gray-500 mb-2">Diese Kameraden haben abgesagt – bitte in fox112 wieder abmelden. Angezeigt werden die letzten 90 Tage.</p>
-            @include('lehrgaenge::partials.cancellations', ['records' => $cancelled, 'showName' => true])
+            <p class="text-xs text-gray-500 mb-2">Diese Kameraden haben abgesagt – bitte in fox112 wieder abmelden und dann „Erledigt“ klicken, damit die Absage nicht mehr auf der Startseite steht. Angezeigt werden die letzten 90 Tage.</p>
+            @include('lehrgaenge::partials.cancellations', ['records' => $cancelled, 'showName' => true, 'canSee' => true])
         </section>
     @endif
 
+    @foreach(['demand' => $demand, 'waitlist' => $waitlist] as $kind => $blocks)
+    @continue($kind === 'waitlist' && $blocks->isEmpty())
     <section>
-        <h2 class="text-sm font-semibold text-gray-700 mb-2">Interesse</h2>
-        @forelse($demand as $block)
-            <div class="mb-3 bg-white rounded-2xl border border-gray-100 shadow-sm" wire:key="d-{{ $block['course']->id }}">
+        <h2 class="text-sm font-semibold text-gray-700 mb-1">{{ $kind === 'demand' ? 'Interesse' : 'Warteliste' }}</h2>
+        <p class="text-xs text-gray-500 mb-2">{{ $kind === 'demand' ? 'Noch nicht in fox112 angemeldet. Nach der Anmeldung „In fox112 angemeldet“ – der Kamerad steht dann auf der Warteliste und bekommt eine E-Mail.' : 'In fox112 angemeldet, der Platz ist noch nicht bestätigt.' }}</p>
+        @forelse($blocks as $block)
+            <div class="mb-3 bg-white rounded-2xl border border-gray-100 shadow-sm" wire:key="{{ $kind }}-{{ $block['course']->id }}">
                 <p class="border-b border-gray-100 px-4 py-2 text-sm font-semibold text-gray-900">{{ $block['course']->name }} <span class="font-normal text-gray-500">· {{ $block['records']->count() }} Kamerad{{ $block['records']->count() === 1 ? '' : 'en' }}</span></p>
                 <div class="divide-y divide-gray-100">
                     @foreach($block['records'] as $position => $record)
@@ -68,12 +71,18 @@
                                     <span class="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-700" title="Reihenfolge der Anmeldung">{{ $position + 1 }}</span>
                                     <div>
                                         <a href="{{ route('lehrgaenge.member', $record->user) }}" class="font-medium text-gray-900 hover:underline">{{ $record->user->name }}</a>
-                                        <p class="text-xs text-gray-500">Interesse seit {{ $record->created_at->setTimezone('Europe/Berlin')->format('d.m.Y') }}</p>
+                                        <p class="text-xs text-gray-500">Interesse seit {{ $record->created_at->setTimezone('Europe/Berlin')->format('d.m.Y') }}@if($record->waitlisted_at) · in fox112 angemeldet am {{ $record->waitlisted_at->setTimezone('Europe/Berlin')->format('d.m.Y') }}@endif</p>
                                         @if($record->notes)<p class="text-xs text-gray-600 whitespace-pre-line">{{ $record->notes }}</p>@endif
                                     </div>
                                 </div>
                                 <div class="flex flex-wrap items-center gap-2">
+                                    @if($kind === 'demand')
+                                        <button type="button" wire:click="waitlist({{ $record->id }})" class="rounded-lg border border-fw-navy px-3 py-1.5 text-sm font-semibold text-fw-navy hover:bg-gray-50">In fox112 angemeldet</button>
+                                    @endif
                                     <button type="button" wire:click="editSessions({{ $record->id }})" class="rounded-lg bg-fw-navy px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90">Bestätigt – Termine eintragen</button>
+                                    @if($kind === 'waitlist')
+                                        <button type="button" wire:click="waitlist({{ $record->id }}, false)" class="text-sm text-gray-500 underline">Zurück zu Interesse</button>
+                                    @endif
                                     <button type="button" wire:click="startReject({{ $record->id }})" class="text-sm text-gray-500 underline">Ablehnen</button>
                                 </div>
                             </div>
@@ -84,9 +93,10 @@
                 </div>
             </div>
         @empty
-            <p class="rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-500">Gerade hat niemand Interesse an einem Lehrgang gemeldet.</p>
+            <p class="rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-500">Gerade wartet niemand auf die Anmeldung in fox112.</p>
         @endforelse
     </section>
+    @endforeach
 
     @if($confirmed->isNotEmpty())
         <section>

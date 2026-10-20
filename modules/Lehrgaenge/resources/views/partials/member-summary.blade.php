@@ -10,7 +10,7 @@
         @forelse($lqDone as $r)
             <li class="flex flex-wrap justify-between gap-2 py-1.5">
                 <span class="font-medium text-gray-900">{{ $r->course->name }}</span>
-                <span class="text-xs text-gray-500">absolviert {{ $r->completed_on?->format('d.m.Y') }}@if($r->validUntil())<span class="{{ ['expired' => 'font-semibold text-red-700', 'soon' => 'text-amber-700'][$r->refreshState()] ?? '' }}"> · gültig bis {{ $r->validUntil()->format('d.m.Y') }}</span>@endif</span>
+                <span class="text-xs text-gray-500">absolviert {{ $r->completed_on?->format('d.m.Y') ?? '(Datum unbekannt)' }}@if($r->validUntil())<span class="{{ ['expired' => 'font-semibold text-red-700', 'soon' => 'text-amber-700'][$r->refreshState()] ?? '' }}"> · gültig bis {{ $r->validUntil()->format('d.m.Y') }}</span>@endif</span>
             </li>
         @empty
             <li class="py-1.5 text-gray-500">Noch keine absolvierten Lehrgänge eingetragen.</li>

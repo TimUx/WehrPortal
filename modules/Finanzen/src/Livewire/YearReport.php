@@ -20,6 +20,7 @@ class YearReport extends Component
     public function boot(): void
     {
         abort_unless(FinanceService::canReview(auth()->user()), 403);
+        abort_unless(FinanceService::reportEnabled(), 404);
     }
 
     public function mount(): void
@@ -62,6 +63,7 @@ class YearReport extends Component
                 ->where('year', $this->year)->first(['closed_at', 'users.name']),
             'open' => Entry::where('year', $this->year)->whereIn('status', ['submitted', 'approved'])->count(),
             'canManage' => FinanceService::canManage(auth()->user()),
+            'budgetOn' => FinanceService::budgetEnabled(),
         ]);
     }
 }
