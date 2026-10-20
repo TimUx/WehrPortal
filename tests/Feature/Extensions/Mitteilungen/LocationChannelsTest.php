@@ -257,10 +257,12 @@ it('encodes Matrix room IDs, retries with a stable transaction ID, and refuses e
     Http::fake(fn ($request) => $request->method() === 'GET'
         ? Http::response(['algorithm' => 'm.megolm.v1.aes-sha2'], 200)
         : Http::response([], 200));
-    $service->save(null, ['title' => 'Verschlüsselt', 'important' => false], [], $admin, matrix: true);
-    expect($service->externalStatus)->toContain('Matrix: nicht gesendet – der Raum ist verschlüsselt. Für E2EE-Versand ist diese Integration nicht geeignet.')
-        ->and(ChannelDelivery::latest('id')->firstOrFail()->result)->toContain('verschlüsselt');
-    Http::assertSentCount(1);
+    $encryptedAnnouncement = $service->save(null, ['title' => 'Verschlüsselt', 'important' => false], [], $admin, matrix: true);
+    $delivery = ChannelDelivery::query()->where('announcement_id', $encryptedAnnouncement->id)->sole();
+    expect($delivery->status)->toBe('failed')
+        ->and($delivery->result)->toContain('verschlüsselt');
+    Http::assertSent(fn ($request) => $request->method() === 'GET' && str_contains($request->url(), '/state/m.room.encryption'));
+    Http::assertNotSent(fn ($request) => $request->method() === 'PUT');
 });
 
 it('rejects unsafe and overlapping destinations', function () {
