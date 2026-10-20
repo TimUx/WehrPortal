@@ -254,7 +254,8 @@ it('encodes Matrix room IDs, retries with a stable transaction ID, and refuses e
     $record = ChannelDelivery::sole();
     expect($record->status)->toBe('sent')->and($record->attempts)->toBe(2);
 
-    Http::fake(fn ($request) => $request->method() === 'GET'
+    Http::swap($http = new \Illuminate\Http\Client\Factory);
+    $http->fake(fn ($request) => $request->method() === 'GET'
         ? Http::response(['algorithm' => 'm.megolm.v1.aes-sha2'], 200)
         : Http::response([], 200));
     $encryptedAnnouncement = $service->save(null, ['title' => 'Verschlüsselt', 'important' => false], [], $admin, matrix: true);
