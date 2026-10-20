@@ -4261,18 +4261,6 @@ parameters:
 			path: modules/Maengelmanagement/src/Services/DefectService.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Mitteilungen/routes/web.php
-
-		-
-			message: '#^Parameter \#1 \$announcement of method Modules\\Mitteilungen\\src\\Services\\AnnouncementService\:\:markRead\(\) expects Modules\\Mitteilungen\\src\\Models\\Announcement, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: modules/Mitteilungen/routes/web.php
-
-		-
 			message: '#^Access to an undefined property Modules\\Mitteilungen\\src\\Models\\Announcement\:\:\$needs_ack\.$#'
 			identifier: property.notFound
 			count: 1

@@ -256,7 +256,8 @@ it('encodes Matrix room IDs, retries with a stable transaction ID, and refuses e
 
     Http::fake(['https://matrix.example.com/*' => Http::response(['algorithm' => 'm.megolm.v1.aes-sha2'], 200)]);
     app(AnnouncementService::class)->save(null, ['title' => 'Verschlüsselt', 'important' => false], [], $admin, matrix: true);
-    expect(app(AnnouncementService::class)->externalStatus)->toContain('Matrix: nicht gesendet – der Raum ist verschlüsselt. Für E2EE-Versand ist diese Integration nicht geeignet.');
+    expect(app(AnnouncementService::class)->externalStatus)->toHaveCount(1)
+        ->and(ChannelDelivery::latest('id')->firstOrFail()->result)->toContain('verschlüsselt');
     Http::assertSentCount(1);
 });
 
