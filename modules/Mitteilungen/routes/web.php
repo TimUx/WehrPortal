@@ -30,7 +30,7 @@ Route::prefix('mitteilungen')->name('mitteilungen.')
 
         // "Gelesen und verstanden"
         Route::post('/{announcement}/bestaetigen', function (Announcement $announcement, AnnouncementService $announcements) {
-            abort_unless(Announcement::for(auth()->user())->whereKey($announcement->id)->exists(), 403);
+            abort_unless(Announcement::current()->for(auth()->user())->whereKey($announcement->id)->exists(), 403);
             $announcements->acknowledge($announcement, auth()->user());
 
             return back();
@@ -39,18 +39,22 @@ Route::prefix('mitteilungen')->name('mitteilungen.')
         // An attachment: for whom the Mitteilung is meant, and the Redakteure
         Route::get('/anhang/{file}', function (AnnouncementFile $file, AnnouncementService $announcements) {
             $announcement = $file->announcement;
-            abort_unless(auth()->user()->canPostAnnouncements() || Announcement::for(auth()->user())->whereKey($announcement->id)->exists(), 403);
+            $inPeriod = Announcement::for(auth()->user())->whereKey($announcement->id)
+                ->where(fn ($q) => $q->current()->orWhere('visible_until', '<', now()))->exists();
+            abort_unless($announcements->canManage(auth()->user(), $announcement) || $inPeriod, 403);
             $announcements->markRead($announcement, auth()->user());
 
             return FileResponse::make(base64_decode(AnnouncementFile::whereKey($file->id)->value('data')), $file->filename);
         })->whereNumber('file')->name('file');
 
-        Route::get('/verwalten', fn () => view('mitteilungen::pages.manage'))->middleware('can:post-announcements')->name('manage');
+        Route::get('/verwalten', fn () => view('mitteilungen::pages.manage'))->middleware('can:manage-announcements')->name('manage');
 
         // "Ausblenden" on the start page; a plain form, so it also works from the static card
         Route::post('/{announcement}/ausblenden', function (Announcement $announcement, AnnouncementService $announcements) {
+            abort_unless(Announcement::current()->for(auth()->user())->whereKey($announcement->id)->exists(), 403);
             $announcements->dismiss($announcement, auth()->user());
 
             return back();
         })->whereNumber('announcement')->name('dismiss');
+
     });

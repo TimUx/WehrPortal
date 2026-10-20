@@ -33,6 +33,7 @@ class MitteilungenServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom($base.'/database/migrations');
 
         Gate::define('post-announcements', fn (User $user) => $user->canPostAnnouncements());
+        Gate::define('manage-announcements', fn (User $user) => app(AnnouncementService::class)->canManageAnything($user));
 
         Livewire::component('mitteilungen.manage', Manage::class);
 
@@ -60,7 +61,7 @@ class MitteilungenServiceProvider extends ServiceProvider
         app(ModuleRegistry::class)->navigation('mitteilungen', fn (User $u) => [
             'tabs' => [
                 ModuleNav::tab('Mitteilungen', 'mitteilungen.index'),
-                $u->can('post-announcements') ? ModuleNav::tab('Verwalten', 'mitteilungen.manage') : null,
+                $u->can('manage-announcements') ? ModuleNav::tab('Verwalten', 'mitteilungen.manage') : null,
             ],
         ]);
     }

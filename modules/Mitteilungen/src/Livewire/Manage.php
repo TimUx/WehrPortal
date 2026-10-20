@@ -4,6 +4,8 @@ namespace Modules\Mitteilungen\src\Livewire;
 
 use App\Models\Group;
 use App\Models\MemberFunction;
+use Extensions\Locations\Models\Location;
+use Extensions\Locations\Services\LocationAccess;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
@@ -49,11 +51,18 @@ class Manage extends Component
     /** Only bell and push, no mail: a short notice to the phones */
     public bool $push = false;
 
+    public bool $ntfy = false;
+
+    public bool $matrix = false;
+
+    public string $locationId = '';
+
     public ?string $flash = null;
 
-    public function edit(int $id): void
+    public function edit(int $id, AnnouncementService $service): void
     {
         $a = Announcement::with('groups')->findOrFail($id);
+        $service->assertCanManage(auth()->user(), $a);
         $this->editingId = $a->id;
         $this->title = $a->title;
         $this->body = (string) $a->body;
@@ -63,14 +72,17 @@ class Manage extends Component
         $this->groupIds = $a->groups->pluck('id')->map(fn ($id) => (string) $id)->all();
         $this->functionIds = $a->functions()->pluck('member_functions.id')->map(fn ($id) => (string) $id)->all();
         $this->needsAck = $a->needs_ack;
+        $this->locationId = $a->ext_location_id ? (string) $a->ext_location_id : '';
         $this->uploads = [];
         $this->mail = false;
         $this->push = false;
+        $this->ntfy = false;
+        $this->matrix = false;
     }
 
     public function cancel(): void
     {
-        $this->reset('editingId', 'title', 'body', 'important', 'visibleFrom', 'visibleUntil', 'groupIds', 'functionIds', 'needsAck', 'uploads', 'mail', 'push');
+        $this->reset('editingId', 'title', 'body', 'important', 'visibleFrom', 'visibleUntil', 'groupIds', 'functionIds', 'needsAck', 'uploads', 'mail', 'push', 'ntfy', 'matrix', 'locationId');
     }
 
     public function save(AnnouncementService $announcements): void
@@ -82,6 +94,7 @@ class Manage extends Component
             'visibleUntil' => ['nullable', 'date_format:d.m.Y'],
             'groupIds.*' => ['exists:groups,id'],
             'functionIds.*' => ['exists:member_functions,id'],
+            'locationId' => ['nullable', 'integer'],
             'uploads.*' => ['file', 'max:'.AnnouncementFile::MAX_KB],
         ], [
             'uploads.*.max' => 'Eine Datei ist zu groß (höchstens 10 MB).',
@@ -101,8 +114,9 @@ class Manage extends Component
         }
 
         try {
+            $existing = $this->editingId ? Announcement::findOrFail($this->editingId) : null;
             $announcement = $announcements->save(
-                $this->editingId ? Announcement::findOrFail($this->editingId) : null,
+                $existing,
                 ['title' => trim($this->title), 'body' => trim($this->body) ?: null, 'important' => $this->important, 'needs_ack' => $this->needsAck, 'visible_from' => $from, 'visible_until' => $until],
                 array_map('intval', $this->groupIds),
                 auth()->user(),
@@ -110,6 +124,9 @@ class Manage extends Component
                 $this->push,
                 array_map('intval', $this->functionIds),
                 $this->uploads,
+                $this->ntfy,
+                $this->matrix,
+                filled($this->locationId) ? (int) $this->locationId : null,
             );
         } catch (ValidationException $e) {
             $this->addError('uploads', collect($e->errors())->flatten()->first());
@@ -118,41 +135,65 @@ class Manage extends Component
         }
 
         $this->flash = 'Mitteilung „'.$announcement->title.'“ gespeichert'.($this->mail ? ' und per E-Mail verschickt.' : ($this->push ? ' und als Push verschickt.' : '.'));
+        if ($announcements->externalStatus !== []) {
+            $this->flash .= ' '.implode(' ', $announcements->externalStatus);
+        }
         $this->cancel();
     }
 
     public function deleteFile(int $id): void
     {
-        AnnouncementFile::whereKey($id)->delete();
+        $file = AnnouncementFile::findOrFail($id);
+        abort_unless($this->editingId && $file->announcement_id === $this->editingId, 403);
+        app(AnnouncementService::class)->assertCanManage(auth()->user(), $file->announcement);
+        $file->delete();
         $this->flash = 'Anhang gelöscht.';
     }
 
     public function showStats(?int $id): void
     {
+        if ($id) {
+            app(AnnouncementService::class)->assertCanManage(auth()->user(), Announcement::findOrFail($id));
+        }
         $this->statsFor = $this->statsFor === $id ? null : $id;
     }
 
     /** Asks everyone again who hasn't confirmed (or read) yet */
     public function remind(int $id, AnnouncementService $announcements): void
     {
-        $count = $announcements->remindUnacknowledged(Announcement::findOrFail($id));
+        $announcement = Announcement::findOrFail($id);
+        $announcements->assertCanManage(auth()->user(), $announcement);
+        $count = $announcements->remindUnacknowledged($announcement);
         $this->flash = $count ? $count.' Kameraden erinnert.' : 'Alle haben schon bestätigt.';
     }
 
     public function delete(int $id): void
     {
-        Announcement::findOrFail($id)->delete();
+        $announcement = Announcement::findOrFail($id);
+        app(AnnouncementService::class)->assertCanManage(auth()->user(), $announcement);
+        $announcement->delete();
         $this->flash = 'Mitteilung gelöscht.';
     }
 
     public function render(AnnouncementService $announcements)
     {
+        $user = auth()->user();
+        $access = config('locations.enabled') && app()->bound(LocationAccess::class) ? app(LocationAccess::class) : null;
+        $locationIds = $access
+            ? ($user->is_admin ? Location::query()->pluck('id')->all() : ($access->isLocationAdmin($user) ? $access->adminLocationIds($user) : $access->visibleLocationIds($user)))
+            : [];
+        $selectedLocation = filled($this->locationId) ? (int) $this->locationId : null;
+
         return view('mitteilungen::livewire.manage', [
-            'announcements' => Announcement::with(['groups', 'functions', 'author', 'files'])->latest()->get(),
-            'groups' => Group::orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
-            'functions' => MemberFunction::topLevel()->orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
+            'announcements' => $announcements->managementQuery($user)->with(['groups', 'functions', 'author', 'files'])->latest()->get(),
+            'locations' => $access ? Location::query()->whereKey($locationIds)->orderBy('sort_order')->orderBy('name')->pluck('name', 'id') : collect(),
+            'locationsEnabled' => $access !== null && \Illuminate\Support\Facades\Schema::hasTable('x_locations'),
+            'groups' => Group::when($selectedLocation, fn ($q) => $q->where(fn ($w) => $w->whereNull('ext_location_id')->orWhere('ext_location_id', $selectedLocation)))
+                ->orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
+            'functions' => MemberFunction::topLevel()->when($selectedLocation, fn ($q) => $q->where(fn ($w) => $w->whereNull('ext_location_id')->orWhere('ext_location_id', $selectedLocation)))
+                ->orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
             'editingFiles' => $this->editingId ? AnnouncementFile::where('announcement_id', $this->editingId)->get(['id', 'filename', 'size']) : collect(),
-            'stats' => $this->statsFor && ($a = Announcement::find($this->statsFor)) ? $announcements->stats($a) : null,
+            'stats' => $this->statsFor && ($a = $announcements->managementQuery($user)->find($this->statsFor)) ? $announcements->stats($a) : null,
         ]);
     }
 }

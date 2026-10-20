@@ -8,6 +8,7 @@ Die Erweiterungen ergänzen die 25 Module des Upstreams. Sie werden über den Er
 
 - [Übersicht](#übersicht)
 - [Hydrantenkontrolle: Bedienungsanleitung](#hydrantenkontrolle-bedienungsanleitung)
+- [Mitteilungen: Standorte, ntfy und Matrix](MITTEILUNGEN.md)
 - [Betrieb und Planung](#betrieb-und-planung)
 
 ## Übersicht
@@ -22,6 +23,7 @@ Die Erweiterungen ergänzen die 25 Module des Upstreams. Sie werden über den Er
 | [Anwesenheit](ANWESENHEIT.md) | Eigenständige Anwesenheitslisten, Vorlagen, PDF und E-Mail. | Modul nach Migration zunächst inaktiv; `ANWESENHEIT_ENABLED=false` schaltet die Erweiterung ab. Optional: Kalender zur Vorbelegung, Locations zur Standortbegrenzung und Offline für lokale Formularentwürfe. |
 | [Dateien](DATEIEN.md) | Private Dateiablagen mit ACL, Versionen, Suche und optionaler Office-Bearbeitung bzw. öffentlicher Lesefreigabe. | Modul nach Migration zunächst inaktiv. Es gibt keinen `DATEIEN_ENABLED`-Schalter. Zugriff wird zusätzlich zu Modulzugang pro Ablage/Eintrag vergeben; öffentliche Links sind standardmäßig aus. Online-Office benötigt einen separat betriebenen Server. |
 | [EinsatzberichtPlus](EINSATZBERICHT.md) | Zusätzliche Einsatzangaben und ein nicht blockierender Sollbesatzungshinweis. | `EINSATZBERICHT_PLUS_ENABLED=false` schaltet die Erweiterung ab. Nutzt die Rollen und Standortgrenzen des Einsatzberichts; Zusatzangaben sind derzeit nicht Teil von Druck oder Statistik. |
+| [Mitteilungen-Kanäle](MITTEILUNGEN.md) | Standortbezogene Mitteilungen und optionale zusätzliche ntfy-/Matrix-Ziele. | ntfy und Matrix sind aus, bis Admins ihre getrennten Ziele einrichten. Gruppen-/Funktionsmitteilungen werden nicht extern gesendet; externe Mitgliedschaften synchronisieren sich nicht automatisch. |
 
 ![Screenshot: Öffentlicher Vereinsbeitritt](screenshots/vereinsverwaltung/beitritt.png)
 ![Screenshot: Vereinsantrag im Vorstandsbereich](screenshots/vereinsverwaltung/antraege.png)

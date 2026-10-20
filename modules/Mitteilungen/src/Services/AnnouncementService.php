@@ -4,7 +4,10 @@ namespace Modules\Mitteilungen\src\Services;
 
 use App\Models\MemberFunction;
 use App\Models\User;
+use Extensions\Locations\Models\Location;
+use Extensions\Locations\Services\LocationAccess;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -21,17 +24,24 @@ class AnnouncementService
      * @param  int[]  $functionIds  audience by Funktion
      * @param  list<UploadedFile>  $files  attachments to add
      */
-    public function save(?Announcement $announcement, array $data, array $groupIds, User $by, bool $mail = false, bool $push = false, array $functionIds = [], array $files = []): Announcement
+    public function save(?Announcement $announcement, array $data, array $groupIds, User $by, bool $mail = false, bool $push = false, array $functionIds = [], array $files = [], bool $ntfy = false, bool $matrix = false, ?int $locationId = null): Announcement
     {
+        $this->assertCanManageScope($by, $locationId);
+        $this->assertAudience($by, $groupIds, $functionIds, $locationId);
+
         foreach ($files as $file) {
             if (! in_array(mb_strtolower($file->getClientOriginalExtension()), AnnouncementFile::EXTENSIONS, true) || $file->getSize() > AnnouncementFile::MAX_KB * 1024) {
                 throw ValidationException::withMessages(['files' => '„'.$file->getClientOriginalName().'“: bitte PDF, Office-Datei oder Bild bis 10 MB.']);
             }
         }
 
-        $announcement = DB::transaction(function () use ($announcement, $data, $groupIds, $functionIds, $by, $files) {
+        if ($announcement) {
+            $this->assertCanManage($by, $announcement);
+        }
+
+        $announcement = DB::transaction(function () use ($announcement, $data, $groupIds, $functionIds, $by, $files, $locationId) {
             $announcement ??= new Announcement(['created_by' => $by->id]);
-            $announcement->fill($data)->save();
+            $announcement->fill([...$data, 'ext_location_id' => $locationId])->save();
             $announcement->groups()->sync($groupIds);
             $announcement->functions()->sync($functionIds);
             foreach ($files as $file) {
@@ -48,8 +58,18 @@ class AnnouncementService
             $this->mail($announcement, ['database']);
         }
 
+        if ($ntfy || $matrix) {
+            $this->externalStatus = app(\Extensions\Mitteilungen\Services\AnnouncementDelivery::class)
+                ->send($announcement, ['ntfy' => $ntfy, 'matrix' => $matrix]);
+        } else {
+            $this->externalStatus = [];
+        }
+
         return $announcement;
     }
+
+    /** @var list<string> */
+    public array $externalStatus = [];
 
     /** Everyone it is meant for and who may open the Mitteilungen, so links don't end in "kein Zugriff" */
     public function recipients(Announcement $announcement): EloquentCollection
@@ -58,11 +78,109 @@ class AnnouncementService
         $functionIds = MemberFunction::idsWithChildren($announcement->functions()->pluck('member_functions.id')->all());
         $everyone = $groupIds->isEmpty() && $functionIds === [];
 
-        return User::active()
-            ->when(! $everyone, fn ($q) => $q->where(fn ($w) => $w
-                ->whereHas('groups', fn ($g) => $g->whereIn('groups.id', $groupIds))
-                ->orWhereHas('functions', fn ($f) => $f->whereIn('member_functions.id', $functionIds))))
-            ->orderBy('name')->get()->filter(fn (User $user) => $user->canUseModule('mitteilungen'))->values();
+        $users = User::active();
+        if (class_exists(\Extensions\Locations\Scopes\LocationScope::class)) {
+            $users->withoutGlobalScope(\Extensions\Locations\Scopes\LocationScope::class);
+        }
+
+        $users->when(! $everyone, fn ($q) => $q->where(fn ($w) => $w
+            ->whereHas('groups', fn ($g) => $g->whereIn('groups.id', $groupIds))
+            ->orWhereHas('functions', fn ($f) => $f->whereIn('member_functions.id', $functionIds))));
+
+        if ($announcement->ext_location_id && \Illuminate\Support\Facades\Schema::hasTable('x_location_user')
+            && \Illuminate\Support\Facades\Schema::hasColumn('users', 'ext_location_id')) {
+            $locationId = (int) $announcement->ext_location_id;
+            $users->where(fn ($q) => $q->where('users.ext_location_id', $locationId)
+                ->orWhereIn('users.id', DB::table('x_location_user')->where('location_id', $locationId)->select('user_id')));
+        } elseif ($announcement->ext_location_id) {
+            $users->whereRaw('1 = 0');
+        }
+
+        return $users->orderBy('name')->get()->filter(fn (User $user) => $user->canUseModule('mitteilungen'))->values();
+    }
+
+    /** Whether this user may manage the announcement's scope. */
+    public function canManage(User $user, Announcement $announcement): bool
+    {
+        return $this->canManageScope($user, $announcement->ext_location_id ? (int) $announcement->ext_location_id : null);
+    }
+
+    public function assertCanManage(User $user, Announcement $announcement): void
+    {
+        abort_unless($this->canManage($user, $announcement), 403);
+    }
+
+    /** Only a global admin can publish to a scope outside their own location-admin/editor rights. */
+    public function assertCanManageScope(User $user, ?int $locationId): void
+    {
+        if ($user->is_admin) {
+            if ($locationId !== null) {
+                abort_unless(config('locations.enabled') && \Illuminate\Support\Facades\Schema::hasTable('x_locations')
+                    && Location::query()->whereKey($locationId)->exists(), 403);
+            }
+
+            return;
+        }
+
+        $access = config('locations.enabled') && app()->bound(LocationAccess::class) ? app(LocationAccess::class) : null;
+        $isLocationAdmin = $access?->isLocationAdmin($user) ?? false;
+
+        if ($locationId === null) {
+            abort_unless($user->canPostAnnouncements() && ! $isLocationAdmin, 403);
+
+            return;
+        }
+
+        abort_unless($access && $access->canSee($user, $locationId), 403);
+        abort_unless($isLocationAdmin
+            ? in_array($locationId, $access->adminLocationIds($user), true)
+            : $user->canPostAnnouncements(), 403);
+    }
+
+    /** @param int[] $groupIds @param int[] $functionIds */
+    private function assertAudience(User $user, array $groupIds, array $functionIds, ?int $locationId): void
+    {
+        $groupIds = array_values(array_unique(array_map('intval', $groupIds)));
+        $functionIds = array_values(array_unique(array_map('intval', $functionIds)));
+
+        $hasLocations = config('locations.enabled') && \Illuminate\Support\Facades\Schema::hasColumn('groups', 'ext_location_id')
+            && \Illuminate\Support\Facades\Schema::hasColumn('member_functions', 'ext_location_id');
+        $groups = Group::query()->whereKey($groupIds)->get($hasLocations ? ['id', 'ext_location_id'] : ['id']);
+        $functions = MemberFunction::query()->whereKey($functionIds)->get($hasLocations ? ['id', 'ext_location_id'] : ['id']);
+
+        abort_unless($groups->count() === count($groupIds) && $functions->count() === count($functionIds), 403);
+
+        if ($locationId !== null && $hasLocations) {
+            abort_unless($groups->every(fn ($group) => $group->ext_location_id === null || (int) $group->ext_location_id === $locationId), 403);
+            abort_unless($functions->every(fn ($function) => $function->ext_location_id === null || (int) $function->ext_location_id === $locationId), 403);
+        }
+    }
+
+    public function canManageAnything(User $user): bool
+    {
+        return $user->is_admin || $user->canPostAnnouncements()
+            || (config('locations.enabled') && app()->bound(LocationAccess::class) && app(LocationAccess::class)->isLocationAdmin($user));
+    }
+
+    /** @return Builder<Announcement> */
+    public function managementQuery(User $user): Builder
+    {
+        $query = Announcement::query();
+        if ($user->is_admin) {
+            return $query;
+        }
+
+        $access = config('locations.enabled') && app()->bound(LocationAccess::class) ? app(LocationAccess::class) : null;
+        if ($access?->isLocationAdmin($user)) {
+            return $query->whereIn('ext_location_id', $access->adminLocationIds($user));
+        }
+        if ($user->canPostAnnouncements()) {
+            $locationIds = $access?->visibleLocationIds($user) ?? [];
+
+            return $query->where(fn (Builder $q) => $q->whereNull('ext_location_id')->orWhereIn('ext_location_id', $locationIds));
+        }
+
+        return $query->whereRaw('1 = 0');
     }
 
     /**

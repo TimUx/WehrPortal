@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * A notice on the start page; important ones are highlighted and cannot be dismissed. Meant for Abteilungen
@@ -17,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Announcement extends Model
 {
-    protected $fillable = ['title', 'body', 'important', 'needs_ack', 'visible_from', 'visible_until', 'created_by'];
+    protected $fillable = ['title', 'body', 'important', 'needs_ack', 'visible_from', 'visible_until', 'created_by', 'ext_location_id'];
 
     protected function casts(): array
     {
@@ -70,9 +72,25 @@ class Announcement extends Model
         // A Funktion of the audience also covers its sub-functions, so look one level up
         $withParents = $functions->merge(MemberFunction::whereIn('id', $functions)->whereNotNull('parent_id')->pluck('parent_id'))->unique();
 
-        return $query->where(fn ($q) => $q->where(fn ($all) => $all->doesntHave('groups')->doesntHave('functions'))
+        return $query->where(function (Builder $q) use ($user, $withParents) {
+            $q->where(fn ($all) => $all->doesntHave('groups')->doesntHave('functions'))
             ->orWhereHas('groups', fn ($g) => $g->whereIn('groups.id', $user->groups()->pluck('groups.id')))
-            ->orWhereHas('functions', fn ($f) => $f->whereIn('member_functions.id', $withParents)));
+            ->orWhereHas('functions', fn ($f) => $f->whereIn('member_functions.id', $withParents));
+
+            if (Schema::hasTable('x_location_user')) {
+                $locationIds = DB::table('x_location_user')->where('user_id', $user->id)->pluck('location_id')
+                    ->map(fn ($id) => (int) $id)->all();
+                if ($user->getAttribute('ext_location_id')) {
+                    $locationIds[] = (int) $user->getAttribute('ext_location_id');
+                }
+                $q->where(function (Builder $location) use ($locationIds) {
+                    $location->whereNull('announcements.ext_location_id')
+                        ->orWhereIn('announcements.ext_location_id', $locationIds);
+                });
+            } else {
+                $q->whereNull('announcements.ext_location_id');
+            }
+        });
     }
 
     public function scopeVisibleTo(Builder $query, User $user): Builder
