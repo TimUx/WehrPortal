@@ -29,6 +29,10 @@ class OidcLoginService
         if (! $user->is_active) {
             throw $this->deny('inactive', 'user_inactive');
         }
+        // Members without an e-mail address have no login, also not through a linked identity
+        if (! $user->hasLogin()) {
+            throw $this->deny('no_account', 'user_without_login');
+        }
 
         if ($user->last_login_at === null && $request->hasSession()) {
             $request->session()->put('first_login', true);
