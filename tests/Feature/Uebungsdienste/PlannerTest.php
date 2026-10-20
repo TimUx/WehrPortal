@@ -69,7 +69,7 @@ test('the Wehrführung sets the topic and several responsible people', function 
 test('the Wehrführung can plan services and other module members cannot', function () {
     $this->actingAs($this->leader)->get('/uebungsdienste/anlegen')->assertOk();
     $this->actingAs($this->leader)->get('/uebungsdienste/'.$this->next->id.'/bearbeiten')->assertOk();
-    Livewire::actingAs($this->leader)->test(Planner::class)->assertSee('Dienst anlegen')->assertSee('Ändern');
+    Livewire::actingAs($this->leader)->test(Planner::class)->assertSee('Übungsdienst anlegen')->assertSee('Ändern');
 
     $this->member->moduleAccess()->create(['module' => 'uebungsdienste']);
     $this->actingAs($this->member)->get('/uebungsdienste/anlegen')->assertForbidden();

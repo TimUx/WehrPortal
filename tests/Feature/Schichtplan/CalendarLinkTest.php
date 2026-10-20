@@ -88,7 +88,7 @@ test('"Schichtplan anlegen" on an event takes its data and links the plan; the e
     $event = app(EventService::class)->create(['title' => 'Tag der offenen Tür', 'type' => 'veranstaltung', 'location' => 'Festplatz',
         'starts_at' => Carbon::parse('2027-07-03 11:00', 'Europe/Berlin'), 'ends_at' => Carbon::parse('2027-07-03 18:00', 'Europe/Berlin')], [$this->youth->id], $manager)->first();
 
-    $this->actingAs($this->planer)->get(route('kalender.show', $event))->assertForbidden();
+    $this->actingAs($this->planer)->get(route('kalender.show', $event))->assertNotFound();
     $this->actingAs($this->hanna)->get(route('kalender.show', $event))->assertOk()->assertDontSee('Schichtplan anlegen');
     $this->planer->groups()->attach($this->youth);
     $this->actingAs($this->planer)->get(route('kalender.show', $event))->assertOk()->assertSee('Schichtplan anlegen');
