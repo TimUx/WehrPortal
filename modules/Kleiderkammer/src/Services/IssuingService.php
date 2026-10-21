@@ -69,7 +69,7 @@ class IssuingService
                 throw new \DomainException("Not enough stock (available: {$available}, requested: {$quantity}).");
             }
 
-            $issuedItem = IssuedItem::create([
+            $issuedItem = new IssuedItem([
                 'user_id' => $member->id,
                 'item_type_id' => $itemType->id,
                 'size_id' => $size?->id,
@@ -78,6 +78,10 @@ class IssuingService
                 'issued_at' => now(),
                 'notes' => $notes,
             ]);
+            if ($issuedItem->getConnection()->getSchemaBuilder()->hasColumn($issuedItem->getTable(), 'ext_source_stock_id')) {
+                $issuedItem->forceFill(['ext_source_stock_id' => $stock->id]);
+            }
+            $issuedItem->save();
 
             $stock->decrement('quantity', $quantity);
 
@@ -101,7 +105,13 @@ class IssuingService
 
             $fresh->update(['returned_at' => now()]);
 
-            if ($fresh->item_id !== null) {
+            $sourceStockId = $fresh->getAttributes()['ext_source_stock_id'] ?? null;
+            if ($sourceStockId !== null) {
+                if ($fresh->item_id !== null) {
+                    throw new \DomainException('A tracked item cannot have a stock source.');
+                }
+                Stock::lockForUpdate()->findOrFail($sourceStockId)->increment('quantity', $fresh->quantity);
+            } elseif ($fresh->item_id !== null) {
                 Item::where('id', $fresh->item_id)->update(['status' => ItemStatus::Available->value]);
             } elseif ($fresh->item_type_id !== null) {
                 Stock::firstOrCreate(
