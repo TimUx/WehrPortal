@@ -78,10 +78,10 @@ it('separates grantable capabilities from certified module adapters and legacy r
     expect(fn () => $this->roles->configuredModules())->toThrow(InvalidArgumentException::class);
 });
 
-it('accepts only explicit stock capability grants for clothing', function (?string $role) {
+it('rejects unsupported clothing capability grants', function (?string $role) {
     expect(fn () => $this->roles->grant($this->admin, $this->b->id, $this->worker->id,
         'kleiderkammer', $role, 'Test'))->toThrow(ValidationException::class);
-})->with([null, 'kleiderwart', 'admin']);
+})->with([null, 'admin']);
 
 it('lists only exact granted targets, not null stock or session-selected locations', function () {
     $this->actingAs($this->worker);

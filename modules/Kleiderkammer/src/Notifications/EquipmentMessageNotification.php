@@ -8,6 +8,8 @@ use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Modules\Kleiderkammer\src\Filament\Resources\EquipmentMessageResource;
 use Modules\Kleiderkammer\src\Models\EquipmentMessage;
+use Modules\Kleiderkammer\src\Models\IssuedItem;
+use Modules\Kleiderkammer\src\Services\PersonalAccess;
 
 /** To the Kleiderwarte: a member wrote about an item of their equipment */
 class EquipmentMessageNotification extends Notification
@@ -18,6 +20,11 @@ class EquipmentMessageNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
+        $access = app(PersonalAccess::class);
+        if ($access->enabled()) {
+            $access->authorizeIssuance($notifiable, IssuedItem::withoutGlobalScopes()->findOrFail($this->message->issued_item_id));
+        }
+
         return (new MailMessage)
             ->subject('Nachricht zur Ausrüstung: '.$this->message->item_label)
             ->greeting('Hallo '.$notifiable->name.',')

@@ -56,7 +56,7 @@ Der Kontext erscheint weder für Gäste noch bei ausgeschalteter Erweiterung. Di
 
 Die neue Rollenverwaltung ergänzt die vorhandene globale Tabelle `module_user`, ohne sie automatisch umzuschreiben. Globale Admins vergeben unter **Admin → Standorte → Standort bearbeiten → Standort-Modulrollen und Verlauf** eine Zuweisung für genau eine Person, ein Modul und diesen Standort. Begründung, vergebender Admin, Vergabezeit, optionaler Ablauf und ein späterer Entzug mit Begründung bleiben nachvollziehbar. Standort-Admins dürfen diese Zuweisungen weder vergeben noch entziehen.
 
-Eine Zuweisung ohne Fachrolle ermöglicht nur den Moduleinstieg, keine Verwaltungsrechte auf beliebige Datensätze. Mitgliedschaft, aktiver Standort, aktives Mitglied, aktives Modul und Gültigkeit werden bei der Berechtigungsprüfung erneut geprüft. Rollen eines anderen Standorts und bereits entzogene oder abgelaufene Zuweisungen gelten nicht. Pro Person, Modul und Standort gibt es höchstens eine noch nicht entzogene Zuweisung; auch eine abgelaufene Zuweisung muss vor einer neuen ausdrücklich entzogen werden.
+Eine Zuweisung ohne Fachrolle ermöglicht nur den Moduleinstieg, keine Verwaltungsrechte auf beliebige Datensätze. Mitgliedschaft, aktiver Standort, aktives Mitglied, aktives Modul und Gültigkeit werden bei der Berechtigungsprüfung erneut geprüft. Rollen eines anderen Standorts und bereits entzogene oder abgelaufene Zuweisungen gelten nicht. Pro Person, Modul und Standort gibt es höchstens eine noch nicht entzogene Zuweisung; die Kleiderkammer bildet mit den getrennten Rollen `bestand` und `kleiderwart` eine ausdrückliche Ausnahme (siehe unten). Auch eine abgelaufene Zuweisung muss vor einer neuen Vergabe derselben Rolle ausdrücklich entzogen werden.
 
 Endet die wirksame Standortmitgliedschaft, werden die dortigen Vergaben mit einer systemseitigen Begründung geschlossen. Solange noch eine Mitgliedschaft über Primärstandort oder Pivot besteht, bleibt sie wirksam. Ein späterer Wiedereintritt stellt entzogene Rollen nicht wieder her; dafür ist eine neue ausdrückliche Vergabe erforderlich.
 
@@ -252,7 +252,7 @@ Ohne fachlich zugeordnete Bestandszeilen kann die Liste leer bleiben. Unzugeordn
 
 ### Ausgabe, Rücknahme und Kompatibilität
 
-Für personenbezogene Mengenausgaben reicht die Bestandsvergabe allein nicht: Es wird zusätzlich die bisherige persönliche Kleiderkammer-Verwaltungsberechtigung benötigt. Der Dienst prüft den tatsächlich betroffenen Bestand erneut; versteckte Formulare oder eine manipulierte Bestands-ID dürfen diese Prüfung nicht ersetzen. Neue Ausgaben behalten ihren unveränderlichen Herkunftsverweis.
+Für personenbezogene Mengenausgaben reicht die Bestandsvergabe allein nicht: Es wird zusätzlich die persönliche Kleiderkammer-Verwaltungsberechtigung benötigt. Solange der persönliche Adapter ausgeschaltet ist, bleibt dafür die bisherige Kleiderwartberechtigung maßgeblich. Bei aktiviertem persönlichen Adapter gelten die ausdrücklichen persönlichen Standortvergaben und Zielprüfungen aus dem folgenden Abschnitt. Der Dienst prüft den tatsächlich betroffenen Bestand erneut; versteckte Formulare oder eine manipulierte Bestands-ID dürfen diese Prüfung nicht ersetzen. Neue Ausgaben behalten ihren unveränderlichen Herkunftsverweis.
 
 Rücknahmen mit Herkunft füllen weiterhin genau den referenzierten Bestand auf. Historische Mengenausgaben ohne Herkunft dürfen bei aktivierter Bestandsdurchsetzung nur globale Admins zurücknehmen; dabei bleibt der bisherige Katalogkombinations-Fallback bestehen. Dieser kann eine inzwischen zugeordnete Bestandszeile treffen, ist aber **kein** Nachweis des historischen Eigentümers und ergänzt keinen Herkunftsverweis. Vor einer solchen Rücknahme muss der Betreiber den Bestand fachlich prüfen.
 
@@ -262,7 +262,25 @@ Bei ausgeschaltetem Bestandsadapter bleiben die bisherigen Berechtigungsregeln b
 
 ### Verbleibende Grenzen
 
-Die globale Eindeutigkeit von Artikeltyp, Größe und Gruppe bleibt unverändert. Mehrere Lager derselben Kombination sind noch nicht möglich. Es gibt weder Lageraufteilung noch Umbuchung, historische Herkunftszuordnung oder neue kommunale Führungsrechte. Die übrigen persönlichen und Einzelteilpfade der Kleiderkammer sind durch diesen Bestandsadapter nicht vollständig auf Standortrollen umgestellt; ihre bestehenden Berechtigungen bleiben gesondert zu prüfen. Insbesondere ersetzt dieser Teilabschluss nicht P3, P5–P7 oder die Mehrstandort-Betriebsfreigabe.
+Die globale Eindeutigkeit von Artikeltyp, Größe und Gruppe bleibt unverändert. Mehrere Lager derselben Kombination sind noch nicht möglich. Es gibt weder Lageraufteilung noch Umbuchung, historische Herkunftszuordnung oder neue kommunale Führungsrechte. Die übrigen persönlichen und Einzelteilpfade der Kleiderkammer werden durch den Bestandsadapter allein nicht auf persönliche Standortrollen umgestellt; dafür ist der gesonderte persönliche Adapter vorgesehen. Insbesondere ersetzt dieser Teilabschluss nicht P3, P5–P7 oder die Mehrstandort-Betriebsfreigabe.
+
+## Personenbezogene Kleiderkammerrechte: gesonderter Rollout
+
+Der zusätzliche Schalter `LOCATIONS_CLOTHING_PERSONAL_ENABLED=true` aktiviert die zielbezogene Personenverwaltung und ist standardmäßig ausgeschaltet. Er ist vom Mengenbestandsadapter getrennt; eine reine Vergabe `bestand` schaltet keine persönlichen Größen, Ausgabehistorien oder Nachrichten frei. Auch diese Umstellung ist keine Zulassung von `kleiderkammer` in `LOCATIONS_SCOPED_ROLE_MODULES` und keine vollständige Mehrstandortfreigabe.
+
+### Vorbereitung und ausdrückliche Vergaben
+
+1. Backup erstellen und Wiederherstellung prüfen. Bei noch ausgeschaltetem Adapter die neuen Migrationen installieren und Artikel-/Bestandszuordnungen sowie ungeklärte Ausgaben mit den vorhandenen lesenden Berichten prüfen.
+2. Als aktiver globaler Admin unter **Standorte → Standort bearbeiten → Standort-Modulrollen und Verlauf** die persönliche Rolle `kleiderwart` am jeweils benötigten Standort ausdrücklich vergeben. Bestehende globale Kleiderwartrollen werden nicht kopiert oder als Ersatz verwendet.
+3. Die Rollen `bestand` und `kleiderwart` können für dieselbe Person am selben Standort unabhängig nebeneinander bestehen. Die neue Eindeutigkeitsregel erweitert nur Kleiderkammer-Vergaben um die Rolle; andere Module behalten ihre bisherige Eindeutigkeit. Alte Vergaben und ihr unveränderlicher Verlauf werden nicht umgeschrieben. Eine Rückmigration darf parallele Vergaben nicht löschen, um den alten Index wiederherzustellen.
+4. `LOCATIONS_CLOTHING_PERSONAL_ENABLED=true` setzen und Konfigurationscache beziehungsweise Anwendung erneuern. Locations und das erforderliche migrierte Schema müssen vorhanden sein. Rollen, Mitgliedschaften, Aktivstatus, Entzug und Ablauf werden bei der Aktion frisch geprüft, nicht aus einem alten Authentisierungsmodell oder dem Standortumschalter übernommen.
+5. Mit persönlicher Rolle, reiner Bestandsrolle, bisherigen globalen Kleiderwartrollen und globalem Admin die vorgesehenen positiven und negativen Zugriffe prüfen. Der Schalter aktiviert keine fehlenden Rollen und führt keine Betreiberbestände zusammen.
+
+**Schutzmodell:** Persönliche Größen gehören zum Mitglied, nicht zu einer erfundenen historischen Standortkopie. Die Verwaltung benötigt eine ausdrücklich vergebene persönliche Standortrolle und eine tatsächlich passende Mitgliedschaft der betroffenen Person. Bei Mehrfachmitgliedschaft ist das Größenprofil gemeinsam; daraus entsteht keine Einsicht in sämtliche Ausgabevorgänge dieser Person. Jeder Ausgabevorgang und jede verknüpfte Nachricht wird zusätzlich anhand seines Einzelteils beziehungsweise des gespeicherten Mengenbestands-Herkunftsverweises geprüft. Die Mitgliedschaft muss zum konkreten Quellstandort passen; zwei getrennte Rollen an A und B ersetzen diese Übereinstimmung nicht. Ungeklärte oder standortlose Herkunft wird nicht aus heutigen Mitgliedschaften geraten.
+
+**Bewusst eingeschränkte Verwaltungswege:** Allgemeine Mitgliedsnotizen sind keine standortbezogenen Kleiderkammerdaten. Ohne globale Adminrechte werden sie in der aktivierten Kleiderkammerverwaltung nicht bearbeitet. Behandlungsnotizen können personenbezogene Angaben enthalten, besitzen aber keine hinreichende Mitgliederherkunft; ihre Verwaltung bleibt deshalb globalen Admins vorbehalten. Nicht zielbezogen portierte Sammelimporte, Gesamtauswertungen und Etikettenwege bleiben ebenfalls global beschränkt. Eine persönliche Standortrolle ist keine allgemeine Lager-, Katalog- oder Personalaktenberechtigung.
+
+**Unveränderte Grenzen:** Globale Admins behalten sämtliche Datenzugriffe. Mitglieder behalten ihre eigene Selbstbedienung; diese ist keine Verwaltungsbefugnis auf fremde Datensätze. Alte globale Kleiderwartrollen werden nicht automatisch auf Standorte verteilt. Die Bestandszuordnung, Herkunftskorrektur und reale Backup-/Restore-Abnahme bleiben gesonderte Schritte. P1 bleibt ausdrücklich offen.
 
 ## Grenzen / offen
 

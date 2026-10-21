@@ -13,6 +13,7 @@ use Extensions\Locations\Console\InventoryModuleRolesCommand;
 use Extensions\Locations\Filament\LocationsPlugin;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Scopes\LocationScope;
+use Extensions\Locations\Services\ClothingPersonalAccess;
 use Extensions\Locations\Services\ClothingStockAccess;
 use Extensions\Locations\Services\LocationAccess;
 use Extensions\Locations\Services\LocationModuleRoles;
@@ -24,7 +25,17 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use Modules\Kleiderkammer\src\Models\EquipmentMessage;
+use Modules\Kleiderkammer\src\Models\IssuedItem;
+use Modules\Kleiderkammer\src\Models\Item;
+use Modules\Kleiderkammer\src\Models\ItemCategory;
+use Modules\Kleiderkammer\src\Models\ItemGroup;
+use Modules\Kleiderkammer\src\Models\ItemTreatment;
+use Modules\Kleiderkammer\src\Models\ItemType;
+use Modules\Kleiderkammer\src\Models\MemberSize;
+use Modules\Kleiderkammer\src\Models\Size;
 use Modules\Kleiderkammer\src\Models\Stock;
+use Modules\Kleiderkammer\src\Services\PersonalAccess;
 use Modules\Kleiderkammer\src\Services\StockAccess;
 
 /**
@@ -41,6 +52,8 @@ class LocationsServiceProvider extends ServiceProvider
         $this->app->singleton(LocationAccess::class);
         $this->app->singleton(ClothingStockAccess::class);
         $this->app->bind(StockAccess::class, fn ($app) => $app->make(ClothingStockAccess::class));
+        $this->app->singleton(ClothingPersonalAccess::class);
+        $this->app->bind(PersonalAccess::class, fn ($app) => $app->make(ClothingPersonalAccess::class));
 
         $this->app->booting(function () {
             if (config('locations.enabled')) {
@@ -55,6 +68,9 @@ class LocationsServiceProvider extends ServiceProvider
         if (config('locations.clothing_stock_enabled')) {
             $this->app->make(ClothingStockAccess::class)->validateConfiguration();
         }
+        if (config('locations.clothing_personal_enabled')) {
+            $this->app->make(ClothingPersonalAccess::class)->validateConfiguration();
+        }
 
         if (! config('locations.enabled')) {
             return;
@@ -62,6 +78,29 @@ class LocationsServiceProvider extends ServiceProvider
 
         foreach (['creating', 'updating', 'deleting'] as $event) {
             Stock::{$event}(fn (Stock $stock) => $this->app->make(ClothingStockAccess::class)->guardMutation($stock, $event));
+        }
+        foreach ([IssuedItem::class, Item::class, MemberSize::class, EquipmentMessage::class, ItemTreatment::class] as $class) {
+            $class::addGlobalScope('clothing-personal', function ($query) {
+                $access = $this->app->make(ClothingPersonalAccess::class);
+                $access->scope($query, $query->getModel(), $access->currentActor());
+            });
+            foreach (['creating', 'updating', 'deleting'] as $event) {
+                $class::{$event}(fn ($model) => $this->app->make(ClothingPersonalAccess::class)->guardMutation($model, $event));
+            }
+        }
+        Item::restoring(fn ($model) => $this->app->make(ClothingPersonalAccess::class)->guardMutation($model, 'restoring'));
+        foreach ([
+            ItemType::class,
+            ItemCategory::class,
+            ItemGroup::class,
+            Size::class,
+        ] as $class) {
+            foreach (['creating', 'updating', 'deleting'] as $event) {
+                $class::{$event}(function () {
+                    $access = $this->app->make(ClothingPersonalAccess::class);
+                    $access->authorizeTransfer($access->currentActor());
+                });
+            }
         }
 
         $this->loadMigrationsFrom(__DIR__.'/database/migrations');

@@ -5,6 +5,7 @@ namespace Modules\Kleiderkammer\src\Models;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Modules\Kleiderkammer\src\Services\PersonalAccess;
 
 /**
  * A member's note to the Kleiderwart about a piece of equipment issued to them: a Mangel (defect) or a
@@ -29,7 +30,12 @@ class EquipmentMessage extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        $relation = $this->belongsTo(User::class);
+        if (app(PersonalAccess::class)->enabled()) {
+            $relation->withoutGlobalScopes();
+        }
+
+        return $relation;
     }
 
     public function issuedItem(): BelongsTo

@@ -21,15 +21,18 @@ class LocationModuleRoles
     /** Grant vocabulary is deliberately broader than fully certified module adapters. */
     public const STOCK_ROLE = 'bestand';
 
+    public const PERSONAL_ROLE = 'kleiderwart';
+
     public function grantableModules(): array
     {
-        return ['anwesenheit' => 'Anwesenheit', 'kleiderkammer' => 'Kleiderkammer – nur Mengenbestand'];
+        return ['anwesenheit' => 'Anwesenheit', 'kleiderkammer' => 'Kleiderkammer – getrennte Teilrechte'];
     }
 
     public function grantableRoles(string $module): array
     {
         return $module === 'kleiderkammer'
-            ? [self::STOCK_ROLE => 'Nur Mengenbestand: ansehen und Stückzahl ändern']
+            ? [self::STOCK_ROLE => 'Nur Mengenbestand: ansehen und Stückzahl ändern',
+                self::PERSONAL_ROLE => 'Personenprofil und standortbezogene Ausgaben']
             : collect(app(ModuleRegistry::class)->get($module)['roles'] ?? [])->mapWithKeys(fn ($role) => [$role => $role])->all();
     }
 
@@ -148,8 +151,9 @@ class LocationModuleRoles
     /** Capability grants never feed the module-wide User role hooks. */
     public function capabilityLocationIds(User $user, string $module, string $role): array
     {
-        if ($module !== 'kleiderkammer' || $role !== self::STOCK_ROLE
-            || ! config('locations.enabled') || ! config('locations.clothing_stock_enabled')
+        if ($module !== 'kleiderkammer' || ! in_array($role, [self::STOCK_ROLE, self::PERSONAL_ROLE], true)
+            || ! config('locations.enabled')
+            || ! config($role === self::STOCK_ROLE ? 'locations.clothing_stock_enabled' : 'locations.clothing_personal_enabled')
             || ! $this->activeModule($module)) {
             return [];
         }
@@ -169,9 +173,9 @@ class LocationModuleRoles
             ])->validate();
             $definition = app(ModuleRegistry::class)->get($module);
             if (! array_key_exists($module, $this->grantableModules()) || ! $definition
-                || ($module === 'kleiderkammer' && $role !== self::STOCK_ROLE)
+                || ($module === 'kleiderkammer' && ! in_array($role, [self::STOCK_ROLE, self::PERSONAL_ROLE], true))
                 || ($role !== null && ! array_key_exists($role, $this->grantableRoles($module)))) {
-                throw ValidationException::withMessages(['module' => 'Nur vorbereitete Rollen: Anwesenheit oder Kleiderkammer ausschließlich Mengenbestand.']);
+                throw ValidationException::withMessages(['module' => 'Nur vorbereitete Rollen: Anwesenheit oder getrennte Kleiderkammer-Teilrechte.']);
             }
             $location = Location::query()->lockForUpdate()->find($locationId);
             $member = User::withoutGlobalScopes()->lockForUpdate()->find($userId);
@@ -180,7 +184,8 @@ class LocationModuleRoles
                 || ((int) $member->getAttribute('ext_location_id') !== $locationId && ! $membership)) {
                 throw ValidationException::withMessages(['user_id' => 'Aktives Modul, aktiver Standort und aktives Mitglied dieses Standorts erforderlich.']);
             }
-            if (LocationModuleRole::where('location_id', $locationId)->where('user_id', $userId)->where('module', $module)->whereNull('revoked_at')->exists()) {
+            if (LocationModuleRole::where('location_id', $locationId)->where('user_id', $userId)->where('module', $module)
+                ->when($module === 'kleiderkammer', fn ($q) => $q->where('role', $role))->whereNull('revoked_at')->exists()) {
                 throw ValidationException::withMessages(['module' => 'Bestehende Zuweisung zuerst ausdrücklich entziehen (auch nach Ablauf).']);
             }
 

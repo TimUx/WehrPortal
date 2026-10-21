@@ -90,6 +90,10 @@ class ClothingStockAccess extends StockAccess
     public function canEnter(?User $actor): bool
     {
         if (! $this->enabled()) {
+            if (app(ClothingPersonalAccess::class)->enabled()) {
+                return $this->isGlobal($actor);
+            }
+
             return parent::canEnter($actor);
         }
 
@@ -99,6 +103,10 @@ class ClothingStockAccess extends StockAccess
 
     public function canManageCatalog(?User $actor): bool
     {
+        if (app(ClothingPersonalAccess::class)->enabled()) {
+            return $this->isGlobal($actor);
+        }
+
         return $this->enabled() ? $this->isGlobal($actor) : parent::canManageCatalog($actor);
     }
 
@@ -111,6 +119,11 @@ class ClothingStockAccess extends StockAccess
 
     public function canIssue(?User $actor, Stock $stock): bool
     {
+        if (app(ClothingPersonalAccess::class)->enabled()) {
+            return app(ClothingPersonalAccess::class)->canEnter($actor)
+                && app(ClothingPersonalAccess::class)->issueStockQuery($actor)->whereKey($stock->id)->exists();
+        }
+
         return $this->enabled()
             ? $this->hasPersonalPermission($actor) && $this->canEdit($actor, $stock)
             : parent::canIssue($actor, $stock);
@@ -118,6 +131,9 @@ class ClothingStockAccess extends StockAccess
 
     private function hasPersonalPermission(?User $actor): bool
     {
+        if (app(ClothingPersonalAccess::class)->enabled()) {
+            return app(ClothingPersonalAccess::class)->canEnter($actor);
+        }
         if (! $this->eligible($actor)) {
             return false;
         }
@@ -161,6 +177,11 @@ class ClothingStockAccess extends StockAccess
     public function guardMutation(Stock $stock, string $event): void
     {
         if (! $this->enabled()) {
+            $personal = app(ClothingPersonalAccess::class);
+            if ($personal->enabled()) {
+                $personal->authorizeStockMutation($stock, $event);
+            }
+
             return;
         }
         $actor = $this->currentActor();

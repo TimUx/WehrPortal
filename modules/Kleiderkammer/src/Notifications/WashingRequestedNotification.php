@@ -10,6 +10,8 @@ use Illuminate\Notifications\Notification;
 use Illuminate\Support\Collection;
 use Modules\Kleiderkammer\src\Filament\Resources\EquipmentMessageResource;
 use Modules\Kleiderkammer\src\Models\EquipmentMessage;
+use Modules\Kleiderkammer\src\Models\IssuedItem;
+use Modules\Kleiderkammer\src\Services\PersonalAccess;
 
 /** To the Kleiderwarte: a member asks for Wäsche of one or more items, with the reason */
 class WashingRequestedNotification extends Notification
@@ -21,6 +23,12 @@ class WashingRequestedNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
+        $access = app(PersonalAccess::class);
+        if ($access->enabled()) {
+            foreach ($this->requests as $request) {
+                $access->authorizeIssuance($notifiable, IssuedItem::withoutGlobalScopes()->findOrFail($request->issued_item_id));
+            }
+        }
         $count = $this->requests->count();
         $mail = (new MailMessage)
             ->subject('Wäsche angefordert: '.$this->member->name.' ('.$count.' Teil'.($count === 1 ? '' : 'e').')')

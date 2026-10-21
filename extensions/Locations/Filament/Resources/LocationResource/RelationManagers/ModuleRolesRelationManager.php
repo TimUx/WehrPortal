@@ -38,7 +38,7 @@ class ModuleRolesRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->description('Nur globale Admins. Anwesenheit benötigt LOCATIONS_SCOPED_ROLE_MODULES=anwesenheit. Kleiderkammer: ausschließlich Mengenbestand (ansehen/Stückzahl), keine Personen, Ausgabe oder Katalogpflege; benötigt LOCATIONS_CLOTHING_STOCK_ENABLED=true. Keine vollständige Standortisolation. Abgelaufene Zuweisungen vor Ersatz ausdrücklich entziehen.')
+            ->description('Nur globale Admins. Anwesenheit: LOCATIONS_SCOPED_ROLE_MODULES=anwesenheit. Kleiderkammer: bestand benötigt LOCATIONS_CLOTHING_STOCK_ENABLED, kleiderwart benötigt LOCATIONS_CLOTHING_PERSONAL_ENABLED. Getrennte Teilrechte, keine vollständige Modulzertifizierung. Personenprofile sind bei gemeinsamer Mitgliedschaft geteilt; einzelne Ausgaben benötigen zusätzlich eine bekannte passende Herkunft. Abgelaufene Zuweisungen vor Ersatz ausdrücklich entziehen.')
             ->columns([
                 Tables\Columns\TextColumn::make('member.name')->label('Mitglied'),
                 Tables\Columns\TextColumn::make('module')->label('Modul'),

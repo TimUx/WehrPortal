@@ -71,21 +71,26 @@ class DataTransferService
     public function export(?array $parts = null, ?User $actor = null): array
     {
         app(StockAccess::class)->authorizeTransfer($actor ?? auth()->user());
-        $parts = $this->resolveParts($parts);
-        $has = fn (string ...$wanted) => array_intersect($wanted, $parts) !== [];
-        $data = ['version' => 1, 'exported_at' => now()->toIso8601String(), 'groups' => []];
+        $actor ??= auth()->user();
+        app(PersonalAccess::class)->authorizeTransfer($actor);
 
-        if ($has('categories', 'item_types')) {
-            $data['groups']['catalog'] = $this->exportCatalog($has('categories'), $has('item_types'));
-        }
-        if ($has('members')) {
-            $data['groups']['members'] = $this->exportMembers();
-        }
-        if ($has('items', 'stock', 'treatments', 'issuances')) {
-            $data['groups']['inventory'] = $this->exportInventory($parts);
-        }
+        return app(PersonalAccess::class)->asActor($actor, function () use ($parts) {
+            $parts = $this->resolveParts($parts);
+            $has = fn (string ...$wanted) => array_intersect($wanted, $parts) !== [];
+            $data = ['version' => 1, 'exported_at' => now()->toIso8601String(), 'groups' => []];
 
-        return $data;
+            if ($has('categories', 'item_types')) {
+                $data['groups']['catalog'] = $this->exportCatalog($has('categories'), $has('item_types'));
+            }
+            if ($has('members')) {
+                $data['groups']['members'] = $this->exportMembers();
+            }
+            if ($has('items', 'stock', 'treatments', 'issuances')) {
+                $data['groups']['inventory'] = $this->exportInventory($parts);
+            }
+
+            return $data;
+        });
     }
 
     /**
@@ -127,18 +132,21 @@ class DataTransferService
         $actor ??= auth()->user();
         $access = app(StockAccess::class);
         $access->authorizeTransfer($actor);
+        app(PersonalAccess::class)->authorizeTransfer($actor);
         $groups = $this->filter($data, $parts, $types)['groups'] ?? [];
         $report = ['skipped_members' => [], 'issued_items' => 0, 'skipped_issued_items' => 0];
 
-        $access->asActor($actor, function () use ($groups, &$report) {
-            DB::transaction(function () use ($groups, &$report) {
-                $catalog = $this->importCatalog($groups['catalog'] ?? []);
-                $members = $this->importMembers($groups['members']['members'] ?? [], $report);
-                $this->importMemberSizes($groups['members']['sizes'] ?? [], $catalog, $members);
+        app(PersonalAccess::class)->asImportActor($actor, function () use ($actor, $access, $groups, &$report) {
+            $access->asActor($actor, function () use ($groups, &$report) {
+                DB::transaction(function () use ($groups, &$report) {
+                    $catalog = $this->importCatalog($groups['catalog'] ?? []);
+                    $members = $this->importMembers($groups['members']['members'] ?? [], $report);
+                    $this->importMemberSizes($groups['members']['sizes'] ?? [], $catalog, $members);
 
-                if (isset($groups['inventory'])) {
-                    $this->importInventory($groups['inventory'], $catalog, $members, $report);
-                }
+                    if (isset($groups['inventory'])) {
+                        $this->importInventory($groups['inventory'], $catalog, $members, $report);
+                    }
+                });
             });
         });
 

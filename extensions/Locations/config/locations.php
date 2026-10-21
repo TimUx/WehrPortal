@@ -19,6 +19,8 @@ return [
     // Stock quantities only; this does not certify a module-wide Kleiderkammer adapter.
     'clothing_stock_enabled' => (bool) env('LOCATIONS_CLOTHING_STOCK_ENABLED', false),
 
+    'clothing_personal_enabled' => (bool) env('LOCATIONS_CLOTHING_PERSONAL_ENABLED', false),
+
     // Staged, opt-in adapter. Unsupported modules fail closed; entry is not object authorization.
     'scoped_role_modules' => array_values(array_unique(array_filter(
         array_map(fn (string $module): string => strtolower(trim($module)), explode(',', (string) env('LOCATIONS_SCOPED_ROLE_MODULES', ''))),

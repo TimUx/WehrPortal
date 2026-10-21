@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Storage;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Modules\Kleiderkammer\src\Filament\Concerns\KleiderkammerArea;
 use Modules\Kleiderkammer\src\Services\DataTransferService;
+use Modules\Kleiderkammer\src\Services\PersonalAccess;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DataTransferPage extends Page implements HasForms
@@ -45,6 +46,11 @@ class DataTransferPage extends Page implements HasForms
     // Admins only, not every Kleiderwart
     public static function canAccess(): bool
     {
+        $access = app(PersonalAccess::class);
+        if ($access->enabled()) {
+            return $access->canManageCatalog(auth()->user());
+        }
+
         return (bool) auth()->user()?->is_admin && KleiderkammerDashboard::canAccess();
     }
 

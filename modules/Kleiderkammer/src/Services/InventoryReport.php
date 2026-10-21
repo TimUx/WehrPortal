@@ -17,9 +17,10 @@ class InventoryReport
      */
     public function trackedByType(?User $actor = null): Collection
     {
+        app(PersonalAccess::class)->authorizeOverview($actor ?? auth()->user());
         app(StockAccess::class)->authorizePersonal($actor ?? auth()->user());
 
-        return ItemType::where('is_tracked', true)
+        return app(PersonalAccess::class)->asActor($actor ?? auth()->user(), fn () => ItemType::where('is_tracked', true)
             ->with(['items' => fn ($q) => $q->withTrashed()])
             ->get()
             ->map(fn (ItemType $type) => (object) [
@@ -29,7 +30,7 @@ class InventoryReport
                 'available' => $type->items->where('status', ItemStatus::Available)->count(),
                 'issued' => $type->items->where('status', ItemStatus::Issued)->count(),
                 'retired' => $type->items->where('status', ItemStatus::Retired)->count(),
-            ]);
+            ]));
     }
 
     /**
@@ -37,13 +38,14 @@ class InventoryReport
      */
     public function stockByType(?User $actor = null): Collection
     {
+        app(PersonalAccess::class)->authorizeOverview($actor ?? auth()->user());
         $actor ??= auth()->user();
         $access = app(StockAccess::class);
         $access->authorizePersonal($actor);
 
         return ItemType::where('is_tracked', false)
             ->with(['stock' => fn ($query) => $query
-                ->whereIn('kk_stock.id', $access->query($actor)->select('kk_stock.id'))
+                ->whereIn('kk_stock.id', app(PersonalAccess::class)->issueStockQuery($actor)->select('kk_stock.id'))
                 ->with('size')])
             ->get()
             ->flatMap(fn (ItemType $type) => $type->stock->map(fn ($row) => (object) [
@@ -59,12 +61,13 @@ class InventoryReport
      */
     public function openLoans(?User $actor = null): Collection
     {
+        app(PersonalAccess::class)->authorizeOverview($actor ?? auth()->user());
         app(StockAccess::class)->authorizePersonal($actor ?? auth()->user());
 
-        return IssuedItem::with(['user', 'item.itemType', 'itemType', 'size'])
+        return app(PersonalAccess::class)->asActor($actor ?? auth()->user(), fn () => IssuedItem::with(['user', 'item.itemType', 'itemType', 'size'])
             ->whereNull('returned_at')
             ->orderBy('issued_at')
-            ->get();
+            ->get());
     }
 
     /**
@@ -74,6 +77,7 @@ class InventoryReport
      */
     public function summary(?User $actor = null): array
     {
+        app(PersonalAccess::class)->authorizeOverview($actor ?? auth()->user());
         $actor ??= auth()->user();
         app(StockAccess::class)->authorizePersonal($actor);
 
@@ -82,7 +86,7 @@ class InventoryReport
             'available' => $this->trackedByType($actor)->sum('available'),
             'issued' => $this->trackedByType($actor)->sum('issued'),
             'retired' => $this->trackedByType($actor)->sum('retired'),
-            'open_loans' => IssuedItem::whereNull('returned_at')->count(),
+            'open_loans' => app(PersonalAccess::class)->asActor($actor, fn () => IssuedItem::whereNull('returned_at')->count()),
         ];
     }
 }

@@ -13,6 +13,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Modules\Kleiderkammer\src\Enums\ItemStatus;
 use Modules\Kleiderkammer\src\Filament\Concerns\KleiderkammerArea;
@@ -23,6 +24,7 @@ use Modules\Kleiderkammer\src\Models\ItemType;
 use Modules\Kleiderkammer\src\Models\Size;
 use Modules\Kleiderkammer\src\Services\IssuingService;
 use Modules\Kleiderkammer\src\Services\LabelSheetGenerator;
+use Modules\Kleiderkammer\src\Services\PersonalAccess;
 
 class ItemResource extends Resource
 {
@@ -42,11 +44,38 @@ class ItemResource extends Resource
 
     protected static ?int $navigationSort = 2;
 
+    public static function canCreate(): bool
+    {
+        return app(PersonalAccess::class)->canManageCatalog(auth()->user());
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return $record instanceof Item && static::canAccess()
+            && app(PersonalAccess::class)->canEditItem(auth()->user(), $record);
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return static::canCreate();
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return static::canCreate();
+    }
+
+    public static function canRestore(Model $record): bool
+    {
+        return static::canCreate();
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
             Section::make('Teil')->schema([
                 Forms\Components\Select::make('item_type_id')
+                    ->disabled(fn () => ! static::canCreate())
                     ->label('Artikeltyp')
                     ->relationship('itemType', 'name', fn ($query) => $query->where('is_tracked', true)->orderBy('name'))
                     ->required()
@@ -58,6 +87,7 @@ class ItemResource extends Resource
                         : 'Es gibt noch keinen Artikeltyp mit „Einzeln erfasst“. Lege zuerst unter „Artikeltypen“ einen an oder aktiviere die Option dort.'),
 
                 Forms\Components\Select::make('group_id')
+                    ->disabled(fn () => ! static::canCreate())
                     ->live()
                     ->label('Gruppe')
                     ->options(fn ($get) => ItemGroup::where('item_type_id', $get('item_type_id'))->orderBy('sort_order')->pluck('name', 'id'))
@@ -65,12 +95,14 @@ class ItemResource extends Resource
                     ->visible(fn ($get) => filled($get('item_type_id')) && ItemGroup::where('item_type_id', $get('item_type_id'))->exists()),
 
                 Forms\Components\Select::make('size_id')
+                    ->disabled(fn () => ! static::canCreate())
                     ->label('Größe')
                     ->options(fn ($get) => Size::where('item_type_id', $get('item_type_id'))->forGroup($get('group_id'))->orderBy('sort_order')->pluck('name', 'id'))
                     ->nullable()
                     ->visible(fn ($get) => filled($get('item_type_id'))),
 
                 Forms\Components\TextInput::make('code')
+                    ->disabled(fn () => ! static::canCreate())
                     ->label('Code')
                     ->required()
                     ->unique(ignoreRecord: true)
@@ -88,7 +120,7 @@ class ItemResource extends Resource
 
                 Forms\Components\Select::make('issue_to')
                     ->label('Ausgeben an')
-                    ->options(fn () => User::where('status', MemberStatus::Active->value)->orderBy('name')->pluck('name', 'id'))
+                    ->options(fn () => app(PersonalAccess::class)->members(auth()->user())->where('status', MemberStatus::Active->value)->orderBy('name')->pluck('name', 'id'))
                     ->searchable()
                     ->placeholder('Nicht ausgeben, nur erfassen')
                     ->helperText('Optional: Das neue Teil wird direkt an dieses Mitglied ausgegeben.')
@@ -172,7 +204,7 @@ class ItemResource extends Resource
                     ->form([
                         Forms\Components\Select::make('user_id')
                             ->label('Mitglied')
-                            ->options(fn () => User::where('status', MemberStatus::Active->value)->orderBy('name')->pluck('name', 'id'))
+                            ->options(fn () => app(PersonalAccess::class)->members(auth()->user())->where('status', MemberStatus::Active->value)->orderBy('name')->pluck('name', 'id'))
                             ->required()
                             ->searchable(),
                         Forms\Components\Textarea::make('notes')->label('Notizen')->nullable(),

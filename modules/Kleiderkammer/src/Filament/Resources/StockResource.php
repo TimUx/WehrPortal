@@ -20,6 +20,7 @@ use Modules\Kleiderkammer\src\Models\ItemType;
 use Modules\Kleiderkammer\src\Models\Size;
 use Modules\Kleiderkammer\src\Models\Stock;
 use Modules\Kleiderkammer\src\Services\IssuingService;
+use Modules\Kleiderkammer\src\Services\PersonalAccess;
 use Modules\Kleiderkammer\src\Services\StockAccess;
 
 class StockResource extends Resource
@@ -164,7 +165,7 @@ class StockResource extends Resource
                     ->form([
                         Forms\Components\Select::make('user_id')
                             ->label('Mitglied')
-                            ->options(fn () => User::where('status', MemberStatus::Active->value)->orderBy('name')->pluck('name', 'id'))
+                            ->options(fn () => app(PersonalAccess::class)->members(auth()->user())->where('status', MemberStatus::Active->value)->orderBy('name')->pluck('name', 'id'))
                             ->required()
                             ->searchable(),
                         Forms\Components\TextInput::make('quantity')

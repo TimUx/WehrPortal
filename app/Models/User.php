@@ -19,6 +19,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Cache;
 use Modules\Fahrzeugbuchung\src\Models\Booking;
+use Modules\Kleiderkammer\src\Services\PersonalAccess;
 
 class User extends Authenticatable implements FilamentUser
 {
@@ -122,6 +123,11 @@ class User extends Authenticatable implements FilamentUser
     /** Admins and Kleiderwarte manage the clothing store; other members only see their own equipment */
     public function canManageKleiderkammer(): bool
     {
+        if (app(PersonalAccess::class)->enabled()) {
+            // Navigation only. Record authorization belongs to the personal-data adapter.
+            return app(PersonalAccess::class)->canEnter($this);
+        }
+
         return $this->is_active
             && $this->canUseModule('kleiderkammer')
             && ($this->is_admin || $this->hasModuleRole('kleiderkammer', 'kleiderwart'));

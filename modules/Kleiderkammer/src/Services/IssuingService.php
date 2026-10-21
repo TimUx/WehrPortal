@@ -21,11 +21,15 @@ class IssuingService
      */
     public function issueTracked(User $member, Item $item, string $notes = '', ?User $actor = null): IssuedItem
     {
-        app(StockAccess::class)->authorizePersonal($actor ?? auth()->user());
-        $this->ensureCanReceive($member);
+        $actor ??= auth()->user();
+        app(StockAccess::class)->authorizePersonal($actor);
+        $personal = app(PersonalAccess::class);
 
-        return DB::transaction(function () use ($member, $item, $notes) {
-            $fresh = Item::lockForUpdate()->findOrFail($item->id);
+        return $personal->asActor($actor, fn () => DB::transaction(function () use ($member, $item, $notes, $actor, $personal) {
+            $member = User::withoutGlobalScopes()->lockForUpdate()->findOrFail($member->id);
+            $this->ensureCanReceive($member);
+            $fresh = Item::withoutGlobalScopes()->whereNull('deleted_at')->lockForUpdate()->findOrFail($item->id);
+            $personal->authorizeIssue($actor, $member, $fresh);
 
             if ($fresh->status !== ItemStatus::Available) {
                 throw new \DomainException("Item {$fresh->code} is not available (status: {$fresh->status->value}).");
@@ -42,7 +46,7 @@ class IssuingService
             $fresh->update(['status' => ItemStatus::Issued]);
 
             return $issuedItem;
-        });
+        }));
     }
 
     /**
@@ -54,13 +58,16 @@ class IssuingService
         $actor ??= auth()->user();
         $access = app(StockAccess::class);
         $access->authorizePersonal($actor);
-        $this->ensureCanReceive($member);
+        $personal = app(PersonalAccess::class);
 
         if ($quantity <= 0) {
             throw new \InvalidArgumentException('Quantity must be greater than zero.');
         }
 
-        return $access->asActor($actor, fn () => DB::transaction(function () use ($member, $itemType, $size, $quantity, $notes, $group, $stockId, $actor, $access) {
+        return $personal->asActor($actor, fn () => $access->asActor($actor, fn () => DB::transaction(function () use ($member, $itemType, $size, $quantity, $notes, $group, $stockId, $actor, $access, $personal) {
+            $member = User::withoutGlobalScopes()->lockForUpdate()->findOrFail($member->id);
+            $this->ensureCanReceive($member);
+            abort_if($personal->enabled() && $stockId === null, 403);
             $stock = Stock::lockForUpdate()
                 ->when($stockId !== null, fn ($query) => $query->whereKey($stockId))
                 ->where('item_type_id', $itemType->id)
@@ -69,8 +76,9 @@ class IssuingService
                 ->first();
 
             if ($stock !== null) {
+                $personal->authorizeIssue($actor, $member, $stock);
                 $access->authorizeStock($actor, $stock);
-            } elseif ($access->enabled()) {
+            } elseif ($access->enabled() || $personal->enabled()) {
                 abort(403);
             }
             $available = $stock?->quantity ?? 0;
@@ -96,7 +104,7 @@ class IssuingService
             $stock->decrement('quantity', $quantity);
 
             return $issuedItem;
-        }));
+        })));
     }
 
     /**
@@ -109,8 +117,10 @@ class IssuingService
         $actor ??= auth()->user();
         $access = app(StockAccess::class);
         $access->authorizePersonal($actor);
-        $access->asActor($actor, fn () => DB::transaction(function () use ($issuedItem, $actor, $access) {
-            $fresh = IssuedItem::lockForUpdate()->findOrFail($issuedItem->id);
+        $personal = app(PersonalAccess::class);
+        $personal->asActor($actor, fn () => $access->asActor($actor, fn () => DB::transaction(function () use ($issuedItem, $actor, $access, $personal) {
+            $fresh = IssuedItem::withoutGlobalScopes()->whereNull('deleted_at')->lockForUpdate()->findOrFail($issuedItem->id);
+            $personal->authorizeIssuance($actor, $fresh);
 
             if ($fresh->returned_at !== null) {
                 throw new \DomainException('This record has already been returned.');
@@ -127,7 +137,7 @@ class IssuingService
                 $access->authorizeStock($actor, $stock);
                 $stock->increment('quantity', $fresh->quantity);
             } elseif ($fresh->item_id !== null) {
-                Item::where('id', $fresh->item_id)->update(['status' => ItemStatus::Available->value]);
+                Item::withoutGlobalScopes()->where('id', $fresh->item_id)->update(['status' => ItemStatus::Available->value]);
             } else {
                 $access->authorizeLegacyReturn($actor);
                 if ($fresh->item_type_id !== null) {
@@ -137,7 +147,7 @@ class IssuingService
                     )->increment('quantity', $fresh->quantity);
                 }
             }
-        }));
+        })));
     }
 
     /**
@@ -148,10 +158,13 @@ class IssuingService
     {
         $actor ??= auth()->user();
         app(StockAccess::class)->authorizePersonal($actor);
+        app(PersonalAccess::class)->authorizeMember($actor, $member);
         DB::transaction(function () use ($member, $actor) {
-            $member->kleiderkammerItems()->with('item')->each(function (IssuedItem $issuedItem) use ($actor) {
-                $this->return($issuedItem, $actor);
-            });
+            // Never use a scoped relation here: mixed-source returns must fail atomically.
+            IssuedItem::withoutGlobalScopes()->where('user_id', $member->id)->whereNull('returned_at')->whereNull('deleted_at')
+                ->lockForUpdate()->get()->each(function (IssuedItem $issuedItem) use ($actor) {
+                    $this->return($issuedItem, $actor);
+                });
         });
     }
 
@@ -168,9 +181,12 @@ class IssuingService
      */
     public function retire(Item $item, string $notes = '', ?User $actor = null): void
     {
-        app(StockAccess::class)->authorizePersonal($actor ?? auth()->user());
-        DB::transaction(function () use ($item, $notes) {
-            $fresh = Item::lockForUpdate()->findOrFail($item->id);
+        $actor ??= auth()->user();
+        app(StockAccess::class)->authorizePersonal($actor);
+        $personal = app(PersonalAccess::class);
+        $personal->asActor($actor, fn () => DB::transaction(function () use ($item, $notes, $actor, $personal) {
+            $fresh = Item::withoutGlobalScopes()->whereNull('deleted_at')->lockForUpdate()->findOrFail($item->id);
+            $personal->authorizeItem($actor, $fresh);
 
             if ($fresh->status === ItemStatus::Issued) {
                 throw new \DomainException("Item {$fresh->code} is currently issued and cannot be retired.");
@@ -182,6 +198,6 @@ class IssuingService
             }
 
             $fresh->update($update);
-        });
+        }));
     }
 }
