@@ -129,6 +129,33 @@ Das Werkzeug ist **kein Umbuchungs- oder Undo-Befehl**. Falsche Zuordnungen erfo
 
 Bei aktiver Locations-Erweiterung bleiben standortlose Anwesenheitslisten und -vorlagen für normale Nutzer gesperrt; globale Admins können sie weiterhin prüfen. Die übrigen Module, bereits zugeordnete Daten, allgemein geteilte Kataloge sowie eine vollständige P3-Bestandsmigration sind nicht Gegenstand dieses Befehls.
 
+## Kleiderkammer: lesende Hybrid-Vorprüfung (P4)
+
+`php artisan locations:audit-clothing` (optional `--json`) ergänzt die allgemeine Inventur um eine fachbereichsspezifische Vorprüfung. Der Bericht unterscheidet gemeinsam vorgesehene Kataloge, Einzelteile mit direktem Standort, Mengenbestand ohne eigenen Standortschlüssel sowie personenbezogene Ausgaben, Größen und Meldungen. Er gibt nur Anzahlen und technische Prüfkategorien aus, keine Namen, Empfänger, Notizen oder einzelnen Datensatz-IDs.
+
+Die Auswertung nutzt eine eigene PostgreSQL-Verbindung mit einer konsistenten, nur lesenden Transaktion. Sie umfasst **auch zurückgegebene und soft-gelöschte Ausgaben**; `open_membership_needs_review` grenzt bei Ausgaben die noch offenen, nicht gelöschten Fälle ab. Historische Auffälligkeiten müssen anhand der damaligen Verhältnisse geprüft werden, nicht allein anhand heutiger Mitgliedschaften.
+
+Die JSON-Gruppen unter `checks` sind:
+
+| Gruppe | Bedeutung |
+|---|---|
+| `items` | Einzelteile ohne Standort oder mit inaktivem Standort |
+| `issuances` | Ausgaben ohne Einzelteil, ungeklärte Artikelstandorte und heutige Mitgliedschaftsabweichungen |
+| `stock` | Nicht standortzugeordnete Mengenbestandszeilen und deren Stückzahlsumme |
+| `messages` | Fehlender Ausgabebezug, abweichende Person zwischen Meldung/Ausgabe und prüfbedürftige Artikelbezüge |
+| `treatments` | Behandlungen mit ungeklärtem beziehungsweise inaktivem Artikelstandort |
+| `personal_owner_candidates` | Unterschiedliche Personen aus Ausgaben, Größen und Meldungen; heutige aktive Standortmitgliedschaften sind nur potenzielle Kandidaten, keine bestätigten Eigentümer |
+
+Anzahlen verschiedener Gruppen können dieselben Daten betreffen und dürfen nicht zu einer Gesamtfehlerzahl addiert werden. Bei nicht verfügbaren optionalen Teilprüfungen stehen `availability: unavailable` und `counts: null`; fehlende notwendige Tabellen oder ein widersprüchliches Manifest führen zum Abbruch mit Fehlerstatus statt zu einer leeren Erfolgsmeldung. Exitcode `0` bedeutet ausschließlich „Bericht erstellt“, auch bei Prüfbedarf oder nicht verfügbaren Teilprüfungen; Exitcode `1` bedeutet „Bericht nicht verfügbar“. Für Betriebsentscheidungen immer den Berichtsinhalt auswerten.
+
+**Bedeutung der Prüfung:** Ein Artikelstandort wird mit den tatsächlichen Mitgliedschaften des Empfängers beziehungsweise bei Meldungen der meldenden Person verglichen (Primärstandort oder Standort-Pivot). Der gerade ausgewählte Standort ist dafür ebenso wenig maßgeblich wie globale Adminrechte der betreffenden Person. Mehrfachmitgliedschaft wird nicht in eine automatische Eigentümerentscheidung übersetzt. Eine standortübergreifende Ausgabe kann eine legitime zentrale Versorgung sein; eine Auffälligkeit bedeutet deshalb **fachlicher Prüfbedarf**, nicht automatisch unzulässigen Zugriff.
+
+Mengenbestand und Ausgaben ohne Einzelteilbezug lassen sich nicht allein aus Artikeltyp, Größe oder Empfänger einem Lagerstandort zuordnen. Dasselbe gilt für persönliche Größen und Historien: Heutige Mitgliedschaft beweist keine historische Eigentümerschaft. Diese Fälle benötigen ein freigegebenes Zielmodell und gegebenenfalls eine gesonderte Bestandsmigration. Fehlende Daten oder Tabellen sind keine bestandene Prüfung.
+
+**Betreiberablauf:** Bericht lokal mit berechtigtem Datenbankzugriff ausführen, Prüfkategorien und Anzahlen festhalten und auffällige Bestände innerhalb der bestehenden Zugriffsrechte fachlich untersuchen. Auch reine Anzahlen gehören in den internen Betrieb, nicht in öffentliche Audit-Anhänge. Bei späteren Wiederholungen Bestandsänderungen berücksichtigen; der Bericht ist kein Freigabeprotokoll für nachfolgende Schreibvorgänge.
+
+Der Befehl hat **keinen Schreibmodus**: keine Zuordnung, Rollenvergabe, Bestandsbewegung oder Benachrichtigung. Er ändert weder die bisherige Sichtbarkeit noch die globalen Adminrechte. Eine grüne beziehungsweise leere Auswertung bestätigt keine vollständige Standortisolation. Mengenbestands-Schlüssel, zentrale Bestandsrollen, Migration und Autorisierung aller Kleiderkammerpfade bleiben weitere P4-Arbeit.
+
 ## Grenzen / offen
 
 - `DB::table(...)`-Abfragen umgehen den Scope; bei Upstream-Syncs prüfen.
