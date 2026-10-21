@@ -156,6 +156,32 @@ Mengenbestand und Ausgaben ohne Einzelteilbezug lassen sich nicht allein aus Art
 
 Der Befehl hat **keinen Schreibmodus**: keine Zuordnung, Rollenvergabe, Bestandsbewegung oder Benachrichtigung. Er ändert weder die bisherige Sichtbarkeit noch die globalen Adminrechte. Eine grüne beziehungsweise leere Auswertung bestätigt keine vollständige Standortisolation. Mengenbestands-Schlüssel, zentrale Bestandsrollen, Migration und Autorisierung aller Kleiderkammerpfade bleiben weitere P4-Arbeit.
 
+## Kleiderkammer: kontrollierte Einzelteilzuordnung (P4)
+
+`php artisan locations:assign-clothing <plan.json>` ergänzt die Vorprüfung um eine **ausdrücklich bestätigte Zuordnung standortloser Einzelteile**. Ohne `--apply` bleibt der Befehl eine Vorschau. Er bearbeitet ausschließlich nicht archivierte Zeilen aus `kk_items`, deren `ext_location_id` noch NULL ist; Mengenbestand, persönliche Größen, Rollen und bereits zugeordnete Teile werden nicht migriert.
+
+Die lokale JSON-Datei enthält 1 bis 500 Einträge bei höchstens 256 KiB, jeweils genau `table` mit dem Wert `kk_items`, eine positive ganzzahlige `id`, die geprüfte `location_id` und `expected_location_id: null`. Ein Plan darf insgesamt höchstens 10.000 verknüpfte Ausgaben, Meldungen und Behandlungen betreffen; größere Bestände benötigen kleinere Pläne. Weder Artikeltyp noch Primärstandort, ausgewählter Standort oder bestehende Empfängerbeziehungen erzeugen automatisch eine Zuordnung.
+
+### Vorbereitung und Übernahme
+
+1. Vollständiges Datenbankbackup erstellen und dessen Wiederherstellung separat prüfen. Neue Migrationen einspielen. `locations:audit-clothing` auswerten und die Einzelteile innerhalb der bestehenden Berechtigungen fachlich prüfen, insbesondere deren Lagerort, Ausgabehistorie und Meldungen. Der Bericht selbst enthält keine einzelnen IDs.
+2. Schreibbetrieb im betroffenen Bereich pausieren und kleine Pläne verwenden. Auch die Vorschau sperrt Mitgliedschafts- und Kinddaten kurzzeitig; das Werkzeug gehört in ein Wartungsfenster.
+3. Den Plan ohne `--apply`, aber mit `--by=<globale-admin-id>` und `--reason="<geprüfter Grund>"` ausführen. Die Ausgabe enthält technische Zuordnungen und einen SHA256-Prüfwert, keine Artikelcodes, Notizen, Namen oder Nachrichteninhalte. Den gesamten Plan fachlich bestätigen.
+4. Mit identischem Plan, Admin und Grund sowie `--apply --backup-confirmed --expect=<SHA256-aus-der-Vorschau>` übernehmen. Nur ein aktuell aktiver globaler Admin kann anwenden. Die Backup-Option bestätigt lediglich die Betreiberentscheidung; sie prüft kein Backup.
+5. Vorher-/Nachher-Inventur und Journal-Batch vergleichen, auch die Sichtbarkeit für Nutzer verschiedener Standorte prüfen. Diese Zuordnung ist **keine Abnahme der vollständigen Kleiderkammer-Autorisierung**.
+
+### Konflikte und Historie
+
+Eine laufende, nicht archivierte Ausgabe muss zum ausdrücklich gewählten Ziel passen: Der Empfänger benötigt dort eine tatsächliche Mitgliedschaft über Primärstandort oder Standort-Pivot. Globale Adminrechte ersetzen bei diesem Datenvergleich keine Mitgliedschaft. Mehrere laufende Ausgaben desselben Einzelteils, fehlende/inaktive Zielstandorte oder bereits zugeordnete beziehungsweise archivierte Teile blockieren den gesamten Plan. Eine zentrale, standortübergreifende Versorgung wird hier nicht automatisch genehmigt; solche Fälle bleiben bis zu einem gesonderten Hybridmodell außerhalb dieses Werkzeugs.
+
+Zurückgegebene oder soft-gelöschte Ausgaben werden nicht anhand heutiger Mitgliedschaften umgedeutet. Ihre Historie und verknüpfte Meldungen/Behandlungen bleiben unverändert und müssen fachlich mitgeprüft werden. Ersteller, Bearbeiter und Behandlungspersonal sind handelnde Personen, nicht automatisch Eigentümer. Änderungen am geprüften Zustand machen eine Vorschau ungültig; in diesem Fall erneut vorprüfen. Bei einem älteren Schema ohne optionale Meldungs- oder Behandlungstabellen werden nur die vorhandenen Beziehungen geprüft; fehlende Tabellen sind kein Nachweis vollständig geprüfter Historie.
+
+Die gesamte Übernahme ist atomar und ändert ausschließlich den leeren Artikelstandort, keine Zeitstempel, Status, Ausgaben, Stückzahlen, Größen, Behandlungen oder Meldungen. Sie löst keine E-Mails aus. Jede Zuordnung landet ohne Fachinhalte im bestehenden unveränderlichen Journal `x_location_data_assignments`; sensible Inhalte gehören auch nicht in den Prüfgrund. Standorte mit zugeordneten Einzelteilen werden gegen Löschen geschützt, statt die Teile wieder standortlos zu machen. Vor der Übernahme muss dieser restriktive Fremdschlüssel installiert sein; ein nur teilweise migrierter Stand ist keine Freigabe.
+
+Es gibt **keinen Undo- oder Umbuchungsmodus**. Falsche Zuordnungen erfordern einen geprüften Restore oder eine separat geprüfte, protokollierte Korrektur. Journalzeilen dürfen nicht gelöscht und Standorte nicht pauschal auf NULL zurückgesetzt werden. Ein Schema-Rollback darf vorhandene Kleiderkammer-Journalnachweise nicht beseitigen und wird beim Zurücknehmen der Journalerweiterung deshalb abgewiesen, solange solche Einträge bestehen. Die restriktive Standort-Löschregel bleibt beim Rollback bewusst erhalten; eine frühere installationsspezifische Fremdschlüsseldefinition lässt sich nicht sicher automatisch rekonstruieren.
+
+**Verbleibend:** Mengenbestand mit Standort-/Eindeutigkeitsschlüssel, personenbezogene Eigentümerschaft, zentrale Rollen und durchgängige Autorisierung aller Fach-, Datei-, Scan- und Benachrichtigungspfade. Globale Admins behalten Zugriff auf alle Daten; die bisherige allgemeine NULL-Sichtbarkeit wird durch diesen Befehl nicht umgestellt.
+
 ## Grenzen / offen
 
 - `DB::table(...)`-Abfragen umgehen den Scope; bei Upstream-Syncs prüfen.
