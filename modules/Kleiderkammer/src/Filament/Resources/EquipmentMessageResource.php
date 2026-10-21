@@ -115,10 +115,10 @@ class EquipmentMessageResource extends Resource
                     ->icon('heroicon-o-sparkles')
                     ->visible(fn (EquipmentMessage $record) => $record->isWashing() && ! $record->isHandled())
                     ->disabled(fn (EquipmentMessage $record) => app(PersonalAccess::class)->enabled()
-                        && $record->issuedItem?->item_id !== null
+                        && $record->issuedItem?->getAttribute('item_id') !== null
                         && ! app(PersonalAccess::class)->canManageCatalog(auth()->user()))
                     ->tooltip(fn (EquipmentMessage $record) => app(PersonalAccess::class)->enabled()
-                        && $record->issuedItem?->item_id !== null
+                        && $record->issuedItem?->getAttribute('item_id') !== null
                         && ! app(PersonalAccess::class)->canManageCatalog(auth()->user())
                             ? 'Bei Artikeln mit Code dürfen nur globale Admins die Wäsche abschließen, da dabei personenbezogene Pflegehistorie gespeichert wird.'
                             : null)

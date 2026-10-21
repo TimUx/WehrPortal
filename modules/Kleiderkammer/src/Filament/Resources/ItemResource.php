@@ -269,8 +269,11 @@ class ItemResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->withoutGlobalScopes([
+        $query = parent::getEloquentQuery()->withoutGlobalScopes([
             SoftDeletingScope::class,
         ]);
+        app(PersonalAccess::class)->scopeInventory($query, auth()->user());
+
+        return $query;
     }
 }

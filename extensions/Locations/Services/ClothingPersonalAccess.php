@@ -179,6 +179,11 @@ class ClothingPersonalAccess extends PersonalAccess
         }
     }
 
+    public function scopeInventory(Builder $query, ?User $actor): void
+    {
+        $this->scope($query, new Item, $actor, false);
+    }
+
     public function canEditItem(?User $actor, Item $item): bool
     {
         return $this->enabled()
@@ -296,7 +301,7 @@ class ClothingPersonalAccess extends PersonalAccess
             $query->where(function (Builder $q) use ($locations, $actor, $self, $table) {
                 $q->whereIn("{$table}.ext_location_id", $locations)
                     ->when($self, fn ($q) => $q->orWhereIn("{$table}.id", DB::table('kk_issued_items')
-                        ->where('user_id', $actor->id)->whereNull('deleted_at')->select('item_id')));
+                        ->where('user_id', $actor->id)->whereNull('returned_at')->whereNull('deleted_at')->select('item_id')));
             });
         } elseif ($model instanceof ItemTreatment) {
             // Treatments have no reliable personnel owner; item ownership alone is insufficient.

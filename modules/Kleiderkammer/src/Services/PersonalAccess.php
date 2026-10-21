@@ -32,6 +32,8 @@ class PersonalAccess
 
     public function authorizeItem(?User $actor, Item $item): void {}
 
+    public function scopeInventory(Builder $query, ?User $actor): void {}
+
     public function authorizeIssue(?User $actor, User $member, Item|Stock $source): void {}
 
     public function authorizeIssuance(?User $actor, IssuedItem $issued): void {}

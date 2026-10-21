@@ -9,6 +9,7 @@ use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\ClothingPersonalAccess;
 use Extensions\Locations\Services\LocationModuleRoles;
 use Filament\Facades\Filament;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -17,6 +18,8 @@ use Livewire\Livewire;
 use Modules\Kleiderkammer\src\Enums\ItemStatus;
 use Modules\Kleiderkammer\src\Filament\Pages\KleiderkammerDashboard;
 use Modules\Kleiderkammer\src\Filament\Resources\EquipmentMessageResource\Pages\ListEquipmentMessages;
+use Modules\Kleiderkammer\src\Filament\Resources\ItemResource;
+use Modules\Kleiderkammer\src\Filament\Resources\ItemResource\Pages\ListItems;
 use Modules\Kleiderkammer\src\Filament\Resources\MemberResource;
 use Modules\Kleiderkammer\src\Filament\Resources\MemberResource\Pages\EditMember;
 use Modules\Kleiderkammer\src\Filament\Resources\MemberResource\Pages\ListMembers;
@@ -520,6 +523,46 @@ it('rejects notification payloads with mismatched message and issuance owners', 
         : new WashingRequestedNotification($this->foreign, collect([$message]));
     expect(fn () => $notice->toMail($this->worker))->toThrow(HttpException::class);
 })->with(['defect', 'washing']);
+
+it('preserves default-off location boundaries in tracked service mutations', function (string $operation) {
+    config(['locations.clothing_personal_enabled' => false]);
+    $this->actingAs($this->legacy);
+    $change = fn () => match ($operation) {
+        'issue-source' => app(IssuingService::class)->issueTracked($this->shared, $this->spareB),
+        'issue-recipient' => app(IssuingService::class)->issueTracked($this->foreign, $this->spareA),
+        'retire' => app(IssuingService::class)->retire($this->spareB),
+        'return' => app(IssuingService::class)->return($this->issuedB),
+        'take-back' => app(IssuingService::class)->takeBack($this->shared),
+        'bulk-recipient' => app(IssuingService::class)->issueStock($this->foreign, $this->bulkType, null, 1, stockId: $this->stockA->id),
+    };
+    expect($change)->toThrow(ModelNotFoundException::class);
+    expect(DB::table('kk_items')->where('id', $this->spareB->id)->value('status'))->toBe('available')
+        ->and(DB::table('kk_items')->where('id', $this->spareA->id)->value('status'))->toBe('available')
+        ->and(DB::table('kk_items')->where('id', $this->itemB->id)->value('status'))->toBe('issued')
+        ->and(DB::table('kk_issued_items')->where('id', $this->issuedB->id)->value('returned_at'))->toBeNull()
+        ->and(DB::table('kk_issued_items')->where('id', $this->issuedA->id)->value('returned_at'))->toBeNull()
+        ->and(DB::table('kk_stock')->where('id', $this->stockA->id)->value('quantity'))->toBe(20);
+})->with(['issue-source', 'issue-recipient', 'retire', 'return', 'take-back', 'bulk-recipient']);
+
+it('does not expose a foreign current item to a former holder', function () {
+    $this->actingAs($this->shared);
+    expect(Item::whereKey($this->itemB->id)->exists())->toBeTrue();
+    DB::table('kk_issued_items')->where('id', $this->issuedB->id)->update(['returned_at' => now()]);
+    expect(Item::whereKey($this->itemB->id)->exists())->toBeFalse()
+        ->and($this->issuedB->fresh()->item)->toBeNull();
+    expect(IssuedItem::whereKey($this->issuedB->id)->exists())->toBeTrue();
+});
+
+it('separates management inventory from a managers own foreign issued equipment', function () {
+    DB::table('kk_issued_items')->where('id', $this->issuedB->id)->update(['user_id' => $this->worker->id]);
+    $this->actingAs($this->worker);
+    expect(Item::whereKey($this->itemB->id)->exists())->toBeTrue()
+        ->and($this->worker->kleiderkammerItems()->whereKey($this->issuedB->id)->exists())->toBeTrue()
+        ->and(ItemResource::getEloquentQuery()->whereKey($this->itemB->id)->exists())->toBeFalse();
+    Livewire::test(ListItems::class)->assertCanSeeTableRecords([$this->itemA])
+        ->assertCanNotSeeTableRecords([$this->itemB]);
+    expect(app(InventoryReport::class)->trackedByType()->sum('total'))->toBe(2);
+});
 
 it('independently scopes member counters and the has-items filter to permitted source history', function () {
     $this->actingAs($this->worker);

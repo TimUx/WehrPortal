@@ -21,7 +21,10 @@ class InventoryReport
         app(StockAccess::class)->authorizePersonal($actor ?? auth()->user());
 
         return app(PersonalAccess::class)->asActor($actor ?? auth()->user(), fn () => ItemType::where('is_tracked', true)
-            ->with(['items' => fn ($q) => $q->withTrashed()])
+            ->with(['items' => function ($query) use ($actor) {
+                $query->withTrashed();
+                app(PersonalAccess::class)->scopeInventory($query->getQuery(), $actor ?? auth()->user());
+            }])
             ->get()
             ->map(fn (ItemType $type) => (object) [
                 'item_type_id' => $type->id,
