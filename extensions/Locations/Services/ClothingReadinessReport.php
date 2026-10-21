@@ -218,7 +218,17 @@ class ClothingReadinessReport
             'row_scope' => 'all_rows_including_returned_and_soft_deleted',
             'review_policy' => 'needs_review_pending_business_approval_not_confirmed_violation',
             'automatic_target_inference' => false,
-            'stock_operation_policy' => 'unresolved_all_rows_issues_match_globally_by_type_size_group_new_source_bound_returns_restore_exact_source_legacy_unsourced_returns_match_globally_no_stock_query_adapter',
+            'stock_adapter' => [
+                'configured' => (bool) config('locations.clothing_stock_enabled', false),
+                'coverage' => 'bounded_stock_listing_quantities_and_issue_return_targets',
+                'grant' => 'kleiderkammer:bestand',
+                'personal_authority' => 'separate_legacy_permission',
+                'enforcement_verified' => false,
+                'resolves_stock_rows' => false,
+            ],
+            'stock_operation_policy' => config('locations.clothing_stock_enabled', false)
+                ? 'unresolved_all_rows_bounded_stock_adapter_explicit_target_grants_personal_permission_separate_null_stock_global_only_source_bound_returns_restore_exact_source_legacy_unsourced_returns_global_admin_only_triplet_fallback_no_provenance_inference'
+                : 'unresolved_all_rows_issues_match_globally_by_type_size_group_new_source_bound_returns_restore_exact_source_legacy_unsourced_returns_match_globally_stock_query_adapter_disabled',
             'stock_global_uniqueness_preserved' => true,
             'personal_owner_sources' => $ownerTables,
             'tables' => $tables,

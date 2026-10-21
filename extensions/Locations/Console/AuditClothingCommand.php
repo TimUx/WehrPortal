@@ -37,7 +37,13 @@ class AuditClothingCommand extends Command
         } else {
             $this->warn('Nur lesend. Keine Isolationsbestätigung oder Zielzuordnung. Prüfbedarf ist kein bestätigter Verstoß: standortübergreifende Zentrallager-Nutzung und persönliche Zuordnungen benötigen fachliche Freigabe.');
             $this->line('Alle Zeilen, einschließlich zurückgegebener und gelöschter Ausgaben. Nicht verfügbare Prüfungen sind nicht als null Fehler verifiziert.');
-            $this->warn('Mengenbestand: Standort ist nur Eigentumsmetadatum. Ausgabe sucht weiterhin global nach Typ/Größe/Gruppe; globale Eindeutigkeit bleibt. Neue Mengenausgaben mit Herkunft kehren in ihre ursprüngliche Bestandszeile zurück; alte Ausgaben ohne Herkunft weiterhin nach Typ/Größe/Gruppe. Alle Bestandszeilen sind operativ ungeklärt, auch zugeordnete. Keine Isolation oder Durchsetzung.');
+            if ($report['stock_adapter']['configured']) {
+                $this->warn('Mengenbestand: Begrenzter Opt-in-Bestandsadapter konfiguriert. Listen, Mengenänderungen und Ausgabe-/Rücknahmeziele verlangen ausdrückliche Bestandsfreigaben; persönliche Berechtigung bleibt separat. Bestandsberichte filtern Mengen. NULL-Bestand und Datentransfer bleiben globalen Admins vorbehalten.');
+                $this->line('Historische Mengenausgaben ohne Herkunft: nur globale Admins mit bisherigem Typ-/Größen-/Gruppen-Rückfall, auch auf zugeordnete Bestandszeilen. Dieser mehrdeutige Vorgang leitet keine Herkunft ab.');
+            } else {
+                $this->warn('Mengenbestand: Opt-in-Bestandsadapter deaktiviert (Legacy-Verhalten). Standort ist hier nur Eigentumsmetadatum. Ausgabe sucht weiterhin global nach Typ/Größe/Gruppe; alte Ausgaben ohne Herkunft weiterhin nach Typ/Größe/Gruppe.');
+            }
+            $this->line('Globale Eindeutigkeit bleibt. Neue Mengenausgaben mit Herkunft kehren in ihre ursprüngliche Bestandszeile zurück. Historische Herkunft wird nicht abgeleitet. Alle Bestandszeilen sind operativ ungeklärt, auch zugeordnete. Diese lesende Diagnose verifiziert keine Durchsetzung und bestätigt keine vollständige Kleiderkammer-Isolation.');
             $this->table(['Tabelle', 'Klasse', 'Verfügbarkeit', 'Zeilen'], array_map(
                 fn (array $table): array => [...array_slice(array_values($table), 0, 3), $table['rows'] ?? '—'],
                 $report['tables'],

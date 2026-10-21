@@ -143,7 +143,7 @@ it('is independent of caller authorization and selected location and changes no 
     Mail::assertNothingSent();
 });
 
-it('reports assigned stock metadata without claiming resolved stock operations', function () {
+it('distinguishes configured bounded stock enforcement without claiming resolved operations', function (bool $configured) {
     $fixture = clothingAuditFixture();
     $type = DB::table('kk_item_types')->insertGetId(['name' => 'Handschuhe']);
     DB::table('kk_stock')->insert([
@@ -151,17 +151,36 @@ it('reports assigned stock metadata without claiming resolved stock operations',
         ['item_type_id' => $fixture['type'], 'quantity' => 2, 'ext_location_id' => $fixture['inactive'],
             'size_id' => DB::table('kk_sizes')->where('item_type_id', $fixture['type'])->value('id')],
     ]);
+    config(['locations.clothing_stock_enabled' => $configured]);
     $report = app(ClothingReadinessReport::class)->report();
     expect($report['checks']['stock']['counts'])->toBe([
         'rows_unresolved' => 3, 'quantity_unresolved' => 18, 'null_location' => 1,
         'assigned' => 2, 'inactive_location' => 1, 'quantity_unassigned' => 12,
     ])
         ->and($report['stock_global_uniqueness_preserved'])->toBeTrue()
-        ->and($report['stock_operation_policy'])->toContain('unresolved_all_rows', 'issues_match_globally', 'source_bound_returns_restore_exact_source', 'legacy_unsourced_returns_match_globally', 'no_stock_query_adapter')
+        ->and($report['stock_adapter'])->toBe([
+            'configured' => $configured,
+            'coverage' => 'bounded_stock_listing_quantities_and_issue_return_targets',
+            'grant' => 'kleiderkammer:bestand',
+            'personal_authority' => 'separate_legacy_permission',
+            'enforcement_verified' => false,
+            'resolves_stock_rows' => false,
+        ])
+        ->and($report['stock_operation_policy'])->toContain('unresolved_all_rows', 'source_bound_returns_restore_exact_source')
         ->and($report['enforcement_verified'])->toBeFalse();
-    expect(Artisan::call('locations:audit-clothing'))->toBe(0)
-        ->and(Artisan::output())->toContain('Ausgabe sucht weiterhin global', 'Neue Mengenausgaben mit Herkunft', 'alte Ausgaben ohne Herkunft', 'Alle Bestandszeilen sind operativ ungeklärt');
-});
+    $exit = Artisan::call('locations:audit-clothing');
+    $output = Artisan::output();
+    expect($exit)->toBe(0)
+        ->and($output)->toContain('Neue Mengenausgaben mit Herkunft', 'Alle Bestandszeilen sind operativ ungeklärt', 'verifiziert keine Durchsetzung', 'keine vollständige Kleiderkammer-Isolation');
+    if ($configured) {
+        expect($report['stock_operation_policy'])->toContain('bounded_stock_adapter', 'explicit_target_grants', 'legacy_unsourced_returns_global_admin_only', 'no_provenance_inference')
+            ->not->toContain('stock_query_adapter_disabled')
+            ->and($output)->toContain('Opt-in-Bestandsadapter konfiguriert', 'persönliche Berechtigung bleibt separat', 'nur globale Admins', 'auch auf zugeordnete Bestandszeilen');
+    } else {
+        expect($report['stock_operation_policy'])->toContain('issues_match_globally', 'legacy_unsourced_returns_match_globally', 'stock_query_adapter_disabled')
+            ->and($output)->toContain('Opt-in-Bestandsadapter deaktiviert', 'Ausgabe sucht weiterhin global', 'alte Ausgaben ohne Herkunft');
+    }
+})->with([false, true]);
 
 it('adds provenance counts without resolving stock or inferring historical sources', function () {
     $fixture = clothingAuditFixture();
