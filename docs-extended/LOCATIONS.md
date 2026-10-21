@@ -12,6 +12,7 @@ Für Gemeinden mit mehreren Feuerwehrhäusern. Code: `extensions/Locations/`, Ab
 - [Datenmodell](#datenmodell)
 - [Wirkung](#wirkung)
 - [Schutzmanifest und Schema-Guard](#schutzmanifest-und-schema-guard)
+- [Lesende Bestandsinventur](#lesende-bestandsinventur)
 - [Grenzen / offen](#grenzen--offen)
 
 ## Rollen
@@ -56,6 +57,16 @@ Optionale Tabellen dürfen nur fehlen, wenn die ausdrücklich benannte Erweiteru
 Bei Änderungen an Migrationen muss die zugehörige Schutzentscheidung mit überprüft werden. Eigene Datei-ACLs, Vereinsrechte und personenbezogene Zugriffe bleiben eigenständige fachliche Schutzmechanismen; ein Eintrag im Manifest ersetzt ihre Tests nicht.
 
 Eine bestandene Manifestprüfung belegt nur die Vollständigkeit und strukturelle Konsistenz der Klassifikation. Standortbezogene Modulrollen, Bestandszuordnung, Durchsetzung der Ziel-NULL-Regeln und positive wie negative Tests aller Fach-, Datei-, Export- und Hintergrundpfade bleiben eigene Abnahmen der folgenden Pakete.
+
+## Lesende Bestandsinventur
+
+`php artisan locations:audit-data` ist der vorbereitende P3-Trockenlauf für Bestandsdaten. `--json` liefert dieselbe Inventur maschinenlesbar. Der Befehl prüft zunächst das Schutzmanifest gegen das installierte PostgreSQL-Schema und bricht bei Widersprüchen ab.
+
+Die Ausgabe enthält ausschließlich Tabellennamen, Datenklassen und Anzahlen: Gesamtzeilen sowie fehlende direkte Standortzuordnungen. Sie enthält keine Namen, Adressen, Inhalte oder einzelnen Datensatz-IDs. Tabellen mit einer deklarierten direkten Beziehung zu `x_locations` werden getrennt von Tabellen mit indirekten Elternbeziehungen oder globalen Regeln ausgewiesen.
+
+**Keine automatische Migration:** Ein NULL-Wert wird weder als Freigabe noch als Beweis einer Datenschutzverletzung gewertet. Der Befehl vergibt keine Standorte, erzeugt keine Mitgliedschaften, stellt keine Isolation fest und besitzt keinen Schreibmodus. Auch eine vollständig gefüllte Standortspalte beweist keine korrekte Autorisierung. Kinddaten, widersprüchliche Elternbezüge und ausdrücklich gemeinsame Kataloge benötigen weiterhin die modulbezogene Prüfung. Für einen nachvollziehbaren Vorher-/Nachher-Abgleich sollte die Inventur bei ruhendem Schreibbetrieb ausgeführt werden.
+
+Die eigentliche Bestandsmigration folgt separat: Zuordnungsvorschläge fachlich prüfen, unklare personenbezogene Daten für normale Nutzer sperren, Backup und Wiederherstellung testen und erst danach bestätigte Zuordnungen mit Mengenabgleich übernehmen. Globale Admins behalten ihre Zugriffsrechte; dieser Inventurbefehl ändert keine bestehenden Berechtigungen.
 
 ## Grenzen / offen
 

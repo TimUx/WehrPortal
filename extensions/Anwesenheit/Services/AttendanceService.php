@@ -14,6 +14,7 @@ use Extensions\Anwesenheit\Models\AttendanceTemplate;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Scopes\LocationScope;
 use Extensions\Locations\Services\LocationAccess;
+use Extensions\Locations\Services\LocationModuleRoles;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -41,6 +42,10 @@ class AttendanceService
     /** Global admins, Standort-Admins (of their own Standort) and users with the module role "verwalter" */
     public static function canManage(User $user): bool
     {
+        if (app(LocationModuleRoles::class)->enabled('anwesenheit')) {
+            return $user->canUseModule('anwesenheit') && $user->hasAnyModuleRole('anwesenheit', 'verwalter');
+        }
+
         if (! $user->is_active) {
             return false;
         }
@@ -64,12 +69,22 @@ class AttendanceService
             return false;
         }
 
-        return $user->is_admin || $user->hasModuleRole('anwesenheit', 'verwalter')
+        if (app(LocationModuleRoles::class)->enabled('anwesenheit')) {
+            return $user->hasModuleRole('anwesenheit', 'verwalter', $locationId);
+        }
+
+        return $user->is_admin || $user->hasModuleRole('anwesenheit', 'verwalter', $locationId)
             || (self::locationsOn() && in_array($locationId, app(LocationAccess::class)->adminLocationIds($user), true));
     }
 
     private static function canAccessLocation(User $user, ?int $locationId): bool
     {
+        $roles = app(LocationModuleRoles::class);
+        if ($roles->enabled('anwesenheit')) {
+            return $user->canUseModule('anwesenheit')
+                && ($roles->isGlobalAdmin($user) || $roles->canAccessLocation($user, $locationId));
+        }
+
         if (self::locationsOn()) {
             app(LocationAccess::class)->forget($user);
         }
@@ -95,6 +110,24 @@ class AttendanceService
     public function visibleTo(User $user): Builder
     {
         $query = AttendanceList::withoutGlobalScope(LocationScope::class);
+
+        $roles = app(LocationModuleRoles::class);
+        if ($roles->enabled('anwesenheit')) {
+            if (! $user->canUseModule('anwesenheit')) {
+                return $query->whereRaw('1 = 0');
+            }
+            if ($roles->isGlobalAdmin($user)) {
+                return $query;
+            }
+            $locations = Location::where('is_active', true)->pluck('id')
+                ->filter(fn ($id) => $roles->canAccessLocation($user, (int) $id))->all();
+            $managed = $roles->roleLocationIds($user, 'anwesenheit', 'verwalter');
+
+            return $query->whereIn('ext_location_id', $locations)
+                ->where(fn (Builder $q) => $q->whereIn('ext_location_id', $managed)
+                    ->orWhere('created_by', $user->id)->orWhere('leader_id', $user->id)
+                    ->orWhereIn('id', DB::table('x_att_participants')->where('user_id', $user->id)->select('list_id')));
+        }
 
         if (! $user->is_active || ! $user->canUseModule('anwesenheit')) {
             return $query->whereRaw('1 = 0');

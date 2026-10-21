@@ -4,10 +4,12 @@ namespace Extensions\Locations;
 
 use App\Models\User;
 use Extensions\Locations\Console\EnsureLocationsCommand;
+use Extensions\Locations\Console\InventoryModuleRolesCommand;
 use Extensions\Locations\Filament\LocationsPlugin;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Scopes\LocationScope;
 use Extensions\Locations\Services\LocationAccess;
+use Extensions\Locations\Services\LocationModuleRoles;
 use Extensions\Locations\Support\AssignsLocation;
 use Filament\Facades\Filament;
 use Illuminate\Database\Events\MigrationsStarted;
@@ -38,6 +40,8 @@ class LocationsServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->app->make(LocationModuleRoles::class)->configuredModules();
+
         if (! config('locations.enabled')) {
             return;
         }
@@ -50,7 +54,7 @@ class LocationsServiceProvider extends ServiceProvider
         }
 
         if ($this->app->runningInConsole()) {
-            $this->commands([EnsureLocationsCommand::class]);
+            $this->commands([EnsureLocationsCommand::class, InventoryModuleRolesCommand::class]);
         }
 
         Gate::define('manage-location', fn (User $user, Location $location) => $this->app->make(LocationAccess::class)->canManage($user, $location));

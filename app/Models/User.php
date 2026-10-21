@@ -276,6 +276,16 @@ class User extends Authenticatable implements FilamentUser
      */
     public function canUseModule(string $key): bool
     {
+        $scopedRoles = app(\Extensions\Locations\Services\LocationModuleRoles::class);
+        if ($scopedRoles->enabled($key)) {
+            if (! $scopedRoles->eligible($this, $key)) {
+                return false;
+            }
+            if ($scopedRoles->isGlobalAdmin($this) || $scopedRoles->canEnter($this, $key)) {
+                return true;
+            }
+        }
+
         if (! app(ModuleRegistry::class)->isActive($key)) {
             return false;
         }
@@ -297,12 +307,25 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /** Whether this user holds a specific role within a module. */
-    public function hasModuleRole(string $key, string $role): bool
+    public function hasModuleRole(string $key, string $role, ?int $locationId = null): bool
     {
+        $scopedRoles = app(\Extensions\Locations\Services\LocationModuleRoles::class);
+        if ($scopedRoles->enabled($key)) {
+            return $scopedRoles->hasRole($this, $key, $role, $locationId);
+        }
+
         return $this->moduleAccess()
             ->where('module', $key)
             ->where('role', $role)
             ->exists();
+    }
+
+    /** Navigation only; object authorization must use hasModuleRole with an explicit target. */
+    public function hasAnyModuleRole(string $key, string $role): bool
+    {
+        $scopedRoles = app(\Extensions\Locations\Services\LocationModuleRoles::class);
+
+        return $scopedRoles->enabled($key) ? $scopedRoles->hasAnyRole($this, $key, $role) : $this->hasModuleRole($key, $role);
     }
 
     public function scopeActive($query)

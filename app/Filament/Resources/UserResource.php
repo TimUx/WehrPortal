@@ -271,6 +271,9 @@ class UserResource extends Resource
                             $roleOptions = array_combine($def['roles'], array_map('ucfirst', $def['roles']));
                             $fields[] = Forms\Components\Select::make("module_role_{$key}")
                                 ->label('Rolle in '.$def['name'])
+                                ->helperText(fn () => app(\Extensions\Locations\Services\LocationModuleRoles::class)->enabled($key)
+                                    ? 'Standortrollen sind aktiv: Diese Auswahl ändert nur Legacy-Zugänge, nicht die Verwaltungsrechte. Standortrollen unter Standorte → Bearbeiten → Standort-Modulrollen vergeben.'
+                                    : null)
                                 ->options($roleOptions)
                                 ->afterStateHydrated(function (Forms\Components\Select $component, ?User $record) use ($key) {
                                     $component->state(
@@ -656,6 +659,9 @@ class UserResource extends Resource
                     if (! empty($def['roles'])) {
                         $fields[] = Forms\Components\Select::make("role_{$key}")
                             ->label('Rolle in „'.$def['name'].'“')
+                            ->helperText(fn () => app(\Extensions\Locations\Services\LocationModuleRoles::class)->enabled($key)
+                                ? 'Nur Legacy-Zugang. Verwaltungsrechte ausschließlich unter Standorte → Bearbeiten → Standort-Modulrollen vergeben.'
+                                : null)
                             ->options(array_combine($def['roles'], array_map('ucfirst', $def['roles'])))
                             ->placeholder('Ohne Rolle')
                             ->visible(fn (Get $get) => in_array($key, (array) $get('modules'), true));
@@ -676,6 +682,7 @@ class UserResource extends Resource
             ->schema([
                 Forms\Components\Select::make('module')
                     ->label('Modul')
+                    ->helperText('Ändert ausschließlich Legacy-Zugänge. Explizite Standort-Modulrollen müssen unter Standorte gesondert entzogen werden.')
                     ->options(array_map(fn ($def) => $def['name'], $modules))
                     ->required(),
             ])

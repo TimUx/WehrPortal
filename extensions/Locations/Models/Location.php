@@ -78,6 +78,11 @@ class Location extends Model
         return $this->hasMany(Group::class, 'ext_location_id');
     }
 
+    public function moduleRoles(): HasMany
+    {
+        return $this->hasMany(LocationModuleRole::class, 'location_id');
+    }
+
     public function vehicles(): HasMany
     {
         return $this->hasMany(Vehicle::class, 'ext_location_id');
