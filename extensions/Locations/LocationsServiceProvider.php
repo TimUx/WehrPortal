@@ -5,6 +5,7 @@ namespace Extensions\Locations;
 use App\Models\User;
 use Extensions\Locations\Console\AssignAttendanceCommand;
 use Extensions\Locations\Console\AssignClothingCommand;
+use Extensions\Locations\Console\AssignClothingStockCommand;
 use Extensions\Locations\Console\AuditClothingCommand;
 use Extensions\Locations\Console\AuditLocationDataCommand;
 use Extensions\Locations\Console\EnsureLocationsCommand;
@@ -58,7 +59,7 @@ class LocationsServiceProvider extends ServiceProvider
         }
 
         if ($this->app->runningInConsole()) {
-            $this->commands([EnsureLocationsCommand::class, InventoryModuleRolesCommand::class, AuditLocationDataCommand::class, AuditClothingCommand::class, AssignAttendanceCommand::class, AssignClothingCommand::class]);
+            $this->commands([EnsureLocationsCommand::class, InventoryModuleRolesCommand::class, AuditLocationDataCommand::class, AuditClothingCommand::class, AssignAttendanceCommand::class, AssignClothingCommand::class, AssignClothingStockCommand::class]);
         }
 
         Gate::define('manage-location', fn (User $user, Location $location) => $this->app->make(LocationAccess::class)->canManage($user, $location));

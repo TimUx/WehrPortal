@@ -18,7 +18,7 @@ class ClothingReadinessReport
         'kk_sizes' => ['catalog', ['id']],
         'kk_item_groups' => ['catalog', ['id']],
         'kk_items' => ['direct_item', ['id', 'ext_location_id']],
-        'kk_stock' => ['unresolved_quantity_stock', ['quantity']],
+        'kk_stock' => ['unresolved_quantity_stock', ['quantity', 'ext_location_id']],
         'kk_issued_items' => ['user_and_optional_item', ['id', 'user_id', 'item_id', 'returned_at', 'deleted_at']],
         'kk_member_sizes' => ['user', ['user_id']],
         'kk_equipment_messages' => ['user_and_optional_parent', ['user_id', 'issued_item_id']],
@@ -144,7 +144,12 @@ class ClothingReadinessReport
             {$issuanceJoins}");
 
         $this->aggregate($connection, $checks, 'stock', '
-            SELECT count(*) AS rows_unresolved, coalesce(sum(quantity), 0) AS quantity_unresolved FROM kk_stock');
+            SELECT count(*) AS rows_unresolved, coalesce(sum(s.quantity), 0) AS quantity_unresolved,
+                   count(*) FILTER (WHERE s.ext_location_id IS NULL) AS null_location,
+                   count(*) FILTER (WHERE s.ext_location_id IS NOT NULL) AS assigned,
+                   count(*) FILTER (WHERE l.is_active = false) AS inactive_location,
+                   coalesce(sum(s.quantity) FILTER (WHERE s.ext_location_id IS NULL), 0) AS quantity_unassigned
+            FROM kk_stock s LEFT JOIN x_locations l ON l.id = s.ext_location_id');
 
         if (in_array('kk_equipment_messages', $available, true)) {
             $this->aggregate($connection, $checks, 'messages', "
@@ -205,6 +210,8 @@ class ClothingReadinessReport
             'row_scope' => 'all_rows_including_returned_and_soft_deleted',
             'review_policy' => 'needs_review_pending_business_approval_not_confirmed_violation',
             'automatic_target_inference' => false,
+            'stock_operation_policy' => 'unresolved_all_rows_issue_and_return_still_match_globally_by_type_size_group_no_stock_query_adapter',
+            'stock_global_uniqueness_preserved' => true,
             'personal_owner_sources' => $ownerTables,
             'tables' => $tables,
             'checks' => $checks,

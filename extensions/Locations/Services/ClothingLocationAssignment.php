@@ -14,6 +14,8 @@ use RuntimeException;
  */
 class ClothingLocationAssignment
 {
+    protected const TARGET_TABLE = 'kk_items';
+
     /** @return list<array{table: string, id: int, location_id: int, expected_location_id: null}> */
     public function readPlan(string $path): array
     {
@@ -35,12 +37,12 @@ class ClothingLocationAssignment
         $seen = [];
         foreach ($rows as $row) {
             if (! is_array($row) || count($row) !== 4
-                || ($row['table'] ?? null) !== 'kk_items'
+                || ($row['table'] ?? null) !== static::TARGET_TABLE
                 || ! isset($row['id'], $row['location_id'])
                 || ! array_key_exists('expected_location_id', $row) || $row['expected_location_id'] !== null
                 || ! is_int($row['id']) || $row['id'] < 1
                 || ! is_int($row['location_id']) || $row['location_id'] < 1) {
-                throw new RuntimeException('Jede Zuordnung benötigt table: kk_items, positive ganzzahlige id/location_id und expected_location_id: null; keine weiteren Felder.');
+                throw new RuntimeException('Jede Zuordnung benötigt table: '.static::TARGET_TABLE.', positive ganzzahlige id/location_id und expected_location_id: null; keine weiteren Felder.');
             }
             if (isset($seen[$row['id']])) {
                 throw new RuntimeException('Doppelte Datensatz-ID im Plan.');
@@ -201,14 +203,15 @@ class ClothingLocationAssignment
         }, 3);
     }
 
-    private function assertRestrictiveForeignKey(): void
+    protected function assertRestrictiveForeignKey(): void
     {
+        $table = static::TARGET_TABLE;
         $foreignKeys = DB::table('pg_constraint as c')
             ->join('pg_attribute as source', function ($join) {
                 $join->on('source.attrelid', '=', 'c.conrelid')->where('source.attname', 'ext_location_id');
             })
             ->where('c.contype', 'f')
-            ->whereRaw("c.conrelid = 'kk_items'::regclass AND source.attnum = ANY(c.conkey)");
+            ->whereRaw('c.conrelid = ?::regclass AND source.attnum = ANY(c.conkey)', [$table]);
         $protected = (clone $foreignKeys)
             ->join('pg_attribute as target', function ($join) {
                 $join->on('target.attrelid', '=', 'c.confrelid')->where('target.attname', 'id');
@@ -220,7 +223,7 @@ class ClothingLocationAssignment
         // A competing SET NULL/CASCADE trigger can erase the owner before RESTRICT
         // checks it, so merely finding one restrictive constraint is insufficient.
         if ($protected < 1 || $protected !== $foreignKeys->count()) {
-            throw new RuntimeException('Anwenden benötigt den validierten restriktiven Standort-Fremdschlüssel für kk_items. Locations-Migrationen und optionale Schema-Upgrades prüfen.');
+            throw new RuntimeException("Anwenden benötigt den validierten restriktiven Standort-Fremdschlüssel für {$table}. Locations-Migrationen und optionale Schema-Upgrades prüfen.");
         }
     }
 
@@ -239,7 +242,7 @@ class ClothingLocationAssignment
         }
     }
 
-    private function digest(\HashContext $context, array $value): void
+    protected function digest(\HashContext $context, array $value): void
     {
         $canonical = function (array $data) use (&$canonical): array {
             if (! array_is_list($data)) {

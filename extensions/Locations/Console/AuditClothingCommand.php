@@ -37,6 +37,7 @@ class AuditClothingCommand extends Command
         } else {
             $this->warn('Nur lesend. Keine Isolationsbestätigung oder Zielzuordnung. Prüfbedarf ist kein bestätigter Verstoß: standortübergreifende Zentrallager-Nutzung und persönliche Zuordnungen benötigen fachliche Freigabe.');
             $this->line('Alle Zeilen, einschließlich zurückgegebener und gelöschter Ausgaben. Nicht verfügbare Prüfungen sind nicht als null Fehler verifiziert.');
+            $this->warn('Mengenbestand: Standort ist nur Eigentumsmetadatum. Ausgabe/Rückgabe suchen weiterhin global nach Typ/Größe/Gruppe; globale Eindeutigkeit bleibt. Alle Bestandszeilen sind operativ ungeklärt, auch zugeordnete. Keine Isolation oder Durchsetzung.');
             $this->table(['Tabelle', 'Klasse', 'Verfügbarkeit', 'Zeilen'], array_map(
                 fn (array $table): array => [...array_slice(array_values($table), 0, 3), $table['rows'] ?? '—'],
                 $report['tables'],

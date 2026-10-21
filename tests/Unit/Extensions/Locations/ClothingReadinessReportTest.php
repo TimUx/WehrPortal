@@ -105,7 +105,7 @@ it('reports aggregate hybrid readiness without guessing personal or quantity sto
         ->and($counts['messages']['item_null_location'])->toBe(1)
         ->and($counts['messages']['item_inactive_location'])->toBe(1)
         ->and($counts['treatments'])->toBe(['parent_null_location' => 1, 'parent_inactive_location' => 1])
-        ->and($counts['stock'])->toBe(['rows_unresolved' => 1, 'quantity_unresolved' => 12])
+        ->and($counts['stock'])->toBe(['rows_unresolved' => 1, 'quantity_unresolved' => 12, 'null_location' => 1, 'assigned' => 0, 'inactive_location' => 0, 'quantity_unassigned' => 12])
         ->and($counts['personal_owner_candidates'])->toBe([
             'owners_unresolved' => 6, 'primary_null' => 2, 'primary_inactive' => 1,
             'primary_active_potential' => 3, 'no_active_membership' => 2,
@@ -139,6 +139,26 @@ it('is independent of caller authorization and selected location and changes no 
         ->and($snapshot())->toBe($before);
     Notification::assertNothingSent();
     Mail::assertNothingSent();
+});
+
+it('reports assigned stock metadata without claiming resolved stock operations', function () {
+    $fixture = clothingAuditFixture();
+    $type = DB::table('kk_item_types')->insertGetId(['name' => 'Handschuhe']);
+    DB::table('kk_stock')->insert([
+        ['item_type_id' => $type, 'quantity' => 4, 'ext_location_id' => $fixture['south'], 'size_id' => null],
+        ['item_type_id' => $fixture['type'], 'quantity' => 2, 'ext_location_id' => $fixture['inactive'],
+            'size_id' => DB::table('kk_sizes')->where('item_type_id', $fixture['type'])->value('id')],
+    ]);
+    $report = app(ClothingReadinessReport::class)->report();
+    expect($report['checks']['stock']['counts'])->toBe([
+        'rows_unresolved' => 3, 'quantity_unresolved' => 18, 'null_location' => 1,
+        'assigned' => 2, 'inactive_location' => 1, 'quantity_unassigned' => 12,
+    ])
+        ->and($report['stock_global_uniqueness_preserved'])->toBeTrue()
+        ->and($report['stock_operation_policy'])->toContain('unresolved_all_rows', 'match_globally', 'no_stock_query_adapter')
+        ->and($report['enforcement_verified'])->toBeFalse();
+    expect(Artisan::call('locations:audit-clothing'))->toBe(0)
+        ->and(Artisan::output())->toContain('Ausgabe/Rückgabe suchen weiterhin global', 'Alle Bestandszeilen sind operativ ungeklärt');
 });
 
 it('reports empty clothing tables as available zero counts and exposes only a read only CLI', function () {

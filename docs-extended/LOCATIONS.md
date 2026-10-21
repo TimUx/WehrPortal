@@ -131,7 +131,7 @@ Bei aktiver Locations-Erweiterung bleiben standortlose Anwesenheitslisten und -v
 
 ## Kleiderkammer: lesende Hybrid-Vorprüfung (P4)
 
-`php artisan locations:audit-clothing` (optional `--json`) ergänzt die allgemeine Inventur um eine fachbereichsspezifische Vorprüfung. Der Bericht unterscheidet gemeinsam vorgesehene Kataloge, Einzelteile mit direktem Standort, Mengenbestand ohne eigenen Standortschlüssel sowie personenbezogene Ausgaben, Größen und Meldungen. Er gibt nur Anzahlen und technische Prüfkategorien aus, keine Namen, Empfänger, Notizen oder einzelnen Datensatz-IDs.
+`php artisan locations:audit-clothing` (optional `--json`) ergänzt die allgemeine Inventur um eine fachbereichsspezifische Vorprüfung. Der Bericht unterscheidet gemeinsam vorgesehene Kataloge, Einzelteile mit direktem Standort, Mengenbestand mit noch nicht operativ durchgesetzter Standortzuordnung sowie personenbezogene Ausgaben, Größen und Meldungen. Er gibt nur Anzahlen und technische Prüfkategorien aus, keine Namen, Empfänger, Notizen oder einzelnen Datensatz-IDs.
 
 Die Auswertung nutzt eine eigene PostgreSQL-Verbindung mit einer konsistenten, nur lesenden Transaktion. Sie umfasst **auch zurückgegebene und soft-gelöschte Ausgaben**; `open_membership_needs_review` grenzt bei Ausgaben die noch offenen, nicht gelöschten Fälle ab. Historische Auffälligkeiten müssen anhand der damaligen Verhältnisse geprüft werden, nicht allein anhand heutiger Mitgliedschaften.
 
@@ -141,12 +141,14 @@ Die JSON-Gruppen unter `checks` sind:
 |---|---|
 | `items` | Einzelteile ohne Standort oder mit inaktivem Standort |
 | `issuances` | Ausgaben ohne Einzelteil, ungeklärte Artikelstandorte und heutige Mitgliedschaftsabweichungen |
-| `stock` | Nicht standortzugeordnete Mengenbestandszeilen und deren Stückzahlsumme |
+| `stock` | Operativ weiterhin ungeklärte Mengenbestandszeilen und Stückzahlsumme; zusätzlich Zuordnungsstand der Standortmetadaten |
 | `messages` | Fehlender Ausgabebezug, abweichende Person zwischen Meldung/Ausgabe und prüfbedürftige Artikelbezüge |
 | `treatments` | Behandlungen mit ungeklärtem beziehungsweise inaktivem Artikelstandort |
 | `personal_owner_candidates` | Unterschiedliche Personen aus Ausgaben, Größen und Meldungen; heutige aktive Standortmitgliedschaften sind nur potenzielle Kandidaten, keine bestätigten Eigentümer |
 
 Anzahlen verschiedener Gruppen können dieselben Daten betreffen und dürfen nicht zu einer Gesamtfehlerzahl addiert werden. Bei nicht verfügbaren optionalen Teilprüfungen stehen `availability: unavailable` und `counts: null`; fehlende notwendige Tabellen oder ein widersprüchliches Manifest führen zum Abbruch mit Fehlerstatus statt zu einer leeren Erfolgsmeldung. Exitcode `0` bedeutet ausschließlich „Bericht erstellt“, auch bei Prüfbedarf oder nicht verfügbaren Teilprüfungen; Exitcode `1` bedeutet „Bericht nicht verfügbar“. Für Betriebsentscheidungen immer den Berichtsinhalt auswerten.
+
+Für `stock` bleiben `rows_unresolved` und `quantity_unresolved` bewusst die Anzahl **aller** Mengenbestandszeilen beziehungsweise deren Gesamtmenge: Auch ein eingetragener Standort löst die globale Ausgabe-/Rücknahmesuche noch nicht ab. Zusätzlich zeigen `null_location`, `assigned`, `inactive_location` und `quantity_unassigned` den aktuellen Metadatenstand. `stock_global_uniqueness_preserved` bestätigt nur den beibehaltenen Kompatibilitätsvertrag; `stock_operation_policy` benennt den noch fehlenden Fachadapter.
 
 **Bedeutung der Prüfung:** Ein Artikelstandort wird mit den tatsächlichen Mitgliedschaften des Empfängers beziehungsweise bei Meldungen der meldenden Person verglichen (Primärstandort oder Standort-Pivot). Der gerade ausgewählte Standort ist dafür ebenso wenig maßgeblich wie globale Adminrechte der betreffenden Person. Mehrfachmitgliedschaft wird nicht in eine automatische Eigentümerentscheidung übersetzt. Eine standortübergreifende Ausgabe kann eine legitime zentrale Versorgung sein; eine Auffälligkeit bedeutet deshalb **fachlicher Prüfbedarf**, nicht automatisch unzulässigen Zugriff.
 
@@ -154,7 +156,7 @@ Mengenbestand und Ausgaben ohne Einzelteilbezug lassen sich nicht allein aus Art
 
 **Betreiberablauf:** Bericht lokal mit berechtigtem Datenbankzugriff ausführen, Prüfkategorien und Anzahlen festhalten und auffällige Bestände innerhalb der bestehenden Zugriffsrechte fachlich untersuchen. Auch reine Anzahlen gehören in den internen Betrieb, nicht in öffentliche Audit-Anhänge. Bei späteren Wiederholungen Bestandsänderungen berücksichtigen; der Bericht ist kein Freigabeprotokoll für nachfolgende Schreibvorgänge.
 
-Der Befehl hat **keinen Schreibmodus**: keine Zuordnung, Rollenvergabe, Bestandsbewegung oder Benachrichtigung. Er ändert weder die bisherige Sichtbarkeit noch die globalen Adminrechte. Eine grüne beziehungsweise leere Auswertung bestätigt keine vollständige Standortisolation. Mengenbestands-Schlüssel, zentrale Bestandsrollen, Migration und Autorisierung aller Kleiderkammerpfade bleiben weitere P4-Arbeit.
+Der Befehl hat **keinen Schreibmodus**: keine Zuordnung, Rollenvergabe, Bestandsbewegung oder Benachrichtigung. Er ändert weder die bisherige Sichtbarkeit noch die globalen Adminrechte. Eine grüne beziehungsweise leere Auswertung bestätigt keine vollständige Standortisolation. Standortbezogene Mengenbestandsoperationen, zentrale Bestandsrollen, weitere Migrationen und Autorisierung aller Kleiderkammerpfade bleiben weitere P4-Arbeit.
 
 ## Kleiderkammer: kontrollierte Einzelteilzuordnung (P4)
 
@@ -180,7 +182,32 @@ Die gesamte Übernahme ist atomar und ändert ausschließlich den leeren Artikel
 
 Es gibt **keinen Undo- oder Umbuchungsmodus**. Falsche Zuordnungen erfordern einen geprüften Restore oder eine separat geprüfte, protokollierte Korrektur. Journalzeilen dürfen nicht gelöscht und Standorte nicht pauschal auf NULL zurückgesetzt werden. Ein Schema-Rollback darf vorhandene Kleiderkammer-Journalnachweise nicht beseitigen und wird beim Zurücknehmen der Journalerweiterung deshalb abgewiesen, solange solche Einträge bestehen. Die restriktive Standort-Löschregel bleibt beim Rollback bewusst erhalten; eine frühere installationsspezifische Fremdschlüsseldefinition lässt sich nicht sicher automatisch rekonstruieren.
 
-**Verbleibend:** Mengenbestand mit Standort-/Eindeutigkeitsschlüssel, personenbezogene Eigentümerschaft, zentrale Rollen und durchgängige Autorisierung aller Fach-, Datei-, Scan- und Benachrichtigungspfade. Globale Admins behalten Zugriff auf alle Daten; die bisherige allgemeine NULL-Sichtbarkeit wird durch diesen Befehl nicht umgestellt.
+**Verbleibend:** Standortbezogene Mengenbestandsoperationen und Eindeutigkeit, personenbezogene Eigentümerschaft, zentrale Rollen und durchgängige Autorisierung aller Fach-, Datei-, Scan- und Benachrichtigungspfade. Globale Admins behalten Zugriff auf alle Daten; die bisherige allgemeine NULL-Sichtbarkeit wird durch diesen Befehl nicht umgestellt.
+
+## Kleiderkammer: Mengenbestandszuordnung als Vorbereitung (P4)
+
+`php artisan locations:assign-clothing-stock <plan.json>` ermöglicht die ausdrücklich geprüfte Zuordnung **einer ganzen bisher standortlosen Mengenbestandszeile**. Die neue nullable Spalte `kk_stock.ext_location_id` besitzt einen restriktiven Standort-Fremdschlüssel; Migrationen tragen weder Defaultstandorte noch aus Empfängern abgeleitete Eigentümer ein.
+
+**Wichtig: Noch kein standortgetrennter Mengenbestand.** Die bisherige globale Eindeutigkeit aus Artikeltyp, Größe und Gruppe bleibt unverändert, einschließlich der Behandlung von NULL als eindeutigem Wert. Es können nicht mehrere Lagerzeilen derselben Kombination für unterschiedliche Standorte angelegt werden. Ausgabe und Rücknahme suchen weiterhin nach dieser globalen Kombination und können auch nach der Zuordnung die Menge derselben Zeile verändern. Die Standortmetadaten sind Vorbereitung für einen späteren Fachadapter, kein zusätzlicher Zugriffsfilter und kein neues Recht für Kleiderwarte oder zentrale Rollen.
+
+### Voraussetzung und bestätigte Übernahme
+
+1. Vollständiges Datenbankbackup erstellen und die Wiederherstellung getrennt prüfen. Neue Migrationen einspielen; den lesenden Bericht `locations:audit-clothing` auswerten. Den tatsächlichen physischen Bestand und seinen Standort innerhalb bestehender Berechtigungen prüfen.
+2. Einen lokalen JSON-Plan mit 1 bis 500 Einträgen (höchstens 256 KiB) erstellen. Jeder Eintrag enthält genau `table: "kk_stock"`, positive ganzzahlige `id` und `location_id` sowie `expected_location_id: null`. Insgesamt dürfen höchstens 10.000 passende historische/aktuelle Ausgaben und Meldungen betroffen sein. Keine Mengenangabe: Das Werkzeug teilt keine Zeilen, führt keine zusammen und korrigiert keine Stückzahlen.
+3. Ein Wartungsfenster für die **gesamte Kleiderkammer** verwenden und Schreibvorgänge pausieren. Auch die Vorschau sperrt Ausgabe-/Meldungs- und Mitgliedschaftsdaten; dadurch können Ausgaben und Rücknahmen anderer Artikel vorübergehend warten.
+4. Ohne `--apply`, aber mit `--by=<globale-admin-id> --reason="<fachlich geprüfter Grund>"` vorprüfen. Ganze Zeilen, Katalogbezüge und Historie fachlich prüfen. Die Ausgabe enthält nur technische IDs, Zielstandorte, Status und Prüfwert, keine Namen oder Fachinhalte.
+5. Mit demselben Plan, Admin und Grund sowie `--apply --backup-confirmed --expect=<SHA256-aus-der-Vorschau>` übernehmen. Die Bestätigung ersetzt keinen Backup-/Restore-Test. Nur ein aktuell aktiver globaler Admin darf anwenden. Veraltete Vorschauen erneut prüfen.
+6. Zeilenanzahl, Mengen und Zuordnungen vor/nach der Übernahme sowie den Journal-Batch abgleichen. Im Bereitschaftsbericht bleiben auch zugeordnete Zeilen operativ prüfbedürftig, solange Ausgabe und Rücknahme keinen expliziten Lagerstandort führen.
+
+### Bewusste Grenzen und Konflikte
+
+Die Zuordnung betrifft nur ganze Zeilen mit noch leerem Standort, nicht bereits zugeordnete Bestände. Ein fehlender/inaktiver Zielstandort, eine negative Stückzahl oder eine offene, nicht gelöschte Mengenausgabe derselben Artikeltyp-/Größen-/Gruppenkombination blockiert den Plan. Ausgaben ohne Einzelteilbezug enthalten keinen eindeutigen Herkunftsbestand; eine Mitgliedschaft des Empfängers löst diese Mehrdeutigkeit nicht.
+
+**Häufig dauerhaft ausgegebene Kombinationen sind damit vorerst nicht zuordenbar.** Keine künstlichen Rücknahmen oder Mitgliedschaften erzeugen, um die Prüfung zu umgehen. Solche Fälle brauchen einen gesondert geprüften Herkunfts-/Migrationsprozess. Historische zurückgegebene beziehungsweise soft-gelöschte Ausgaben und verknüpfte Meldungen werden in den privaten Zustandsprüfwert einbezogen, aber nicht umgeschrieben oder nach heutigen Mitgliedschaften einem Standort zugerechnet.
+
+Die gesamte Übernahme ist atomar. Geändert wird nur `ext_location_id`, keine Mengen, Zeitstempel, Kataloge, Ausgaben oder Meldungen; es werden keine E-Mails versendet. Das bestehende unveränderliche Zuordnungsjournal hält Admin, Grund, Batch und Prüfwert fest, keine Fachinhalte. Ein Prüfgrund darf keine sensiblen Inhalte enthalten.
+
+Es gibt keinen Umbuchungs-/Undo-Modus. Falsche Zuordnungen erfordern einen geprüften Restore oder eine gesondert geprüfte, protokollierte Korrektur. Schema-Rollbacks dürfen zugeordnete Bestände und ihre Journalnachweise nicht löschen oder wieder standortlos machen und werden in solchen Fällen abgewiesen. Globale Admins behalten alle Datenzugriffe; Mengenbestandsautorisierung und zentrale Rollen bleiben offen.
 
 ## Grenzen / offen
 
