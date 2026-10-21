@@ -4,6 +4,7 @@ namespace Extensions\Locations\Services;
 
 use App\Models\User;
 use Extensions\Locations\Models\Location;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -62,22 +63,16 @@ class LocationAccess
         return in_array($locationId, $this->visibleLocationIds($user), true);
     }
 
-    /** Where new records of $user land: the chosen Standort (switcher), else their own, else the default */
+    /** Fresh active creation context; the legacy default is only used without an actor. */
     public function currentLocationId(?User $user): int
     {
         if ($user) {
-            $chosen = app()->bound('session') && request()->hasSession() ? (int) session('ext_location_id') : 0;
-            if ($chosen && $this->canSee($user, $chosen)) {
-                return $chosen;
+            $context = app(LocationContext::class)->forUser($user);
+            if ($context['current'] !== null) {
+                return $context['current'];
             }
 
-            if ($user->getAttribute('ext_location_id') && $this->canSee($user, (int) $user->getAttribute('ext_location_id'))) {
-                return (int) $user->getAttribute('ext_location_id');
-            }
-
-            if (($first = array_key_first($this->roles($user))) !== null) {
-                return (int) $first;
-            }
+            throw new AuthorizationException('Kein aktiver berechtigter Standort für neue Datensätze.');
         }
 
         return (int) Location::default()->getKey();

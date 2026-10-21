@@ -22,6 +22,7 @@ use Illuminate\Database\Events\MigrationsStarted;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Modules\Kleiderkammer\src\Models\Stock;
 use Modules\Kleiderkammer\src\Services\StockAccess;
@@ -65,6 +66,13 @@ class LocationsServiceProvider extends ServiceProvider
 
         $this->loadMigrationsFrom(__DIR__.'/database/migrations');
         $this->loadViewsFrom(__DIR__.'/resources/views', 'locations');
+
+        View::composer('components.layouts.app', function (\Illuminate\View\View $view) {
+            $view->with('appContextViews', [
+                ...($view->getData()['appContextViews'] ?? []),
+                'locations::partials.app-context',
+            ]);
+        });
 
         if (! $this->app->routesAreCached()) {
             Route::middleware('web')->group(__DIR__.'/routes/web.php');

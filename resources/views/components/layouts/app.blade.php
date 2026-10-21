@@ -55,6 +55,10 @@
             </div>
         </header>
 
+        @foreach ($appContextViews ?? [] as $contextView)
+            @include($contextView)
+        @endforeach
+
         {{-- The Modulleiste: name, tabs, main action and Verwaltung of the module (or the Personalakte) --}}
         @auth<x-module-bar />@endauth
 
