@@ -3,7 +3,6 @@
 namespace Extensions\Locations\Filament\Resources\LocationResource\RelationManagers;
 
 use App\Models\User;
-use App\Services\ModuleRegistry;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Models\LocationModuleRole;
 use Extensions\Locations\Services\LocationModuleRoles;
@@ -39,11 +38,13 @@ class ModuleRolesRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->description('Nur globale Admins vergeben Rollen für den vorbereiteten Adapter Anwesenheit, auch vorab. Wirksam erst mit LOCATIONS_SCOPED_ROLE_MODULES=anwesenheit. Ohne Rolle: nur Moduleinstieg, keine Objektberechtigung. Alte Modulverwaltung ändert nur Legacy-Zugänge. Abgelaufene Zuweisungen vor Ersatz ausdrücklich entziehen.')
+            ->description('Nur globale Admins. Anwesenheit benötigt LOCATIONS_SCOPED_ROLE_MODULES=anwesenheit. Kleiderkammer: ausschließlich Mengenbestand (ansehen/Stückzahl), keine Personen, Ausgabe oder Katalogpflege; benötigt LOCATIONS_CLOTHING_STOCK_ENABLED=true. Keine vollständige Standortisolation. Abgelaufene Zuweisungen vor Ersatz ausdrücklich entziehen.')
             ->columns([
                 Tables\Columns\TextColumn::make('member.name')->label('Mitglied'),
                 Tables\Columns\TextColumn::make('module')->label('Modul'),
-                Tables\Columns\TextColumn::make('role')->label('Rolle')->placeholder('Nur Zugang'),
+                Tables\Columns\TextColumn::make('role')->label('Rolle')->placeholder('Nur Zugang')
+                    ->formatStateUsing(fn ($state, LocationModuleRole $record) => $record->getAttribute('module') === 'kleiderkammer' && $state === LocationModuleRoles::STOCK_ROLE
+                        ? 'Nur Mengenbestand (keine Personen/Ausgabe)' : $state),
                 Tables\Columns\TextColumn::make('granted_at')->label('Vergeben')->dateTime()->timezone('Europe/Berlin'),
                 Tables\Columns\TextColumn::make('granted_by')->label('Admin-ID'),
                 Tables\Columns\TextColumn::make('reason')->label('Begründung')->wrap(),
@@ -64,10 +65,10 @@ class ModuleRolesRelationManager extends RelationManager
                                         ->where('location_id', $this->getOwnerRecord()->getKey())->select('user_id')))
                                 ->orderBy('name')->pluck('name', 'id')),
                         Select::make('module')->label('Modul')->required()->live()
-                            ->options(fn () => collect(app(ModuleRegistry::class)->all())->only(LocationModuleRoles::SUPPORTED_MODULES)
-                                ->mapWithKeys(fn ($def, $key) => [$key => $def['name']])),
+                            ->options(fn () => app(LocationModuleRoles::class)->grantableModules()),
                         Select::make('role')->label('Rolle')->placeholder('Nur Zugang')
-                            ->options(fn (Get $get) => collect(app(ModuleRegistry::class)->get((string) $get('module'))['roles'] ?? [])->mapWithKeys(fn ($role) => [$role => $role])),
+                            ->required(fn (Get $get) => $get('module') === 'kleiderkammer')
+                            ->options(fn (Get $get) => app(LocationModuleRoles::class)->grantableRoles((string) $get('module'))),
                         Textarea::make('reason')->label('Begründung')->required()->maxLength(500),
                         DateTimePicker::make('expires_at')->label('Gültig bis (optional)')->timezone('Europe/Berlin'),
                     ])->action(function (array $data): void {

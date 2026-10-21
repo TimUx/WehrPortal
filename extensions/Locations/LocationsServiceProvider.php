@@ -13,6 +13,7 @@ use Extensions\Locations\Console\InventoryModuleRolesCommand;
 use Extensions\Locations\Filament\LocationsPlugin;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Scopes\LocationScope;
+use Extensions\Locations\Services\ClothingStockAccess;
 use Extensions\Locations\Services\LocationAccess;
 use Extensions\Locations\Services\LocationModuleRoles;
 use Extensions\Locations\Support\AssignsLocation;
@@ -22,6 +23,8 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Modules\Kleiderkammer\src\Models\Stock;
+use Modules\Kleiderkammer\src\Services\StockAccess;
 
 /**
  * Several Standorte (fire stations) in one instance. Personnel, vehicles, equipment, reports … carry
@@ -35,10 +38,12 @@ class LocationsServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__.'/config/locations.php', 'locations');
         $this->mergeConfigFrom(__DIR__.'/config/protection.php', 'locations.protection');
         $this->app->singleton(LocationAccess::class);
+        $this->app->singleton(ClothingStockAccess::class);
+        $this->app->bind(StockAccess::class, fn ($app) => $app->make(ClothingStockAccess::class));
 
         $this->app->booting(function () {
             if (config('locations.enabled')) {
-                Filament::getPanel('admin')?->plugin(LocationsPlugin::make());
+                Filament::getPanel('admin')->plugin(LocationsPlugin::make());
             }
         });
     }
@@ -46,9 +51,16 @@ class LocationsServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->app->make(LocationModuleRoles::class)->configuredModules();
+        if (config('locations.clothing_stock_enabled')) {
+            $this->app->make(ClothingStockAccess::class)->validateConfiguration();
+        }
 
         if (! config('locations.enabled')) {
             return;
+        }
+
+        foreach (['creating', 'updating', 'deleting'] as $event) {
+            Stock::{$event}(fn (Stock $stock) => $this->app->make(ClothingStockAccess::class)->guardMutation($stock, $event));
         }
 
         $this->loadMigrationsFrom(__DIR__.'/database/migrations');

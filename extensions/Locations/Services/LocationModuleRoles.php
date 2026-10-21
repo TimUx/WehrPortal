@@ -18,6 +18,21 @@ class LocationModuleRoles
 {
     public const SUPPORTED_MODULES = ['anwesenheit'];
 
+    /** Grant vocabulary is deliberately broader than fully certified module adapters. */
+    public const STOCK_ROLE = 'bestand';
+
+    public function grantableModules(): array
+    {
+        return ['anwesenheit' => 'Anwesenheit', 'kleiderkammer' => 'Kleiderkammer – nur Mengenbestand'];
+    }
+
+    public function grantableRoles(string $module): array
+    {
+        return $module === 'kleiderkammer'
+            ? [self::STOCK_ROLE => 'Nur Mengenbestand: ansehen und Stückzahl ändern']
+            : collect(app(ModuleRegistry::class)->get($module)['roles'] ?? [])->mapWithKeys(fn ($role) => [$role => $role])->all();
+    }
+
     /** Only modules with a completed target-aware role adapter may be activated. */
     public function configuredModules(): array
     {
@@ -130,6 +145,19 @@ class LocationModuleRoles
         return $this->live($user, $module)->where('grants.role', $role)->pluck('grants.location_id')->map(fn ($id) => (int) $id)->all();
     }
 
+    /** Capability grants never feed the module-wide User role hooks. */
+    public function capabilityLocationIds(User $user, string $module, string $role): array
+    {
+        if ($module !== 'kleiderkammer' || $role !== self::STOCK_ROLE
+            || ! config('locations.enabled') || ! config('locations.clothing_stock_enabled')
+            || ! $this->activeModule($module)) {
+            return [];
+        }
+
+        return $this->live($user, $module)->where('grants.role', $role)->pluck('grants.location_id')
+            ->map(fn ($id) => (int) $id)->all();
+    }
+
     public function grant(User $by, int $locationId, int $userId, string $module, ?string $role, string $reason, ?string $expiresAt = null): LocationModuleRole
     {
         return DB::transaction(function () use ($by, $locationId, $userId, $module, $role, $reason, $expiresAt) {
@@ -140,9 +168,10 @@ class LocationModuleRoles
                 'expires_at' => ['nullable', 'date', 'after:now'],
             ])->validate();
             $definition = app(ModuleRegistry::class)->get($module);
-            if (! in_array($module, self::SUPPORTED_MODULES, true) || ! $definition
-                || ($role !== null && ! in_array($role, $definition['roles'], true))) {
-                throw ValidationException::withMessages(['module' => 'Nur der vorbereitete Adapter Anwesenheit und seine registrierten Rollen werden unterstützt.']);
+            if (! array_key_exists($module, $this->grantableModules()) || ! $definition
+                || ($module === 'kleiderkammer' && $role !== self::STOCK_ROLE)
+                || ($role !== null && ! array_key_exists($role, $this->grantableRoles($module)))) {
+                throw ValidationException::withMessages(['module' => 'Nur vorbereitete Rollen: Anwesenheit oder Kleiderkammer ausschließlich Mengenbestand.']);
             }
             $location = Location::query()->lockForUpdate()->find($locationId);
             $member = User::withoutGlobalScopes()->lockForUpdate()->find($userId);

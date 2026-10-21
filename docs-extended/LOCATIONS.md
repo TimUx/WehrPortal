@@ -12,6 +12,7 @@ Für Gemeinden mit mehreren Feuerwehrhäusern. Code: `extensions/Locations/`, Ab
 - [Datenmodell](#datenmodell)
 - [Wirkung](#wirkung)
 - [Standortbezogene Modulrollen: gestufte Umstellung](#standortbezogene-modulrollen-gestufte-umstellung)
+- [Kleiderkammer: optionaler Mengenbestandsadapter](#kleiderkammer-optionaler-mengenbestandsadapter)
 - [Schutzmanifest und Schema-Guard](#schutzmanifest-und-schema-guard)
 - [Lesende Bestandsinventur](#lesende-bestandsinventur)
 - [Grenzen / offen](#grenzen--offen)
@@ -221,6 +222,37 @@ Eine Rücknahme mit gespeichertem Herkunftsbestand erhöht **genau diese Bestand
 **Kompatibilität:** Fehlt die optionale Spalte vollständig, arbeitet die reguläre Ausgabe wie bisher. Rücknahmen historischer NULL-Herkünfte nutzen weiterhin den bisherigen Artikeltyp-/Größen-/Gruppen-Fallback. Bereits vorhandene Herkunftsdaten werden dagegen auch bei abgeschalteter Erweiterung berücksichtigt. Die Herkunfts-ID ist kein frei editierbares Formularfeld. Ein Schema-Rollback darf vorhandene Herkunftsnachweise nicht löschen und wird abgewiesen, solange solche Verweise bestehen.
 
 Die neue Herkunftsbindung verhindert keine standortfremden Zugriffe: Ausgaben wählen weiterhin global nach Artikeltyp/Größe/Gruppe, globale Eindeutigkeit und die bisherigen Rollen bleiben erhalten. Sie gilt für neue Mengenausgaben über den regulären Ausgabedienst; eigene Importe oder direkte Datenbankeinträge ohne Herkunftsverweis werden dadurch nicht automatisch nachgerüstet. Mehrere Lager je Kombination, zentrale Bestandsrollen, sichere Migration historischer Herkünfte und vollständige Standort-Autorisierung bleiben offen. Globale Admins behalten Zugriff auf sämtliche Daten.
+
+## Kleiderkammer: optionaler Mengenbestandsadapter
+
+Der zusätzliche Schalter `LOCATIONS_CLOTHING_STOCK_ENABLED=true` aktiviert ausschließlich die Standortprüfung des Mengenbestands. Standardmäßig ist er aus. Er ist **nicht** gleichbedeutend mit `LOCATIONS_SCOPED_ROLE_MODULES=kleiderkammer`: Ein vollständiger Kleiderkammer-Rollenadapter ist weiterhin nicht freigegeben; diese Modulkonfiguration bleibt unzulässig.
+
+### Vorbereitung und Rechte
+
+1. PostgreSQL-Backup und Wiederherstellung prüfen. Bei ausgeschaltetem Bestandsadapter die benötigten Migrationen installieren; anschließend `locations:audit-clothing` auswerten und fachlich bestätigte Bestandsstandorte mit dem beschriebenen Zuordnungswerkzeug vorbereiten. Es gibt keinen automatischen Standort- oder Herkunfts-Backfill.
+2. Als globaler Admin unter **Standorte → Standort bearbeiten → Standort-Modulrollen und Verlauf** für das Modul Kleiderkammer die Rolle **Mengenbestand** (`bestand`) ausdrücklich vergeben. Mitgliedschaft, aktives Mitglied, aktiver Standort, aktives Modul sowie Ablauf und Entzug werden erneut geprüft. Die Vergabe hat denselben unveränderlichen Verlauf wie die vorbereiteten Anwesenheitsrollen.
+3. `LOCATIONS_CLOTHING_STOCK_ENABLED=true` setzen und den Konfigurationscache erneuern beziehungsweise die Anwendung neu starten. Locations und das erforderliche migrierte Schema müssen vorhanden sein; eine unvollständige Vorbereitung darf nicht auf die globalen Legacy-Regeln zurückfallen.
+4. Als Bestandsberechtigter, bisheriger Kleiderwart ohne Bestandsvergabe und globaler Admin prüfen: sichtbare Lager, direkte Bearbeitungsadresse, Mengenänderung, Entzug und Ablauf.
+
+Die reine Bestandsvergabe erlaubt das Ansehen der ausdrücklich berechtigten Bestandszeilen und das Ändern ihrer nichtnegativen Stückzahlen. Sie schaltet **keine** Personenübersicht, persönlichen Größen, Ausgabehistorien, Nachrichten oder übrige Kleiderkammer-Verwaltung frei. Anlegen, Löschen sowie Änderungen von Artikeltyp, Größe, Gruppe oder Eigentümer bleiben in diesem Teilschritt globalen Admins vorbehalten. Ein Bestandsstandort ist keine frei wählbare Berechtigungsquelle.
+
+Der bestehende **Massenbestand** unter `/admin/kleiderkammer/massenbestand` dient zugleich als begrenzter Panel-Einstieg. Die Seite weist bei aktivierter Durchsetzung auf die Trennung von Bestands- und Personenrechten hin; dafür wird keine zusätzliche Seite und kein persönliches Kleiderkammer-Dashboard freigeschaltet.
+
+Ohne fachlich zugeordnete Bestandszeilen kann die Liste leer bleiben. Unzugeordnete Bestände (`NULL`) sind im aktivierten Adapter nur globalen Admins zugänglich. Eine alte globale Kleiderwartrolle und die Auswahl im Standortumschalter ersetzen keine Bestandsvergabe am betroffenen Standort. Globale Admins behalten Zugriff auf sämtliche Daten.
+
+### Ausgabe, Rücknahme und Kompatibilität
+
+Für personenbezogene Mengenausgaben reicht die Bestandsvergabe allein nicht: Es wird zusätzlich die bisherige persönliche Kleiderkammer-Verwaltungsberechtigung benötigt. Der Dienst prüft den tatsächlich betroffenen Bestand erneut; versteckte Formulare oder eine manipulierte Bestands-ID dürfen diese Prüfung nicht ersetzen. Neue Ausgaben behalten ihren unveränderlichen Herkunftsverweis.
+
+Rücknahmen mit Herkunft füllen weiterhin genau den referenzierten Bestand auf. Historische Mengenausgaben ohne Herkunft dürfen bei aktivierter Bestandsdurchsetzung nur globale Admins zurücknehmen; dabei bleibt der bisherige Katalogkombinations-Fallback bestehen. Dieser kann eine inzwischen zugeordnete Bestandszeile treffen, ist aber **kein** Nachweis des historischen Eigentümers und ergänzt keinen Herkunftsverweis. Vor einer solchen Rücknahme muss der Betreiber den Bestand fachlich prüfen.
+
+Der pauschale Datenimport/-export bleibt bei aktivierter Bestandsdurchsetzung globalen Admins vorbehalten, statt eine unvollständige standortbezogene Übertragung vorzutäuschen. Dienste ohne angemeldeten Benutzer erhalten keinen automatischen globalen Zugriff; Hintergrundvorgänge benötigen einen ausdrücklich berechtigten Akteur.
+
+Bei ausgeschaltetem Bestandsadapter bleiben die bisherigen Berechtigungsregeln bestehen; installierte Herkunftsverweise werden weiterhin beachtet. **Abschalten ist keine sicherheitsneutrale Rücknahme:** Es stellt die bisherige globale Mengenbestandsverwaltung wieder her und erfordert eine bewusste Betreiberentscheidung.
+
+### Verbleibende Grenzen
+
+Die globale Eindeutigkeit von Artikeltyp, Größe und Gruppe bleibt unverändert. Mehrere Lager derselben Kombination sind noch nicht möglich. Es gibt weder Lageraufteilung noch Umbuchung, historische Herkunftszuordnung oder neue kommunale Führungsrechte. Die übrigen persönlichen und Einzelteilpfade der Kleiderkammer sind durch diesen Bestandsadapter nicht vollständig auf Standortrollen umgestellt; ihre bestehenden Berechtigungen bleiben gesondert zu prüfen. Insbesondere ersetzt dieser Teilabschluss nicht P3, P5–P7 oder die Mehrstandort-Betriebsfreigabe.
 
 ## Grenzen / offen
 
