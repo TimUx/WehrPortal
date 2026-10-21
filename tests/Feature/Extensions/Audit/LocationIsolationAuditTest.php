@@ -6,6 +6,7 @@ use App\Models\User;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\LocationAccess;
 use Extensions\Locations\Services\ProtectionManifest;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
@@ -157,3 +158,14 @@ it('leaves global administrator visibility unchanged when validating the manifes
         ->and($before)->toBe($foreign->id)
         ->and(Vehicle::find($foreign->id)?->id)->toBe($before);
 });
+
+it('rejects removed or retargeted installed Locations foreign keys', function (bool $retarget) {
+    Schema::table('users', fn (Blueprint $table) => $table->dropForeign(['ext_location_id']));
+    if ($retarget) {
+        Schema::table('users', fn (Blueprint $table) => $table->foreign('ext_location_id')->references('id')->on('groups'));
+    }
+
+    $violations = app(ProtectionManifest::class)->violations(config('locations.protection'));
+
+    expect($violations)->toContain('users.ext_location_id: declared foreign key to x_locations.id does not exist.');
+})->with([[false], [true]]);

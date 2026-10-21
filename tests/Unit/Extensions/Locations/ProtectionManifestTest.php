@@ -196,6 +196,36 @@ class ProtectionManifestTest extends TestCase
         $this->assertSame([], $this->guard->violations($this->manifest, $this->schemaSnapshot));
     }
 
+    public function test_installed_conditional_foreign_keys_are_required_unless_explicitly_logical(): void
+    {
+        $this->manifest['tables']['dress_codes']['parents'][0]['kind'] = 'conditional_foreign_key';
+        $this->schemaSnapshot['"public"."dress_codes"']['foreign_keys'] = [];
+        $this->assertViolation('declared foreign key to places.id does not exist');
+
+        $this->manifest['tables']['dress_codes']['parents'][0]['kind'] = 'conditional_logical';
+        $this->assertSame([], $this->guard->violations($this->manifest, $this->schemaSnapshot));
+    }
+
+    public function test_enabled_oidc_requires_its_table_and_disabled_oidc_still_validates_retained_tables(): void
+    {
+        $manifest = config('locations.protection');
+        $manifest['tables'] = array_intersect_key($manifest['tables'], array_flip(['users', 'x_locations', 'x_oidc_identities']));
+        $manifest['infrastructure'] = [];
+        $manifest['retired_tables'] = [];
+        $manifest['optional_extensions'] = array_intersect_key($manifest['optional_extensions'], array_flip(['extensions.locations', 'extensions.oidc']));
+        $manifest['optional_extensions']['extensions.locations']['tables'] = ['x_locations'];
+        config(['locations.enabled' => false, 'oidc.enabled' => true]);
+        $snapshot = ['public.users' => ['columns' => ['id'], 'foreign_keys' => []]];
+
+        $this->assertContains('Missing required application table: x_oidc_identities.', $this->guard->violations($manifest, $snapshot));
+
+        config(['oidc.enabled' => false]);
+        $this->assertSame([], $this->guard->violations($manifest, $snapshot));
+
+        $snapshot['public.x_oidc_identities'] = ['columns' => ['id'], 'foreign_keys' => []];
+        $this->assertContains('x_oidc_identities: missing child parent column user_id.', $this->guard->violations($manifest, $snapshot));
+    }
+
     public function test_rejects_incorrect_parent_nullability(): void
     {
         $this->schemaSnapshot['"public"."dress_codes"']['nullable_columns'] = ['place_id'];

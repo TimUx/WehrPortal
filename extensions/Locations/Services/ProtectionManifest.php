@@ -272,7 +272,7 @@ class ProtectionManifest
             || ! $this->identifier($parent['child_column'] ?? null)
             || ! $this->identifier($parent['table'] ?? null)
             || ! $this->identifier($parent['column'] ?? null)
-            || ! in_array($parent['kind'] ?? null, ['foreign_key', 'conditional_foreign_key', 'logical', 'historical', 'polymorphic'], true)
+            || ! in_array($parent['kind'] ?? null, ['foreign_key', 'conditional_foreign_key', 'logical', 'conditional_logical', 'historical', 'polymorphic'], true)
             || ! in_array($parent['source_null_rule'] ?? null, self::SOURCE_NULL_RULES, true)
             || ! is_bool($parent['optional_column'] ?? null)) {
             $errors[] = "{$table}: malformed parent relation (child_column, table, column, kind and source NULL rule required).";
@@ -281,7 +281,7 @@ class ProtectionManifest
         }
         $column = $parent['child_column'];
         $target = $parent['table'];
-        if ($parent['optional_column'] && ($parent['kind'] !== 'conditional_foreign_key' || ! $this->text($parent['absence_reason']))) {
+        if ($parent['optional_column'] && (! in_array($parent['kind'], ['conditional_foreign_key', 'conditional_logical'], true) || ! $this->text($parent['absence_reason']))) {
             $errors[] = "{$table}.{$column}: optional column requires a conditional relation and explicit absence reason.";
         } elseif (! $parent['optional_column'] && $parent['absence_reason'] !== null) {
             $errors[] = "{$table}.{$column}: required column cannot declare an absence reason.";
@@ -293,7 +293,7 @@ class ProtectionManifest
             if (! in_array($parent['column'], $schema[$target]['columns'], true)) {
                 $errors[] = "{$table}.{$column}: missing parent column {$target}.{$parent['column']}.";
             }
-        } elseif (isset($schema[$table]) && (! in_array($parent['kind'], ['conditional_foreign_key', 'historical'], true)
+        } elseif (isset($schema[$table]) && (! in_array($parent['kind'], ['conditional_foreign_key', 'conditional_logical', 'historical'], true)
             || ! $this->text($tables[$target]['optional_absence'] ?? null))) {
             $errors[] = "{$table}.{$column}: missing parent table {$target}.";
         }
@@ -311,7 +311,9 @@ class ProtectionManifest
             && in_array($column, $schema[$table]['nullable_columns'], true) === ($parent['source_null_rule'] === 'forbidden')) {
             $errors[] = "{$table}.{$column}: source NULL rule contradicts schema nullability.";
         }
-        if ($parent['kind'] === 'foreign_key' && ! collect($schema[$table]['foreign_keys'])->contains(
+        $requiresForeignKey = $parent['kind'] === 'foreign_key'
+            || ($parent['kind'] === 'conditional_foreign_key' && isset($schema[$target]));
+        if ($requiresForeignKey && ! collect($schema[$table]['foreign_keys'])->contains(
             fn (array $fk): bool => ($fk['columns'] ?? []) === [$column]
                 && $this->normalize($fk['foreign_table'] ?? '') === $target
                 && ($fk['foreign_columns'] ?? []) === [$parent['column']],
