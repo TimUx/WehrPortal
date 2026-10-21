@@ -31,8 +31,8 @@ class LabelSheetGenerator
         }
         $labels = $items->map(fn (Item $item) => [
             'code' => $item->code,
-            'qr' => $this->qr->dataUri($item),
-            'barcode' => $this->barcode->dataUri($item),
+            'qr' => $this->qr->dataUri($item, $actor),
+            'barcode' => $this->barcode->dataUri($item, $actor),
         ])->all();
 
         $html = $this->buildHtml($labels);

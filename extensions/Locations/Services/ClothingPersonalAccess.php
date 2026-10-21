@@ -338,6 +338,9 @@ class ClothingPersonalAccess extends PersonalAccess
             $this->authorizeItem($actor, $model);
             abort_unless(array_diff(array_keys($model->getDirty()), ['status', 'notes', 'updated_at']) === [], 403);
         } elseif ($model instanceof ItemTreatment) {
+            if ($event !== 'creating') {
+                $this->authorizeItem($actor, Item::withoutGlobalScopes()->findOrFail($model->getRawOriginal('item_id')));
+            }
             $this->authorizeItem($actor, Item::withoutGlobalScopes()->findOrFail($model->item_id));
         }
     }

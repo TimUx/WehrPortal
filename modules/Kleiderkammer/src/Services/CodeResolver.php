@@ -2,6 +2,7 @@
 
 namespace Modules\Kleiderkammer\src\Services;
 
+use App\Models\User;
 use App\Services\OrganizationSettings;
 use Modules\Kleiderkammer\src\Models\Item;
 use Modules\Kleiderkammer\src\Models\ItemType;
@@ -10,9 +11,13 @@ use Modules\Kleiderkammer\src\Models\ItemType;
 class CodeResolver
 {
     /** Returns the item for the code, or null if not found (including soft-deleted). */
-    public function resolve(string $code): ?Item
+    public function resolve(string $code, ?User $actor = null): ?Item
     {
-        return Item::withTrashed()->where('code', $code)->first();
+        $actor ??= auth()->user();
+        $access = app(PersonalAccess::class);
+        $item = $access->asActor($actor, fn () => Item::withTrashed()->where('code', $code)->first());
+
+        return $item !== null && (! $access->enabled() || $access->canEditItem($actor, $item)) ? $item : null;
     }
 
     /** Guesses the item type from a code like WEHREJA0007: org prefix, then the longest matching type prefix. */
@@ -31,8 +36,12 @@ class CodeResolver
     }
 
     /** Returns the live (non-deleted) item for the code, or null. */
-    public function resolveActive(string $code): ?Item
+    public function resolveActive(string $code, ?User $actor = null): ?Item
     {
-        return Item::where('code', $code)->first();
+        $actor ??= auth()->user();
+        $access = app(PersonalAccess::class);
+        $item = $access->asActor($actor, fn () => Item::where('code', $code)->first());
+
+        return $item !== null && (! $access->enabled() || $access->canEditItem($actor, $item)) ? $item : null;
     }
 }

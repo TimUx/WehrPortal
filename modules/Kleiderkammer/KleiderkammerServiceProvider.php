@@ -80,7 +80,7 @@ class KleiderkammerServiceProvider extends ServiceProvider
                 $holder = $item->currentIssuance()->latest('issued_at')->value('user_id');
 
                 if (app(PersonalAccess::class)->enabled()
-                    && ! app(PersonalAccess::class)->canEnter(auth()->user())) {
+                    && ! app(PersonalAccess::class)->canEditItem(auth()->user(), $item)) {
                     return null;
                 }
 
@@ -107,6 +107,7 @@ class KleiderkammerServiceProvider extends ServiceProvider
 
             return app(PersonalAccess::class)->asActor($user, fn () => Item::with(['itemType', 'size'])->where(fn ($q) => $q->where('code', 'ilike', $like)->orWhereHas('itemType', fn ($t) => $t->where('name', 'ilike', $like)))
                 ->orderBy('code')->limit(50)->get()
+                ->filter(fn (Item $item) => ! app(PersonalAccess::class)->enabled() || app(PersonalAccess::class)->canEditItem($user, $item))
                 ->map(fn (Item $item) => ['title' => trim(($item->itemType?->name ?? 'Teil').' '.($item->size?->name ?? '')), 'code' => $item->code, 'place' => null,
                     'state' => $item->status->label(), 'tone' => $item->isRetired() ? 'gray' : ($item->isIssued() ? 'blue' : 'green'),
                     'url' => ItemResource::getUrl('edit', ['record' => $item->getKey()])]));
