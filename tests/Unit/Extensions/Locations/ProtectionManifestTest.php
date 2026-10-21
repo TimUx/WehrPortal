@@ -239,6 +239,28 @@ class ProtectionManifestTest extends TestCase
         }
     }
 
+    public function test_attendance_list_policy_and_template_prefill_have_distinct_observed_null_rules(): void
+    {
+        $tables = config('locations.protection.tables');
+        $this->assertSame('deny_non_admin', $tables['x_att_lists']['parents'][0]['source_null_rule']);
+        $this->assertStringContainsString('denies NULL location to non-global admins', $tables['x_att_lists']['current_null_rule']);
+        $this->assertSame('shared', $tables['x_att_templates']['parents'][0]['source_null_rule']);
+        $this->assertStringContainsString('prefillOptions/prefill', $tables['x_att_templates']['current_null_rule']);
+        $this->assertSame('deny_or_quarantine', $tables['x_att_lists']['null_rule']);
+        $this->assertSame('deny_or_quarantine', $tables['x_att_templates']['null_rule']);
+    }
+
+    public function test_financial_ownership_gaps_are_not_approved_as_cross_location_sharing(): void
+    {
+        $tables = config('locations.protection.tables');
+        foreach (['fin_budgets', 'fin_closed_years'] as $table) {
+            $this->assertSame('pending_decision', $tables[$table]['target_status']);
+            $this->assertSame('deny_or_quarantine', $tables[$table]['null_rule']);
+            $this->assertNotSame('übergreifend', $tables[$table]['mode']);
+            $this->assertNotEmpty($tables[$table]['target_gap']);
+        }
+    }
+
     public function test_validates_polymorphic_discriminator_and_id_columns(): void
     {
         $this->manifest['tables']['dress_codes']['polymorphic'] = [[

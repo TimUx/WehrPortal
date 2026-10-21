@@ -16,7 +16,7 @@ class ProtectionManifest
 
     private const DATA_CLASSES = ['access', 'audit', 'authentication', 'content', 'financial', 'financial_encrypted', 'health', 'health_encrypted', 'operational', 'personnel', 'personnel_encrypted', 'reference'];
 
-    private const SOURCE_NULL_RULES = ['forbidden', 'shared', 'inherit', 'retain', 'alternative', 'root'];
+    private const SOURCE_NULL_RULES = ['forbidden', 'shared', 'inherit', 'retain', 'alternative', 'root', 'deny_non_admin'];
 
     private const TARGET_NULL_RULES = ['deny_or_quarantine', 'explicitly_shared_catalog', 'not_applicable'];
 
