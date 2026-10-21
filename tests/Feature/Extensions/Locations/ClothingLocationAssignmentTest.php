@@ -354,6 +354,25 @@ it('accepts a validated custom restrictive FK without relying on a conventional 
     expect(DB::table('kk_items')->where('id', $this->item)->value('ext_location_id'))->toBe($this->target->id);
 });
 
+it('rejects unsafe counterpart FKs even alongside a validated restrictive FK', function (string $case) {
+    $hash = ($this->preview)()['hash'];
+    $definition = match ($case) {
+        'set_null' => 'REFERENCES x_locations(id) ON DELETE SET NULL',
+        'cascade_delete' => 'REFERENCES x_locations(id) ON DELETE CASCADE',
+        'cascade_update' => 'REFERENCES x_locations(id) ON UPDATE CASCADE ON DELETE RESTRICT',
+        'not_valid' => 'REFERENCES x_locations(id) ON UPDATE RESTRICT ON DELETE RESTRICT NOT VALID',
+        'wrong_target' => 'REFERENCES users(id) ON UPDATE RESTRICT ON DELETE RESTRICT',
+    };
+    DB::statement('ALTER TABLE kk_items ADD CONSTRAINT unsafe_counterpart FOREIGN KEY (ext_location_id) '.$definition);
+    expect(fn () => ($this->apply)($hash))->toThrow(RuntimeException::class, 'validierten restriktiven')
+        ->and(DB::table('x_location_data_assignments')->count())->toBe(0)
+        ->and(DB::table('kk_items')->where('id', $this->item)->value('ext_location_id'))->toBeNull();
+    $migration = require base_path('extensions/Locations/database/migrations/2026_12_24_000001_restrict_clothing_location_deletion.php');
+    $migration->up();
+    ($this->apply)($hash);
+    expect(DB::table('kk_items')->where('id', $this->item)->value('ext_location_id'))->toBe($this->target->id);
+})->with(['set_null', 'cascade_delete', 'cascade_update', 'not_valid', 'wrong_target']);
+
 it('bounds the total historical and current child fanout before reading payloads', function (string $table) {
     $row = match ($table) {
         'kk_issued_items' => ['item_id' => $this->item, 'user_id' => $this->historical->id, 'issued_at' => now(), 'returned_at' => now()],

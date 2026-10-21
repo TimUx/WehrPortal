@@ -203,18 +203,23 @@ class ClothingLocationAssignment
 
     private function assertRestrictiveForeignKey(): void
     {
-        $protected = DB::table('pg_constraint as c')
+        $foreignKeys = DB::table('pg_constraint as c')
             ->join('pg_attribute as source', function ($join) {
                 $join->on('source.attrelid', '=', 'c.conrelid')->where('source.attname', 'ext_location_id');
             })
+            ->where('c.contype', 'f')
+            ->whereRaw("c.conrelid = 'kk_items'::regclass AND source.attnum = ANY(c.conkey)");
+        $protected = (clone $foreignKeys)
             ->join('pg_attribute as target', function ($join) {
                 $join->on('target.attrelid', '=', 'c.confrelid')->where('target.attname', 'id');
             })
-            ->whereRaw("c.conrelid = 'kk_items'::regclass AND c.confrelid = 'x_locations'::regclass")
+            ->whereRaw("c.confrelid = 'x_locations'::regclass")
             ->whereRaw('c.conkey = ARRAY[source.attnum] AND c.confkey = ARRAY[target.attnum]')
-            ->where('c.contype', 'f')->where('c.confdeltype', 'r')->where('c.confupdtype', 'r')
-            ->where('c.convalidated', true)->where('c.condeferrable', false)->exists();
-        if (! $protected) {
+            ->where('c.confdeltype', 'r')->where('c.confupdtype', 'r')
+            ->where('c.convalidated', true)->where('c.condeferrable', false)->count();
+        // A competing SET NULL/CASCADE trigger can erase the owner before RESTRICT
+        // checks it, so merely finding one restrictive constraint is insufficient.
+        if ($protected < 1 || $protected !== $foreignKeys->count()) {
             throw new RuntimeException('Anwenden benötigt den validierten restriktiven Standort-Fremdschlüssel für kk_items. Locations-Migrationen und optionale Schema-Upgrades prüfen.');
         }
     }
