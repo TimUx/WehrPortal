@@ -192,6 +192,24 @@ class AttendanceService
     }
 
     /**
+     * Templates may contain personal recipients/leadership: NULL is not a shared catalog.
+     *
+     * @param  Builder<AttendanceTemplate>  $query
+     * @return Builder<AttendanceTemplate>
+     */
+    public function restrictTemplateQuery(Builder $query, User $user): Builder
+    {
+        $query->withoutGlobalScope(LocationScope::class);
+        if (self::locationsOn() && ! $user->is_admin) {
+            $access = app(LocationAccess::class);
+            $access->forget($user);
+            $query->whereIn('x_att_templates.ext_location_id', $access->visibleLocationIds($user));
+        }
+
+        return $query;
+    }
+
+    /**
      * Optional shortcuts that prefill the form: templates and, when the Kalender is on, today's and recent
      * Übungen. Nothing is stored about the source except its key.
      *
@@ -199,7 +217,7 @@ class AttendanceService
      */
     public function prefillOptions(User $user): array
     {
-        $options = AttendanceTemplate::where('is_active', true)->orderBy('name')->get()
+        $options = $this->restrictTemplateQuery(AttendanceTemplate::query(), $user)->where('is_active', true)->orderBy('name')->get()
             ->map(fn (AttendanceTemplate $t) => ['key' => 'tpl:'.$t->id, 'label' => 'Vorlage: '.$t->name])->all();
 
         foreach ($this->events($user) as $event) {
@@ -215,7 +233,7 @@ class AttendanceService
         [$type, $id] = array_pad(explode(':', $key, 2), 2, null);
         $blank = ['title' => null, 'kind' => 'uebung', 'starts_at' => null, 'ends_at' => null, 'leader_id' => null, 'recipients' => null, 'template_id' => null, 'source_event_id' => null];
 
-        if ($type === 'tpl' && ($template = AttendanceTemplate::where('is_active', true)->find((int) $id))) {
+        if ($type === 'tpl' && ($template = $this->restrictTemplateQuery(AttendanceTemplate::query(), $user)->where('is_active', true)->find((int) $id))) {
             $start = now('Europe/Berlin')->startOfMinute();
 
             return [...$blank, 'title' => $template->title ?: $template->name, 'kind' => $template->kind, 'leader_id' => $template->leader_id, 'recipients' => $template->recipients,

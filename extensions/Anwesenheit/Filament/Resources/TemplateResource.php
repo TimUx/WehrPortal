@@ -9,7 +9,7 @@ use Extensions\Anwesenheit\Models\AttendanceTemplate;
 use Extensions\Anwesenheit\Services\AttendanceService;
 use Filament\Actions;
 use Filament\Forms;
-use Filament\Resources\Resource;
+use Filament\Resources\Resource as FilamentResource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -17,10 +17,12 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Templates (Vorlagen) for the Anwesenheitslisten. The model carries the Standort (LocationScope), so
- * a Standort-Admin only sees and edits the templates of their own Standort.
+ * Templates (Vorlagen) use Attendance-specific ownership checks: unassigned templates
+ * are not shared, and Standort administration remains limited to managed Standorte.
+ *
+ * @extends FilamentResource<AttendanceTemplate>
  */
-class TemplateResource extends Resource
+class TemplateResource extends FilamentResource
 {
     protected static ?string $slug = 'anwesenheit/vorlagen';
 
@@ -61,6 +63,10 @@ class TemplateResource extends Resource
     {
         $query = parent::getEloquentQuery();
         $user = auth()->user();
+
+        if ($user instanceof User) {
+            $query = app(AttendanceService::class)->restrictTemplateQuery($query, $user);
+        }
 
         if ($user instanceof User && ! $user->is_admin && AttendanceService::locationsOn()) {
             $locations = array_filter(app(AttendanceService::class)->locationsFor($user),

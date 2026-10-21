@@ -269,13 +269,16 @@ class ProtectionManifestTest extends TestCase
         }
     }
 
-    public function test_attendance_list_policy_and_template_prefill_have_distinct_observed_null_rules(): void
+    public function test_attendance_lists_and_template_prefill_deny_unassigned_ownership_without_certifying_all_enforcement(): void
     {
         $tables = config('locations.protection.tables');
         $this->assertSame('deny_non_admin', $tables['x_att_lists']['parents'][0]['source_null_rule']);
         $this->assertStringContainsString('denies NULL location to non-global admins', $tables['x_att_lists']['current_null_rule']);
-        $this->assertSame('shared', $tables['x_att_templates']['parents'][0]['source_null_rule']);
-        $this->assertStringContainsString('prefillOptions/prefill', $tables['x_att_templates']['current_null_rule']);
+        $this->assertSame('deny_non_admin', $tables['x_att_templates']['parents'][0]['source_null_rule']);
+        $this->assertStringContainsString('AttendanceService::restrictTemplateQuery', $tables['x_att_templates']['current_null_rule']);
+        $this->assertStringContainsString('Global admins retain all templates', $tables['x_att_templates']['current_null_rule']);
+        $this->assertSame('pending_verification', $tables['x_att_templates']['enforcement']['status']);
+        $this->assertSame('proposed', $tables['x_att_templates']['target_status']);
         $this->assertSame('deny_or_quarantine', $tables['x_att_lists']['null_rule']);
         $this->assertSame('deny_or_quarantine', $tables['x_att_templates']['null_rule']);
     }

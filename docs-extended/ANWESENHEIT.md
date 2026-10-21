@@ -39,6 +39,8 @@ Bei mehreren Standortmitgliedschaften werden Verwaltungsrechte je Zielstandort g
 
 Das Löschen einer Liste entfernt auch ihre zugehörigen Datei-Anhänge. Eine Vorlage ist nur eine Vorbelegung; Änderungen daran verändern bereits angelegte Listen nicht.
 
+**Standortloser Altbestand:** Bei aktiver Locations-Erweiterung bleiben Listen und Vorlagen ohne Standort globalen Admins zur Prüfung vorbehalten; standortlose Vorlagen werden normalen Nutzern auch nicht als Vorbelegung angeboten. Der kontrollierte Betreiberbefehl `locations:assign-attendance` prüft ausdrücklich vorgeschlagene Zuordnungen zunächst ohne Schreibzugriff. Die Übernahme verlangt eine aktuelle Vorschau, einen aktiven globalen Admin, einen Grund und die Backup-Bestätigung. Sie verändert keine Teilnahmen oder Anhänge und versendet keine E-Mails. Ablauf, Konflikte und Rückfallgrenzen stehen unter [Bestandszuordnung Anwesenheit](LOCATIONS.md#bestandszuordnung-anwesenheit-p3-erster-datenbereich).
+
 ## Offline
 
 Das Formular nutzt die Offline-Erweiterung (`data-offline-draft="anwesenheit-list"`, Felder mit `data-offline-draft-field`): Titel, Art, Zeiten, Leitung, Gästezahl und die Teilnehmendenauswahl werden lokal gesichert, können wiederhergestellt oder verworfen werden und werden beim Absenden gelöscht. Standortwahl, Notizen, Empfänger und Dateien werden nicht lokal gesichert. Es werden keine Livewire-Requests nachgespielt; siehe [`OFFLINE.md`](OFFLINE.md).

@@ -93,7 +93,41 @@ Die Ausgabe enthält ausschließlich Tabellennamen, Datenklassen und Anzahlen: G
 
 **Keine automatische Migration:** Ein NULL-Wert wird weder als Freigabe noch als Beweis einer Datenschutzverletzung gewertet. Der Befehl vergibt keine Standorte, erzeugt keine Mitgliedschaften, stellt keine Isolation fest und besitzt keinen Schreibmodus. Auch eine vollständig gefüllte Standortspalte beweist keine korrekte Autorisierung. Kinddaten, widersprüchliche Elternbezüge und ausdrücklich gemeinsame Kataloge benötigen weiterhin die modulbezogene Prüfung. Für einen nachvollziehbaren Vorher-/Nachher-Abgleich sollte die Inventur bei ruhendem Schreibbetrieb ausgeführt werden.
 
-Die eigentliche Bestandsmigration folgt separat: Zuordnungsvorschläge fachlich prüfen, unklare personenbezogene Daten für normale Nutzer sperren, Backup und Wiederherstellung testen und erst danach bestätigte Zuordnungen mit Mengenabgleich übernehmen. Globale Admins behalten ihre Zugriffsrechte; dieser Inventurbefehl ändert keine bestehenden Berechtigungen.
+Der erste kontrollierte Übernahmeschritt ist auf Anwesenheitslisten und -vorlagen begrenzt (siehe unten). Weitere Datenbereiche, indirekte Elternkonflikte und gemeinsam genutzte Bestände folgen separat. Globale Admins behalten ihre Zugriffsrechte; der Inventurbefehl selbst bleibt unverändert lesend.
+
+## Bestandszuordnung Anwesenheit (P3, erster Datenbereich)
+
+`php artisan locations:assign-attendance <plan.json>` prüft einen **vom Betreiber ausdrücklich zusammengestellten** Zuordnungsplan. Ohne `--apply` bleibt der Befehl lesend. Er errechnet keine automatische Verteilung auf Mitgliedsstandorte und verwendet weder den Hauptstandort noch Vorlagen oder Kalenderquellen als stillschweigende Zuordnungsentscheidung.
+
+Die JSON-Datei enthält eine Liste mit höchstens 500 Einträgen (höchstens 256 KiB). Jeder Eintrag enthält genau `table` (`x_att_lists` oder `x_att_templates`), eine positive ganzzahlige `id`, die geprüfte `location_id` und `expected_location_id` mit dem Wert `null`. IDs stammen aus einer lokalen Bestandsprüfung mit berechtigtem Zugriff, nicht aus öffentlichen Berichten. Beispiel mit ausschließlich fiktiven IDs:
+
+```json
+[
+  {"table": "x_att_lists", "id": 12, "location_id": 3, "expected_location_id": null},
+  {"table": "x_att_templates", "id": 8, "location_id": 3, "expected_location_id": null}
+]
+```
+
+### Vorbereitung und bestätigte Übernahme
+
+1. Vollständiges PostgreSQL-Backup erstellen und die Wiederherstellung in einer getrennten Umgebung prüfen. Neue Migrationen einspielen. Bei der Vorprüfung insbesondere Personenbezüge, bestehende Empfänger, historische Quellen und die vorgesehenen Zugriffsberechtigten fachlich prüfen; eine technische Mitgliedschaft allein beweist noch keine fachliche Zuständigkeit.
+2. Schreibbetrieb für den betroffenen Bereich pausieren. Der Befehl prüft in einer Transaktion und hält dabei Sperren auf Zuordnungs-, Mitgliedschafts- und Kinddaten. Auch die Vorschau kann deshalb Schreibvorgänge anderer Nutzer vorübergehend blockieren; kleine Pläne und ein Wartungsfenster verwenden.
+3. Plan mit `--by=<globale-admin-id> --reason="<geprüfter Zuordnungsgrund>"` ohne `--apply` ausführen. Die Ausgabe enthält nur technische IDs, Zielstandorte, Status und einen SHA256-Prüfwert, keine Titel, Notizen, Empfänger oder Dateiinhalte. Eine Vorschau ist noch keine Datenänderung.
+4. Den gesamten Plan samt Vorschau prüfen. NULL-Personenverweise bleiben historisch unverändert; sie sind kein Beleg für einen Standort und müssen ausdrücklich mitbeurteilt werden. Mehrfachmitgliedschaften sind kein Anlass für Kopien oder Mehrfachzuordnungen.
+5. Mit identischem Plan, Admin und Grund sowie `--apply --backup-confirmed --expect=<SHA256-aus-der-Vorschau>` übernehmen. `--backup-confirmed` ist **nur die Bestätigung des Betreibers**, kein technischer Backup- oder Restore-Test. Bei veraltetem Prüfwert erneut vorprüfen, nicht die Kontrolle umgehen.
+6. Inventur wiederholen und Vorher-/Nachher-Anzahlen, geschlossene Zuordnungslücken und Journal-Batch vergleichen. Als berechtigtes Mitglied und als Nutzer eines anderen Standorts getrennt prüfen. Globale Admins behalten Zugriff auf alle Daten.
+
+### Konflikte, Journal und Rückfallgrenzen
+
+Der gesamte Plan wird zurückgewiesen, wenn ein Eintrag fehlt, doppelt ist, bereits einen Standort besitzt oder auf einen fehlenden/inaktiven Standort zeigt. Auch nicht zum Zielstandort gehörende verknüpfte Ersteller, Leitungen oder Teilnehmende blockieren die Übernahme. Mitgliedschaft kann aus dem Primärstandort oder der expliziten Standortzuordnung stammen. Widersprüche müssen fachlich geklärt werden; das Werkzeug verändert keine Mitgliedschaften und verschiebt keine anderen Datensätze, um einen Konflikt passend zu machen.
+
+Geänderte Datensätze, Personen-/Mitgliedschaftsbezüge oder Kinddaten machen eine vorherige Vorschau ungültig. Prüfung und Übernahme erfolgen für den gesamten Plan atomar; es gibt keine beabsichtigte Teilübernahme. Geändert wird ausschließlich der bisher leere Standort. Status, Zeitangaben, Teilnehmende, Anhänge und Empfänger bleiben unverändert; es werden keine E-Mails versendet.
+
+Jede übernommene Zuordnung erhält einen unveränderlichen Eintrag in `x_location_data_assignments` mit Zielobjekt, Standort, ausführendem Admin, Grund, Zeitpunkt, Batch und Prüfwert. Der Grund gehört zur internen Historie: keine sensiblen Inhalte hineinschreiben. Referenzierte Adminidentitäten und Standorte sind vor Löschen beziehungsweise Übertragung geschützt. Das Journal ist ein Nachweis der ausgeführten Zuordnung, kein allgemeiner Nachweis vollständiger Standortisolation.
+
+Das Werkzeug ist **kein Umbuchungs- oder Undo-Befehl**. Falsche Zuordnungen erfordern einen geprüften Restore oder eine gesondert geprüfte, protokollierte Korrektur; niemals Standortwerte pauschal auf NULL setzen, Journalzeilen löschen oder alte Freigaben wiederherstellen. Ein Restore muss zwischenzeitliche Änderungen berücksichtigen. Zugeordnete Anwesenheitslisten und Vorlagen verhindern das Löschen ihres Standorts, statt durch eine Standortlöschung wieder standortlos zu werden.
+
+Bei aktiver Locations-Erweiterung bleiben standortlose Anwesenheitslisten und -vorlagen für normale Nutzer gesperrt; globale Admins können sie weiterhin prüfen. Die übrigen Module, bereits zugeordnete Daten, allgemein geteilte Kataloge sowie eine vollständige P3-Bestandsmigration sind nicht Gegenstand dieses Befehls.
 
 ## Grenzen / offen
 

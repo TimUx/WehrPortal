@@ -43,6 +43,12 @@ class LocationModuleRoles
 
     public function assertMemberDeletable(User $user): void
     {
+        if (Schema::hasTable('x_location_data_assignments')
+            && DB::table('x_location_data_assignments')->where('assigned_by', $user->id)->exists()) {
+            throw ValidationException::withMessages([
+                'user' => 'Diese Person ist im unveränderlichen Verlauf der Standort-Datenzuordnung referenziert. Bitte stattdessen den Status „inaktiv“ oder „ausgetreten“ setzen. Historische Zuordnungen werden nicht übertragen.',
+            ]);
+        }
         if (Schema::hasTable('x_location_module_roles')
             && DB::table('x_location_module_roles')->where(fn (Builder $q) => $q
                 ->where('user_id', $user->id)->orWhere('granted_by', $user->id)->orWhere('revoked_by', $user->id))->exists()) {
