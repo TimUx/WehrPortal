@@ -141,6 +141,7 @@ Die JSON-Gruppen unter `checks` sind:
 |---|---|
 | `items` | Einzelteile ohne Standort oder mit inaktivem Standort |
 | `issuances` | Ausgaben ohne Einzelteil, ungeklärte Artikelstandorte und heutige Mitgliedschaftsabweichungen |
+| `issuance_provenance` | Gespeicherte Herkunftsbestände (`source_bound`) und Mengenausgaben/ungeklärte Ausgaben ohne Verweis (`unsourced_bulk_or_unlinked`); ohne installierte Herkunftsspalte nicht verfügbar |
 | `stock` | Operativ weiterhin ungeklärte Mengenbestandszeilen und Stückzahlsumme; zusätzlich Zuordnungsstand der Standortmetadaten |
 | `messages` | Fehlender Ausgabebezug, abweichende Person zwischen Meldung/Ausgabe und prüfbedürftige Artikelbezüge |
 | `treatments` | Behandlungen mit ungeklärtem beziehungsweise inaktivem Artikelstandort |
@@ -148,7 +149,7 @@ Die JSON-Gruppen unter `checks` sind:
 
 Anzahlen verschiedener Gruppen können dieselben Daten betreffen und dürfen nicht zu einer Gesamtfehlerzahl addiert werden. Bei nicht verfügbaren optionalen Teilprüfungen stehen `availability: unavailable` und `counts: null`; fehlende notwendige Tabellen oder ein widersprüchliches Manifest führen zum Abbruch mit Fehlerstatus statt zu einer leeren Erfolgsmeldung. Exitcode `0` bedeutet ausschließlich „Bericht erstellt“, auch bei Prüfbedarf oder nicht verfügbaren Teilprüfungen; Exitcode `1` bedeutet „Bericht nicht verfügbar“. Für Betriebsentscheidungen immer den Berichtsinhalt auswerten.
 
-Für `stock` bleiben `rows_unresolved` und `quantity_unresolved` bewusst die Anzahl **aller** Mengenbestandszeilen beziehungsweise deren Gesamtmenge: Auch ein eingetragener Standort löst die globale Ausgabe-/Rücknahmesuche noch nicht ab. Zusätzlich zeigen `null_location`, `assigned`, `inactive_location` und `quantity_unassigned` den aktuellen Metadatenstand. `stock_global_uniqueness_preserved` bestätigt nur den beibehaltenen Kompatibilitätsvertrag; `stock_operation_policy` benennt den noch fehlenden Fachadapter.
+Für `stock` bleiben `rows_unresolved` und `quantity_unresolved` bewusst die Anzahl **aller** Mengenbestandszeilen beziehungsweise deren Gesamtmenge: Auch ein eingetragener Standort löst die globale Ausgabesuche und den historischen Rücknahmefallback noch nicht ab. Neue Mengenausgaben können bereits einen festen Herkunftsbestand besitzen (siehe unten); das ist kein Standort-Rollenmodell. Zusätzlich zeigen `null_location`, `assigned`, `inactive_location` und `quantity_unassigned` den aktuellen Metadatenstand. `stock_global_uniqueness_preserved` bestätigt nur den beibehaltenen Kompatibilitätsvertrag; `stock_operation_policy` benennt den noch fehlenden Fachadapter.
 
 **Bedeutung der Prüfung:** Ein Artikelstandort wird mit den tatsächlichen Mitgliedschaften des Empfängers beziehungsweise bei Meldungen der meldenden Person verglichen (Primärstandort oder Standort-Pivot). Der gerade ausgewählte Standort ist dafür ebenso wenig maßgeblich wie globale Adminrechte der betreffenden Person. Mehrfachmitgliedschaft wird nicht in eine automatische Eigentümerentscheidung übersetzt. Eine standortübergreifende Ausgabe kann eine legitime zentrale Versorgung sein; eine Auffälligkeit bedeutet deshalb **fachlicher Prüfbedarf**, nicht automatisch unzulässigen Zugriff.
 
@@ -188,7 +189,7 @@ Es gibt **keinen Undo- oder Umbuchungsmodus**. Falsche Zuordnungen erfordern ein
 
 `php artisan locations:assign-clothing-stock <plan.json>` ermöglicht die ausdrücklich geprüfte Zuordnung **einer ganzen bisher standortlosen Mengenbestandszeile**. Die neue nullable Spalte `kk_stock.ext_location_id` besitzt einen restriktiven Standort-Fremdschlüssel; Migrationen tragen weder Defaultstandorte noch aus Empfängern abgeleitete Eigentümer ein.
 
-**Wichtig: Noch kein standortgetrennter Mengenbestand.** Die bisherige globale Eindeutigkeit aus Artikeltyp, Größe und Gruppe bleibt unverändert, einschließlich der Behandlung von NULL als eindeutigem Wert. Es können nicht mehrere Lagerzeilen derselben Kombination für unterschiedliche Standorte angelegt werden. Ausgabe und Rücknahme suchen weiterhin nach dieser globalen Kombination und können auch nach der Zuordnung die Menge derselben Zeile verändern. Die Standortmetadaten sind Vorbereitung für einen späteren Fachadapter, kein zusätzlicher Zugriffsfilter und kein neues Recht für Kleiderwarte oder zentrale Rollen.
+**Wichtig: Noch kein standortgetrennter Mengenbestand.** Die bisherige globale Eindeutigkeit aus Artikeltyp, Größe und Gruppe bleibt unverändert, einschließlich der Behandlung von NULL als eindeutigem Wert. Es können nicht mehrere Lagerzeilen derselben Kombination für unterschiedliche Standorte angelegt werden. Die Ausgabe und historische Rücknahmen ohne Herkunftsverweis suchen weiterhin nach dieser globalen Kombination; neue herkunftsgebundene Rücknahmen verwenden die gespeicherte Bestands-ID (siehe unten). Die Standortmetadaten sind Vorbereitung für einen späteren Fachadapter, kein zusätzlicher Zugriffsfilter und kein neues Recht für Kleiderwarte oder zentrale Rollen.
 
 ### Voraussetzung und bestätigte Übernahme
 
@@ -201,13 +202,25 @@ Es gibt **keinen Undo- oder Umbuchungsmodus**. Falsche Zuordnungen erfordern ein
 
 ### Bewusste Grenzen und Konflikte
 
-Die Zuordnung betrifft nur ganze Zeilen mit noch leerem Standort, nicht bereits zugeordnete Bestände. Ein fehlender/inaktiver Zielstandort, eine negative Stückzahl oder eine offene, nicht gelöschte Mengenausgabe derselben Artikeltyp-/Größen-/Gruppenkombination blockiert den Plan. Ausgaben ohne Einzelteilbezug enthalten keinen eindeutigen Herkunftsbestand; eine Mitgliedschaft des Empfängers löst diese Mehrdeutigkeit nicht.
+Die Zuordnung betrifft nur ganze Zeilen mit noch leerem Standort, nicht bereits zugeordnete Bestände. Ein fehlender/inaktiver Zielstandort, eine negative Stückzahl oder eine offene, nicht gelöschte Mengenausgabe derselben Artikeltyp-/Größen-/Gruppenkombination blockiert den Plan. Ebenso blockieren offene Ausgaben mit direktem Herkunftsverweis auf die Bestandszeile, auch nach geänderten Katalogangaben. Historische Ausgaben ohne Einzelteilbezug besitzen keinen eindeutigen Herkunftsbestand; eine Mitgliedschaft des Empfängers löst diese Mehrdeutigkeit nicht. Auch neue Ausgaben mit Herkunftsverweis lockern diesen konservativen Zuordnungsblocker in diesem Schritt nicht.
 
 **Häufig dauerhaft ausgegebene Kombinationen sind damit vorerst nicht zuordenbar.** Keine künstlichen Rücknahmen oder Mitgliedschaften erzeugen, um die Prüfung zu umgehen. Solche Fälle brauchen einen gesondert geprüften Herkunfts-/Migrationsprozess. Historische zurückgegebene beziehungsweise soft-gelöschte Ausgaben und verknüpfte Meldungen werden in den privaten Zustandsprüfwert einbezogen, aber nicht umgeschrieben oder nach heutigen Mitgliedschaften einem Standort zugerechnet.
 
 Die gesamte Übernahme ist atomar. Geändert wird nur `ext_location_id`, keine Mengen, Zeitstempel, Kataloge, Ausgaben oder Meldungen; es werden keine E-Mails versendet. Das bestehende unveränderliche Zuordnungsjournal hält Admin, Grund, Batch und Prüfwert fest, keine Fachinhalte. Ein Prüfgrund darf keine sensiblen Inhalte enthalten.
 
 Es gibt keinen Umbuchungs-/Undo-Modus. Falsche Zuordnungen erfordern einen geprüften Restore oder eine gesondert geprüfte, protokollierte Korrektur. Schema-Rollbacks dürfen zugeordnete Bestände und ihre Journalnachweise nicht löschen oder wieder standortlos machen und werden in solchen Fällen abgewiesen. Globale Admins behalten alle Datenzugriffe; Mengenbestandsautorisierung und zentrale Rollen bleiben offen.
+
+## Kleiderkammer: Herkunftsgebundene Mengenausgaben (P4)
+
+Nach Installation der optionalen Spalte `kk_issued_items.ext_source_stock_id` speichert die reguläre Mengenausgabe über `IssuingService` die ID genau der Bestandszeile, deren Menge vermindert wird. Bereits vorhandene Ausgaben bleiben unverändert mit NULL-Herkunft; die Migration leitet keinen Herkunftsbestand aus Katalogkombination, Mitgliedschaft oder heutigem Lagerort ab. Einzelteilausgaben erhalten keinen Mengenbestandsverweis.
+
+Eine Rücknahme mit gespeichertem Herkunftsbestand erhöht **genau diese Bestandszeile**, nicht eine neu anhand geänderter Größen-/Gruppenangaben gefundene Zeile. Das gilt auch dann, wenn ein alter Größenbezug später entfällt oder Locations abgeschaltet wird, die Spalte und Daten aber installiert bleiben. Fehlt der referenzierte Bestand, bricht die Rücknahme atomar ab, statt einen Ersatzbestand anzulegen; auch das Rücknahmedatum wird dann nicht gespeichert. Eine zweite Rücknahme bleibt unzulässig.
+
+**Datenintegrität:** Der Herkunftsverweis ist unveränderlich und verweist restriktiv auf den Bestand. Auch NULL-Herkünfte werden nicht nachträglich mit einer geratenen ID gefüllt. Ein referenzierter Bestand darf nicht gelöscht werden; zurückgegebene oder soft-gelöschte Ausgaben verlieren ihren Nachweis nicht. Der Datenbankabgleich bei neuen herkunftsgebundenen Ausgaben prüft die passende Katalogkombination; daraus werden keine zusätzlichen Benutzerrechte abgeleitet. Historische Datenkorrekturen erfordern einen gesondert geprüften Prozess.
+
+**Kompatibilität:** Fehlt die optionale Spalte vollständig, arbeitet die reguläre Ausgabe wie bisher. Rücknahmen historischer NULL-Herkünfte nutzen weiterhin den bisherigen Artikeltyp-/Größen-/Gruppen-Fallback. Bereits vorhandene Herkunftsdaten werden dagegen auch bei abgeschalteter Erweiterung berücksichtigt. Die Herkunfts-ID ist kein frei editierbares Formularfeld. Ein Schema-Rollback darf vorhandene Herkunftsnachweise nicht löschen und wird abgewiesen, solange solche Verweise bestehen.
+
+Die neue Herkunftsbindung verhindert keine standortfremden Zugriffe: Ausgaben wählen weiterhin global nach Artikeltyp/Größe/Gruppe, globale Eindeutigkeit und die bisherigen Rollen bleiben erhalten. Sie gilt für neue Mengenausgaben über den regulären Ausgabedienst; eigene Importe oder direkte Datenbankeinträge ohne Herkunftsverweis werden dadurch nicht automatisch nachgerüstet. Mehrere Lager je Kombination, zentrale Bestandsrollen, sichere Migration historischer Herkünfte und vollständige Standort-Autorisierung bleiben offen. Globale Admins behalten Zugriff auf sämtliche Daten.
 
 ## Grenzen / offen
 

@@ -39,9 +39,10 @@ class ClothingStockLocationAssignment extends ClothingLocationAssignment
         $messagesAvailable = Schema::hasTable('kk_equipment_messages');
 
         return DB::transaction(function () use ($plan, $apply, $by, $reason, $expect, $messagesAvailable) {
-            // Bulk issuances have no stock_id. Table locks prevent matching-key
+            // Legacy bulk issuances have no source. Table locks prevent matching-key
             // phantoms, including historical writes and writes without parent locks.
             DB::statement('LOCK TABLE x_location_user, kk_issued_items'.($messagesAvailable ? ', kk_equipment_messages' : '').' IN SHARE MODE');
+            $sourcesAvailable = Schema::hasColumn('kk_issued_items', 'ext_source_stock_id');
             DB::statement('LOCK TABLE x_location_data_assignments IN ROW EXCLUSIVE MODE');
             $locations = $this->lockedRows('x_locations', array_column($plan, 'location_id'));
             $stocks = $this->lockedRows('kk_stock', array_column($plan, 'id'));
@@ -69,6 +70,7 @@ class ClothingStockLocationAssignment extends ClothingLocationAssignment
                 'version' => 1, 'plan' => $plan, 'locations' => $locations, 'catalog' => $catalog,
                 'operator' => ['by' => $by, 'reason' => $reason, 'state' => $operator],
                 'messages_available' => $messagesAvailable,
+                'sources_available' => $sourcesAvailable,
             ]);
             if ($by !== null) {
                 foreach (DB::table('x_location_user')->where('user_id', $by)->lazyById(200, 'location_id') as $membership) {
@@ -96,7 +98,7 @@ class ClothingStockLocationAssignment extends ClothingLocationAssignment
                     throw new RuntimeException("Standort {$locationId} fehlt oder ist inaktiv.");
                 }
                 $this->digest($context, ['stock' => $stock]);
-                $issues = $this->matchingIssues($stock);
+                $issues = $this->matchingIssues($stock, $sourcesAvailable);
                 $children += (clone $issues)->count();
                 $messages = $messagesAvailable ? DB::table('kk_equipment_messages')
                     ->whereIn('issued_item_id', (clone $issues)->select('id')) : null;
@@ -140,11 +142,16 @@ class ClothingStockLocationAssignment extends ClothingLocationAssignment
         }, 3);
     }
 
-    private function matchingIssues(array $stock): Builder
+    private function matchingIssues(array $stock, bool $sourcesAvailable): Builder
     {
-        return DB::table('kk_issued_items')->whereNull('item_id')->where('item_type_id', $stock['item_type_id'])
-            ->whereRaw('size_id IS NOT DISTINCT FROM ?', [$stock['size_id']])
-            ->whereRaw('group_id IS NOT DISTINCT FROM ?', [$stock['group_id']]);
+        return DB::table('kk_issued_items')->whereNull('item_id')->where(function (Builder $query) use ($stock, $sourcesAvailable) {
+            $query->where(fn (Builder $catalog) => $catalog->where('item_type_id', $stock['item_type_id'])
+                ->whereRaw('size_id IS NOT DISTINCT FROM ?', [$stock['size_id']])
+                ->whereRaw('group_id IS NOT DISTINCT FROM ?', [$stock['group_id']]));
+            if ($sourcesAvailable) {
+                $query->orWhere('ext_source_stock_id', $stock['id']);
+            }
+        });
     }
 
     private function lockedRows(string $table, array $ids): array

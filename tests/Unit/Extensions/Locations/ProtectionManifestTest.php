@@ -356,6 +356,33 @@ class ProtectionManifestTest extends TestCase
         $this->assertViolation('Retired table must not be accepted as current: places.');
     }
 
+    public function test_optional_stock_provenance_is_not_an_inferred_location_or_required_on_older_schema(): void
+    {
+        $manifest = config('locations.protection');
+        $entry = $manifest['tables']['kk_issued_items'];
+        $source = collect($entry['parents'])->firstWhere('child_column', 'ext_source_stock_id');
+        $this->assertSame('kk_stock', $source['table']);
+        $this->assertTrue($source['optional_column']);
+        $this->assertSame('conditional_foreign_key', $source['kind']);
+        $this->assertSame('retain', $source['source_null_rule']);
+        $this->assertSame('pending_verification', $entry['enforcement']['status']);
+        $this->assertSame('pending_decision', $entry['target_status']);
+        $this->assertStringContainsString('not a Standort assignment', $entry['owner']);
+
+        $this->manifest['tables']['kk_issued_items'] = $entry;
+        $this->manifest['tables']['kk_issued_items']['parents'] = [$source];
+        unset($this->manifest['tables']['dress_codes']);
+        $this->manifest['tables']['kk_stock'] = $manifest['tables']['kk_item_categories'];
+        $snapshot = [
+            'places' => ['columns' => ['id'], 'foreign_keys' => []],
+            'kk_stock' => ['columns' => ['id'], 'foreign_keys' => []],
+            'kk_issued_items' => ['columns' => ['id'], 'foreign_keys' => []],
+        ];
+        $this->assertSame([], $this->guard->violations($this->manifest, $snapshot));
+        $snapshot['kk_issued_items']['columns'][] = 'ext_source_stock_id';
+        $this->assertContains('kk_issued_items.ext_source_stock_id: declared foreign key to kk_stock.id does not exist.', $this->guard->violations($this->manifest, $snapshot));
+    }
+
     public function test_rejects_cyclic_parent_chains(): void
     {
         $this->manifest['tables']['places']['parents'] = [[

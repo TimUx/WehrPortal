@@ -142,6 +142,14 @@ class ClothingReadinessReport
                    count(*) FILTER (WHERE l.is_active AND NOT ({$membership})) AS membership_needs_review,
                    count(*) FILTER (WHERE l.is_active AND NOT ({$membership}) AND a.returned_at IS NULL AND a.deleted_at IS NULL) AS open_membership_needs_review
             {$issuanceJoins}");
+        if ($connection->getSchemaBuilder()->hasColumn('kk_issued_items', 'ext_source_stock_id')) {
+            $this->aggregate($connection, $checks, 'issuance_provenance', '
+                SELECT count(*) FILTER (WHERE ext_source_stock_id IS NOT NULL) AS source_bound,
+                       count(*) FILTER (WHERE ext_source_stock_id IS NULL AND item_id IS NULL) AS unsourced_bulk_or_unlinked
+                FROM kk_issued_items');
+        } else {
+            $checks['issuance_provenance'] = ['availability' => 'unavailable', 'counts' => null];
+        }
 
         $this->aggregate($connection, $checks, 'stock', '
             SELECT count(*) AS rows_unresolved, coalesce(sum(s.quantity), 0) AS quantity_unresolved,
@@ -210,7 +218,7 @@ class ClothingReadinessReport
             'row_scope' => 'all_rows_including_returned_and_soft_deleted',
             'review_policy' => 'needs_review_pending_business_approval_not_confirmed_violation',
             'automatic_target_inference' => false,
-            'stock_operation_policy' => 'unresolved_all_rows_issue_and_return_still_match_globally_by_type_size_group_no_stock_query_adapter',
+            'stock_operation_policy' => 'unresolved_all_rows_issues_match_globally_by_type_size_group_new_source_bound_returns_restore_exact_source_legacy_unsourced_returns_match_globally_no_stock_query_adapter',
             'stock_global_uniqueness_preserved' => true,
             'personal_owner_sources' => $ownerTables,
             'tables' => $tables,

@@ -301,7 +301,10 @@ class ProtectionManifest
             return;
         }
         if (! in_array($column, $schema[$table]['columns'], true)) {
-            if (! $parent['optional_column'] || isset($schema[$target])) {
+            // This optional extension column points to a core table that also
+            // exists on older installations without the provenance migration.
+            $optionalStockSource = $table === 'kk_issued_items' && $column === 'ext_source_stock_id' && $target === 'kk_stock';
+            if (! $parent['optional_column'] || (isset($schema[$target]) && ! $optionalStockSource)) {
                 $errors[] = "{$table}: missing child parent column {$column}.";
             }
 

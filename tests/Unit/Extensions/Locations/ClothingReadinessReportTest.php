@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Modules\Kleiderkammer\src\Models\Item;
+use Modules\Kleiderkammer\src\Models\ItemType;
+use Modules\Kleiderkammer\src\Services\IssuingService;
 
 // The audit deliberately opens an independent connection; fixtures must be committed.
 beforeEach(fn () => $this->artisan('migrate:fresh')->assertSuccessful());
@@ -155,10 +157,33 @@ it('reports assigned stock metadata without claiming resolved stock operations',
         'assigned' => 2, 'inactive_location' => 1, 'quantity_unassigned' => 12,
     ])
         ->and($report['stock_global_uniqueness_preserved'])->toBeTrue()
-        ->and($report['stock_operation_policy'])->toContain('unresolved_all_rows', 'match_globally', 'no_stock_query_adapter')
+        ->and($report['stock_operation_policy'])->toContain('unresolved_all_rows', 'issues_match_globally', 'source_bound_returns_restore_exact_source', 'legacy_unsourced_returns_match_globally', 'no_stock_query_adapter')
         ->and($report['enforcement_verified'])->toBeFalse();
     expect(Artisan::call('locations:audit-clothing'))->toBe(0)
-        ->and(Artisan::output())->toContain('Ausgabe/Rückgabe suchen weiterhin global', 'Alle Bestandszeilen sind operativ ungeklärt');
+        ->and(Artisan::output())->toContain('Ausgabe sucht weiterhin global', 'Neue Mengenausgaben mit Herkunft', 'alte Ausgaben ohne Herkunft', 'Alle Bestandszeilen sind operativ ungeklärt');
+});
+
+it('adds provenance counts without resolving stock or inferring historical sources', function () {
+    $fixture = clothingAuditFixture();
+    $service = app(IssuingService::class);
+    $issued = $service->issueStock(User::withoutGlobalScopes()->findOrFail($fixture['users']['primary']), ItemType::findOrFail($fixture['type']), null, 2);
+    $service->return($issued);
+    $issued->delete();
+    $report = app(ClothingReadinessReport::class)->report();
+    expect($report['checks']['issuance_provenance'])->toBe([
+        'availability' => 'available',
+        'counts' => ['source_bound' => 1, 'unsourced_bulk_or_unlinked' => 1],
+    ])
+        ->and($report['checks']['stock']['counts']['rows_unresolved'])->toBe(1)
+        ->and($report['enforcement_verified'])->toBeFalse();
+});
+
+it('reports optional provenance as unavailable on older schema instead of a false zero', function () {
+    $migration = require base_path('extensions/Locations/database/migrations/2026_12_26_000000_record_clothing_issuance_stock_source.php');
+    DB::transaction(fn () => $migration->down());
+    $report = app(ClothingReadinessReport::class)->report();
+    expect($report['checks']['issuance_provenance'])->toBe(['availability' => 'unavailable', 'counts' => null])
+        ->and($report['checks']['stock']['counts']['rows_unresolved'])->toBe(0);
 });
 
 it('reports empty clothing tables as available zero counts and exposes only a read only CLI', function () {

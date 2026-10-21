@@ -12,6 +12,10 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Modules\Kleiderkammer\src\Models\ItemGroup;
+use Modules\Kleiderkammer\src\Models\ItemType;
+use Modules\Kleiderkammer\src\Models\Size;
+use Modules\Kleiderkammer\src\Services\IssuingService;
 use Symfony\Component\Process\Process;
 
 beforeEach(function () {
@@ -205,6 +209,30 @@ it('allows zero stock and unrelated current issues without deriving historical o
     ($this->apply)();
     expect(DB::table('kk_stock')->find($this->stock))->toMatchObject(['quantity' => 0, 'ext_location_id' => $this->target->id]);
 })->with(['different_size', 'different_group', 'different_type', 'tracked', 'softdeleted']);
+
+it('still blocks assignment for new source-bound bulk records including corrected catalogs', function (string $changed) {
+    $issued = app(IssuingService::class)->issueStock(
+        $this->recipient, ItemType::findOrFail($this->type), Size::findOrFail($this->size),
+        2, group: ItemGroup::findOrFail($this->group),
+    );
+    expect($issued->getAttributes()['ext_source_stock_id'])->toBe($this->stock);
+    if ($changed === 'snapshot') {
+        $issued->update(['item_type_id' => null, 'size_id' => null, 'group_id' => null]);
+    } elseif ($changed === 'stock') {
+        DB::table('kk_stock')->where('id', $this->stock)->update(['size_id' => null, 'group_id' => null]);
+    }
+    expect(fn () => ($this->preview)())->toThrow(RuntimeException::class, "Offene Mengenausgabe kk_issued_items:{$issued->id}")
+        ->and(DB::table('x_location_data_assignments')->count())->toBe(0)
+        ->and(DB::table('kk_stock')->where('id', $this->stock)->value('ext_location_id'))->toBeNull();
+})->with(['unchanged', 'snapshot', 'stock']);
+
+it('keeps the existing stock assignment workflow available on older unsourced schema', function () {
+    $migration = require base_path('extensions/Locations/database/migrations/2026_12_26_000000_record_clothing_issuance_stock_source.php');
+    $migration->down();
+    ($this->apply)();
+    expect(DB::table('kk_stock')->where('id', $this->stock)->value('ext_location_id'))->toBe($this->target->id)
+        ->and(Schema::hasColumn('kk_issued_items', 'ext_source_stock_id'))->toBeFalse();
+});
 
 it('hashes returned and softdeleted null-key history and tolerates absent optional messages', function () {
     DB::table('kk_stock')->where('id', $this->stock)->update(['size_id' => null, 'group_id' => null]);
