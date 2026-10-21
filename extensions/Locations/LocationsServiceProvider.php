@@ -26,6 +26,7 @@ class LocationsServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__.'/config/locations.php', 'locations');
+        $this->mergeConfigFrom(__DIR__.'/config/protection.php', 'locations.protection');
         $this->app->singleton(LocationAccess::class);
 
         $this->app->booting(function () {

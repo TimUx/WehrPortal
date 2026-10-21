@@ -67,6 +67,16 @@ jobs:
           DB_USERNAME: openwehr
           DB_PASSWORD: secret
 
+      - name: Validate Protection Manifest
+        run: ./vendor/bin/pest tests/Unit/Extensions/Locations/ProtectionManifestTest.php tests/Feature/Extensions/Audit
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: openwehr_test
+          DB_USERNAME: openwehr
+          DB_PASSWORD: secret
+
       - name: Run Dateien Tests
         run: ./vendor/bin/pest tests/Feature/Extensions/Dateien
         env:
