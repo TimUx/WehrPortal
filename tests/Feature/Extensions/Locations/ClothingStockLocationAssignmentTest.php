@@ -4,6 +4,7 @@ use App\Models\User;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\ClothingStockLocationAssignment;
 use Illuminate\Database\QueryException;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -215,6 +216,18 @@ it('hashes returned and softdeleted null-key history and tolerates absent option
     ($this->apply)();
     expect(Schema::hasTable('kk_equipment_messages'))->toBeFalse();
 });
+
+it('rejects orphan catalog references even if an installation removed its catalog FK', function (string $column) {
+    foreach (Schema::getForeignKeys('kk_stock') as $foreign) {
+        if (in_array($column, $foreign['columns'], true)) {
+            Schema::table('kk_stock', fn (Blueprint $table) => $table->dropForeign($foreign['name']));
+        }
+    }
+    DB::table('kk_stock')->where('id', $this->stock)->update([$column => 999999]);
+    expect(fn () => ($this->preview)())->toThrow(RuntimeException::class, 'Katalogreferenz')
+        ->and(DB::table('x_location_data_assignments')->count())->toBe(0)
+        ->and(DB::table('kk_stock')->where('id', $this->stock)->value('ext_location_id'))->toBeNull();
+})->with(['item_type_id', 'size_id', 'group_id']);
 
 it('refuses invalid stock targets and batches atomically', function (string $case) {
     $second = DB::table('kk_stock')->insertGetId(['item_type_id' => $this->type, 'quantity' => 2]);

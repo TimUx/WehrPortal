@@ -87,6 +87,11 @@ class ClothingStockLocationAssignment extends ClothingLocationAssignment
                 if (! is_int($stock['quantity']) || $stock['quantity'] < 0) {
                     throw new RuntimeException("kk_stock:{$id}: Menge muss nichtnegativ sein; nur ganze unveränderte Zeilen sind zuordenbar.");
                 }
+                foreach (['kk_item_types' => 'item_type_id', 'kk_sizes' => 'size_id', 'kk_item_groups' => 'group_id'] as $table => $column) {
+                    if (($column === 'item_type_id' || $stock[$column] !== null) && ! isset($catalog[$table][$stock[$column]])) {
+                        throw new RuntimeException("kk_stock:{$id}: Katalogreferenz {$table} fehlt; Daten zuerst prüfen.");
+                    }
+                }
                 if (! ($locations[$locationId]['is_active'] ?? false)) {
                     throw new RuntimeException("Standort {$locationId} fehlt oder ist inaktiv.");
                 }
