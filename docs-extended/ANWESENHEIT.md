@@ -17,7 +17,7 @@ Eigenständiges Modul für Übungen, Dienste und Besprechungen. Eine Liste brauc
 
 - Übungsleiter (Auswahl), Teilnehmer (Mehrfachauswahl, nur Kameraden des Standorts), Beginn/Ende mit automatischer Dauer und Teilnehmerzahl.
 - Dateianhänge (max. 5 × 5 MB, Dateitypen wie überall über `FileResponse::allowedExtensions()`), Auslieferung nur über `FileResponse`.
-- PDF (dompdf) und E-Mail mit PDF und Anhängen. Empfänger: Einstellung „Empfänger“ (Admin-Bereich → Anwesenheit → Einstellungen) plus Adressen je Liste. Mailfehler werden gemeldet, nie geworfen.
+- PDF (dompdf) und E-Mail mit PDF und Anhängen. Empfänger: Adressen je Liste, sonst die instanzweiten Standard-Empfänger (Admin-Bereich → Anwesenheit → Einstellungen). Nur globale Admins ändern diesen Standard; Verwalter sehen ihn schreibgeschützt. Mailfehler werden gemeldet, nie geworfen.
 - Status: Entwurf → Abgegeben. Ersteller bearbeiten Entwürfe; Verwalter bearbeiten auch abgegebene Listen.
 - Stundennachweis (`HoursRegistry`) und Jahresbericht (`AnnualReportRegistry`) zählen nur abgegebene Listen.
 - Vorlagen verwalten: Filament-Ressource „Vorlagen“ (`/admin/anwesenheit/vorlagen`).
@@ -27,10 +27,13 @@ Eigenständiges Modul für Übungen, Dienste und Besprechungen. Eine Liste brauc
 | Rolle | Darf |
 |---|---|
 | Kamerad mit Modulzugang | eigene Listen anlegen, Entwürfe bearbeiten, PDF/Mail |
-| Modulrolle `verwalter`, Standort-Admin | alle Listen **des eigenen Standorts**, Vorlagen, Einstellungen |
-| Globaler Admin | alle Standorte |
+| Modulrolle `verwalter` | Listen und Vorlagen der zugewiesenen Standorte; Einstellungen schreibgeschützt |
+| Standort-Admin | Listen und Vorlagen nur der Standorte, an denen die Person Admin ist; Einstellungen schreibgeschützt |
+| Globaler Admin | alle Daten aller Standorte, einschließlich instanzweiter Einstellungen |
 
 Listen und Vorlagen tragen `ext_location_id` und nutzen `LocationScope`/`AssignsLocation` der Locations-Erweiterung (nur aktiv bei `locations.enabled`). Teilnehmer und Leitung kommen aus dem Standort der Liste. Kalender-Vorbelegung wird nur angeboten, wenn das Kalender-Modul aktiv ist (Prüfung per `class_exists` und Modulstatus, ohne harte Kopplung).
+
+Bei mehreren Standortmitgliedschaften werden Verwaltungsrechte je Zielstandort geprüft. Leitung und Teilnehmende dürfen ihre Listen lesen, aber nicht allein deshalb bearbeiten, löschen oder erneut versenden. Ersteller bearbeiten und löschen eigene Entwürfe und dürfen eigene abgegebene Listen erneut versenden. Jeder dieser Zugriffe setzt weiterhin Standort- und Modulzugang voraus; die Prüfung erfolgt auch bei nachfolgenden Livewire-Aktionen. Listen ohne Standort sind bei aktiver Locations-Erweiterung nur globalen Admins zugänglich. Ein nachträglicher Standortwechsel einer Liste erfordert Verwaltungsrechte am Zielstandort.
 
 Das Löschen einer Liste entfernt auch ihre zugehörigen Datei-Anhänge. Eine Vorlage ist nur eine Vorbelegung; Änderungen daran verändern bereits angelegte Listen nicht.
 

@@ -26,14 +26,14 @@ class ListShow extends Component
         $list = AttendanceList::findOrFail($this->listId);
         abort_unless($list->isSubmitted() && $this->mayResend($list), 403);
 
-        $this->flash = $service->send($list)
+        $this->flash = $service->send(auth()->user(), $list)
             ? 'Die E-Mail mit PDF wurde versendet.'
             : (AttendanceService::recipientsFor($list) === [] ? 'Es ist kein E-Mail-Empfänger hinterlegt.' : 'Die E-Mail konnte nicht gesendet werden.');
     }
 
     private function mayResend(AttendanceList $list): bool
     {
-        return AttendanceService::canManage(auth()->user()) || (int) $list->created_by === (int) auth()->id();
+        return AttendanceService::canResend(auth()->user(), $list);
     }
 
     public function delete(AttendanceService $service)
@@ -48,11 +48,12 @@ class ListShow extends Component
     {
         $list = AttendanceList::with(['leader', 'creator', 'participants', 'files'])->findOrFail($this->listId);
         $user = auth()->user();
+        abort_unless(AttendanceService::canSee($user, $list), 403);
 
         return view('anwesenheit::livewire.list-show', [
             'list' => $list,
             'canEdit' => AttendanceService::canEdit($user, $list),
-            'canDelete' => AttendanceService::canManage($user) || ((int) $list->created_by === (int) $user->id && ! $list->isSubmitted()),
+            'canDelete' => AttendanceService::canEdit($user, $list),
             'canResend' => $list->isSubmitted() && $this->mayResend($list),
             'recipients' => AttendanceService::recipientsFor($list),
         ]);

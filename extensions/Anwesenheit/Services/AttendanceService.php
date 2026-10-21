@@ -12,6 +12,7 @@ use Extensions\Anwesenheit\Models\AttendanceFile;
 use Extensions\Anwesenheit\Models\AttendanceList;
 use Extensions\Anwesenheit\Models\AttendanceTemplate;
 use Extensions\Locations\Models\Location;
+use Extensions\Locations\Scopes\LocationScope;
 use Extensions\Locations\Services\LocationAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
@@ -51,25 +52,67 @@ class AttendanceService
 
     public static function canSee(User $user, AttendanceList $list): bool
     {
-        return self::canManage($user)
+        return self::canAccessLocation($user, $list->ext_location_id) && (self::canManageAt($user, $list->ext_location_id)
             || (int) $list->created_by === (int) $user->id
             || (int) $list->leader_id === (int) $user->id
-            || $list->participants()->whereKey($user->id)->exists();
+            || $list->participants()->whereKey($user->id)->exists());
+    }
+
+    public static function canManageAt(User $user, ?int $locationId): bool
+    {
+        if (! self::canAccessLocation($user, $locationId)) {
+            return false;
+        }
+
+        return $user->is_admin || $user->hasModuleRole('anwesenheit', 'verwalter')
+            || (self::locationsOn() && in_array($locationId, app(LocationAccess::class)->adminLocationIds($user), true));
+    }
+
+    private static function canAccessLocation(User $user, ?int $locationId): bool
+    {
+        if (self::locationsOn()) {
+            app(LocationAccess::class)->forget($user);
+        }
+
+        return $user->is_active && $user->canUseModule('anwesenheit') && ($user->is_admin || ! self::locationsOn()
+            || ($locationId !== null && app(LocationAccess::class)->canSee($user, $locationId)));
     }
 
     /** The creator edits until the list is submitted; managers also correct submitted lists */
     public static function canEdit(User $user, AttendanceList $list): bool
     {
-        return self::canManage($user) || ((int) $list->created_by === (int) $user->id && ! $list->isSubmitted());
+        return self::canAccessLocation($user, $list->ext_location_id)
+            && (self::canManageAt($user, $list->ext_location_id) || ((int) $list->created_by === (int) $user->id && ! $list->isSubmitted()));
+    }
+
+    public static function canResend(User $user, AttendanceList $list): bool
+    {
+        return $list->isSubmitted() && self::canAccessLocation($user, $list->ext_location_id)
+            && (self::canManageAt($user, $list->ext_location_id) || (int) $list->created_by === (int) $user->id);
     }
 
     /** @return Builder<AttendanceList> */
     public function visibleTo(User $user): Builder
     {
-        $query = AttendanceList::query();
+        $query = AttendanceList::withoutGlobalScope(LocationScope::class);
 
-        if (! self::canManage($user)) {
-            $query->where(fn (Builder $q) => $q->where('created_by', $user->id)->orWhere('leader_id', $user->id)
+        if (! $user->is_active || ! $user->canUseModule('anwesenheit')) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ($user->is_admin) {
+            return $query;
+        }
+
+        if (self::locationsOn()) {
+            app(LocationAccess::class)->forget($user);
+            $query->whereIn('ext_location_id', app(LocationAccess::class)->visibleLocationIds($user));
+        }
+
+        if (! $user->hasModuleRole('anwesenheit', 'verwalter')) {
+            $managed = self::locationsOn() ? app(LocationAccess::class)->adminLocationIds($user) : [];
+            $query->where(fn (Builder $q) => $q->whereIn('ext_location_id', $managed)
+                ->orWhere('created_by', $user->id)->orWhere('leader_id', $user->id)
                 ->orWhereIn('id', DB::table('x_att_participants')->where('user_id', $user->id)->select('list_id')));
         }
 
@@ -201,6 +244,8 @@ class AttendanceService
      */
     public function save(User $by, ?AttendanceList $list, array $data, array $participantIds, array $uploads = [], bool $submit = false): AttendanceList
     {
+        abort_unless($by->is_active && $by->canUseModule('anwesenheit'), 403);
+
         if ($list && ! self::canEdit($by, $list)) {
             throw ValidationException::withMessages(['form' => 'Diese Liste kann nicht mehr bearbeitet werden.']);
         }
@@ -229,6 +274,10 @@ class AttendanceService
         }
         if ($locationId !== null && (! self::locationsOn() || ! in_array($locationId, array_keys($this->locationsFor($by)), true))) {
             $errors['form.ext_location_id'] = 'Kein Zugriff auf diesen Standort.';
+        }
+        if ($list && $locationId !== null && $locationId !== $list->ext_location_id
+            && ! self::canManageAt($by, $locationId)) {
+            $errors['form.ext_location_id'] = 'Keine Verwaltungsberechtigung für diesen Standort.';
         }
 
         $recipients = (string) ($data['recipients'] ?? '');
@@ -312,7 +361,7 @@ class AttendanceService
     /** Only managers delete, and the creator while the list is still a draft */
     public function delete(User $by, AttendanceList $list): void
     {
-        if (! self::canManage($by) && ! ((int) $list->created_by === (int) $by->id && ! $list->isSubmitted())) {
+        if (! self::canEdit($by, $list)) {
             throw ValidationException::withMessages(['form' => 'Diese Liste kann nicht gelöscht werden.']);
         }
         $list->delete();
@@ -325,8 +374,10 @@ class AttendanceService
     }
 
     /** Mail with the PDF and the uploads; a failure is reported but never thrown (the list stays saved) */
-    public function send(AttendanceList $list): bool
+    public function send(User $by, AttendanceList $list): bool
     {
+        abort_unless(self::canResend($by, $list), 403);
+
         $to = self::recipientsFor($list);
         if ($to === []) {
             return false;

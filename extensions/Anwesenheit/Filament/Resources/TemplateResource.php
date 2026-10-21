@@ -13,6 +13,8 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Templates (Vorlagen) for the Anwesenheitslisten. The model carries the Standort (LocationScope), so
@@ -43,10 +45,39 @@ class TemplateResource extends Resource
         return $user instanceof User && AttendanceService::canManage($user);
     }
 
+    public static function canEdit(Model $record): bool
+    {
+        $user = auth()->user();
+
+        return $user instanceof User && AttendanceService::canManageAt($user, $record->ext_location_id);
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return static::canEdit($record);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        if ($user instanceof User && ! $user->is_admin && AttendanceService::locationsOn()) {
+            $locations = array_filter(app(AttendanceService::class)->locationsFor($user),
+                fn ($id) => AttendanceService::canManageAt($user, $id), ARRAY_FILTER_USE_KEY);
+            $query->whereIn('ext_location_id', array_keys($locations));
+        }
+
+        return $query;
+    }
+
     public static function form(Schema $schema): Schema
     {
         $user = auth()->user();
         $locations = $user instanceof User ? app(AttendanceService::class)->locationsFor($user) : [];
+        if ($user instanceof User) {
+            $locations = array_filter($locations, fn ($id) => AttendanceService::canManageAt($user, $id), ARRAY_FILTER_USE_KEY);
+        }
 
         return $schema->schema([
             Forms\Components\TextInput::make('name')->label('Name')->required()->maxLength(150),
@@ -54,7 +85,8 @@ class TemplateResource extends Resource
             Forms\Components\Select::make('kind')->label('Art')->options(config('anwesenheit.kinds'))->required(),
             Forms\Components\TextInput::make('duration_minutes')->label('Übliche Dauer (Minuten)')->numeric()->minValue(1)->maxValue(AttendanceService::MAX_MINUTES),
             Forms\Components\Select::make('leader_id')->label('Übliche Leitung')->options(fn () => app(AttendanceService::class)->members(null)->pluck('name', 'id'))->searchable(),
-            Forms\Components\Select::make('ext_location_id')->label('Standort')->options($locations)->visible(count($locations) > 1),
+            Forms\Components\Select::make('ext_location_id')->label('Standort')->options($locations)
+                ->default(array_key_first($locations))->required(AttendanceService::locationsOn())->visible(AttendanceService::locationsOn()),
             Forms\Components\Textarea::make('recipients')->label('E-Mail-Empfänger')->rows(2)
                 ->helperText('Leer = Standard-Empfänger aus den Einstellungen')
                 ->rule(fn () => function (string $attribute, mixed $value, \Closure $fail) {
