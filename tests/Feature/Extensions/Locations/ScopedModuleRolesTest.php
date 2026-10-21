@@ -1,7 +1,10 @@
 <?php
 
+use App\Enums\MemberStatus;
 use App\Models\Module;
 use App\Models\User;
+use App\Services\MemberRemoval;
+use App\Services\ModuleRegistry;
 use Extensions\Anwesenheit\Filament\Resources\TemplateResource\Pages\CreateTemplate;
 use Extensions\Anwesenheit\Filament\Resources\TemplateResource\Pages\EditTemplate;
 use Extensions\Anwesenheit\Filament\SettingsPage;
@@ -15,15 +18,18 @@ use Extensions\Locations\Models\LocationModuleRole;
 use Extensions\Locations\Services\LegacyModuleRoleInventory;
 use Extensions\Locations\Services\LocationModuleRoles;
 use Extensions\Locations\Services\ProtectionManifest;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Env;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 beforeEach(function () {
     config(['locations.scoped_role_modules' => ['anwesenheit']]);
     Module::where('key', 'anwesenheit')->update(['is_active' => true, 'auto_assign' => false]);
-    app(\App\Services\ModuleRegistry::class)->clearCache();
+    app(ModuleRegistry::class)->clearCache();
     $this->roles = app(LocationModuleRoles::class);
     $this->admin = User::factory()->create(['is_admin' => true]);
     $this->a = Location::create(['name' => 'Wache Nord', 'slug' => 'role-nord']);
@@ -36,13 +42,13 @@ beforeEach(function () {
 
 it('requires a current global admin for grants and revokes, not a location admin', function () {
     expect(fn () => $this->roles->grant($this->member, $this->b->id, $this->member->id, 'anwesenheit', 'verwalter', 'Test'))
-        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
     $grant = ($this->grant)();
     expect(fn () => $this->roles->revoke($this->member, $grant->id, $this->a->id, 'Test'))
-        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
     DB::table('users')->where('id', $this->admin->id)->update(['is_admin' => false]);
     expect(fn () => $this->roles->revoke($this->admin, $grant->id, $this->a->id, 'Test'))
-        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 });
 
 it('keeps immutable grant history and explicit one-way revocation before regrant', function () {
@@ -58,6 +64,123 @@ it('keeps immutable grant history and explicit one-way revocation before regrant
     expect(fn () => $this->roles->revoke($this->admin, $grant->id, $this->a->id, 'Nochmals'))->toThrow(ValidationException::class);
 });
 
+it('validates revocation reason and owner at action time without changing history', function () {
+    $grant = ($this->grant)();
+    expect(fn () => $this->roles->revoke($this->admin, $grant->id, $this->a->id, ' '))
+        ->toThrow(ValidationException::class);
+    expect(fn () => $this->roles->revoke($this->admin, $grant->id, $this->a->id, str_repeat('x', 501)))
+        ->toThrow(ValidationException::class);
+    expect(fn () => $this->roles->revoke($this->admin, $grant->id, $this->b->id, 'Andere Wache'))
+        ->toThrow(ModelNotFoundException::class);
+    expect($grant->fresh()->revoked_at)->toBeNull();
+});
+
+it('requires explicit replacement even for expired grants', function () {
+    ($this->grant)('verwalter', $this->a, now()->addMinute()->toIso8601String());
+    $this->travel(1)->minutes();
+    expect(fn () => ($this->grant)())->toThrow(ValidationException::class);
+});
+
+it('permanently revokes grants when raw membership removal eliminates the final source', function (string $source) {
+    $location = $source === 'primary' ? $this->a : $this->b;
+    $grant = ($this->grant)('verwalter', $location);
+    if ($source === 'primary') {
+        DB::table('users')->where('id', $this->member->id)->update(['ext_location_id' => null]);
+    } else {
+        DB::table('x_location_user')->where('user_id', $this->member->id)->where('location_id', $location->id)->delete();
+    }
+    $closed = $grant->fresh();
+    expect($closed->revoked_at)->not->toBeNull()
+        ->and($closed->revoked_by)->toBeNull()
+        ->and($closed->revoked_source)->toBe('membership')
+        ->and($closed->revoke_reason)->toContain('Standortmitgliedschaft')
+        ->and($this->member->hasModuleRole('anwesenheit', 'verwalter', $location->id))->toBeFalse();
+    if ($source === 'primary') {
+        DB::table('users')->where('id', $this->member->id)->update(['ext_location_id' => $location->id]);
+    } else {
+        DB::table('x_location_user')->insert(['user_id' => $this->member->id, 'location_id' => $location->id, 'role' => 'member']);
+    }
+    expect($this->member->hasModuleRole('anwesenheit', 'verwalter', $location->id))->toBeFalse();
+    ($this->grant)('verwalter', $location);
+    expect($this->member->hasModuleRole('anwesenheit', 'verwalter', $location->id))->toBeTrue()
+        ->and(LocationModuleRole::count())->toBe(2)
+        ->and($grant->fresh()->revoked_at)->toEqual($closed->revoked_at);
+})->with(['primary', 'pivot']);
+
+it('retains a grant until both overlapping membership sources are removed', function (string $first) {
+    DB::table('x_location_user')->insert(['user_id' => $this->member->id, 'location_id' => $this->a->id, 'role' => 'member']);
+    $grant = ($this->grant)();
+    $removePrimary = fn () => DB::table('users')->where('id', $this->member->id)->update(['ext_location_id' => $this->b->id]);
+    $removePivot = fn () => DB::table('x_location_user')->where('user_id', $this->member->id)->where('location_id', $this->a->id)->delete();
+    $first === 'primary' ? $removePrimary() : $removePivot();
+    expect($grant->fresh()->revoked_at)->toBeNull()
+        ->and($this->member->hasModuleRole('anwesenheit', 'verwalter', $this->a->id))->toBeTrue();
+    $first === 'primary' ? $removePivot() : $removePrimary();
+    expect($grant->fresh()->revoked_source)->toBe('membership')
+        ->and($this->member->hasModuleRole('anwesenheit', 'verwalter', $this->a->id))->toBeFalse();
+})->with(['primary', 'pivot']);
+
+it('also closes grants when a pivot membership is moved through raw updates', function (string $column) {
+    $grant = ($this->grant)('verwalter', $this->b);
+    $value = $column === 'location_id'
+        ? $this->a->id
+        : User::factory()->create(['ext_location_id' => $this->b->id])->id;
+    DB::table('x_location_user')->where('user_id', $this->member->id)->where('location_id', $this->b->id)->update([$column => $value]);
+    expect($grant->fresh()->revoked_source)->toBe('membership')
+        ->and($grant->fresh()->revoked_by)->toBeNull();
+})->with(['location_id', 'user_id']);
+
+it('preserves a manual revocation when membership is removed later', function () {
+    $grant = ($this->grant)('verwalter', $this->b);
+    $this->roles->revoke($this->admin, $grant->id, $this->b->id, 'Ausdrücklicher Entzug');
+    $before = $grant->fresh()->getAttributes();
+    DB::table('x_location_user')->where('user_id', $this->member->id)->where('location_id', $this->b->id)->delete();
+    expect($grant->fresh()->getAttributes())->toBe($before)
+        ->and($grant->fresh()->revoked_source)->toBe('admin');
+});
+
+it('does not confuse a location-admin downgrade with membership removal', function () {
+    $grant = ($this->grant)('verwalter', $this->b);
+    DB::table('x_location_user')->where('user_id', $this->member->id)->where('location_id', $this->b->id)->update(['role' => 'member']);
+    expect($grant->fresh()->revoked_at)->toBeNull()
+        ->and($this->member->hasModuleRole('anwesenheit', 'verwalter', $this->b->id))->toBeTrue();
+});
+
+it('rejects incomplete or falsely attributed revocation audit metadata', function (string $invalid) {
+    $grant = ($this->grant)();
+    $changes = ['revoked_at' => now(), 'revoked_by' => $this->admin->id, 'revoke_reason' => 'Prüfung', 'revoked_source' => 'admin'];
+    match ($invalid) {
+        'missing actor' => $changes['revoked_by'] = null,
+        'false system actor' => $changes['revoked_source'] = 'membership',
+        'missing source' => $changes['revoked_source'] = null,
+        'unknown source' => $changes['revoked_source'] = 'unknown',
+        'missing reason' => $changes['revoke_reason'] = null,
+    };
+    expect(fn () => DB::transaction(fn () => DB::table('x_location_module_roles')->where('id', $grant->id)->update($changes)))
+        ->toThrow(QueryException::class);
+    expect($grant->fresh()->revoked_at)->toBeNull();
+})->with(['missing actor', 'false system actor', 'missing source', 'unknown source', 'missing reason']);
+
+it('upgrades manual history and closes preexisting membershipless grants without false attribution', function () {
+    $migration = require base_path('extensions/Locations/database/migrations/2026_12_09_000000_revoke_location_roles_on_membership_loss.php');
+    $migration->down();
+    $manual = ($this->grant)();
+    DB::table('x_location_module_roles')->where('id', $manual->id)->update([
+        'revoked_by' => $this->admin->id, 'revoked_at' => now(), 'revoke_reason' => 'Vorhandener manueller Entzug',
+    ]);
+    $valid = ($this->grant)();
+    $orphan = ($this->grant)('verwalter', $this->b);
+    DB::table('x_location_user')->where('user_id', $this->member->id)->where('location_id', $this->b->id)->delete();
+    $migration->up();
+    expect($manual->fresh()->revoked_source)->toBe('admin')
+        ->and($manual->fresh()->revoked_by)->toBe($this->admin->id)
+        ->and($valid->fresh()->revoked_at)->toBeNull()
+        ->and($valid->fresh()->revoked_source)->toBeNull()
+        ->and($orphan->fresh()->revoked_source)->toBe('membership')
+        ->and($orphan->fresh()->revoked_by)->toBeNull();
+    expect(fn () => $migration->down())->toThrow(RuntimeException::class);
+});
+
 it('protects historical grants from database mutation and deletion', function (string $operation) {
     $grant = ($this->grant)();
     expect(fn () => DB::transaction(fn () => match ($operation) {
@@ -66,6 +189,44 @@ it('protects historical grants from database mutation and deletion', function (s
         'duplicate' => DB::table('x_location_module_roles')->insert(collect($grant->getAttributes())->except('id')->all()),
     }))->toThrow(QueryException::class);
 })->with(['delete', 'edit', 'duplicate']);
+
+it('protects every historical member identity from deletion or privilege transfer', function (string $reference) {
+    $grant = ($this->grant)();
+    $revoker = User::factory()->create(['is_admin' => true]);
+    if ($reference === 'revoked_by') {
+        $this->roles->revoke($revoker, $grant->id, $this->a->id, 'Aufgabe beendet');
+    }
+    $source = match ($reference) {
+        'user_id' => $this->member,
+        'granted_by' => $this->admin,
+        'revoked_by' => $revoker,
+    };
+    $destination = User::factory()->create(['ext_location_id' => $this->a->id]);
+    $operator = User::factory()->create(['is_admin' => true]);
+    $list = AttendanceList::create(['title' => 'Unverändert', 'ext_location_id' => $this->a->id, 'created_by' => $source->id]);
+    $history = DB::table('x_location_module_roles')->get()->all();
+    $members = DB::table('users')->whereIn('id', [$source->id, $destination->id])->orderBy('id')->get()->all();
+    $removal = app(MemberRemoval::class);
+
+    expect($removal->references()->where('table', 'x_location_module_roles'))->toBeEmpty()
+        ->and(fn () => $removal->transferAndDelete($source, $destination, $operator))->toThrow(ValidationException::class)
+        ->and(fn () => $source->delete())->toThrow(ValidationException::class);
+
+    expect(DB::table('x_location_module_roles')->get()->all())->toEqual($history)
+        ->and(DB::table('users')->whereIn('id', [$source->id, $destination->id])->orderBy('id')->get()->all())->toEqual($members)
+        ->and($list->fresh()->created_by)->toBe($source->id)
+        ->and($destination->hasModuleRole('anwesenheit', 'verwalter', $this->a->id))->toBeFalse();
+})->with(['user_id', 'granted_by', 'revoked_by']);
+
+it('retains deletion protection with the extension disabled while allowing inactive or left status', function () {
+    ($this->grant)();
+    config(['locations.scoped_role_modules' => [], 'locations.enabled' => false]);
+    expect(fn () => $this->member->delete())->toThrow(ValidationException::class);
+    $this->member->update(['status' => MemberStatus::Inactive]);
+    expect($this->member->fresh()->is_active)->toBeFalse();
+    $this->member->update(['status' => MemberStatus::Left]);
+    expect($this->member->fresh()->status)->toBe(MemberStatus::Left);
+});
 
 it('validates grant module role membership activity reason and expiry', function (string $invalid) {
     $module = 'anwesenheit';
@@ -131,7 +292,46 @@ it('fails closed for unsupported module activation and unavailable adapters', fu
     config(['locations.scoped_role_modules' => $modules]);
     expect(fn () => $this->member->hasModuleRole('anwesenheit', 'verwalter', $this->a->id))
         ->toThrow(InvalidArgumentException::class);
-})->with([['kalender'], ['anwesenheit', 'fahrzeugbuchung'], 'anwesenheit']);
+})->with([[['kalender']], [['anwesenheit', 'fahrzeugbuchung']], ['anwesenheit']]);
+
+it('normalizes operator environment activation without dropping unsupported tokens', function (string $value, array $expected) {
+    $environment = Env::getRepository();
+    $original = $environment->get('LOCATIONS_SCOPED_ROLE_MODULES');
+    $environment->set('LOCATIONS_SCOPED_ROLE_MODULES', $value);
+    try {
+        $settings = require base_path('extensions/Locations/config/locations.php');
+        expect($settings['scoped_role_modules'])->toBe($expected);
+        config(['locations.scoped_role_modules' => $settings['scoped_role_modules']]);
+        if (in_array('kalender', $expected, true)) {
+            expect(fn () => $this->roles->configuredModules())->toThrow(InvalidArgumentException::class);
+        } else {
+            expect($this->roles->configuredModules())->toBe($expected);
+        }
+    } finally {
+        $original === null
+            ? $environment->clear('LOCATIONS_SCOPED_ROLE_MODULES')
+            : $environment->set('LOCATIONS_SCOPED_ROLE_MODULES', $original);
+    }
+})->with([
+    'empty default' => ['', []],
+    'normalized and deduplicated' => [' Anwesenheit , ANWESENHEIT ,, ', ['anwesenheit']],
+    'unknown token retained and rejected' => ['Anwesenheit, Kalender', ['anwesenheit', 'kalender']],
+]);
+
+it('allows preparing attendance grants before activation without enabling authority', function () {
+    config(['locations.scoped_role_modules' => []]);
+    ($this->grant)();
+    expect($this->member->hasModuleRole('anwesenheit', 'verwalter', $this->a->id))->toBeFalse();
+    config(['locations.scoped_role_modules' => ['anwesenheit']]);
+    expect($this->member->hasModuleRole('anwesenheit', 'verwalter', $this->a->id))->toBeTrue();
+});
+
+it('rejects registered but unported modules when preparing grants', function () {
+    Module::where('key', 'kalender')->update(['is_active' => true]);
+    expect(fn () => $this->roles->grant($this->admin, $this->a->id, $this->member->id, 'kalender', 'terminverwalter', 'Nicht vorbereitet'))
+        ->toThrow(ValidationException::class);
+    expect(LocationModuleRole::count())->toBe(0);
+});
 
 it('preserves creator participant semantics without making role holders managers elsewhere and revokes actions immediately', function () {
     $owner = User::factory()->create(['ext_location_id' => $this->a->id]);
@@ -152,7 +352,25 @@ it('preserves creator participant semantics without making role holders managers
         ->and(AttendanceService::canResend($this->member, $listA))->toBeFalse()
         ->and($service->visibleTo($this->member)->pluck('id')->all())->toBe([$listB->id]);
     expect(fn () => $service->save($this->member, $listA, [], []))->toThrow(ValidationException::class);
+    expect(fn () => $service->delete($this->member, $listA))->toThrow(ValidationException::class);
+    expect(fn () => $service->send($this->member, $listA))->toThrow(HttpException::class);
     Livewire::actingAs($this->member)->test(SettingsPage::class)->assertForbidden();
+});
+
+it('retains creator edits only for drafts and denies implicit or removed creation targets', function () {
+    ($this->grant)(null);
+    $draft = AttendanceList::create(['title' => 'Eigener Entwurf', 'ext_location_id' => $this->a->id, 'created_by' => $this->member->id]);
+    expect(AttendanceService::canEdit($this->member, $draft))->toBeTrue();
+    $draft->update(['status' => 'submitted']);
+    expect(AttendanceService::canEdit($this->member, $draft))->toBeFalse()
+        ->and(AttendanceService::canResend($this->member, $draft))->toBeTrue();
+    $service = app(AttendanceService::class);
+    $service->locationsFor($this->member);
+    DB::table('x_location_user')->where('user_id', $this->member->id)->delete();
+    expect($service->locationsFor($this->member))->not->toHaveKey($this->b->id);
+    expect(fn () => $service->save($this->member, null, ['title' => 'Ohne Ziel'], []))->toThrow(ValidationException::class);
+    expect(fn () => $service->save($this->member, null, ['title' => 'Entfernter Standort', 'ext_location_id' => $this->b->id], []))
+        ->toThrow(ValidationException::class);
 });
 
 it('keeps all data accessible to active global admins without membership or grants', function () {
@@ -200,16 +418,26 @@ it('exposes role history through the existing location page only to global admin
     expect($grant->fresh()->revoked_at)->not->toBeNull();
 });
 
+it('reauthorizes an already mounted role manager after the global admin is demoted', function () {
+    $component = Livewire::actingAs($this->admin)->test(ModuleRolesRelationManager::class, ['ownerRecord' => $this->a, 'pageClass' => EditLocation::class])
+        ->mountTableAction('grant')
+        ->setTableActionData(['user_id' => $this->member->id, 'module' => 'anwesenheit', 'role' => 'verwalter', 'reason' => 'Nicht mehr erlaubt']);
+    DB::table('users')->where('id', $this->admin->id)->update(['is_admin' => false]);
+    $component->callMountedTableAction()->assertForbidden();
+    expect(LocationModuleRole::count())->toBe(0);
+});
+
 it('reauthorizes attendance template target writes and rejects forged locations', function () {
     ($this->grant)();
     ($this->grant)(null, $this->b);
     Livewire::actingAs($this->member)->test(CreateTemplate::class)
         ->fillForm(['name' => 'Nicht erlaubt', 'kind' => 'uebung', 'ext_location_id' => $this->b->id])
-        ->call('create')->assertHasFormErrors('ext_location_id');
+        ->call('create')->assertHasFormErrors(['ext_location_id']);
     $template = AttendanceTemplate::create(['name' => 'Vorlage', 'kind' => 'uebung', 'ext_location_id' => $this->a->id]);
-    $component = Livewire::actingAs($this->member)->test(EditTemplate::class, ['record' => $template->id]);
+    $component = Livewire::actingAs($this->member)->test(EditTemplate::class, ['record' => $template->id])
+        ->assertOk()->fillForm(['name' => 'Nach Entzug']);
     $grant = LocationModuleRole::where('role', 'verwalter')->sole();
     $this->roles->revoke($this->admin, $grant->id, $this->a->id, 'Aufgabe beendet');
-    $component->fillForm(['name' => 'Nach Entzug'])->call('save')->assertForbidden();
+    $component->call('save')->assertNotFound();
     expect($template->fresh()->name)->toBe('Vorlage');
 });

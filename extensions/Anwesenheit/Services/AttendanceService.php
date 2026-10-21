@@ -159,6 +159,13 @@ class AttendanceService
             return [];
         }
 
+        $roles = app(LocationModuleRoles::class);
+        if ($roles->enabled('anwesenheit')) {
+            return Location::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get()
+                ->filter(fn (Location $location) => $roles->isGlobalAdmin($user) || $roles->canAccessLocation($user, (int) $location->id))
+                ->pluck('name', 'id')->all();
+        }
+
         return Location::query()->whereIn('id', app(LocationAccess::class)->visibleLocationIds($user))
             ->where('is_active', true)->orderBy('sort_order')->orderBy('name')->pluck('name', 'id')->all();
     }
@@ -291,6 +298,11 @@ class AttendanceService
         $leaderId = ! empty($data['leader_id']) ? (int) $data['leader_id'] : null;
         $guests = max(0, min(999, (int) ($data['guests'] ?? 0)));
         $locationId = ! empty($data['ext_location_id']) ? (int) $data['ext_location_id'] : null;
+
+        if (! $list && $locationId === null && app(LocationModuleRoles::class)->enabled('anwesenheit')
+            && ! app(LocationModuleRoles::class)->isGlobalAdmin($by)) {
+            $errors['form.ext_location_id'] = 'Bitte einen zugänglichen Standort ausdrücklich auswählen.';
+        }
 
         if ($title === '' || mb_strlen($title) > 150) {
             $errors['form.title'] = 'Bitte einen Titel (höchstens 150 Zeichen) angeben.';

@@ -20,7 +20,9 @@ class LegacyModuleRoleInventory
                 $ids = $ids->map(fn ($id) => (int) $id)->unique()->sort()->values()->all();
 
                 return ['user_id' => $row->user_id, 'module' => $row->module, 'role' => $row->role,
-                    'classification' => match (count($ids)) { 0 => 'zero', 1 => 'single', default => 'multiple' },
+                    'classification' => match (count($ids)) {
+                        0 => 'zero', 1 => 'single', default => 'multiple'
+                    },
                     'candidate_location_ids' => $ids];
             })->all();
     }

@@ -93,7 +93,9 @@ Empfehlung: Branch Protection auf `main` (PR + grüne Checks), damit Upstream-Me
 | `modules/Gefahrstoffe/src/Services/MaterialImport.php` | Validierungsfehler mit `messages()` feldweise behalten: Duplikatprüfung und anschließendes Zusammenführen erwarten Listen pro Feld, nicht die flache Liste aus `all()`; behebt zugleich den PHPStan-Fehler „Cannot assign new offset to string“ |
 | `composer.json`, `composer.lock` | Autoload und Provider-Discovery für `extensions/` |
 | `bootstrap/providers.php` | `Extensions\ExtensionsServiceProvider` (Root-`extra.laravel.providers` wird von Laravel nicht entdeckt) – ohne diese Zeile lädt keine Erweiterung |
-| `app/Models/User.php` | OIDC: `isLocalAdmin()` (+ `use`) – lokaler System-Admin als Core-Konzept |
+| `app/Models/User.php` | OIDC: `isLocalAdmin()` (+ `use`); Locations: kleiner Adapter für vorbereitete Standort-Modulzugänge und explizite Zielstandort-Rollenprüfung, nur für ausdrücklich aktivierte Module; `hasAnyModuleRole()` ausschließlich für Navigation. Ohne Aktivierung bleiben Legacy-Regeln erhalten. |
+| `app/Filament/Resources/UserResource.php` | Locations: Hinweise an der bisherigen Modulrollenvergabe unterscheiden Legacy-Zugänge von ausdrücklich aktivierten Standortrollen; alte Formulare erzeugen keine impliziten Standortvergaben. |
+| `app/Services/MemberRemoval.php` | Locations: unveränderliche Standort-Modulrollenhistorie wird niemals auf eine andere Person übertragen; bei geschützten Verweisen wird die Löschung verständlich abgewiesen. |
 | `app/Services/MagicLinkService.php` | OIDC: Magic-Link nur für erlaubte Benutzer (`AuthMethodRegistry::allowsMagicLink`) beim Anfordern und Einlösen; `@var`-Hinweis für PHPStan |
 | `resources/views/auth/login.blade.php` | OIDC: Liste der Login-Methoden, Fehlermeldung `auth`, Magic-Link-Formular bei „nur IdP“ ausblenden |
 | `phpstan-baseline.neon` | 6 Einträge zu `MagicLinkService` entfernt (durch den `@var`-Hinweis behoben) |

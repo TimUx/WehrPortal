@@ -16,12 +16,14 @@ use InvalidArgumentException;
 
 class LocationModuleRoles
 {
+    public const SUPPORTED_MODULES = ['anwesenheit'];
+
     /** Only modules with a completed target-aware role adapter may be activated. */
     public function configuredModules(): array
     {
         $modules = config('locations.scoped_role_modules', []);
         if (! is_array($modules) || ! array_is_list($modules)
-            || array_diff($modules, ['anwesenheit']) !== []
+            || array_diff($modules, self::SUPPORTED_MODULES) !== []
             || ($modules !== [] && (! config('locations.enabled') || ! config('anwesenheit.enabled')))) {
             throw new InvalidArgumentException('Scoped location roles require Locations and Anwesenheit; only anwesenheit is supported.');
         }
@@ -37,6 +39,17 @@ class LocationModuleRoles
     public function isGlobalAdmin(User $user): bool
     {
         return DB::table('users')->where('id', $user->id)->where('is_active', true)->where('is_admin', true)->exists();
+    }
+
+    public function assertMemberDeletable(User $user): void
+    {
+        if (Schema::hasTable('x_location_module_roles')
+            && DB::table('x_location_module_roles')->where(fn (Builder $q) => $q
+                ->where('user_id', $user->id)->orWhere('granted_by', $user->id)->orWhere('revoked_by', $user->id))->exists()) {
+            throw ValidationException::withMessages([
+                'user' => 'Diese Person ist im unveränderlichen Verlauf der Standort-Modulrollen referenziert. Bitte stattdessen den Status „inaktiv“ oder „ausgetreten“ setzen. Diese Rollen und historischen Verweise werden nicht übertragen.',
+            ]);
+        }
     }
 
     private function activeModule(string $module): bool
@@ -121,14 +134,15 @@ class LocationModuleRoles
                 'expires_at' => ['nullable', 'date', 'after:now'],
             ])->validate();
             $definition = app(ModuleRegistry::class)->get($module);
-            if (! $definition || ($role !== null && ! in_array($role, $definition['roles'], true))) {
-                throw ValidationException::withMessages(['module' => 'Unbekanntes Modul oder unbekannte Rolle.']);
+            if (! in_array($module, self::SUPPORTED_MODULES, true) || ! $definition
+                || ($role !== null && ! in_array($role, $definition['roles'], true))) {
+                throw ValidationException::withMessages(['module' => 'Nur der vorbereitete Adapter Anwesenheit und seine registrierten Rollen werden unterstützt.']);
             }
             $location = Location::query()->lockForUpdate()->find($locationId);
             $member = User::withoutGlobalScopes()->lockForUpdate()->find($userId);
             $membership = DB::table('x_location_user')->where('location_id', $locationId)->where('user_id', $userId)->lockForUpdate()->first();
-            if (! $location?->is_active || ! $member?->is_active || ! $this->activeModule($module)
-                || ((int) $member->ext_location_id !== $locationId && ! $membership)) {
+            if (! $location?->getAttribute('is_active') || ! $member?->is_active || ! $this->activeModule($module)
+                || ((int) $member->getAttribute('ext_location_id') !== $locationId && ! $membership)) {
                 throw ValidationException::withMessages(['user_id' => 'Aktives Modul, aktiver Standort und aktives Mitglied dieses Standorts erforderlich.']);
             }
             if (LocationModuleRole::where('location_id', $locationId)->where('user_id', $userId)->where('module', $module)->whereNull('revoked_at')->exists()) {
@@ -150,10 +164,10 @@ class LocationModuleRoles
             $reason = trim($reason);
             Validator::make(['reason' => $reason], ['reason' => ['required', 'string', 'max:500']])->validate();
             $grant = LocationModuleRole::where('location_id', $locationId)->lockForUpdate()->findOrFail($assignmentId);
-            if ($grant->revoked_at !== null) {
+            if ($grant->getAttribute('revoked_at') !== null) {
                 throw ValidationException::withMessages(['reason' => 'Diese Zuweisung wurde bereits entzogen.']);
             }
-            $grant->update(['revoked_by' => $by->id, 'revoked_at' => now(), 'revoke_reason' => $reason]);
+            $grant->update(['revoked_by' => $by->id, 'revoked_at' => now(), 'revoke_reason' => $reason, 'revoked_source' => 'admin']);
         });
     }
 

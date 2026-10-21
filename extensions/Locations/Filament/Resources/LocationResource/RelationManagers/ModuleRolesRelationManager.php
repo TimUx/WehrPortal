@@ -16,6 +16,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class ModuleRolesRelationManager extends RelationManager
 {
@@ -38,7 +39,7 @@ class ModuleRolesRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->description('Nur globale Admins vergeben Rollen. Ohne Rolle: nur Moduleinstieg, keine Objektberechtigung. Wirksam nur für aktivierte Adapter (derzeit Anwesenheit); alte Modulverwaltung ändert ausschließlich Legacy-Zugänge. Abgelaufene Zuweisungen vor Ersatz ausdrücklich entziehen.')
+            ->description('Nur globale Admins vergeben Rollen für den vorbereiteten Adapter Anwesenheit, auch vorab. Wirksam erst mit LOCATIONS_SCOPED_ROLE_MODULES=anwesenheit. Ohne Rolle: nur Moduleinstieg, keine Objektberechtigung. Alte Modulverwaltung ändert nur Legacy-Zugänge. Abgelaufene Zuweisungen vor Ersatz ausdrücklich entziehen.')
             ->columns([
                 Tables\Columns\TextColumn::make('member.name')->label('Mitglied'),
                 Tables\Columns\TextColumn::make('module')->label('Modul'),
@@ -49,6 +50,8 @@ class ModuleRolesRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('expires_at')->label('Ablauf')->dateTime()->timezone('Europe/Berlin'),
                 Tables\Columns\TextColumn::make('revoked_at')->label('Entzogen')->dateTime()->timezone('Europe/Berlin'),
                 Tables\Columns\TextColumn::make('revoked_by')->label('Entzogen durch ID'),
+                Tables\Columns\TextColumn::make('revoked_source')->label('Entzugsquelle')
+                    ->formatStateUsing(fn ($state) => $state === 'membership' ? 'Automatisch: Mitgliedschaft beendet' : 'Globaler Admin'),
                 Tables\Columns\TextColumn::make('revoke_reason')->label('Entzugsgrund')->wrap(),
             ])->defaultSort('id', 'desc')
             ->headerActions([
@@ -57,11 +60,12 @@ class ModuleRolesRelationManager extends RelationManager
                         Select::make('user_id')->label('Mitglied')->required()->searchable()
                             ->options(fn () => User::withoutGlobalScopes()->where('is_active', true)
                                 ->where(fn ($q) => $q->where('ext_location_id', $this->getOwnerRecord()->getKey())
-                                    ->orWhereIn('id', \Illuminate\Support\Facades\DB::table('x_location_user')
+                                    ->orWhereIn('id', DB::table('x_location_user')
                                         ->where('location_id', $this->getOwnerRecord()->getKey())->select('user_id')))
                                 ->orderBy('name')->pluck('name', 'id')),
                         Select::make('module')->label('Modul')->required()->live()
-                            ->options(fn () => collect(app(ModuleRegistry::class)->all())->mapWithKeys(fn ($def, $key) => [$key => $def['name']])),
+                            ->options(fn () => collect(app(ModuleRegistry::class)->all())->only(LocationModuleRoles::SUPPORTED_MODULES)
+                                ->mapWithKeys(fn ($def, $key) => [$key => $def['name']])),
                         Select::make('role')->label('Rolle')->placeholder('Nur Zugang')
                             ->options(fn (Get $get) => collect(app(ModuleRegistry::class)->get((string) $get('module'))['roles'] ?? [])->mapWithKeys(fn ($role) => [$role => $role])),
                         Textarea::make('reason')->label('Begründung')->required()->maxLength(500),
@@ -72,7 +76,7 @@ class ModuleRolesRelationManager extends RelationManager
                     }),
             ])->recordActions([
                 Action::make('revoke')->label('Entziehen')->requiresConfirmation()
-                    ->visible(fn (LocationModuleRole $record) => $record->revoked_at === null)
+                    ->visible(fn (LocationModuleRole $record) => $record->getAttribute('revoked_at') === null)
                     ->schema([Textarea::make('reason')->label('Begründung')->required()->maxLength(500)])
                     ->action(function (LocationModuleRole $record, array $data): void {
                         app(LocationModuleRoles::class)->revoke(auth()->user(), (int) $record->getKey(),

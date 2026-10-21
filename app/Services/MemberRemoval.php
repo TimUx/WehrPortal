@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use Extensions\Locations\Services\LocationModuleRoles;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -51,7 +52,8 @@ class MemberRemoval
              WHERE c.contype = 'f' AND c.confrelid = 'users'::regclass AND c.confdeltype IN ('a', 'r', 'n') AND c.conrelid <> 'users'::regclass
              ORDER BY 1, 2"
         ))->map(fn ($r) => ['table' => $r->tbl, 'column' => $r->col])
-            ->reject(fn ($r) => in_array($r['table'].'.'.$r['column'], self::KEEP, true));
+            ->reject(fn ($r) => $r['table'] === 'x_location_module_roles'
+                || in_array($r['table'].'.'.$r['column'], self::KEEP, true));
     }
 
     /**
@@ -93,6 +95,7 @@ class MemberRemoval
 
         DB::transaction(function () use ($user, $to) {
             User::whereKey($user->id)->lockForUpdate()->first();
+            app(LocationModuleRoles::class)->assertMemberDeletable($user);
 
             foreach ($this->references() as $ref) {
                 in_array($ref['table'].'.'.$ref['column'], self::UNLINK, true)

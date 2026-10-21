@@ -25,8 +25,8 @@ return new class extends Migration
         });
 
         DB::statement('CREATE UNIQUE INDEX x_location_module_roles_open ON x_location_module_roles (location_id, user_id, module) WHERE revoked_at IS NULL');
-        DB::statement("ALTER TABLE x_location_module_roles ADD CONSTRAINT x_location_module_roles_dates CHECK ((expires_at IS NULL OR expires_at > granted_at) AND (revoked_at IS NULL OR revoked_at >= granted_at))");
-        DB::statement("ALTER TABLE x_location_module_roles ADD CONSTRAINT x_location_module_roles_revocation CHECK ((revoked_at IS NULL AND revoked_by IS NULL AND revoke_reason IS NULL) OR (revoked_at IS NOT NULL AND revoked_by IS NOT NULL AND length(trim(revoke_reason)) BETWEEN 1 AND 500))");
+        DB::statement('ALTER TABLE x_location_module_roles ADD CONSTRAINT x_location_module_roles_dates CHECK ((expires_at IS NULL OR expires_at > granted_at) AND (revoked_at IS NULL OR revoked_at >= granted_at))');
+        DB::statement('ALTER TABLE x_location_module_roles ADD CONSTRAINT x_location_module_roles_revocation CHECK ((revoked_at IS NULL AND revoked_by IS NULL AND revoke_reason IS NULL) OR (revoked_at IS NOT NULL AND revoked_by IS NOT NULL AND length(trim(revoke_reason)) BETWEEN 1 AND 500))');
         DB::unprepared(<<<'SQL'
             CREATE OR REPLACE FUNCTION x_location_module_roles_history() RETURNS trigger AS $$
             BEGIN

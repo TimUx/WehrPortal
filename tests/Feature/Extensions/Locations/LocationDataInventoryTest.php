@@ -2,6 +2,7 @@
 
 use Extensions\Locations\Console\AuditLocationDataCommand;
 use Extensions\Locations\Services\LocationDataInventory;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 
@@ -33,8 +34,9 @@ it('refuses an incomplete manifest before reporting inventory', function () {
 });
 
 it('offers a read only inventory command without a mutation option', function () {
-    $this->artisan(AuditLocationDataCommand::class, ['--json' => true])
-        ->expectsOutputToContain('"read_only": true')
-        ->expectsOutputToContain('"enforcement_verified": false')
-        ->assertSuccessful();
+    expect(Artisan::call(AuditLocationDataCommand::class, ['--json' => true]))->toBe(0);
+    $output = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+    expect($output['read_only'])->toBeTrue()
+        ->and($output['enforcement_verified'])->toBeFalse()
+        ->and($output['tables'])->toBeArray();
 });
