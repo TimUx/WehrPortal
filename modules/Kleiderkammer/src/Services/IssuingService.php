@@ -19,8 +19,9 @@ class IssuingService
      * Issue a tracked item to a member.
      * The item must be available and not soft-deleted.
      */
-    public function issueTracked(User $member, Item $item, string $notes = ''): IssuedItem
+    public function issueTracked(User $member, Item $item, string $notes = '', ?User $actor = null): IssuedItem
     {
+        app(StockAccess::class)->authorizePersonal($actor ?? auth()->user());
         $this->ensureCanReceive($member);
 
         return DB::transaction(function () use ($member, $item, $notes) {
@@ -48,21 +49,30 @@ class IssuingService
      * Issue stock items (non-tracked) to a member.
      * Decreases the stock quantity accordingly.
      */
-    public function issueStock(User $member, ItemType $itemType, ?Size $size, int $quantity, string $notes = '', ?ItemGroup $group = null): IssuedItem
+    public function issueStock(User $member, ItemType $itemType, ?Size $size, int $quantity, string $notes = '', ?ItemGroup $group = null, ?int $stockId = null, ?User $actor = null): IssuedItem
     {
+        $actor ??= auth()->user();
+        $access = app(StockAccess::class);
+        $access->authorizePersonal($actor);
         $this->ensureCanReceive($member);
 
         if ($quantity <= 0) {
             throw new \InvalidArgumentException('Quantity must be greater than zero.');
         }
 
-        return DB::transaction(function () use ($member, $itemType, $size, $quantity, $notes, $group) {
+        return $access->asActor($actor, fn () => DB::transaction(function () use ($member, $itemType, $size, $quantity, $notes, $group, $stockId, $actor, $access) {
             $stock = Stock::lockForUpdate()
+                ->when($stockId !== null, fn ($query) => $query->whereKey($stockId))
                 ->where('item_type_id', $itemType->id)
                 ->where('size_id', $size?->id)
                 ->where('group_id', $group?->id)
                 ->first();
 
+            if ($stock !== null) {
+                $access->authorizeStock($actor, $stock);
+            } elseif ($access->enabled()) {
+                abort(403);
+            }
             $available = $stock?->quantity ?? 0;
 
             if ($available < $quantity) {
@@ -86,7 +96,7 @@ class IssuingService
             $stock->decrement('quantity', $quantity);
 
             return $issuedItem;
-        });
+        }));
     }
 
     /**
@@ -94,9 +104,12 @@ class IssuingService
      * Sets returned_at and, for tracked items, flips the status back to available.
      * For stock items, restores the quantity.
      */
-    public function return(IssuedItem $issuedItem): void
+    public function return(IssuedItem $issuedItem, ?User $actor = null): void
     {
-        DB::transaction(function () use ($issuedItem) {
+        $actor ??= auth()->user();
+        $access = app(StockAccess::class);
+        $access->authorizePersonal($actor);
+        $access->asActor($actor, fn () => DB::transaction(function () use ($issuedItem, $actor, $access) {
             $fresh = IssuedItem::lockForUpdate()->findOrFail($issuedItem->id);
 
             if ($fresh->returned_at !== null) {
@@ -110,26 +123,35 @@ class IssuingService
                 if ($fresh->item_id !== null) {
                     throw new \DomainException('A tracked item cannot have a stock source.');
                 }
-                Stock::lockForUpdate()->findOrFail($sourceStockId)->increment('quantity', $fresh->quantity);
+                $stock = Stock::lockForUpdate()->findOrFail($sourceStockId);
+                $access->authorizeStock($actor, $stock);
+                $stock->increment('quantity', $fresh->quantity);
             } elseif ($fresh->item_id !== null) {
                 Item::where('id', $fresh->item_id)->update(['status' => ItemStatus::Available->value]);
-            } elseif ($fresh->item_type_id !== null) {
-                Stock::firstOrCreate(
-                    ['item_type_id' => $fresh->item_type_id, 'size_id' => $fresh->size_id, 'group_id' => $fresh->group_id],
-                    ['quantity' => 0],
-                )->increment('quantity', $fresh->quantity);
+            } else {
+                $access->authorizeLegacyReturn($actor);
+                if ($fresh->item_type_id !== null) {
+                    Stock::firstOrCreate(
+                        ['item_type_id' => $fresh->item_type_id, 'size_id' => $fresh->size_id, 'group_id' => $fresh->group_id],
+                        ['quantity' => 0],
+                    )->increment('quantity', $fresh->quantity);
+                }
             }
-        });
+        }));
     }
 
     /**
      * Forcibly return all open items from a member.
      * Typically called when a member leaves (DeactivateMemberAction).
      */
-    public function takeBack(User $member): void
+    public function takeBack(User $member, ?User $actor = null): void
     {
-        $member->kleiderkammerItems()->with('item')->each(function (IssuedItem $issuedItem) {
-            $this->return($issuedItem);
+        $actor ??= auth()->user();
+        app(StockAccess::class)->authorizePersonal($actor);
+        DB::transaction(function () use ($member, $actor) {
+            $member->kleiderkammerItems()->with('item')->each(function (IssuedItem $issuedItem) use ($actor) {
+                $this->return($issuedItem, $actor);
+            });
         });
     }
 
@@ -144,8 +166,9 @@ class IssuingService
      * Retire a tracked item (worn out / disposed of).
      * The item must not currently be issued.
      */
-    public function retire(Item $item, string $notes = ''): void
+    public function retire(Item $item, string $notes = '', ?User $actor = null): void
     {
+        app(StockAccess::class)->authorizePersonal($actor ?? auth()->user());
         DB::transaction(function () use ($item, $notes) {
             $fresh = Item::lockForUpdate()->findOrFail($item->id);
 

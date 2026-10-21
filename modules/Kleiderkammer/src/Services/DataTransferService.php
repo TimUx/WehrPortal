@@ -68,8 +68,9 @@ class DataTransferService
     }
 
     /** @param string[]|null $parts */
-    public function export(?array $parts = null): array
+    public function export(?array $parts = null, ?User $actor = null): array
     {
+        app(StockAccess::class)->authorizeTransfer($actor ?? auth()->user());
         $parts = $this->resolveParts($parts);
         $has = fn (string ...$wanted) => array_intersect($wanted, $parts) !== [];
         $data = ['version' => 1, 'exported_at' => now()->toIso8601String(), 'groups' => []];
@@ -121,19 +122,24 @@ class DataTransferService
      * @param  string[]|null  $types  only rows of these item type names; null or empty = all
      * @return array{skipped_members: string[], issued_items: int, skipped_issued_items: int}
      */
-    public function import(array $data, ?array $parts = null, ?array $types = null): array
+    public function import(array $data, ?array $parts = null, ?array $types = null, ?User $actor = null): array
     {
+        $actor ??= auth()->user();
+        $access = app(StockAccess::class);
+        $access->authorizeTransfer($actor);
         $groups = $this->filter($data, $parts, $types)['groups'] ?? [];
         $report = ['skipped_members' => [], 'issued_items' => 0, 'skipped_issued_items' => 0];
 
-        DB::transaction(function () use ($groups, &$report) {
-            $catalog = $this->importCatalog($groups['catalog'] ?? []);
-            $members = $this->importMembers($groups['members']['members'] ?? [], $report);
-            $this->importMemberSizes($groups['members']['sizes'] ?? [], $catalog, $members);
+        $access->asActor($actor, function () use ($groups, &$report) {
+            DB::transaction(function () use ($groups, &$report) {
+                $catalog = $this->importCatalog($groups['catalog'] ?? []);
+                $members = $this->importMembers($groups['members']['members'] ?? [], $report);
+                $this->importMemberSizes($groups['members']['sizes'] ?? [], $catalog, $members);
 
-            if (isset($groups['inventory'])) {
-                $this->importInventory($groups['inventory'], $catalog, $members, $report);
-            }
+                if (isset($groups['inventory'])) {
+                    $this->importInventory($groups['inventory'], $catalog, $members, $report);
+                }
+            });
         });
 
         return $report;

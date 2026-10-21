@@ -11,6 +11,8 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Modules\Kleiderkammer\src\Filament\Concerns\KleiderkammerArea;
 use Modules\Kleiderkammer\src\Filament\Resources\StockResource\Pages;
 use Modules\Kleiderkammer\src\Models\ItemGroup;
@@ -18,6 +20,7 @@ use Modules\Kleiderkammer\src\Models\ItemType;
 use Modules\Kleiderkammer\src\Models\Size;
 use Modules\Kleiderkammer\src\Models\Stock;
 use Modules\Kleiderkammer\src\Services\IssuingService;
+use Modules\Kleiderkammer\src\Services\StockAccess;
 
 class StockResource extends Resource
 {
@@ -37,6 +40,37 @@ class StockResource extends Resource
 
     protected static ?int $navigationSort = 3;
 
+    public static function canAccess(): bool
+    {
+        return app(StockAccess::class)->canEnter(auth()->user());
+    }
+
+    public static function canViewAny(): bool
+    {
+        return static::canAccess();
+    }
+
+    public static function canCreate(): bool
+    {
+        return app(StockAccess::class)->canManageCatalog(auth()->user());
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return $record instanceof Stock && app(StockAccess::class)->canEdit(auth()->user(), $record);
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return static::canCreate();
+    }
+
+    /** @return Builder<Stock> */
+    public static function getEloquentQuery(): Builder
+    {
+        return app(StockAccess::class)->query(auth()->user());
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
@@ -44,18 +78,21 @@ class StockResource extends Resource
                 ->label('Artikeltyp')
                 ->options(ItemType::where('is_tracked', false)->orderBy('name')->pluck('name', 'id'))
                 ->required()
+                ->disabled(fn () => ! static::canCreate())
                 ->searchable()
                 ->reactive(),
 
             Forms\Components\Select::make('group_id')
                 ->live()
                 ->label('Gruppe')
+                ->disabled(fn () => ! static::canCreate())
                 ->options(fn ($get) => ItemGroup::where('item_type_id', $get('item_type_id'))->orderBy('sort_order')->pluck('name', 'id'))
                 ->nullable()
                 ->visible(fn ($get) => filled($get('item_type_id')) && ItemGroup::where('item_type_id', $get('item_type_id'))->exists()),
 
             Forms\Components\Select::make('size_id')
                 ->label('Größe')
+                ->disabled(fn () => ! static::canCreate())
                 ->options(fn ($get) => Size::where('item_type_id', $get('item_type_id'))->forGroup($get('group_id'))->orderBy('sort_order')->pluck('name', 'id'))
                 ->nullable()
                 ->visible(fn ($get) => filled($get('item_type_id'))),
@@ -123,7 +160,7 @@ class StockResource extends Resource
                     ->label('Ausgeben')
                     ->icon('heroicon-o-arrow-right')
                     ->color('primary')
-                    ->visible(fn (Stock $record) => $record->quantity > 0)
+                    ->visible(fn (Stock $record) => $record->quantity > 0 && app(StockAccess::class)->canIssue(auth()->user(), $record))
                     ->form([
                         Forms\Components\Select::make('user_id')
                             ->label('Mitglied')
@@ -147,6 +184,7 @@ class StockResource extends Resource
                             (int) $data['quantity'],
                             $data['notes'] ?? '',
                             $record->group,
+                            $record->id,
                         );
                         Notification::make()->title('Bestand ausgegeben.')->success()->send();
                     }),
