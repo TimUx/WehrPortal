@@ -140,7 +140,7 @@ class ClothingPersonalAccess extends PersonalAccess
         }
         $ids = $this->locationIds($actor);
 
-        // Sizes/notes are one shared personal profile, not fictitious historical location data.
+        // Sizes are one shared personal profile, not fictitious historical location data.
         return $query->where(fn (Builder $q) => $q->whereIn('ext_location_id', $ids)
             ->orWhereIn('id', DB::table('x_location_user')->whereIn('location_id', $ids)->select('user_id')));
     }
@@ -200,10 +200,16 @@ class ClothingPersonalAccess extends PersonalAccess
         }
         $this->authorizeMember($actor, $member);
         abort_unless($this->sourceAllowed($actor, $source->getTable(), $source->id), 403);
+        $location = DB::table($source->getTable())->where('id', $source->id)->value('ext_location_id');
+        if (! $this->isGlobal($actor)) {
+            abort_unless($location !== null && User::withoutGlobalScopes()->whereKey($member->id)
+                ->where(fn (Builder $query) => $query->where('ext_location_id', $location)
+                    ->orWhereIn('id', DB::table('x_location_user')->where('location_id', $location)->select('user_id')))
+                ->exists(), 403);
+        }
         if (app(StockAccess::class)->enabled()) {
-            $location = DB::table($source->getTable())->where('id', $source->id)->value('ext_location_id');
-            abort_unless($this->isGlobal($actor) || ($location !== null && in_array((int) $location,
-                app(LocationModuleRoles::class)->capabilityLocationIds($actor, 'kleiderkammer', 'bestand'), true)), 403);
+            abort_unless($this->isGlobal($actor) || in_array((int) $location,
+                app(LocationModuleRoles::class)->capabilityLocationIds($actor, 'kleiderkammer', 'bestand'), true), 403);
         }
     }
 
@@ -274,9 +280,9 @@ class ClothingPersonalAccess extends PersonalAccess
                 $q->where(function (Builder $q) use ($members, $locations, $table) {
                     $q->whereIn("{$table}.user_id", $members)->where(function (Builder $q) use ($locations, $table) {
                         $q->where(fn (Builder $q) => $q->whereNull("{$table}.ext_source_stock_id")
-                            ->whereIn("{$table}.item_id", DB::table('kk_items')->whereIn('ext_location_id', $locations)->select('id')))
+                            ->whereIn("{$table}.item_id", $this->issuanceSources('kk_items', $locations, $table)))
                             ->orWhere(fn (Builder $q) => $q->whereNull("{$table}.item_id")
-                                ->whereIn("{$table}.ext_source_stock_id", DB::table('kk_stock')->whereIn('ext_location_id', $locations)->select('id')));
+                                ->whereIn("{$table}.ext_source_stock_id", $this->issuanceSources('kk_stock', $locations, $table)));
                     });
                 })->when($self, fn ($q) => $q->orWhere("{$table}.user_id", $actor->id));
             });
@@ -293,8 +299,21 @@ class ClothingPersonalAccess extends PersonalAccess
                         ->where('user_id', $actor->id)->whereNull('deleted_at')->select('item_id')));
             });
         } elseif ($model instanceof ItemTreatment) {
-            $query->whereIn("{$table}.item_id", DB::table('kk_items')->whereIn('ext_location_id', $locations)->select('id'));
+            // Treatments have no reliable personnel owner; item ownership alone is insufficient.
+            $query->whereRaw('1 = 0');
         }
+    }
+
+    private function issuanceSources(string $source, array $locations, string $issuances): \Illuminate\Database\Query\Builder
+    {
+        return DB::table($source)->whereIn("{$source}.ext_location_id", $locations)
+            ->whereExists(fn ($query) => $query->selectRaw('1')->from('users as recipient')
+                ->whereColumn('recipient.id', "{$issuances}.user_id")
+                ->where(fn ($query) => $query->whereColumn('recipient.ext_location_id', "{$source}.ext_location_id")
+                    ->orWhereExists(fn ($query) => $query->selectRaw('1')->from('x_location_user as membership')
+                        ->whereColumn('membership.user_id', 'recipient.id')
+                        ->whereColumn('membership.location_id', "{$source}.ext_location_id"))))
+            ->select("{$source}.id");
     }
 
     public function guardMutation(Model $model, string $event): void
@@ -338,10 +357,7 @@ class ClothingPersonalAccess extends PersonalAccess
             $this->authorizeItem($actor, $model);
             abort_unless(array_diff(array_keys($model->getDirty()), ['status', 'notes', 'updated_at']) === [], 403);
         } elseif ($model instanceof ItemTreatment) {
-            if ($event !== 'creating') {
-                $this->authorizeItem($actor, Item::withoutGlobalScopes()->findOrFail($model->getRawOriginal('item_id')));
-            }
-            $this->authorizeItem($actor, Item::withoutGlobalScopes()->findOrFail($model->item_id));
+            abort(403);
         }
     }
 }

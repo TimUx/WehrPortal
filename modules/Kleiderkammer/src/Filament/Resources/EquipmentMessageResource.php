@@ -12,6 +12,7 @@ use Modules\Kleiderkammer\src\Filament\Concerns\KleiderkammerArea;
 use Modules\Kleiderkammer\src\Filament\Resources\EquipmentMessageResource\Pages;
 use Modules\Kleiderkammer\src\Models\EquipmentMessage;
 use Modules\Kleiderkammer\src\Services\EquipmentMessageService;
+use Modules\Kleiderkammer\src\Services\PersonalAccess;
 
 class EquipmentMessageResource extends Resource
 {
@@ -113,6 +114,14 @@ class EquipmentMessageResource extends Resource
                     ->label('Gewaschen')
                     ->icon('heroicon-o-sparkles')
                     ->visible(fn (EquipmentMessage $record) => $record->isWashing() && ! $record->isHandled())
+                    ->disabled(fn (EquipmentMessage $record) => app(PersonalAccess::class)->enabled()
+                        && $record->issuedItem?->item_id !== null
+                        && ! app(PersonalAccess::class)->canManageCatalog(auth()->user()))
+                    ->tooltip(fn (EquipmentMessage $record) => app(PersonalAccess::class)->enabled()
+                        && $record->issuedItem?->item_id !== null
+                        && ! app(PersonalAccess::class)->canManageCatalog(auth()->user())
+                            ? 'Bei Artikeln mit Code dürfen nur globale Admins die Wäsche abschließen, da dabei personenbezogene Pflegehistorie gespeichert wird.'
+                            : null)
                     ->requiresConfirmation()
                     ->modalDescription('Das Mitglied bekommt Bescheid; ein Artikel mit Code bekommt die Wäsche in seine Pflegehistorie.')
                     ->action(fn (EquipmentMessage $record) => app(EquipmentMessageService::class)->markWashed($record, auth()->user())),

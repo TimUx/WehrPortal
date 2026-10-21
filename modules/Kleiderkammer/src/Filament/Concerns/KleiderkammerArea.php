@@ -14,14 +14,19 @@ trait KleiderkammerArea
     public static function canAccess(): bool
     {
         $access = app(PersonalAccess::class);
-        if ($access->enabled() && in_array(static::class, [
-            ItemCategoryResource::class,
-            ItemTypeResource::class,
-        ], true) && ! $access->canManageCatalog(auth()->user())) {
+        if (! self::allowsCatalogAccess($access, static::class)) {
             return false;
         }
 
         return KleiderkammerDashboard::canAccess() && parent::canAccess();
+    }
+
+    private static function allowsCatalogAccess(PersonalAccess $access, string $resource): bool
+    {
+        return ! $access->enabled() || ! in_array($resource, [
+            ItemCategoryResource::class,
+            ItemTypeResource::class,
+        ], true) || $access->canManageCatalog(auth()->user());
     }
 
     public static function getNavigationGroup(): string|UnitEnum|null

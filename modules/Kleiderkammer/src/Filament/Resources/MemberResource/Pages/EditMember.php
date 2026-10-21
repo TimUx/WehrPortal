@@ -23,6 +23,10 @@ class EditMember extends EditRecord
         abort_unless($record instanceof User, 403);
         app(PersonalAccess::class)->authorizeMember(auth()->user(), $record);
 
+        if (MemberResource::minimalProfile()) {
+            return [];
+        }
+
         return ['notes' => $data['notes'] ?? null];
     }
 

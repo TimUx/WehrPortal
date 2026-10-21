@@ -133,10 +133,10 @@ class DataTransferService
         $access = app(StockAccess::class);
         $access->authorizeTransfer($actor);
         app(PersonalAccess::class)->authorizeTransfer($actor);
-        $groups = $this->filter($data, $parts, $types)['groups'] ?? [];
         $report = ['skipped_members' => [], 'issued_items' => 0, 'skipped_issued_items' => 0];
 
-        app(PersonalAccess::class)->asImportActor($actor, function () use ($actor, $access, $groups, &$report) {
+        app(PersonalAccess::class)->asImportActor($actor, function () use ($actor, $access, $data, $parts, $types, &$report) {
+            $groups = $this->filter($data, $parts, $types)['groups'] ?? [];
             $access->asActor($actor, function () use ($groups, &$report) {
                 DB::transaction(function () use ($groups, &$report) {
                     $catalog = $this->importCatalog($groups['catalog'] ?? []);

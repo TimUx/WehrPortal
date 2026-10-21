@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Modules\Kleiderkammer\src\Enums\ItemStatus;
 use Modules\Kleiderkammer\src\Filament\Pages\KleiderkammerDashboard;
+use Modules\Kleiderkammer\src\Filament\Resources\EquipmentMessageResource\Pages\ListEquipmentMessages;
 use Modules\Kleiderkammer\src\Filament\Resources\MemberResource;
 use Modules\Kleiderkammer\src\Filament\Resources\MemberResource\Pages\EditMember;
 use Modules\Kleiderkammer\src\Filament\Resources\MemberResource\Pages\ListMembers;
@@ -24,12 +25,15 @@ use Modules\Kleiderkammer\src\Livewire\EquipmentMessageForm;
 use Modules\Kleiderkammer\src\Models\EquipmentMessage;
 use Modules\Kleiderkammer\src\Models\IssuedItem;
 use Modules\Kleiderkammer\src\Models\Item;
+use Modules\Kleiderkammer\src\Models\ItemTreatment;
 use Modules\Kleiderkammer\src\Models\ItemType;
 use Modules\Kleiderkammer\src\Models\MemberSize;
 use Modules\Kleiderkammer\src\Models\Size;
 use Modules\Kleiderkammer\src\Models\Stock;
 use Modules\Kleiderkammer\src\Notifications\EquipmentMessageNotification;
+use Modules\Kleiderkammer\src\Notifications\WashingDoneNotification;
 use Modules\Kleiderkammer\src\Notifications\WashingRequestedNotification;
+use Modules\Kleiderkammer\src\Services\CodeResolver;
 use Modules\Kleiderkammer\src\Services\DataTransferService;
 use Modules\Kleiderkammer\src\Services\EquipmentMessageService;
 use Modules\Kleiderkammer\src\Services\InventoryReport;
@@ -224,7 +228,7 @@ it('authorizes Filament list ids notes and relation data at call time', function
         ->and(MemberResource::canEdit($this->foreign))->toBeFalse();
     Livewire::test(ListMembers::class)->assertCanSeeTableRecords([$this->shared])->assertCanNotSeeTableRecords([$this->foreign, $this->unknown]);
     Livewire::test(EditMember::class, ['record' => $this->foreign->id])->assertNotFound();
-    $page = Livewire::test(EditMember::class, ['record' => $this->shared->id])->fillForm(['notes' => 'Geändert']);
+    $page = Livewire::test(EditMember::class, ['record' => $this->shared->id])->set('data.notes', 'Geändert');
     $this->roles->revoke($this->admin, $this->grant->id, $this->a->id, 'Beendet');
     $page->call('save')->assertNotFound();
     expect(DB::table('users')->where('id', $this->shared->id)->value('notes'))->toBe('Gemeinsames Profil');
@@ -365,20 +369,157 @@ it('sends unknown-source self messages only to global admins without a local fal
     Notification::assertNotSentTo([$this->worker, $this->combined, $this->south, $this->stockOnly, $this->legacy], EquipmentMessageNotification::class);
 });
 
-it('projects only the minimal shared person profile and explicitly retains person-wide notes', function () {
+it('projects only the minimal shared person profile without general member notes', function () {
     DB::table('users')->where('id', $this->shared->id)->update(['rank' => 'Vertraulicher Dienstgrad', 'street' => 'Vertrauliche Straße']);
     $this->actingAs($this->worker);
     $list = Livewire::test(ListMembers::class);
-    $list->assertTableColumnDoesNotExist('rank')->assertTableColumnDoesNotExist('groups.name');
+    $list->assertTableColumnDoesNotExist('rank')->assertTableColumnDoesNotExist('groups.name')->assertTableColumnDoesNotExist('notes');
     $page = Livewire::test(EditMember::class, ['record' => $this->shared->id]);
-    expect(array_intersect(array_keys($page->get('data')), ['rank', 'street', 'email', 'phone', 'birth_date', 'ext_location_id']))->toBe([]);
-    $page->assertDontSee('Vertraulicher Dienstgrad')->assertSee('keine Kleiderkammer- oder Standortnotizen')
+    expect(array_intersect(array_keys($page->get('data')), ['rank', 'street', 'email', 'phone', 'birth_date', 'ext_location_id', 'notes']))->toBe([]);
+    $page->assertDontSee('Vertraulicher Dienstgrad')->assertDontSee('Gemeinsames Profil')
         ->set('data.rank', 'Manipuliert')->set('data.email', 'changed@example.com')
-        ->fillForm(['notes' => 'Gemeinsame allgemeine Notiz'])->call('save')->assertHasNoFormErrors();
+        ->set('data.notes', 'Gemeinsame allgemeine Notiz')->call('save')->assertHasNoFormErrors();
     $fresh = DB::table('users')->where('id', $this->shared->id)->first();
-    expect($fresh->notes)->toBe('Gemeinsame allgemeine Notiz')->and($fresh->rank)->toBe('Vertraulicher Dienstgrad')
+    expect($fresh->notes)->toBe('Gemeinsames Profil')->and($fresh->rank)->toBe('Vertraulicher Dienstgrad')
         ->and($fresh->email)->toBe($this->shared->email);
 });
+
+it('requires recipient membership at the exact source even with grants for both locations', function (string $source) {
+    DB::table('x_location_user')->insert(['location_id' => $this->b->id, 'user_id' => $this->worker->id, 'role' => 'member']);
+    $this->roles->grant($this->admin, $this->b->id, $this->worker->id, 'kleiderkammer', 'kleiderwart', 'Zusätzliche Aufgabe');
+    expect($this->access->locationIds($this->worker))->toContain($this->a->id, $this->b->id);
+    $issue = fn () => $source === 'tracked'
+        ? app(IssuingService::class)->issueTracked($this->foreign, $this->spareA, actor: $this->worker)
+        : app(IssuingService::class)->issueStock($this->foreign, $this->bulkType, null, 1, stockId: $this->stockA->id, actor: $this->worker);
+    expect($issue)->toThrow(HttpException::class);
+    expect(DB::table('kk_stock')->where('id', $this->stockA->id)->value('quantity'))->toBe(20);
+    expect(DB::table('kk_items')->where('id', $this->spareA->id)->value('status'))->toBe('available');
+})->with(['tracked', 'bulk']);
+
+it('correlates history and notifications to the exact recipient source membership', function (string $record) {
+    Notification::fake();
+    DB::table('x_location_user')->insert(['location_id' => $this->b->id, 'user_id' => $this->worker->id, 'role' => 'member']);
+    $this->roles->grant($this->admin, $this->b->id, $this->worker->id, 'kleiderkammer', 'kleiderwart', 'Zusätzliche Aufgabe');
+    DB::table('users')->where('id', $this->shared->id)->update(['ext_location_id' => $this->b->id]);
+    $issued = $this->{$record};
+    $this->actingAs($this->worker);
+    expect(IssuedItem::whereKey($issued->id)->exists())->toBeFalse()
+        ->and($this->access->canManageIssuance($this->worker, $issued))->toBeFalse()
+        ->and(EquipmentMessage::where('issued_item_id', $issued->id)->exists())->toBeFalse();
+    expect(fn () => app(IssuingService::class)->return($issued, $this->worker))->toThrow(HttpException::class);
+    app(EquipmentMessageService::class)->send($this->shared, $issued, 'Herkunft prüfen', actor: $this->shared);
+    Notification::assertSentTo($this->admin, EquipmentMessageNotification::class);
+    Notification::assertNotSentTo($this->worker, EquipmentMessageNotification::class);
+})->with(['issuedA', 'bulkA']);
+
+it('allows exact source membership through the pivot and an unrestricted active global admin', function () {
+    $issued = app(IssuingService::class)->issueTracked($this->shared, $this->spareB, actor: $this->south);
+    expect($issued->user_id)->toBe($this->shared->id);
+    $adminIssued = app(IssuingService::class)->issueTracked($this->foreign, $this->spareA, actor: $this->admin);
+    expect($adminIssued->user_id)->toBe($this->foreign->id);
+});
+
+it('keeps treatment histories and all direct treatment mutations global only', function (string $operation) {
+    $treatment = $this->access->asActor($this->admin, fn () => ItemTreatment::create([
+        'item_id' => $this->itemA->id, 'type' => 'washing', 'treated_at' => now(), 'notes' => 'Unklare Personenzuordnung',
+    ]));
+    $this->actingAs($this->worker);
+    expect(ItemTreatment::count())->toBe(0)->and($this->itemA->treatments()->count())->toBe(0);
+    $mutate = fn () => match ($operation) {
+        'create' => ItemTreatment::create(['item_id' => $this->itemA->id, 'type' => 'washing', 'treated_at' => now()]),
+        'update' => $treatment->update(['notes' => 'Geändert']),
+        'delete' => $treatment->delete(),
+        'reparent' => $treatment->update(['item_id' => $this->itemB->id]),
+    };
+    expect($mutate)->toThrow(HttpException::class);
+    expect($this->access->asActor($this->admin, fn () => ItemTreatment::count()))->toBe(1);
+    config(['locations.clothing_personal_enabled' => false]);
+    expect(ItemTreatment::count())->toBe(1);
+})->with(['create', 'update', 'delete', 'reparent']);
+
+it('does not partially complete washing when the required treatment is global only', function () {
+    Notification::fake();
+    $messages = app(EquipmentMessageService::class)->requestWashing($this->shared, [$this->issuedA->id], 'Nach Einsatz', actor: $this->shared);
+    $this->actingAs($this->worker);
+    Livewire::test(ListEquipmentMessages::class)->assertTableActionDisabled('washed', $messages->first());
+    expect(fn () => app(EquipmentMessageService::class)->markWashed($messages->first(), $this->worker))->toThrow(HttpException::class);
+    expect(DB::table('kk_equipment_messages')->where('id', $messages->first()->id)->value('handled_at'))->toBeNull();
+    expect(DB::table('kk_item_treatments')->count())->toBe(0);
+    Notification::assertNotSentTo($this->shared, WashingDoneNotification::class);
+    $this->actingAs($this->admin);
+    Livewire::test(ListEquipmentMessages::class)->assertTableActionEnabled('washed', $messages->first());
+    app(EquipmentMessageService::class)->markWashed($messages->first(), $this->admin);
+    expect(DB::table('kk_equipment_messages')->where('id', $messages->first()->id)->value('handled_at'))->not->toBeNull();
+    expect(DB::table('kk_item_treatments')->count())->toBe(1);
+    Notification::assertSentTo($this->shared, WashingDoneNotification::class);
+});
+
+it('keeps scoped bulk washing completion available without writing treatment histories', function () {
+    Notification::fake();
+    $messages = app(EquipmentMessageService::class)->requestWashing($this->shared, [$this->bulkA->id], 'Nach Einsatz', actor: $this->shared);
+    $this->actingAs($this->worker);
+    Livewire::test(ListEquipmentMessages::class)->assertTableActionEnabled('washed', $messages->first())
+        ->callTableAction('washed', $messages->first());
+    expect(DB::table('kk_equipment_messages')->where('id', $messages->first()->id)->value('handled_at'))->not->toBeNull();
+    expect(DB::table('kk_item_treatments')->count())->toBe(0);
+    Notification::assertSentTo($this->shared, WashingDoneNotification::class);
+});
+
+it('keeps both clothing capabilities unique and refuses rollback without changing grant history', function () {
+    $migration = require base_path('extensions/Locations/database/migrations/2026_12_27_000000_separate_clothing_capability_grants.php');
+    $before = DB::table('x_location_module_roles')->orderBy('id')->get()->toJson();
+    expect(fn () => $migration->down())->toThrow(RuntimeException::class);
+    expect(DB::table('x_location_module_roles')->orderBy('id')->get()->toJson())->toBe($before);
+    $grant = DB::table('x_location_module_roles')->where('user_id', $this->combined->id)->where('role', 'bestand')->first();
+    expect(fn () => DB::transaction(fn () => DB::table('x_location_module_roles')->insert(
+        array_diff_key((array) $grant, ['id' => true])
+    )))->toThrow(QueryException::class);
+});
+
+it('round trips the capability migration without rewriting any prior grant', function () {
+    $migration = require base_path('extensions/Locations/database/migrations/2026_12_27_000000_separate_clothing_capability_grants.php');
+    $personal = DB::table('x_location_module_roles')->where('user_id', $this->combined->id)->where('role', 'kleiderwart')->first();
+    $this->roles->revoke($this->admin, $personal->id, $this->a->id, 'Teilaufgabe beendet');
+    $before = DB::table('x_location_module_roles')->orderBy('id')->get()->toJson();
+    $migration->down();
+    $migration->up();
+    expect(DB::table('x_location_module_roles')->orderBy('id')->get()->toJson())->toBe($before);
+    $this->roles->grant($this->admin, $this->a->id, $this->combined->id, 'kleiderkammer', 'kleiderwart', 'Neu übernehmen');
+    expect(DB::table('x_location_module_roles')->where('user_id', $this->combined->id)->whereNull('revoked_at')->count())->toBe(2);
+});
+
+it('uses the explicit global import actor while filtering foreign item treatments', function () {
+    $this->actingAs($this->worker);
+    app(DataTransferService::class)->import(['groups' => ['inventory' => ['treatments' => [
+        ['item_code' => $this->itemB->code, 'type' => 'washing', 'treated_at' => now()->toDateString(), 'notes' => 'Importiert'],
+    ]]]], ['treatments'], ['Jacke'], actor: $this->admin);
+    expect(DB::table('kk_item_treatments')->where('item_id', $this->itemB->id)->count())->toBe(1);
+    expect(ItemTreatment::count())->toBe(0);
+});
+
+it('retains the existing location filter in scan queries with personal protection off', function () {
+    config(['locations.clothing_personal_enabled' => false]);
+    $this->actingAs($this->legacy);
+    expect(app(CodeResolver::class)->resolve($this->itemB->code))->toBeNull()
+        ->and(app(CodeResolver::class)->resolveActive($this->itemB->code))->toBeNull()
+        ->and(app(CodeResolver::class)->resolve($this->itemA->code)?->id)->toBe($this->itemA->id);
+});
+
+it('preserves access to a members own equipment across locations without management authority', function () {
+    $this->actingAs($this->shared);
+    expect($this->shared->kleiderkammerItems()->pluck('id')->all())->toContain($this->issuedB->id, $this->unknownIssued->id)
+        ->and(Item::whereKey($this->itemB->id)->exists())->toBeTrue()
+        ->and($this->access->canManageIssuance($this->shared, $this->issuedB))->toBeFalse();
+});
+
+it('rejects notification payloads with mismatched message and issuance owners', function (string $kind) {
+    $message = clone $this->messageA;
+    $message->user_id = $this->foreign->id;
+    $notice = $kind === 'defect'
+        ? new EquipmentMessageNotification($message)
+        : new WashingRequestedNotification($this->foreign, collect([$message]));
+    expect(fn () => $notice->toMail($this->worker))->toThrow(HttpException::class);
+})->with(['defect', 'washing']);
 
 it('independently scopes member counters and the has-items filter to permitted source history', function () {
     $this->actingAs($this->worker);

@@ -50,7 +50,7 @@ class MemberResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return app(PersonalAccess::class)->members(auth()->user())
-            ->when(static::minimalProfile(), fn (Builder $query) => $query->select(['users.id', 'users.name', 'users.status', 'users.notes']));
+            ->when(static::minimalProfile(), fn (Builder $query) => $query->select(['users.id', 'users.name', 'users.status']));
     }
 
     public static function minimalProfile(): bool
@@ -68,7 +68,7 @@ class MemberResource extends Resource
         return $schema->components([
             Section::make('Mitglied')
                 ->description(fn () => static::minimalProfile()
-                    ? 'Gemeinsames Personenprofil: Notizen sind die allgemeinen Notizen des Mitglieds, keine Kleiderkammer- oder Standortnotizen. Auch Konfektionsgrößen gelten für die Person an allen Standorten. Ausgaben werden getrennt nach berechtigter Herkunft angezeigt.'
+                    ? 'Konfektionsgrößen gelten für die Person an allen Standorten. Ausgaben werden getrennt nach berechtigter Herkunft angezeigt. Allgemeine Mitgliedsnotizen bleiben globalen Admins vorbehalten.'
                     : 'Abteilungen, Funktionen, Dienstgrad und Status pflegen Admins in der Kameradenverwaltung.')
                 ->schema(array_filter([
                     TextEntry::make('name')->label('Name'),
@@ -84,8 +84,8 @@ class MemberResource extends Resource
                             MemberStatus::Inactive => 'warning',
                             MemberStatus::Left => 'danger',
                         }),
-                    Forms\Components\Textarea::make('notes')
-                        ->label(fn () => static::minimalProfile() ? 'Allgemeine Notizen zum Mitglied (standortübergreifend)' : 'Notizen')
+                    static::minimalProfile() ? null : Forms\Components\Textarea::make('notes')
+                        ->label('Notizen')
                         ->rows(3)
                         ->columnSpanFull(),
                 ]))
@@ -135,8 +135,8 @@ class MemberResource extends Resource
                     ->label('Ausgeliehen')
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('notes')
-                    ->label(fn () => static::minimalProfile() ? 'Allgemeine Notizen (standortübergreifend)' : 'Notizen')
+                static::minimalProfile() ? null : Tables\Columns\TextColumn::make('notes')
+                    ->label('Notizen')
                     ->limit(40)
                     ->placeholder('–')
                     ->toggleable(),

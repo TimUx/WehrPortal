@@ -19,6 +19,7 @@ class QrCodeRenderer
     public function scanUrl(Item $item, ?User $actor = null): string
     {
         app(PersonalAccess::class)->authorizeItem($actor ?? auth()->user(), $item);
+
         return rtrim(config('app.url'), '/').'/i/'.rawurlencode($item->code);
     }
 }

@@ -22,7 +22,9 @@ class EquipmentMessageNotification extends Notification
     {
         $access = app(PersonalAccess::class);
         if ($access->enabled()) {
-            $access->authorizeIssuance($notifiable, IssuedItem::withoutGlobalScopes()->findOrFail($this->message->issued_item_id));
+            $issued = IssuedItem::withoutGlobalScopes()->findOrFail($this->message->issued_item_id);
+            $access->authorizeIssuance($notifiable, $issued);
+            abort_unless((int) $this->message->user_id === (int) $issued->user_id, 403);
         }
 
         return (new MailMessage)

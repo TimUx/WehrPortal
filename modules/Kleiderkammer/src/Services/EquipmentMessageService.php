@@ -94,6 +94,7 @@ class EquipmentMessageService
         if ($access->enabled()) {
             $message = $access->asActor($by, fn () => EquipmentMessage::with(['issuedItem', 'user'])->findOrFail($message->id));
             $access->authorizeIssuance($by, $message->issuedItem);
+            abort_unless($message->issuedItem->item_id === null || $access->canManageCatalog($by), 403);
         }
         if (! $message->isWashing() || $message->isHandled()) {
             return;

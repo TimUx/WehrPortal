@@ -26,7 +26,10 @@ class WashingRequestedNotification extends Notification
         $access = app(PersonalAccess::class);
         if ($access->enabled()) {
             foreach ($this->requests as $request) {
-                $access->authorizeIssuance($notifiable, IssuedItem::withoutGlobalScopes()->findOrFail($request->issued_item_id));
+                $issued = IssuedItem::withoutGlobalScopes()->findOrFail($request->issued_item_id);
+                $access->authorizeIssuance($notifiable, $issued);
+                abort_unless((int) $request->user_id === (int) $issued->user_id
+                    && (int) $request->user_id === (int) $this->member->id, 403);
             }
         }
         $count = $this->requests->count();
