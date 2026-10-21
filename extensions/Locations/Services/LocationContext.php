@@ -23,6 +23,10 @@ class LocationContext
         // Do not trust a loaded User or LocationAccess's request-local membership memo after revocation.
         $actor = DB::table('users')->where('id', $user->getKey())->first(['is_active', 'is_admin', 'ext_location_id']);
         if (! $actor || ! $actor->is_active) {
+            if (request()->hasSession()) {
+                request()->session()->forget('ext_location_id');
+            }
+
             return $empty;
         }
 

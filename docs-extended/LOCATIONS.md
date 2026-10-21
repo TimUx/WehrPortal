@@ -36,11 +36,21 @@ Standort-Admins erreichen `/admin` über `MyLocationPage` (`ModuleArea`), `User:
 ## Wirkung
 
 - `LocationScope` (globaler Scope) filtert die konfigurierten Modelle auf die Standorte des angemeldeten Nutzers. Ohne angemeldeten Nutzer (Konsole, Queue, Scheduler, Login, Magic Link) und für globale Admins ist er aus.
-- Neue Datensätze erhalten den aktuellen Standort (Umschalter im Benutzermenü, sonst eigener, sonst Hauptstandort); Schreiben in einen fremden Standort wirft `AuthorizationException`.
+- Neue Datensätze erhalten für angemeldete Nutzer einen frisch geprüften aktiven Standort: gültige Auswahl, sonst berechtigter Primärstandort, sonst erster aktiver Mitgliedsstandort. Ohne solchen Standort wird die Vorbelegung abgewiesen; Schreiben in einen fremden Standort wirft `AuthorizationException`. Die Auswahl erweitert keine Berechtigung.
 - Abteilungen gehören zu einem Standort. Standort-Admins legen sie in **Admin → Standorte → Standort bearbeiten** an und ordnen Mitglieder dort mehreren Abteilungen zu; dabei bleiben Zuordnungen zu anderen Standorten unverändert.
 - `PersonnelService::visibleMembers()` und alle Listen, die über Eloquent laufen, sind damit automatisch standortbezogen.
 - Bei Benutzern bleiben zusätzlich das eigene Konto und Mitglieder sichtbar, die über `x_location_user` einem der eigenen Standorte zugeordnet sind.
 - Mitteilungen tragen eine eigene optionale `announcements.ext_location_id`-Spalte. `NULL` bedeutet allgemein; ein Standortwert beschränkt Listen, Anhänge, Bestätigungen und Empfänger auf tatsächliche Mitgliedschaften dieses Standorts. Die Mitteilungs-Migration fügt vorhandene Mitteilungen nicht rückwirkend einem Standort zu.
+
+## Sichtbarer Standortkontext und Wechsel
+
+Bei aktiver Locations-Erweiterung sehen angemeldete Mitglieder unter der App-Kopfzeile den **Standort für neue Datensätze**. Der Bereich ist auch ohne Panelzugang erreichbar. Dieselben Angaben stehen im bestehenden Standortbereich des Admin-Menüs. Sind mehrere aktive berechtigte Standorte vorhanden, erlaubt ein beschriftetes Formular den Wechsel mit **Standort übernehmen**, ohne automatisches Absenden beim Auswählen und ohne JavaScript-Abhängigkeit. Bei einem Standort wird die Vorbelegung angezeigt; bei keinem erscheint ein ausdrücklicher Hinweis.
+
+Die Anzeige und der Wechsel lesen den aktuellen Aktivstatus, die globale Adminrolle sowie Primär-/Pivot-Mitgliedschaften erneut aus der Datenbank. Veraltete oder entzogene Auswahlen werden verworfen; inaktive Standorte werden nicht angeboten. Die reine Anzeige erzeugt keinen Hauptstandort und keine Mitgliedschaft. Der Server prüft das Ziel bei jedem Wechsel erneut. Nach dem Wechsel wird nur zu einer zulässigen anwendungsinternen Rücksprungadresse zurückgeleitet.
+
+**Keine neue Datenfreigabe:** Der gewählte Standort ist eine Vorbelegung neuer Datensätze, kein Filter aller Listen oder Ersatz für eine Modulrolle. Globale Admins behalten Zugriff auf alle Standortdaten. Normale Nutzer benötigen weiterhin ihre jeweiligen Objekt- und Fachrechte; eine Mehrfachmitgliedschaft wird nicht auf den ausgewählten Standort reduziert. Ohne aktiven berechtigten Standort wird für einen angemeldeten Akteur kein Hauptstandort als Ersatz vergeben. Bestehende ausdrücklich akteurlosen Konsolenpfade behalten ihren bisherigen Default und benötigen weiterhin eine eigene fachliche Absicherung.
+
+Der Kontext erscheint weder für Gäste noch bei ausgeschalteter Erweiterung. Dieser P7-Teilschritt ist keine vollständige Browser-/Screenreader-/Offline-Abnahme und kein Nachweis, dass alle Fachmodule bereits standortisoliert sind.
 
 ## Standortbezogene Modulrollen: gestufte Umstellung
 
@@ -259,5 +269,5 @@ Die globale Eindeutigkeit von Artikeltyp, Größe und Gruppe bleibt unverändert
 - `DB::table(...)`-Abfragen umgehen den Scope; bei Upstream-Syncs prüfen.
 - Eindeutige Schlüssel sind global (`eb_reports.number`, `ar_equipment.code`).
 - Standortfilter in den übrigen Upstream-Formularen und -Tabellen gibt es nicht; Mitglieder und Abteilungen lassen sich unter Admin → Standorte zuordnen.
-- Der Umschalter erscheint nur im Admin-Menü; für globale Admins steuert er nur, wo neue Datensätze landen.
+- Der Standortkontext erscheint in der App und im Admin-Menü; er steuert die Vorbelegung neuer Datensätze, nicht die gesamte Sicht. Browser-/Offline- und modulübergreifende Abnahmen bleiben offen.
 - Verbandbuch, Mitteilungen und weitere Datenbereiche brauchen jeweils eine eigene Standortprüfung; ein Eintrag in `config/locations.php` allein begrenzt sie nicht. Mitteilungen sind über ihre explizite Standortspalte und `Announcement::for()` begrenzt.

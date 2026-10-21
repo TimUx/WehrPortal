@@ -108,7 +108,7 @@ Empfehlung: Branch Protection auf `main` (PR + grüne Checks), damit Upstream-Me
 | `phpstan-baseline.neon` | 6 Einträge zu `MagicLinkService` entfernt (durch den `@var`-Hinweis behoben) |
 | `tests/Feature/Extensions/OfflineTest.php`, `tests/Feature/Notifications/PushTest.php` | erwarteten `Cache-Control`-Header des `/sw.js` an Laravels normalisierte Form angepasst (Tests schlugen fehl, sobald die Erweiterungen tatsächlich geladen werden) |
 | `.github/workflows/{deploy,release,security}.yml` | deaktiviert (`on:` nur `workflow_dispatch`) |
-| `resources/views/components/layouts/app.blade.php` | Offline-Statusbereich für angemeldete App-Seiten |
+| `resources/views/components/layouts/app.blade.php` | Offline-Statusbereich für angemeldete App-Seiten; neutraler `appContextViews`-Einhängepunkt unter der Kopfzeile. Locations liefert darüber den Standortkontext aus einer Extension-View, ohne Modulnavigation in die globale Kopfzeile einzubauen. |
 | `modules/Wasserkarte/resources/views/livewire/source-form.blade.php` | explizite Offline-Entwurf-Markierungen der Formularfelder |
 | `public/sw.js` | Worker-Quelltext nach `extensions/Offline/resources/js/sw.js` verschoben; `/sw.js` liefert ihn jetzt mit korrekten Scope- und Cache-Headern aus |
 | `tests/Feature/Notifications/PushTest.php` | prüft den gerouteten Service Worker statt einer statischen Datei |
