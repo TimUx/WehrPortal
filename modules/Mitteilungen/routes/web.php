@@ -42,7 +42,7 @@ Route::prefix('mitteilungen')->name('mitteilungen.')
             $inPeriod = Announcement::for(auth()->user())->whereKey($announcement->id)
                 ->where(fn ($q) => $q->current()->orWhere('visible_until', '<', now()))->exists();
             abort_unless($announcements->canManage(auth()->user(), $announcement) || $inPeriod, 403);
-            $announcements->markRead($announcement, auth()->user());
+            $announcements->markAttachmentRead($announcement, auth()->user(), $inPeriod);
 
             return FileResponse::make(base64_decode(AnnouncementFile::whereKey($file->id)->value('data')), $file->filename);
         })->whereNumber('file')->name('file');

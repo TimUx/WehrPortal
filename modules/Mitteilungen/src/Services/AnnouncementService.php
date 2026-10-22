@@ -229,6 +229,8 @@ class AnnouncementService
     /** Extensions can require an explicit, current actor for non-interactive actions. */
     public function assertActionAuthority(Announcement $announcement, ?User $by = null): void {}
 
+    public function assertReaderAuthority(Announcement $announcement, User $user, bool $currentOnly = false): void {}
+
     protected function managementScopeQuery(User $user, Builder $query): Builder
     {
         $access = config('locations.enabled') && app()->bound(LocationAccess::class) ? app(LocationAccess::class) : null;
@@ -352,15 +354,23 @@ class AnnouncementService
         return $sent;
     }
 
+    /** Legacy attachment reads also count managers outside the audience. */
+    public function markAttachmentRead(Announcement $announcement, User $user, bool $isRecipient): void
+    {
+        $this->markRead($announcement, $user);
+    }
+
     /** Opened (the Mitteilungen page or an attachment): counted once */
     public function markRead(Announcement $announcement, User $user): void
     {
+        $this->assertReaderAuthority($announcement, $user);
         DB::table('announcement_reads')->insertOrIgnore(['announcement_id' => $announcement->id, 'user_id' => $user->id, 'read_at' => now()]);
     }
 
     /** "Gelesen und verstanden" for a Mitteilung with Lesebestätigung */
     public function acknowledge(Announcement $announcement, User $user): void
     {
+        $this->assertReaderAuthority($announcement, $user, true);
         $this->markRead($announcement, $user);
         DB::table('announcement_reads')->where('announcement_id', $announcement->id)->where('user_id', $user->id)->whereNull('acknowledged_at')
             ->update(['acknowledged_at' => now()]);
@@ -392,6 +402,7 @@ class AnnouncementService
 
     public function dismiss(Announcement $announcement, User $user): void
     {
+        $this->assertReaderAuthority($announcement, $user, true);
         // One with Lesebestätigung stays until confirmed
         if (! $announcement->important && (! $announcement->needs_ack || $this->acknowledged($announcement, $user))) {
             $announcement->dismissedBy()->syncWithoutDetaching([$user->id]);

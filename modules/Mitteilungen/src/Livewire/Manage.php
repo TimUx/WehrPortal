@@ -104,6 +104,10 @@ class Manage extends Component
     public function cancel(): void
     {
         $this->reset('editingId', 'title', 'body', 'important', 'visibleFrom', 'visibleUntil', 'groupIds', 'functionIds', 'needsAck', 'uploads', 'mail', 'push', 'ntfy', 'matrix', 'locationId');
+        $announcements = app(AnnouncementService::class);
+        if (! $announcements->canManageScope(auth()->user(), null)) {
+            $this->locationId = (string) ($announcements->manageableLocationIds(auth()->user())[0] ?? '');
+        }
     }
 
     public function save(AnnouncementService $announcements): void
@@ -205,6 +209,12 @@ class Manage extends Component
         $announcement = Announcement::findOrFail($id);
         app(AnnouncementService::class)->assertCanManage(auth()->user(), $announcement);
         $announcement->delete();
+        if ($this->editingId === $id) {
+            $this->cancel();
+        }
+        if ($this->statsFor === $id) {
+            $this->statsFor = null;
+        }
         $this->flash = 'Mitteilung gelöscht.';
     }
 

@@ -5,16 +5,48 @@ namespace Extensions\Locations\Services;
 use App\Models\User;
 use Extensions\Locations\Models\Location;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Modules\Mitteilungen\src\Models\Announcement;
 use Modules\Mitteilungen\src\Services\AnnouncementService;
 
 class ScopedAnnouncementService extends AnnouncementService
 {
+    public function mail(Announcement $announcement, ?array $only = null, ?EloquentCollection $to = null, bool $reminder = false, ?User $by = null): int
+    {
+        $this->assertActionAuthority($announcement, $by);
+        if ($to !== null) {
+            $requested = $to->modelKeys();
+            $to = $this->recipients($announcement)->filter(fn (User $recipient) => in_array($recipient->id, $requested, true))->values();
+        }
+
+        return parent::mail($announcement, $only, $to, $reminder, $by);
+    }
+
     public function readerLocationIds(User $user): array
     {
         $current = User::withoutGlobalScopes()->find($user->id);
 
         return $current ? parent::readerLocationIds($current) : [];
+    }
+
+    public function assertReaderAuthority(Announcement $announcement, User $user, bool $currentOnly = false): void
+    {
+        $current = User::withoutGlobalScopes()->find($user->id);
+        abort_unless($current && app(LocationModuleRoles::class)->eligible($current, 'mitteilungen')
+            && $current->canUseModule('mitteilungen'), 403);
+        $query = Announcement::for($current)->whereKey($announcement->id);
+        $currentOnly
+            ? $query->current()
+            : $query->where(fn (Builder $q) => $q->current()->orWhere('visible_until', '<', now()));
+        abort_unless($query->exists(), 403);
+        $announcement->refresh();
+    }
+
+    public function markAttachmentRead(Announcement $announcement, User $user, bool $isRecipient): void
+    {
+        if ($isRecipient) {
+            $this->markRead($announcement, $user);
+        }
     }
 
     protected function isManagementAdmin(User $user): bool

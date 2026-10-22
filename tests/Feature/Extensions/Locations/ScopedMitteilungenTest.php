@@ -272,6 +272,39 @@ it('retains default-off loaded primary reader membership behavior', function () 
     expect(Announcement::for($this->editor)->whereKey($this->noticeA->id)->exists())->toBeTrue();
 });
 
+it('authorizes direct recipient mutations without requiring editorial roles', function (string $action) {
+    $reader = User::factory()->create(['ext_location_id' => $this->a->id]);
+    $reader->moduleAccess()->create(['module' => 'mitteilungen']);
+    $this->noticeA->update(['needs_ack' => $action === 'acknowledge']);
+    expect($this->service->canManage($reader, $this->noticeA))->toBeFalse();
+    $this->service->{$action}($this->noticeA, $reader);
+    $table = $action === 'dismiss' ? 'announcement_dismissals' : 'announcement_reads';
+    expect(DB::table($table)->where('announcement_id', $this->noticeA->id)->where('user_id', $reader->id)->exists())->toBeTrue();
+})->with(['markRead', 'acknowledge', 'dismiss']);
+
+it('rejects direct recipient mutations after fresh eligibility loss despite stale actor state', function (string $action, string $loss) {
+    $reader = User::factory()->create(['ext_location_id' => $this->a->id]);
+    $reader->moduleAccess()->create(['module' => 'mitteilungen']);
+    match ($loss) {
+        'inactive' => DB::table('users')->where('id', $reader->id)->update(['is_active' => false]),
+        'membership' => DB::table('users')->where('id', $reader->id)->update(['ext_location_id' => null]),
+        'module-access' => $reader->moduleAccess()->delete(),
+        'module-off' => DB::table('modules')->where('key', 'mitteilungen')->update(['is_active' => false]),
+        'audience' => $this->noticeA->groups()->attach(Group::create(['name' => 'Andere Empfänger'])),
+        'future' => $this->noticeA->update(['visible_from' => now()->addDay()]),
+    };
+    expect(fn () => $this->service->{$action}($this->noticeA, $reader))->toThrow(HttpException::class)
+        ->and(DB::table('announcement_reads')->where('user_id', $reader->id)->exists())->toBeFalse()
+        ->and(DB::table('announcement_dismissals')->where('user_id', $reader->id)->exists())->toBeFalse();
+})->with(['markRead', 'acknowledge', 'dismiss'])->with(['inactive', 'membership', 'module-access', 'module-off', 'audience', 'future']);
+
+it('permits archived recipient read receipts but not archived acknowledgements or dismissals', function () {
+    $this->noticeA->update(['visible_until' => now()->subDay()]);
+    $this->service->markRead($this->noticeA, $this->editor);
+    expect(fn () => $this->service->acknowledge($this->noticeA, $this->editor))->toThrow(HttpException::class)
+        ->and(fn () => $this->service->dismiss($this->noticeA, $this->editor))->toThrow(HttpException::class);
+});
+
 it('rechecks current send authority between selected external transports', function () {
     $grant = ($this->grant)();
     foreach (['ntfy' => 'north', 'matrix' => '!north:example.com'] as $transport => $target) {
