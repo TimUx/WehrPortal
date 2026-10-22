@@ -7,6 +7,7 @@ use Extensions\Locations\Services\ClothingStockLocationAssignment;
 use Extensions\Locations\Services\ClothingStockService;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\ConfigurationUrlParser;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
@@ -14,12 +15,15 @@ use Illuminate\Support\Facades\ParallelTesting;
 use Illuminate\Support\Str;
 
 it('uses the worker database for committed fixtures and independent connections', function () {
-    $database = env('DB_DATABASE');
+    $database = (new ConfigurationUrlParser)->parseConfiguration([
+        'url' => env('DB_URL'),
+        'database' => env('DB_DATABASE'),
+    ])['database'];
     if ($token = ParallelTesting::token()) {
         $database .= '_test_'.$token;
     }
 
-    expect(config('database.connections.'.config('database.default').'.database'))->toBe($database)
+    expect(DB::connection()->getDatabaseName())->toBe($database)
         ->and(DB::selectOne('SELECT current_database() AS name')->name)->toBe($database)
         ->and(DB::transactionLevel())->toBe(0);
 
