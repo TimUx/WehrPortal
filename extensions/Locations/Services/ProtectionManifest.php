@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Extensions\Locations\Services;
 
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Connection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Read-only schema/contract validation. A passing result says nothing about
@@ -23,15 +24,16 @@ class ProtectionManifest
     /**
      * @return array<string, array{columns: list<string>, nullable_columns: list<string>, foreign_keys: array}>
      */
-    public function schema(): array
+    public function schema(?Connection $connection = null): array
     {
         $schema = [];
-        foreach (Schema::getTableListing() as $table) {
-            $columns = Schema::getColumns($table);
+        $builder = ($connection ?? DB::connection())->getSchemaBuilder();
+        foreach ($builder->getTableListing() as $table) {
+            $columns = $builder->getColumns($table);
             $schema[$table] = [
                 'columns' => array_column($columns, 'name'),
                 'nullable_columns' => array_column(array_filter($columns, fn (array $column): bool => $column['nullable']), 'name'),
-                'foreign_keys' => Schema::getForeignKeys($table),
+                'foreign_keys' => $builder->getForeignKeys($table),
             ];
         }
 
