@@ -10,6 +10,13 @@ use Modules\Mitteilungen\src\Services\AnnouncementService;
 
 class ScopedAnnouncementService extends AnnouncementService
 {
+    public function readerLocationIds(User $user): array
+    {
+        $current = User::withoutGlobalScopes()->find($user->id);
+
+        return $current ? parent::readerLocationIds($current) : [];
+    }
+
     protected function isManagementAdmin(User $user): bool
     {
         return app(LocationModuleRoles::class)->eligible($user, 'mitteilungen')

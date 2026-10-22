@@ -14,6 +14,7 @@ use Extensions\Mitteilungen\Services\AnnouncementDelivery;
 use Extensions\Mitteilungen\Services\ChannelSettings;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
@@ -223,6 +224,70 @@ it('preserves legacy default-off behavior without distributing or activating gra
     ($this->grant)();
     expect(LocationModuleRole::count())->toBe(1)
         ->and($legacy->canManage($this->editor, $this->noticeB))->toBeTrue();
+});
+
+it('does not swallow current send authorization failure after a previously authorized save', function () {
+    $grant = ($this->grant)();
+    Event::listen('eloquent.saved: '.Announcement::class, function (Announcement $announcement) use ($grant) {
+        if ($announcement->title === 'Entzug beim Speichern') {
+            $this->roles->revoke($this->admin, $grant->id, $this->a->id, 'Redaktion während der Aktion beendet');
+        }
+    });
+    expect(fn () => $this->service->save($this->noticeA, ['title' => 'Entzug beim Speichern'], [], $this->editor,
+        ntfy: true, matrix: true, locationId: $this->a->id))->toThrow(HttpException::class);
+    expect($this->noticeA->fresh()->title)->toBe('Entzug beim Speichern')
+        ->and($this->service->externalStatus)->toBe([])
+        ->and(ChannelDelivery::count())->toBe(0);
+    Http::assertNothingSent();
+});
+
+it('never promotes an editorial grant into external channel configuration rights', function () {
+    ($this->grant)();
+    expect(fn () => app(ChannelSettings::class)->save($this->editor, 'location:'.$this->a->id, 'ntfy', [
+        'enabled' => true, 'server_url' => 'https://notify.example.com', 'target' => 'north', 'token' => 'invented-test-token',
+    ]))->toThrow(HttpException::class);
+});
+
+it('uses fresh primary and pivot membership for readers without turning global admins into recipients', function (bool $clearPrimary) {
+    ($this->grant)();
+    DB::table('users')->where('id', $this->editor->id)->update(['ext_location_id' => $clearPrimary ? null : $this->b->id]);
+    expect($this->editor->getAttribute('ext_location_id'))->toBe($this->a->id)
+        ->and(Announcement::for($this->editor)->whereKey($this->noticeA->id)->exists())->toBeFalse()
+        ->and(Announcement::for($this->editor)->whereKey($this->noticeB->id)->exists())->toBeTrue()
+        ->and(Announcement::for($this->editor)->whereKey($this->general->id)->exists())->toBeTrue()
+        ->and($this->service->recipients($this->noticeA)->modelKeys())->not->toContain($this->editor->id, $this->admin->id)
+        ->and($this->service->canManage($this->admin, $this->noticeA))->toBeTrue();
+    DB::table('x_location_user')->where('user_id', $this->editor->id)->where('location_id', $this->b->id)->delete();
+    if ($clearPrimary) {
+        expect(Announcement::for($this->editor)->whereKey($this->noticeB->id)->exists())->toBeFalse();
+    }
+    $file = $this->noticeA->files()->create(['filename' => 'intern.txt', 'mime' => 'text/plain', 'size' => 4, 'data' => base64_encode('Test')]);
+    $this->actingAs($this->editor)->get(route('mitteilungen.file', $file))->assertForbidden();
+})->with([false, true]);
+
+it('retains default-off loaded primary reader membership behavior', function () {
+    config(['locations.scoped_role_modules' => []]);
+    app()->singleton(AnnouncementService::class, AnnouncementService::class);
+    DB::table('users')->where('id', $this->editor->id)->update(['ext_location_id' => null]);
+    expect(Announcement::for($this->editor)->whereKey($this->noticeA->id)->exists())->toBeTrue();
+});
+
+it('rechecks current send authority between selected external transports', function () {
+    $grant = ($this->grant)();
+    foreach (['ntfy' => 'north', 'matrix' => '!north:example.com'] as $transport => $target) {
+        app(ChannelSettings::class)->save($this->admin, 'location:'.$this->a->id, $transport, [
+            'enabled' => true, 'server_url' => 'https://notify.example.com', 'target' => $target, 'token' => 'invented-test-token',
+        ]);
+    }
+    Http::fake(function () use ($grant) {
+        $this->roles->revoke($this->admin, $grant->id, $this->a->id, 'Nach erstem Kanal beendet');
+
+        return Http::response('', 200);
+    });
+    expect(fn () => app(AnnouncementDelivery::class)->send($this->noticeA, ['ntfy' => true, 'matrix' => true], $this->editor))
+        ->toThrow(HttpException::class);
+    Http::assertSentCount(1);
+    expect(ChannelDelivery::count())->toBe(1);
 });
 
 it('validates dependencies per selected module and fails closed for unsupported modules', function () {

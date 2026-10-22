@@ -7,6 +7,7 @@ use Extensions\Locations\Models\Location;
 use Extensions\Locations\Scopes\LocationScope;
 use Extensions\Locations\Services\LocationAccess;
 use Extensions\Mitteilungen\Services\AnnouncementDelivery;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\UploadedFile;
@@ -16,6 +17,7 @@ use Illuminate\Validation\ValidationException;
 use Modules\Mitteilungen\src\Models\Announcement;
 use Modules\Mitteilungen\src\Models\AnnouncementFile;
 use Modules\Mitteilungen\src\Notifications\AnnouncementNotification;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
 
 class AnnouncementService
@@ -69,6 +71,8 @@ class AnnouncementService
             try {
                 $this->externalStatus = app(AnnouncementDelivery::class)
                     ->send($announcement, ['ntfy' => $ntfy, 'matrix' => $matrix], $by);
+            } catch (AuthorizationException|HttpExceptionInterface $e) {
+                throw $e;
             } catch (Throwable) {
                 $this->externalStatus = array_values(array_filter([
                     $ntfy ? 'ntfy: Versandstatus nicht verfügbar; die Mitteilung bleibt in der App gespeichert.' : null,
@@ -125,6 +129,18 @@ class AnnouncementService
         }
 
         return $users->orderBy('name')->get()->filter(fn (User $user) => $user->canUseModule('mitteilungen'))->values();
+    }
+
+    /** @return list<int> */
+    public function readerLocationIds(User $user): array
+    {
+        $ids = DB::table('x_location_user')->where('user_id', $user->id)->pluck('location_id')
+            ->map(fn ($id) => (int) $id)->all();
+        if ($user->getAttribute('ext_location_id')) {
+            $ids[] = (int) $user->getAttribute('ext_location_id');
+        }
+
+        return array_values(array_unique($ids));
     }
 
     /** Whether this user may manage the announcement's scope. */

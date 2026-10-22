@@ -28,6 +28,7 @@ class AnnouncementDelivery
                 continue;
             }
 
+            app(AnnouncementService::class)->assertActionAuthority($announcement, $by);
             $result[$transport] = $this->sendOne($announcement, $transport);
         }
 
