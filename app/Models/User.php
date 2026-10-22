@@ -152,6 +152,10 @@ class User extends Authenticatable implements FilamentUser
     /** Admins and Redakteure (e.g. the Wehrführung) write the notices of the Mitteilungen module */
     public function canPostAnnouncements(): bool
     {
+        if (app(LocationModuleRoles::class)->enabled('mitteilungen')) {
+            return $this->hasAnyModuleRole('mitteilungen', 'redakteur');
+        }
+
         return $this->is_active
             && $this->canUseModule('mitteilungen')
             && ($this->is_admin || $this->hasModuleRole('mitteilungen', 'redakteur'));

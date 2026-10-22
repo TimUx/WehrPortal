@@ -8,6 +8,7 @@ use App\Models\User;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\LocationAccess;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -59,6 +60,25 @@ class Manage extends Component
     public string $locationId = '';
 
     public ?string $flash = null;
+
+    public function boot(AnnouncementService $announcements): void
+    {
+        $user = auth()->user();
+        abort_unless($user instanceof User && $announcements->canManageAnything($user), 403);
+    }
+
+    public function mount(AnnouncementService $announcements): void
+    {
+        if (! $announcements->canManageScope(auth()->user(), null)) {
+            $this->locationId = (string) ($announcements->manageableLocationIds(auth()->user())[0] ?? '');
+        }
+    }
+
+    public function updatedLocationId(AnnouncementService $announcements): void
+    {
+        $announcements->assertCanManageScope(auth()->user(), filled($this->locationId) ? (int) $this->locationId : null);
+        $this->reset('groupIds', 'functionIds');
+    }
 
     public function edit(int $id, AnnouncementService $service): void
     {
@@ -176,7 +196,7 @@ class Manage extends Component
 
             return;
         }
-        $count = $announcements->remindUnacknowledged($announcement);
+        $count = $announcements->remindUnacknowledged($announcement, auth()->user());
         $this->flash = $count ? $count.' Kameraden erinnert.' : 'Alle haben schon bestätigt.';
     }
 
@@ -194,21 +214,26 @@ class Manage extends Component
         abort_unless($user instanceof User, 403);
         abort_unless($announcements->canManageAnything($user), 403);
         $access = config('locations.enabled') && app()->bound(LocationAccess::class) ? app(LocationAccess::class) : null;
-        $locationIds = $access
-            ? ($user->is_admin ? Location::query()->pluck('id')->all() : ($access->isLocationAdmin($user) ? $access->adminLocationIds($user) : $access->visibleLocationIds($user)))
-            : [];
+        $locationIds = $announcements->manageableLocationIds($user);
         $selectedLocation = filled($this->locationId) ? (int) $this->locationId : null;
+        $canSelectAudience = $announcements->canManageScope($user, $selectedLocation);
+        if ($this->editingId) {
+            $announcements->assertCanManage($user, Announcement::findOrFail($this->editingId));
+        }
 
         return view('mitteilungen::livewire.manage', [
             'announcements' => $announcements->managementQuery($user)->with(['groups', 'functions', 'author', 'files'])->latest()->get(),
             'locations' => $access ? Location::query()->whereKey($locationIds)->orderBy('sort_order')->orderBy('name')->pluck('name', 'id') : collect(),
-            'locationsEnabled' => $access !== null && \Illuminate\Support\Facades\Schema::hasTable('x_locations'),
-            'groups' => Group::when($selectedLocation, fn ($q) => $q->where(fn ($w) => $w->whereNull('ext_location_id')->orWhere('ext_location_id', $selectedLocation)))
+            'locationsEnabled' => $access !== null && Schema::hasTable('x_locations'),
+            'canManageGeneral' => $announcements->canManageScope($user, null),
+            'groups' => Group::when(! $canSelectAudience, fn ($q) => $q->whereRaw('1 = 0'))
+                ->when($selectedLocation, fn ($q) => $q->where(fn ($w) => $w->whereNull('ext_location_id')->orWhere('ext_location_id', $selectedLocation)))
                 ->orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
-            'functions' => MemberFunction::topLevel()->when($selectedLocation, fn ($q) => $q->where(fn ($w) => $w->whereNull('ext_location_id')->orWhere('ext_location_id', $selectedLocation)))
+            'functions' => MemberFunction::topLevel()->when(! $canSelectAudience, fn ($q) => $q->whereRaw('1 = 0'))
+                ->when($selectedLocation, fn ($q) => $q->where(fn ($w) => $w->whereNull('ext_location_id')->orWhere('ext_location_id', $selectedLocation)))
                 ->orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
             'editingFiles' => $this->editingId ? AnnouncementFile::where('announcement_id', $this->editingId)->get(['id', 'filename', 'size']) : collect(),
-            'stats' => $this->statsFor && ($a = $announcements->managementQuery($user)->find($this->statsFor)) ? $announcements->stats($a) : null,
+            'stats' => $this->statsFor && ($a = $announcements->managementQuery($user)->find($this->statsFor)) ? $announcements->stats($a, $user) : null,
         ]);
     }
 }
