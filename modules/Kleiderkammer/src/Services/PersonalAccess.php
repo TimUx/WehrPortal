@@ -66,7 +66,7 @@ class PersonalAccess
 
     public function usesSourceSelector(): bool
     {
-        return $this->enabled() || app(StockAccess::class)->enabled();
+        return $this->enabled() || app(StockAccess::class)->enabled() || app(StockAccess::class)->hasWarehouseSchema();
     }
 
     /** @return Builder<Stock> */

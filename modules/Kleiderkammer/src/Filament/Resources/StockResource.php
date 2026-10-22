@@ -75,6 +75,7 @@ class StockResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
+            ...app(StockAccess::class)->locationFields(),
             Forms\Components\Select::make('item_type_id')
                 ->label('Artikeltyp')
                 ->options(ItemType::where('is_tracked', false)->orderBy('name')->pluck('name', 'id'))
@@ -111,6 +112,10 @@ class StockResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\TextColumn::make('warehouse')
+                    ->label('Standort')
+                    ->state(fn (Stock $record) => app(StockAccess::class)->locationLabel($record))
+                    ->visible(fn () => app(StockAccess::class)->hasWarehouseSchema()),
                 Tables\Columns\TextColumn::make('itemType.name')
                     ->label('Artikeltyp')
                     ->sortable()

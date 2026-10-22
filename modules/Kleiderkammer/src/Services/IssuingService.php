@@ -65,15 +65,20 @@ class IssuingService
         }
 
         return $personal->asActor($actor, fn () => $access->asActor($actor, fn () => DB::transaction(function () use ($member, $itemType, $size, $quantity, $notes, $group, $stockId, $actor, $access, $personal) {
+            $access->lockSelection();
             $member = User::query()->when($personal->enabled(), fn ($query) => $query->withoutGlobalScopes())->lockForUpdate()->findOrFail($member->id);
             $this->ensureCanReceive($member);
             abort_if($personal->enabled() && $stockId === null, 403);
-            $stock = Stock::lockForUpdate()
+            $stocks = Stock::lockForUpdate()
                 ->when($stockId !== null, fn ($query) => $query->whereKey($stockId))
                 ->where('item_type_id', $itemType->id)
                 ->where('size_id', $size?->id)
                 ->where('group_id', $group?->id)
-                ->first();
+                ->get();
+            if ($stocks->count() > 1) {
+                throw new \DomainException('Select an explicit warehouse stock position.');
+            }
+            $stock = $stocks->count() === 1 ? $stocks[0] : null;
 
             if ($stock !== null) {
                 $personal->authorizeIssue($actor, $member, $stock);
@@ -119,6 +124,7 @@ class IssuingService
         $access->authorizePersonal($actor);
         $personal = app(PersonalAccess::class);
         $personal->asActor($actor, fn () => $access->asActor($actor, fn () => DB::transaction(function () use ($issuedItem, $actor, $access, $personal) {
+            $access->lockSelection();
             $fresh = IssuedItem::query()->when($personal->enabled(), fn ($query) => $query->withoutGlobalScopes())->whereNull('deleted_at')->lockForUpdate()->findOrFail($issuedItem->id);
             $personal->authorizeIssuance($actor, $fresh);
 
@@ -143,10 +149,18 @@ class IssuingService
             } else {
                 $access->authorizeLegacyReturn($actor);
                 if ($fresh->item_type_id !== null) {
-                    Stock::firstOrCreate(
-                        ['item_type_id' => $fresh->item_type_id, 'size_id' => $fresh->size_id, 'group_id' => $fresh->group_id],
-                        ['quantity' => 0],
-                    )->increment('quantity', $fresh->quantity);
+                    $stocks = Stock::where('item_type_id', $fresh->item_type_id)
+                        ->where('size_id', $fresh->size_id)->where('group_id', $fresh->group_id)
+                        ->lockForUpdate()->get();
+                    if ($stocks->count() > 1) {
+                        throw new \DomainException('Historical return has multiple warehouse stock candidates.');
+                    }
+                    $stock = $stocks->count() === 1 ? $stocks[0] : Stock::create([
+                        'item_type_id' => $fresh->item_type_id, 'size_id' => $fresh->size_id,
+                        'group_id' => $fresh->getAttribute('group_id'), 'quantity' => 0,
+                    ]);
+                    $access->authorizeStock($actor, $stock);
+                    $stock->increment('quantity', $fresh->quantity);
                 }
             }
         })));
@@ -163,6 +177,7 @@ class IssuingService
         $personal = app(PersonalAccess::class);
         $personal->authorizeMember($actor, $member);
         DB::transaction(function () use ($member, $actor, $personal) {
+            app(StockAccess::class)->lockSelection();
             User::query()->when($personal->enabled(), fn ($query) => $query->withoutGlobalScopes())->lockForUpdate()->findOrFail($member->id);
             // Never use a scoped relation here: mixed-source returns must fail atomically.
             IssuedItem::query()->when($personal->enabled(), fn ($query) => $query->withoutGlobalScopes())->where('user_id', $member->id)->whereNull('returned_at')->whereNull('deleted_at')

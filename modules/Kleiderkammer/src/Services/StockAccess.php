@@ -5,6 +5,8 @@ namespace Modules\Kleiderkammer\src\Services;
 use App\Models\User;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Modules\Kleiderkammer\src\Models\Stock;
 
 /**
@@ -13,6 +15,36 @@ use Modules\Kleiderkammer\src\Models\Stock;
  */
 class StockAccess
 {
+    public function hasWarehouseSchema(): bool
+    {
+        return Schema::hasColumn('kk_stock', 'ext_location_id');
+    }
+
+    /** Prevent concurrent inserts from turning a unique legacy selection into an arbitrary one. */
+    public function lockSelection(): void
+    {
+        DB::statement('LOCK TABLE kk_stock IN SHARE ROW EXCLUSIVE MODE');
+    }
+
+    public function locationFields(): array
+    {
+        return [];
+    }
+
+    public function locationLabel(Stock $stock): ?string
+    {
+        return $this->hasWarehouseSchema()
+            ? 'Bestandsposition #'.$stock->id
+            : null;
+    }
+
+    public function createStock(?User $actor, array $data): Stock
+    {
+        abort_unless($this->canManageCatalog($actor), 403);
+
+        return Stock::create($data);
+    }
+
     public function enabled(): bool
     {
         return false;

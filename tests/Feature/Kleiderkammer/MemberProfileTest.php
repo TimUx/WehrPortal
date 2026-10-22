@@ -116,18 +116,17 @@ test('an item that is already issued cannot be issued again', function () {
     expect(IssuedItem::count())->toBe(0);
 });
 
-test('issuing from stock suggests the profile size and books the right stock', function () {
+test('issuing from the explicit stock selector books the selected profile size stock', function () {
     $shirt = ItemType::create(['name' => 'Diensthemd', 'is_tracked' => false, 'has_size' => true]);
     $m = Size::create(['item_type_id' => $shirt->id, 'name' => 'M', 'sort_order' => 1]);
     $l = Size::create(['item_type_id' => $shirt->id, 'name' => 'L', 'sort_order' => 2]);
     Stock::create(['item_type_id' => $shirt->id, 'size_id' => $m->id, 'quantity' => 4]);
-    Stock::create(['item_type_id' => $shirt->id, 'size_id' => $l->id, 'quantity' => 4]);
+    $stock = Stock::create(['item_type_id' => $shirt->id, 'size_id' => $l->id, 'quantity' => 4]);
     MemberSize::create(['user_id' => $this->hanna->id, 'item_type_id' => $shirt->id, 'size_id' => $l->id]);
 
     issuances($this->hanna)
         ->mountAction(TestAction::make('issueStock')->table())
-        ->fillForm(['item_type_id' => $shirt->id])
-        ->assertSchemaStateSet(['size_id' => $l->id])
+        ->fillForm(['stock_id' => $stock->id])
         ->fillForm(['quantity' => 2])
         ->callMountedAction()
         ->assertNotified('Aus Bestand ausgegeben.');
@@ -138,10 +137,10 @@ test('issuing from stock suggests the profile size and books the right stock', f
 
 test('issuing more than the stock shows a message', function () {
     $gloves = ItemType::create(['name' => 'Handschuhe', 'is_tracked' => false, 'has_size' => false]);
-    Stock::create(['item_type_id' => $gloves->id, 'quantity' => 1]);
+    $stock = Stock::create(['item_type_id' => $gloves->id, 'quantity' => 1]);
 
     issuances($this->hanna)
-        ->callAction(TestAction::make('issueStock')->table(), ['item_type_id' => $gloves->id, 'quantity' => 3])
+        ->callAction(TestAction::make('issueStock')->table(), ['stock_id' => $stock->id, 'quantity' => 3])
         ->assertNotified('Nicht genug Bestand.');
 
     expect(Stock::where('item_type_id', $gloves->id)->value('quantity'))->toBe(1);

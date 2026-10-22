@@ -180,7 +180,7 @@ class IssuancesRelationManager extends RelationManager
                     ->searchable()
                     ->options(fn () => app(PersonalAccess::class)->issueStockQuery(auth()->user())->with(['itemType', 'size', 'group'])
                         ->where('quantity', '>', 0)->get()->mapWithKeys(fn (Stock $stock) => [
-                            $stock->id => collect([$stock->itemType?->getAttribute('name'), $stock->group?->getAttribute('name'), $stock->size?->getAttribute('name'), $stock->quantity.' auf Lager'])->filter()->implode(' · '),
+                            $stock->id => collect([$stock->itemType?->getAttribute('name'), $stock->group?->getAttribute('name'), $stock->size?->getAttribute('name'), app(StockAccess::class)->locationLabel($stock), $stock->quantity.' auf Lager'])->filter()->implode(' · '),
                         ])),
                 Forms\Components\Select::make('item_type_id')
                     ->label('Artikeltyp')
@@ -273,6 +273,6 @@ class IssuancesRelationManager extends RelationManager
 
     private static function stockOf(mixed $typeId, int $sizeId, mixed $groupId): int
     {
-        return (int) app(StockAccess::class)->query(auth()->user())->where('item_type_id', $typeId)->where('size_id', $sizeId)->where('group_id', $groupId ?: null)->value('quantity');
+        return (int) app(StockAccess::class)->query(auth()->user())->where('item_type_id', $typeId)->where('size_id', $sizeId)->where('group_id', $groupId ?: null)->sum('quantity');
     }
 }
