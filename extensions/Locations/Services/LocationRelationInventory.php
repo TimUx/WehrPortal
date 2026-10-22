@@ -64,9 +64,9 @@ class LocationRelationInventory
         $direct = [];
         foreach ($manifest['tables'] as $table => $definition) {
             foreach ($definition['parents'] as $edge) {
-                if ($edge['table'] === 'x_locations' && $edge['kind'] !== 'polymorphic'
+                if ($edge['table'] === 'x_locations' && in_array($edge['kind'], ['foreign_key', 'conditional_foreign_key', 'logical'], true)
                     && in_array($edge['child_column'], $available[$table]['columns'] ?? [], true)) {
-                    $direct[$table] = $edge['child_column'];
+                    $direct[$table] = $edge;
                     break;
                 }
             }
@@ -75,14 +75,14 @@ class LocationRelationInventory
         $tables = $relations = $limitations = [];
         foreach ($manifest['tables'] as $table => $definition) {
             $present = isset($available[$table]);
-            $column = $direct[$table] ?? null;
+            $column = $direct[$table]['child_column'] ?? null;
             $source = $present ? $connection->table($available[$table]['qualified'].' as c') : null;
             $counts = null;
             if ($source !== null && $column !== null) {
                 $counts = ['null_ownership' => (clone $source)->whereNull('c.'.$column)->count()];
                 $location = $available['x_locations'] ?? null;
                 if ($location !== null && in_array('is_active', $location['columns'], true)) {
-                    $edge = collect($definition['parents'])->firstWhere('child_column', $column);
+                    $edge = $direct[$table];
                     $parent = $connection->table($location['qualified'].' as p')
                         ->whereColumn('p.'.$edge['column'], 'c.'.$column);
                     $counts['missing_location'] = (clone $source)->whereNotNull('c.'.$column)->whereNotExists(clone $parent)->count();
@@ -99,7 +99,7 @@ class LocationRelationInventory
                     ? (config($manifest['optional_extensions'][$definition['module']]['config']) ? 'enabled' : 'disabled')
                     : 'not_optional_extension',
                 'rows' => $source?->count(), 'location_column' => $column, 'counts' => $counts,
-                'source_null_rule' => $column === null ? null : collect($definition['parents'])->firstWhere('child_column', $column)['source_null_rule'],
+                'source_null_rule' => $direct[$table]['source_null_rule'] ?? null,
             ];
             if ($column === null) {
                 $limitations[] = ['table' => $table, 'category' => 'non_direct_ownership_not_verified'];
@@ -147,6 +147,12 @@ class LocationRelationInventory
 
             return $result;
         }
+        if ($edge['kind'] === 'conditional_logical') {
+            $result['availability'] = 'conditional_relation_not_inspected';
+            $result['ownership_comparison'] = 'conditional_semantics_not_verified';
+
+            return $result;
+        }
         if (! isset($available[$table], $available[$edge['table']])) {
             $result['availability'] = 'optional_schema_absent_not_inspected';
 
@@ -168,9 +174,11 @@ class LocationRelationInventory
             'child_null_ownership' => null,
             'location_disagreement_review' => null,
         ];
-        $childLocation = $direct[$table] ?? null;
-        $parentLocation = $direct[$edge['table']] ?? null;
-        if ($dataClass === 'audit') {
+        $childLocation = $direct[$table]['child_column'] ?? null;
+        $parentLocation = $direct[$edge['table']]['child_column'] ?? null;
+        if ($edge['kind'] === 'historical') {
+            $result['ownership_comparison'] = 'historical_structure_only_not_verified';
+        } elseif ($dataClass === 'audit') {
             $result['ownership_comparison'] = 'audit_actor_ownership_not_inferred';
         } else {
             if ($parentLocation !== null) {

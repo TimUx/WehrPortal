@@ -12,11 +12,8 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 
-// The dedicated report connection must see committed fixtures, not RefreshDatabase's transaction.
-beforeEach(function () {
-    DB::rollBack();
-    $this->artisan('migrate:fresh')->assertSuccessful();
-});
+// The independent snapshot needs committed fixtures, like ClothingReadinessReportTest.
+beforeEach(fn () => $this->artisan('migrate:fresh')->assertSuccessful());
 afterEach(fn () => $this->artisan('migrate:fresh')->assertSuccessful());
 
 function locationRelationFixture(): array
@@ -217,4 +214,43 @@ it('rejects missing parent columns even for generic logical relationships', func
     config(['locations.protection.tables.ar_equipment.parents.1.kind' => 'logical']);
     DB::getSchemaBuilder()->table('ar_categories', fn (Blueprint $table) => $table->renameColumn('id', 'private_parent_key'));
     expect(fn () => app(LocationRelationInventory::class)->report())->toThrow(RuntimeException::class, LocationRelationInventory::FAILURE);
+});
+
+it('does not equijoin conditional logical identifiers or infer a direct owner from them', function () {
+    locationRelationFixture();
+    config([
+        'locations.protection.tables.ar_equipment.parents.0.kind' => 'conditional_logical',
+        'locations.protection.tables.ar_equipment.parents.1.kind' => 'conditional_logical',
+    ]);
+    $report = app(LocationRelationInventory::class)->report();
+    expect(locationRelationEdge($report, 'ar_equipment', 'category_id'))->toMatchArray([
+        'availability' => 'conditional_relation_not_inspected',
+        'ownership_comparison' => 'conditional_semantics_not_verified',
+        'counts' => null,
+    ])
+        ->and(collect($report['tables'])->firstWhere('table', 'ar_equipment')['location_column'])->toBeNull();
+});
+
+it('limits historical references to structural review without comparing ownership', function () {
+    locationRelationFixture();
+    config(['locations.protection.tables.ar_equipment.parents.1.kind' => 'historical']);
+    $edge = locationRelationEdge(app(LocationRelationInventory::class)->report(), 'ar_equipment', 'category_id');
+    expect($edge['ownership_comparison'])->toBe('historical_structure_only_not_verified')
+        ->and($edge['counts'])->toBe([
+            'null_reference' => 1, 'missing_parent' => 0, 'parent_null_ownership' => null,
+            'child_null_ownership' => null, 'location_disagreement_review' => null,
+        ]);
+});
+
+it('uses the exact location edge when another parent shares its child column', function () {
+    locationRelationFixture();
+    $parents = config('locations.protection.tables.ar_equipment.parents');
+    array_unshift($parents, [
+        'child_column' => 'ext_location_id', 'table' => 'ar_categories', 'column' => 'sort_order',
+        'kind' => 'logical', 'source_null_rule' => 'retain', 'optional_column' => false, 'absence_reason' => null,
+    ]);
+    config(['locations.protection.tables.ar_equipment.parents' => $parents]);
+    $table = collect(app(LocationRelationInventory::class)->report()['tables'])->firstWhere('table', 'ar_equipment');
+    expect($table['source_null_rule'])->toBe('shared')
+        ->and($table['counts'])->toBe(['null_ownership' => 1, 'missing_location' => 0, 'inactive_location' => 1]);
 });

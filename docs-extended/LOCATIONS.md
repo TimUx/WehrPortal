@@ -124,6 +124,8 @@ Im JSON stehen die direkten Tabellenprüfungen unter `tables`, die deklarierten 
 
 **Keine Eigentümerableitung:** Der Ersteller eines Datensatzes ist nicht automatisch sein Eigentümer. Ebenso wenig beweisen heutige Mitgliedschaft, Primärstandort, aktueller Standortumschalter oder mehrere übereinstimmende Eltern, welchem Standort historische Daten gehören. Die Prüfung folgt keinen beliebigen Elternketten und löst polymorphe oder mehrdeutige Verweise nicht stillschweigend auf. Nicht geprüfte Beziehungen sind kein grüner Nachweis.
 
+Historische Bezüge werden nur auf strukturell leere oder fehlende Verweise geprüft, nicht zur Standortableitung verwendet. Bedingte logische Beziehungen ohne technisch deklarierte Fallunterscheidung und polymorphe Beziehungen bleiben ausdrücklich ungeprüft. Ein befülltes Elternfeld genügt deshalb nicht als Nachweis einer eindeutigen Eigentümerkette.
+
 Die Ausgabe enthält nur technische Schemaangaben, Kategorien und Anzahlen, keine Inhalte oder einzelnen IDs. Auch solche Anzahlen gehören in den internen Betrieb und nicht in öffentliche Audit-Anhänge. Dieselbe Zeile kann in mehreren Beziehungen auffallen; die Anzahlen dürfen nicht zu einer vermeintlichen Gesamtzahl betroffener Datensätze addiert werden.
 
 Die Prüfung berücksichtigt historische und soft-gelöschte Zeilen und verändert keine davon. Exitcode `0` bedeutet ausschließlich „Bericht erstellt“, auch bei Auffälligkeiten oder nicht geprüften Bereichen. Exitcode `1` bedeutet „Prüfung nicht verfügbar“; Fehlerausgaben enthalten weder SQL noch Datenbankinhalte. Ein langer Snapshot kann bei großen Beständen den Datenbankbetrieb belasten: intern geplant ausführen, nicht laufend wiederholen, und vor späteren Schreibvorgängen einen aktuellen Prüfstand erstellen.
