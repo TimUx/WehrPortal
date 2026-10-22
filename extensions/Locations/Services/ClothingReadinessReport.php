@@ -226,10 +226,12 @@ class ClothingReadinessReport
                 'enforcement_verified' => false,
                 'resolves_stock_rows' => false,
             ],
-            'stock_operation_policy' => config('locations.clothing_stock_enabled', false)
-                ? 'unresolved_all_rows_bounded_stock_adapter_explicit_target_grants_personal_permission_separate_null_stock_global_only_source_bound_returns_restore_exact_source_legacy_unsourced_returns_global_admin_only_triplet_fallback_no_provenance_inference'
-                : 'unresolved_all_rows_issues_match_globally_by_type_size_group_new_source_bound_returns_restore_exact_source_legacy_unsourced_returns_match_globally_stock_query_adapter_disabled',
-            'stock_global_uniqueness_preserved' => true,
+            'stock_operation_policy' => 'explicit_source_for_multiple_warehouses_source_bound_returns_exact_legacy_returns_only_sole_candidate_or_unowned_recreation_when_unprotected_no_inference_no_full_isolation_certification',
+            'stock_global_uniqueness_preserved' => in_array('kk_stock', $available, true)
+                ? collect($connection->getSchemaBuilder()->getIndexes('kk_stock'))
+                    ->contains(fn (array $index): bool => $index['unique']
+                        && $index['columns'] === ['item_type_id', 'size_id', 'group_id'])
+                : null,
             'personal_owner_sources' => $ownerTables,
             'tables' => $tables,
             'checks' => $checks,

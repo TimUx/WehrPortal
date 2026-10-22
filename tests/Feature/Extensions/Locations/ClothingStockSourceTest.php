@@ -239,8 +239,12 @@ it('guards optional module tables without inventing provenance', function (strin
     expect(Schema::hasColumn('kk_issued_items', 'ext_source_stock_id'))->toBeTrue();
 })->with(['kk_issued_items', 'kk_stock']);
 
-it('retains global null-safe type size group uniqueness instead of introducing per-site duplicate stock', function () {
+it('allows distinct warehouse owners while retaining null-safe uniqueness within each owner', function () {
     $location = DB::table('x_locations')->value('id');
+    DB::table('kk_stock')->insert([
+        'item_type_id' => $this->type->id, 'size_id' => $this->size->id,
+        'group_id' => $this->group->id, 'quantity' => 1, 'ext_location_id' => $location,
+    ]);
     expect(fn () => DB::transaction(fn () => DB::table('kk_stock')->insert([
         'item_type_id' => $this->type->id, 'size_id' => $this->size->id,
         'group_id' => $this->group->id, 'quantity' => 1, 'ext_location_id' => $location,

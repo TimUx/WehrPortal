@@ -377,14 +377,14 @@ it('upgrades without backfill and preserves existing attendance and tracked-item
     ($this->apply)();
 });
 
-it('keeps global nulls-not-distinct uniqueness across different Standort owners', function (string $nullable) {
+it('permits the same catalog tuple at distinct Standort owners without merging', function (string $nullable) {
     $keys = ['item_type_id' => $this->type, 'size_id' => $nullable === 'both' ? null : $this->size, 'group_id' => $nullable === 'both' ? null : $this->group];
     DB::table('kk_stock')->where('id', $this->stock)->update($keys);
     ($this->apply)();
-    expect(fn () => DB::transaction(fn () => DB::table('kk_stock')->insert([
+    DB::table('kk_stock')->insert([
         ...$keys, 'quantity' => 2, 'ext_location_id' => $this->other->id,
-    ])))->toThrow(QueryException::class)
-        ->and(DB::table('kk_stock')->count())->toBe(1);
+    ]);
+    expect(DB::table('kk_stock')->count())->toBe(2);
 })->with(['neither', 'both']);
 
 it('skips missing optional stock or Locations tables without replacements', function (string $case) {

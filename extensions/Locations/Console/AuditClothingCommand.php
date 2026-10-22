@@ -39,11 +39,16 @@ class AuditClothingCommand extends Command
             $this->line('Alle Zeilen, einschließlich zurückgegebener und gelöschter Ausgaben. Nicht verfügbare Prüfungen sind nicht als null Fehler verifiziert.');
             if ($report['stock_adapter']['configured']) {
                 $this->warn('Mengenbestand: Begrenzter Opt-in-Bestandsadapter konfiguriert. Listen, Mengenänderungen und Ausgabe-/Rücknahmeziele verlangen ausdrückliche Bestandsfreigaben; persönliche Berechtigung bleibt separat. Bestandsberichte filtern Mengen. NULL-Bestand und Datentransfer bleiben globalen Admins vorbehalten.');
-                $this->line('Historische Mengenausgaben ohne Herkunft: nur globale Admins mit bisherigem Typ-/Größen-/Gruppen-Rückfall, auch auf zugeordnete Bestandszeilen. Dieser mehrdeutige Vorgang leitet keine Herkunft ab.');
+                $this->line('Historische Mengenausgaben ohne Herkunft: nur globale Admins und nur bei genau einer Bestandsposition für Typ/Größe/Gruppe. Bei mehreren Lagern wird die Rücknahme vollständig abgebrochen; keine Herkunft wird abgeleitet.');
             } else {
-                $this->warn('Mengenbestand: Opt-in-Bestandsadapter deaktiviert (Legacy-Verhalten). Standort ist hier nur Eigentumsmetadatum. Ausgabe sucht weiterhin global nach Typ/Größe/Gruppe; alte Ausgaben ohne Herkunft weiterhin nach Typ/Größe/Gruppe.');
+                $this->warn('Mengenbestand: Opt-in-Bestandsadapter deaktiviert. Bei mehreren Lagern ist trotzdem eine ausdrückliche Bestandsposition erforderlich. Historische Rücknahmen ohne Herkunft nutzen genau einen Kandidaten; ohne Kandidaten wird nur ohne geschützte Adapter ein unzugeordneter Bestand wiederhergestellt.');
             }
-            $this->line('Globale Eindeutigkeit bleibt. Neue Mengenausgaben mit Herkunft kehren in ihre ursprüngliche Bestandszeile zurück. Historische Herkunft wird nicht abgeleitet. Alle Bestandszeilen sind operativ ungeklärt, auch zugeordnete. Diese lesende Diagnose verifiziert keine Durchsetzung und bestätigt keine vollständige Kleiderkammer-Isolation.');
+            $this->line(match ($report['stock_global_uniqueness_preserved']) {
+                true => 'Globale Katalog-Eindeutigkeit vorhanden.',
+                false => 'Standortbestände: keine globale Katalog-Eindeutigkeit; standortbezogene Katalog-Eindeutigkeit ist erforderlich.',
+                default => 'Katalog-Eindeutigkeit nicht verfügbar; keine Bestätigung.',
+            });
+            $this->line('Neue Mengenausgaben mit Herkunft kehren in ihre ursprüngliche Bestandszeile zurück. Historische Herkunft wird nicht abgeleitet. Alle Bestandszeilen bleiben für die vollständige Abnahme ungeklärt, auch zugeordnete. Der Legacy-Datentransfer unterstützt keine Standortbestände oder Herkunftsbindungen. Diese lesende Diagnose verifiziert keine Durchsetzung und bestätigt keine vollständige Kleiderkammer-Isolation.');
             $this->table(['Tabelle', 'Klasse', 'Verfügbarkeit', 'Zeilen'], array_map(
                 fn (array $table): array => [...array_slice(array_values($table), 0, 3), $table['rows'] ?? '—'],
                 $report['tables'],

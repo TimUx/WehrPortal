@@ -301,7 +301,7 @@ it('makes bulk transfer global only, including direct service invocations', func
     expect(fn () => $transfer->export(['stock'], $this->worker))->toThrow(HttpException::class);
     expect(fn () => $transfer->import(['groups' => []], actor: $this->worker))->toThrow(HttpException::class);
     expect(fn () => $transfer->export(['stock']))->toThrow(HttpException::class);
-    expect($transfer->export(['stock'], $this->admin)['groups']['inventory']['stock'])->toHaveCount(3);
+    expect(fn () => $transfer->export(['stock'], $this->admin))->toThrow(DomainException::class);
 });
 
 it('does not expose personal reporting APIs or dashboard counters through a stock-only grant', function (string $method) {

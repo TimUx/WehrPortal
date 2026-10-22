@@ -157,7 +157,7 @@ it('distinguishes configured bounded stock enforcement without claiming resolved
         'rows_unresolved' => 3, 'quantity_unresolved' => 18, 'null_location' => 1,
         'assigned' => 2, 'inactive_location' => 1, 'quantity_unassigned' => 12,
     ])
-        ->and($report['stock_global_uniqueness_preserved'])->toBeTrue()
+        ->and($report['stock_global_uniqueness_preserved'])->toBeFalse()
         ->and($report['stock_adapter'])->toBe([
             'configured' => $configured,
             'coverage' => 'bounded_stock_listing_quantities_and_issue_return_targets',
@@ -166,19 +166,16 @@ it('distinguishes configured bounded stock enforcement without claiming resolved
             'enforcement_verified' => false,
             'resolves_stock_rows' => false,
         ])
-        ->and($report['stock_operation_policy'])->toContain('unresolved_all_rows', 'source_bound_returns_restore_exact_source')
+        ->and($report['stock_operation_policy'])->toContain('explicit_source_for_multiple_warehouses', 'source_bound_returns_exact', 'legacy_returns_only_sole_candidate', 'no_inference', 'no_full_isolation_certification')
         ->and($report['enforcement_verified'])->toBeFalse();
     $exit = Artisan::call('locations:audit-clothing');
     $output = Artisan::output();
     expect($exit)->toBe(0)
-        ->and($output)->toContain('Neue Mengenausgaben mit Herkunft', 'Alle Bestandszeilen sind operativ ungeklärt', 'verifiziert keine Durchsetzung', 'keine vollständige Kleiderkammer-Isolation');
+        ->and($output)->toContain('Neue Mengenausgaben mit Herkunft', 'vollständige Abnahme ungeklärt', 'verifiziert keine Durchsetzung', 'keine vollständige Kleiderkammer-Isolation', 'keine globale Katalog-Eindeutigkeit');
     if ($configured) {
-        expect($report['stock_operation_policy'])->toContain('bounded_stock_adapter', 'explicit_target_grants', 'legacy_unsourced_returns_global_admin_only', 'no_provenance_inference')
-            ->not->toContain('stock_query_adapter_disabled')
-            ->and($output)->toContain('Opt-in-Bestandsadapter konfiguriert', 'persönliche Berechtigung bleibt separat', 'nur globale Admins', 'auch auf zugeordnete Bestandszeilen');
+        expect($output)->toContain('Opt-in-Bestandsadapter konfiguriert', 'persönliche Berechtigung bleibt separat', 'nur globale Admins', 'genau einer Bestandsposition');
     } else {
-        expect($report['stock_operation_policy'])->toContain('issues_match_globally', 'legacy_unsourced_returns_match_globally', 'stock_query_adapter_disabled')
-            ->and($output)->toContain('Opt-in-Bestandsadapter deaktiviert', 'Ausgabe sucht weiterhin global', 'alte Ausgaben ohne Herkunft');
+        expect($output)->toContain('Opt-in-Bestandsadapter deaktiviert', 'ausdrückliche Bestandsposition', 'genau einen Kandidaten', 'unzugeordneter Bestand wiederhergestellt');
     }
 })->with([false, true]);
 
@@ -227,6 +224,14 @@ it('marks optional missing leaf tables unavailable rather than verified zero', f
     expect($report['checks']['messages'])->toBe(['availability' => 'unavailable', 'counts' => null])
         ->and($report['checks']['treatments'])->toBe(['availability' => 'unavailable', 'counts' => null])
         ->and($report['personal_owner_sources'])->toBe(['kk_issued_items']);
+});
+
+it('reports actual legacy global uniqueness rather than inferring it from the location column', function () {
+    $migration = require base_path('extensions/Locations/database/migrations/2026_12_29_000000_scope_clothing_stock_uniqueness_to_location.php');
+    DB::transaction(fn () => $migration->down());
+    expect(app(ClothingReadinessReport::class)->report()['stock_global_uniqueness_preserved'])->toBeTrue();
+    DB::transaction(fn () => $migration->up());
+    expect(app(ClothingReadinessReport::class)->report()['stock_global_uniqueness_preserved'])->toBeFalse();
 });
 
 it('fails closed without leaking malformed manifests or SQL details', function () {

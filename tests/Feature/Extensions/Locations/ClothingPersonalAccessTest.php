@@ -337,9 +337,10 @@ it('preserves database rejection of conflicting and rewritten historical sources
     ])))->toThrow(QueryException::class);
 });
 
-it('keeps admin explicit background exports complete even under another authenticated actor', function () {
+it('keeps explicit admin member exports complete but refuses unrepresentable stock provenance', function () {
     $this->actingAs($this->worker);
-    $data = app(DataTransferService::class)->export(['members', 'issuances'], actor: $this->admin);
+    $data = app(DataTransferService::class)->export(['members'], actor: $this->admin);
+    expect(fn () => app(DataTransferService::class)->export(['issuances'], actor: $this->admin))->toThrow(DomainException::class);
     expect(collect($data['groups']['members']['members'])->pluck('email')->all())->toContain($this->foreign->email);
     expect(app(InventoryReport::class)->openLoans($this->admin)->count())->toBe(6);
 });
