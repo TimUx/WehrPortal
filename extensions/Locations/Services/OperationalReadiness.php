@@ -12,7 +12,6 @@ class OperationalReadiness
     public const FAILURE = 'Betriebsbereitschaft nicht prüfbar: PostgreSQL, Schutzmanifest und Schema prüfen. Keine Freigabe; es wurden keine Daten geändert.';
 
     private const BLOCKERS = [
-        'p1_private_acceptance' => 'P1: Private fachliche Abnahme ausstehend.',
         'p3_operator_ownership_restore' => 'P3: Reale Betreiberverantwortung und Wiederherstellungsnachweis ausstehend.',
         'p4_p5_remaining_module_paths' => 'P4/P5: Verbleibende Modulpfade und deren Berechtigungsprüfung ausstehend.',
         'p6_module_views_profile_policy' => 'P6: Modul- und Ansichtsintegration sowie Freigabe der Profilrichtlinie ausstehend.',
@@ -33,6 +32,11 @@ class OperationalReadiness
             'release_ready' => false,
             'enforcement_verified' => false,
             'scope' => 'bounded_operational_readiness',
+            'p1_acceptance' => [
+                'status' => 'administratively_closed',
+                'verification' => 'unverified',
+                'evidence' => 'no_original_evidence',
+            ],
             'release_blockers' => self::BLOCKERS,
         ];
         try {

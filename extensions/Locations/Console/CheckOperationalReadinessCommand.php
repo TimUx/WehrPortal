@@ -35,6 +35,7 @@ class CheckOperationalReadinessCommand extends Command
                 }
                 $this->table(['Prüfkategorie', 'Anzahl', 'Beobachtet', 'Nicht geprüft'], $rows);
             }
+            $this->line('P1: Administrativ abgeschlossen; fachlich nicht verifiziert, kein privater Originalnachweis.');
             $this->warn('Freigabe gesperrt — auch bei leeren Daten, null Prüfkandidaten oder grünen Tests:');
             foreach ($report['release_blockers'] as $label) {
                 $this->line($label);

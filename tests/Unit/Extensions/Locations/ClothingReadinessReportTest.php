@@ -17,10 +17,6 @@ use Modules\Kleiderkammer\src\Models\Item;
 use Modules\Kleiderkammer\src\Models\ItemType;
 use Modules\Kleiderkammer\src\Services\IssuingService;
 
-// The audit deliberately opens an independent connection; fixtures must be committed.
-beforeEach(fn () => $this->artisan('migrate:fresh')->assertSuccessful());
-afterEach(fn () => $this->artisan('migrate:fresh')->assertSuccessful());
-
 function clothingAuditFixture(): array
 {
     $north = DB::table('x_locations')->insertGetId(['name' => 'Wache Nord', 'slug' => 'audit-north']);

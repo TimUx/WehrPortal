@@ -56,6 +56,19 @@ jobs:
       - name: Generate Application Key
         run: php artisan key:generate
 
+      - name: Configure PostgreSQL for Parallel Migrations
+        run: |
+          container="${{ job.services.postgres.id }}"
+          docker exec "$container" psql -U openwehr -d openwehr_test -c "ALTER SYSTEM SET max_locks_per_transaction = 256"
+          docker restart "$container"
+          for attempt in {1..30}; do
+            if docker exec "$container" pg_isready -U openwehr -d openwehr_test; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
+
       - name: Configure Test Database
         run: |
           php artisan migrate --env=testing --force

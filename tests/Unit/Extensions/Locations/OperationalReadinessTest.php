@@ -12,22 +12,23 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 
-// The inventory uses an independent read-only connection, so fixtures must be committed.
-beforeEach(fn () => $this->artisan('migrate:fresh')->assertSuccessful());
-afterEach(fn () => $this->artisan('migrate:fresh')->assertSuccessful());
-
 it('keeps empty technical inventory separate from unresolved release acceptance', function () {
     $report = app(OperationalReadiness::class)->report();
 
     expect($report)->toMatchArray([
         'read_only' => true, 'release_ready' => false, 'enforcement_verified' => false, 'status' => 'blocked',
     ])
+        ->and($report['p1_acceptance'])->toBe([
+            'status' => 'administratively_closed',
+            'verification' => 'unverified',
+            'evidence' => 'no_original_evidence',
+        ])
         ->and($report['technical_inventory']['status'])->toBe('CHECK')
         ->and($report['technical_inventory']['summary']['tables'])->toBeGreaterThan(0)
         ->and($report['technical_inventory']['summary']['relations'])->toBeGreaterThan(0)
         ->and($report['technical_inventory']['findings']['missing_parent']['observed_count'])->toBe(0)
         ->and(array_keys($report['release_blockers']))->toBe([
-            'p1_private_acceptance', 'p3_operator_ownership_restore', 'p4_p5_remaining_module_paths',
+            'p3_operator_ownership_restore', 'p4_p5_remaining_module_paths',
             'p6_module_views_profile_policy', 'p7_operational_release_acceptance',
         ]);
 });
@@ -105,7 +106,8 @@ it('never certifies zero findings even when every supplied technical count is ze
         ->and($report['status'])->toBe('blocked')
         ->and($report['release_ready'])->toBeFalse()
         ->and($report['enforcement_verified'])->toBeFalse()
-        ->and($report['release_blockers'])->toHaveCount(5);
+        ->and($report['p1_acceptance']['verification'])->toBe('unverified')
+        ->and($report['release_blockers'])->toHaveCount(4);
 });
 
 it('fails closed for malformed manifests and required schema without disclosing details', function (string $change) {
@@ -123,7 +125,14 @@ it('fails closed for malformed manifests and required schema without disclosing 
             expect($report)->toMatchArray([
                 'status' => 'unavailable', 'read_only' => true, 'release_ready' => false,
                 'enforcement_verified' => false, 'error' => 'operational_readiness_unavailable',
-            ])->and($report['technical_inventory'])->toBe(['status' => 'unavailable', 'summary' => null, 'findings' => null]);
+            ])
+                ->and($report['p1_acceptance'])->toBe([
+                    'status' => 'administratively_closed',
+                    'verification' => 'unverified',
+                    'evidence' => 'no_original_evidence',
+                ])
+                ->and($report['release_blockers'])->toHaveCount(4)
+                ->and($report['technical_inventory'])->toBe(['status' => 'unavailable', 'summary' => null, 'findings' => null]);
         }
     }
 })->with(['manifest', 'schema']);
@@ -176,6 +185,7 @@ it('provides a read only JSON and human exit contract without bypass options', f
     expect(Artisan::call('locations:check-readiness'))->toBe(2)
         ->and(Artisan::output())->toContain(
             'Nur lesend', 'CHECK', 'keine Betriebsfreigabe', 'keine Abnahme',
-            'Freigabe gesperrt', 'P1:', 'P3:', 'P4/P5:', 'P6:', 'P7:',
+            'Freigabe gesperrt', 'P1: Administrativ abgeschlossen', 'fachlich nicht verifiziert',
+            'kein privater Originalnachweis', 'P3:', 'P4/P5:', 'P6:', 'P7:',
         );
 });

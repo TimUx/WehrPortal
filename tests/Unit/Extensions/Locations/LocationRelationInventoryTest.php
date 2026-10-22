@@ -12,10 +12,6 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 
-// The independent snapshot needs committed fixtures, like ClothingReadinessReportTest.
-beforeEach(fn () => $this->artisan('migrate:fresh')->assertSuccessful());
-afterEach(fn () => $this->artisan('migrate:fresh')->assertSuccessful());
-
 function locationRelationFixture(): array
 {
     $north = DB::table('x_locations')->insertGetId(['name' => 'FF Musterstadt Nord', 'slug' => 'relation-north']);

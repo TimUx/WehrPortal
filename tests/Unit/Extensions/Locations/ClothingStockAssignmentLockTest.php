@@ -10,10 +10,32 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\ParallelTesting;
 use Illuminate\Support\Str;
 
-beforeEach(fn () => $this->artisan('migrate:fresh')->assertSuccessful());
-afterEach(fn () => $this->artisan('migrate:fresh')->assertSuccessful());
+it('uses the worker database for committed fixtures and independent connections', function () {
+    $database = env('DB_DATABASE');
+    if ($token = ParallelTesting::token()) {
+        $database .= '_test_'.$token;
+    }
+
+    expect(config('database.connections.'.config('database.default').'.database'))->toBe($database)
+        ->and(DB::selectOne('SELECT current_database() AS name')->name)->toBe($database)
+        ->and(DB::transactionLevel())->toBe(0);
+
+    $member = User::factory()->create();
+    $configuration = DB::connection()->getConfig();
+    unset($configuration['name']);
+    $other = DB::build($configuration);
+
+    try {
+        expect($other->selectOne('SELECT current_database() AS name')->name)->toBe($database)
+            ->and($other->selectOne('SELECT pg_backend_pid() AS id')->id)->not->toBe(DB::selectOne('SELECT pg_backend_pid() AS id')->id)
+            ->and($other->table('users')->where('id', $member->id)->exists())->toBeTrue();
+    } finally {
+        $other->disconnect();
+    }
+});
 
 it('prevents concurrent matching-key phantoms child edits and parent changes during stock review', function () {
     $location = DB::table('x_locations')->value('id');
