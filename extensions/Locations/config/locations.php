@@ -16,6 +16,9 @@ return [
     // false: the extension is not loaded at all (no scopes, no admin pages)
     'enabled' => (bool) env('LOCATIONS_ENABLED', true),
 
+    // Preparatory capability contracts only; no approved views or raw-object authorization.
+    'leadership_enabled' => (bool) env('LOCATIONS_LEADERSHIP_ENABLED', false),
+
     // Stock quantities only; this does not certify a module-wide Kleiderkammer adapter.
     'clothing_stock_enabled' => (bool) env('LOCATIONS_CLOTHING_STOCK_ENABLED', false),
 

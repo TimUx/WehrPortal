@@ -96,7 +96,7 @@ return [
     'purpose' => 'declarative_target_only',
     'admin_rule' => 'Preserve existing global administrator access; no manifest entry installs filters or changes authorization.',
     'optional_extensions' => [
-        'extensions.locations' => ['config' => 'locations.enabled', 'provider' => 'extensions/Locations/LocationsServiceProvider.php', 'tables' => ['x_locations', 'x_location_user', 'x_location_module_roles', 'x_location_data_assignments'], 'reason' => $optionalLocations],
+        'extensions.locations' => ['config' => 'locations.enabled', 'provider' => 'extensions/Locations/LocationsServiceProvider.php', 'tables' => ['x_locations', 'x_location_user', 'x_location_module_roles', 'x_location_data_assignments', 'x_leadership_assignments'], 'reason' => $optionalLocations],
         'extensions.oidc' => ['config' => 'oidc.enabled', 'provider' => 'extensions/Oidc/OidcServiceProvider.php', 'tables' => ['x_oidc_identities'], 'reason' => $optionalOidc],
         'extensions.verein' => ['config' => 'vereinsverwaltung.enabled', 'provider' => 'extensions/Vereinsverwaltung/VereinsverwaltungServiceProvider.php', 'tables' => ['x_vv_associations', 'x_vv_association_user', 'x_vv_members', 'x_vv_applications'], 'reason' => $optionalVerein],
         'extensions.anwesenheit' => ['config' => 'anwesenheit.enabled', 'provider' => 'extensions/Anwesenheit/AnwesenheitServiceProvider.php', 'tables' => ['x_att_templates', 'x_att_lists', 'x_att_participants', 'x_att_files'], 'reason' => $optionalAttendance],
@@ -125,6 +125,7 @@ return [
         'lq_course_aliases' => ['module' => 'lehrgaenge', 'removed_by' => 'modules/Lehrgaenge/database/migrations/2026_10_22_000000_rework_lehrgaenge_registrations.php', 'reason' => 'Aliases folded into the course catalog and removed.'],
     ],
     'tables' => [
+        'x_leadership_assignments' => $entry('extensions.locations', 'standortgebunden', 'access', 'Explicit single-location leadership capabilities and immutable grant/revocation history; no municipality wildcard', [$parent('location_id', 'x_locations'), $parent('user_id', 'users'), $parent('granted_by', 'users'), $parent('approved_by', 'users', 'retain'), $parent('revoked_by', 'users', 'retain')], $required, ['extensions/Locations/Services/LeadershipAssignments.php', 'extensions/Locations/Console/LeadershipCommand.php', 'extensions/Locations/database/migrations/2026_12_28_000000_create_leadership_assignments.php', 'extensions/Locations/Services/LocationModuleRoles.php'], $optionalLocations, targetGap: 'Bounded P6 foundation only. No existing module policy consumes these capabilities; future restricted projections require explicit approval and separate integration. No full P6 certification.'),
         'x_location_data_assignments' => $assignmentHistory,
         // Core. Own-user data is not made global merely because it lacks a location column.
         'users' => $entry('core', 'hybrid', 'personnel', 'Member itself, location membership and self-service identity', [$location], $shared, [...$core, ...$locations, ...$personnel]),

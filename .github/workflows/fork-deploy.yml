@@ -87,6 +87,16 @@ jobs:
           DB_USERNAME: openwehr
           DB_PASSWORD: secret
 
+      - name: Run Locations Context and Readiness Regression Tests
+        run: ./vendor/bin/pest tests/Feature/Extensions/Locations tests/Unit/Extensions/Locations
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: openwehr_test
+          DB_USERNAME: openwehr
+          DB_PASSWORD: secret
+
       - name: Compile Blade Views
         run: php artisan view:cache && php artisan view:clear
 

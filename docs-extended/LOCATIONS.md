@@ -12,6 +12,8 @@ Für Gemeinden mit mehreren Feuerwehrhäusern. Code: `extensions/Locations/`, Ab
 - [Datenmodell](#datenmodell)
 - [Wirkung](#wirkung)
 - [Standortbezogene Modulrollen: gestufte Umstellung](#standortbezogene-modulrollen-gestufte-umstellung)
+- [Führungsprofile: vorbereitete Berechtigungsgrundlage (P6)](#führungsprofile-vorbereitete-berechtigungsgrundlage-p6)
+- [Betriebsbereitschaft prüfen (P7)](#betriebsbereitschaft-prüfen-p7)
 - [Kleiderkammer: optionaler Mengenbestandsadapter](#kleiderkammer-optionaler-mengenbestandsadapter)
 - [Schutzmanifest und Schema-Guard](#schutzmanifest-und-schema-guard)
 - [Lesende Bestandsinventur](#lesende-bestandsinventur)
@@ -85,6 +87,41 @@ Bei aktiviertem Mitteilungen-Adapter verwalten Nicht-Admins ausschließlich Mitt
 **Allgemein** (`announcements.ext_location_id = NULL`) bleibt nach den bestehenden Empfängerregeln lesbar, kann im aktivierten Adapter aber nur von aktiven globalen Admins verwaltet werden. Diese behalten alle Standortzugriffe. Eine Redakteursvergabe macht niemanden automatisch zum Empfänger fremder Zielgruppen; Anhänge bleiben für berechtigte Empfänger oder zuständige Verwalter zugänglich. Gruppen und Funktionen müssen zur zulässigen Zielgruppe passen.
 
 Lesestatistik, Erinnerungen, Anhangverwaltung und ausdrücklich angeforderter Versand benötigen dieselbe zielbezogene Verwaltungsbefugnis. Die Konfiguration externer ntfy-/Matrix-Ziele bleibt davon getrennt: Eine Redakteursrolle gewährt keine Token- oder Kanalkonfigurationsrechte. Externe Mitgliedschaften bleiben Betreiberaufgabe. Details: [Mitteilungen](MITTEILUNGEN.md).
+
+## Führungsprofile: vorbereitete Berechtigungsgrundlage (P6)
+
+Kommunale Führungsprofile sind **keine globalen Admins**. Die neue Grundlage trennt eine ausdrückliche, befristete Vergabe für genau einen Standort von einer tatsächlich freigegebenen Modulsicht. Weder Primärstandort, Standort-Adminrolle, globale Modulrolle noch der Standortumschalter erzeugen eine Führungsvergabe. Globale aktive Admins behalten sämtliche Datenzugriffe, auch auf sensible Inhalte.
+
+Die Grundlage ist standardmäßig ausgeschaltet (`LOCATIONS_LEADERSHIP_ENABLED=false`). Ein Einschalten ersetzt keine fachliche Freigabe: Der Resolver prüft ausschließlich eine genaue Capability mit Modul, Aktion, Datenklasse und Standort. Er erweitert weder die bestehende Standortmitgliedschaft noch den Moduleinstieg und ist nicht in vorhandene Modul-Policies eingebaut. Eine erlaubte Capability bedeutet insbesondere **nicht**, dass rohe Datensätze freigegeben oder Kennzahlen hinreichend anonymisiert sind.
+
+Das vorbereitete Zielmodell beschränkt Kommune/Bürgermeister auf aggregierte Sichten, Brandschutzamt auf Prüffristen, GBI/SPI auf ausdrücklich freigegebene Lesesichten und kommunale Admins auf Verwaltungsfunktionen. Personalakten, Gesundheits-, Bank- und Authentisierungsdaten erhalten dadurch keine zusätzlichen Leserechte. Die konkreten fachlichen Sichten, Aggregationsregeln und kommunalen Zuständigkeitsgrenzen müssen vor einer Integration bestätigt werden. Ein NULL-Standort oder eine Wildcard ist kein kommunaler Geltungsbereich; mehrere Standorte benötigen getrennte Vergaben.
+
+| Profil | Vorbereitete Capability | Exakter Vertrag (Modul / Aktion / Datenklasse) |
+|---|---|---|
+| `buergermeister`, `kommune` | `incident_totals` | `einsatzbericht / read / aggregate_counts` |
+| `brandschutzamt` | `fleet_deadlines`, `equipment_deadlines` | `fahrzeuge` beziehungsweise `ausruestung / read / inspection_deadlines` |
+| `gbi`, `spi` | `fleet_summary`, `stock_summary` | `fahrzeuge / read / approved_fleet_summary` beziehungsweise `kleiderkammer / read / approved_stock_summary` |
+| `kommunaler_admin` | `announcement_configuration` (erst nach gesonderter Bestätigung wirksam) | `mitteilungen / manage / administration` |
+
+Diese Namen bezeichnen zukünftige, einzeln zu prüfende Projektionen, keine Freigabe der heutigen Vollansichten. Andere Module, Aktionen, Datenklassen oder frei zusammengesetzte Berechtigungen sind für Führungsprofile nicht zulässig. Aktive Person, aktiver Zielstandort, aktives Modul sowie Beginn, Ablauf und Entzug werden frisch geprüft; veraltete Benutzerobjekte oder eine alte Standortauswahl ersetzen keine Vergabe.
+
+Vergaben und Entzüge benötigen einen aktuell aktiven globalen Admin, eine Begründung und einen endlichen Gültigkeitszeitraum (höchstens 366 Tage ab Vergabe). **Kommunale Adminprofile beginnen ausstehend:** Die Vergabe selbst aktiviert keine Capability. Erst eine gesonderte Bestätigungsaktion durch einen anderen aktuell aktiven globalen Admin speichert die Bestätigeridentität und den Zeitpunkt. Weder der vergebende Admin noch die begünstigte Person darf bestätigen; eine vorweg übergebene zweite Admin-ID ersetzt diese Aktion nicht. Die gespeicherten Vergabebedingungen bleiben unveränderlich; Entzug ist endgültig, eine erneute Berechtigung benötigt eine neue Vergabe. Personen und Standorte im Verlauf dürfen nicht durch Löschen oder Übertragen nachträglich umgedeutet werden.
+
+Die Bedienung erfolgt zunächst ausschließlich in der geschützten Betreiberkonsole: `php artisan help locations:leadership` zeigt die Operationen und Pflichtoptionen. Die angegebene Admin-ID dokumentiert die vom vertrauenswürdigen Konsolenbetreiber vertretene Person; sie ist kein Login oder Nachweis einer fremden Zustimmung. Grund, Zielstandort und Ablauf sind ausdrücklich anzugeben; ein abgelaufener Eintrag wird vor einer erneuten Vergabe widerrufen, nicht überschrieben. Der Resolver öffnet selbst keine Seite und versendet keine Daten.
+
+`grant` benötigt `--by`, `--user`, `--location`, `--profile`, mindestens einmal `--capability`, `--reason` und `--expires`; `--valid-from` ist optional. Datumsangaben sollten eine explizite Zeitzone enthalten. `approve` verwendet die andere Adminidentität mit `--by`, die genaue `--assignment` und denselben `--location`. `revoke` benötigt `--by`, `--assignment`, `--location` und `--reason`. Während die Grundlage abgeschaltet ist, bleiben Entzüge zur Bereinigung möglich; neue Vergaben und ihre Nutzung sind gesperrt. Die vertrauenswürdige Konsole ersetzt keine spätere persönlich authentifizierte Freigabeoberfläche.
+
+**Noch keine vollständige P6-Abnahme:** Rollenoberfläche, Standort-Pivotrolle `wehrführung`, fachlich bestätigte Modulsichten und deren Objekt-/Export-/Empfängerprüfungen folgen getrennt. Bestehende Wehrführungsrechte werden weder kopiert noch automatisch ersetzt. Diese Grundlage schließt den historischen P1-Befund nicht.
+
+## Betriebsbereitschaft prüfen (P7)
+
+Bei geladener Locations-Erweiterung liefert `php artisan locations:check-readiness` eine ausschließlich lesende Vorprüfung; `--json` ist für die maschinelle Auswertung vorgesehen. Die technische Inventur nutzt den bestehenden konsistenten PostgreSQL-Nur-Lese-Snapshot einschließlich Schutzmanifest-/Schemaprüfung. Es werden nur technische Anzahlen ausgegeben, keine Namen, Inhalte oder einzelnen Datensatz-IDs. Die Ausführung gehört in eine geschützte Betreiberkonsole; es gibt keine öffentliche HTTP-Route.
+
+**Rückgabewerte:** `2` bedeutet weiterhin blockierte Betriebsfreigabe, `1` eine nicht verfügbare technische Prüfung. Ein verfügbarer Bericht, leere Tabellen oder null Auffälligkeiten ergeben keine erfolgreiche Mehrstandort-Freigabe. Nicht verfügbare optionale Tabellen und nicht geprüfte Beziehungen sind unbekannt, nicht fehlerfrei. Es gibt keinen Schalter zum Überspringen der offenen Abnahmen oder zum Erzwingen eines grünen Ergebnisses.
+
+Offen bleiben insbesondere die private P1-Abnahme, reale Altbestandszuordnung und Wiederherstellungsprüfung, weitere P4/P5-Modulpfade, fachliche P6-Sichten sowie P7-Setup-, Browser-/Mobil-, Barrierefreiheits- und Offline-Abnahme. Der vorhandene Standortwechsel ist nur eine Vorbelegung neuer Datensätze, keine bescheinigte Isolation. Der Bericht aktiviert keine Adapter, vergibt keine Rollen und ändert keine Daten.
+
+Der Fork-Workflow führt die zugehörigen Regressionen zusätzlich zum Schema-Guard und zur vollständigen Testsuite ausdrücklich aus. Ein grüner Entwicklungsbuild bestätigt diese getesteten Teilverträge, nicht die Betriebsfreigabe einer realen Installation. Der absichtlich blockierte Bereitschaftsbefehl wird deshalb nicht als genereller Deployment-Schalter für jede bestehende Installation verwendet.
 
 ## Schutzmanifest und Schema-Guard
 
