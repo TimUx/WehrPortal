@@ -47,6 +47,8 @@ Eine Direktfreigabe verrät keine Namen gesperrter Eltern oder Geschwister. Ein 
 
 Bei aktiver Locations-Extension prüft die zentrale Berechtigungslogik zusätzlich den Standort der Ablage. Auch ein direktes Benutzerrecht oder eine Gruppenmitgliedschaft umgeht diese Grenze nicht. Das gilt für technische Downloads und Service-Aufrufe, nicht nur für die Oberfläche. Gruppenverwalter sehen nur gemeinsame Gruppen und Gruppen ihrer Standorte und dürfen keine fremden Standortmitglieder durch manipulierte IDs hinzufügen. Globale Admins verwalten alle Standorte. Standortlose Ablagen und Gruppen sind bewusst gemeinsam – für vertrauliche Standortdaten immer einen Standort setzen.
 
+Eine Mitgliedschaft über den Primärstandort **oder** eine ausdrückliche Standortzuordnung genügt für diese zusätzliche Standortgrenze; sie erteilt noch keine Datei-ACL. Entfällt nur eine von mehreren passenden Mitgliedschaftsquellen, ist das nicht automatisch der vollständige Standortentzug. Beim nächsten Zugriff zählen die dann gültigen Rechte, nicht ein zuvor geöffnetes Formular oder eine frühere erfolgreiche Anmeldung. Öffentliche Links sind die unten beschriebene, ausdrücklich eingeschaltete Ausnahme für Gäste.
+
 ## Versionierung und Papierkorb
 
 - Jede neue Datei beginnt mit Version 1. Inhaltsänderungen hängen eine neue Version an; bestehende Versionsmetadaten sind durch einen PostgreSQL-Trigger gegen Updates geschützt.
@@ -98,6 +100,8 @@ Pest-Featuretests liegen unter `tests/Feature/Extensions/Dateien/` und benötige
 ```
 
 Geprüft werden Modulfreigabe, Benutzer-/Gruppenrechte, Vererbungsgrenzen, Direktfreigaben ohne Metadatenlecks, Versionierung und Wiederherstellung, Namens-/Versionskonflikte, Papierkorb, IDOR-Schutz und Standortgrenzen.
+
+Die gezielten Zwei-Standort-Regressionen in `LocationBoundaryTest.php` und `OfficeLocationBoundaryTest.php` umfassen Downloads mit fremden Versions-IDs, bereits erzeugte Vorschaubilder, rekursive ZIPs, gefilterte Listen und geöffnete Explorer-/Office-Sitzungen nach Rechteentzug. Office-Anfragen verwenden gültige JWT-/WOPI-Nachweise ohne Browser-Anmeldung. Die lokalen Tests ersetzen keine Abnahme einer externen Office-Installation und bestätigen nicht die übrigen Audit-Pakete.
 
 Die Suche umfasst Namen und Beschreibungen, aber keine Dateiinhalte. Nicht enthalten sind WebDAV, Desktop-Sync, Offline-Bearbeitung und PDF-Vorschau. Favoriten und „Zuletzt verwendet“ sind inzwischen Teil des späteren Meilensteins 6.
 
