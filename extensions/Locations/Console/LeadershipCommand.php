@@ -4,6 +4,7 @@ namespace Extensions\Locations\Console;
 
 use App\Models\User;
 use Extensions\Locations\Services\LeadershipAssignments;
+use Extensions\Locations\Services\LeadershipProjections;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
@@ -14,18 +15,19 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 class LeadershipCommand extends Command
 {
     protected $signature = 'locations:leadership
-        {operation : grant, approve oder revoke; nur Grundlage für künftige explizite Ansichten}
-        {--by= : ID des aktiven globalen Administrators}
+        {operation : grant, revoke oder summary; approve ist stillgelegt}
+        {--by= : Aktive Person; grant/revoke erfordern globale Administration}
         {--user= : ID der berechtigten Person}
         {--location= : Genau eine Standort-ID, keine Platzhalter}
-        {--profile= : buergermeister, kommune, brandschutzamt, gbi, spi oder kommunaler_admin}
+        {--profile= : buergermeister, kommune, brandschutzamt, gbi oder spi}
         {--capability=* : Exakte Capability; mehrfach möglich}
         {--reason= : Verpflichtende Begründung bei grant/revoke}
         {--expires= : Verpflichtendes Ablaufdatum, höchstens 366 Tage ab Vergabe}
         {--valid-from= : Optionaler künftiger Gültigkeitsbeginn}
-        {--assignment= : ID der separat freizugebenden oder zu widerrufenden Vergabe}';
+        {--year= : Genau ein Jahr für jährliche Einsatz-/Prüfungszahlen bei summary}
+        {--assignment= : ID der zu widerrufenden Vergabe}';
 
-    protected $description = 'Vergibt oder widerruft befristete Führungs-Capabilities; schaltet keine bestehenden Modulansichten frei';
+    protected $description = 'Verwaltet Führungs-Capabilities und liest begrenzte Zusammenfassungen; keine bestehenden Modulansichten';
 
     public function handle(LeadershipAssignments $assignments): int
     {
@@ -33,6 +35,9 @@ class LeadershipCommand extends Command
             $by = User::withoutGlobalScopes()->findOrFail($this->idOption('by'));
             $location = $this->idOption('location');
             if ($this->argument('operation') === 'grant') {
+                if ($this->option('year') !== null) {
+                    throw new InvalidArgumentException('--year ist nur bei summary erlaubt.');
+                }
                 if ($this->option('assignment') !== null) {
                     throw new InvalidArgumentException('--assignment ist nur bei approve oder revoke erlaubt.');
                 }
@@ -42,11 +47,24 @@ class LeadershipCommand extends Command
                     $this->option('valid-from'),
                 );
                 $this->info('Vergabe '.$grant->id.' gespeichert. Keine bestehenden Modulansichten freigeschaltet.');
-                if ($grant->getAttribute('profile') === 'kommunaler_admin') {
-                    $this->warn('Ausstehend: Ein unabhängiger zweiter Administrator muss separat approve ausführen.');
+            } elseif ($this->argument('operation') === 'summary') {
+                foreach (['user', 'profile', 'expires', 'valid-from', 'assignment', 'reason'] as $option) {
+                    if ($this->option($option) !== null) {
+                        throw new InvalidArgumentException('summary erlaubt nur --by, --location, genau eine --capability und gegebenenfalls --year.');
+                    }
                 }
+                $capabilities = $this->option('capability');
+                if (count($capabilities) !== 1) {
+                    throw new InvalidArgumentException('Genau eine Capability für die Zusammenfassung erforderlich.');
+                }
+                $year = $this->option('year');
+                if ($year !== null && preg_match('/\A[1-9][0-9]{3}\z/', $year) !== 1) {
+                    throw new InvalidArgumentException('--year muss ein vierstelliges Jahr sein.');
+                }
+                $summary = app(LeadershipProjections::class)->read($by, $location, $capabilities[0], $year === null ? null : (int) $year);
+                $this->line(json_encode($summary, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
             } elseif (in_array($this->argument('operation'), ['approve', 'revoke'], true)) {
-                foreach (['user', 'profile', 'expires', 'valid-from'] as $option) {
+                foreach (['user', 'profile', 'expires', 'valid-from', 'year'] as $option) {
                     if ($this->option($option) !== null) {
                         throw new InvalidArgumentException('approve/revoke erlaubt nur --assignment, --location, --by und bei revoke --reason.');
                     }
@@ -56,23 +74,22 @@ class LeadershipCommand extends Command
                 }
                 if ($this->argument('operation') === 'approve') {
                     if ($this->option('reason') !== null) {
-                        throw new InvalidArgumentException('approve bestätigt den unveränderten ursprünglichen Auftrag.');
+                        throw new InvalidArgumentException('approve ist stillgelegt; --reason ist dabei nicht zulässig.');
                     }
                     $assignments->approve($by, $this->idOption('assignment'), $location);
-                    $this->info('Vergabe durch zweiten Administrator separat freigegeben.');
                 } else {
                     $assignments->revoke($by, $this->idOption('assignment'), $location, (string) $this->option('reason'));
                     $this->info('Vergabe widerrufen.');
                 }
             } else {
-                throw new InvalidArgumentException('Nur grant, approve oder revoke erlaubt.');
+                throw new InvalidArgumentException('Nur grant, revoke oder summary erlaubt; approve ist stillgelegt.');
             }
         } catch (ValidationException $exception) {
             $this->error(implode(' ', $exception->validator->errors()->all()));
 
             return self::FAILURE;
         } catch (InvalidArgumentException|ModelNotFoundException|HttpException|QueryException $exception) {
-            $this->error('Keine Änderung: aktive globale Administratoren, exakte IDs und gültige Vergabe erforderlich.');
+            $this->error('Zugriff verweigert: aktive Person, exakte IDs und gültige Berechtigung erforderlich; Änderungen nur durch globale Administration.');
 
             return self::FAILURE;
         }

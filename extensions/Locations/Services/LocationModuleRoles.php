@@ -62,6 +62,13 @@ class LocationModuleRoles
 
     public function assertMemberDeletable(User $user): void
     {
+        foreach (['x_clothing_stock_transfers', 'x_clothing_history_corrections'] as $table) {
+            if (Schema::hasTable($table) && DB::table($table)->where('actor_id', $user->id)->exists()) {
+                throw ValidationException::withMessages([
+                    'user' => 'Diese Person ist im unveränderlichen Kleiderkammer-Buchungsjournal referenziert. Bitte stattdessen den Status ändern; historische Operatoren werden nicht übertragen.',
+                ]);
+            }
+        }
         if (Schema::hasTable('x_leadership_assignments')
             && DB::table('x_leadership_assignments')->where(fn (Builder $q) => $q
                 ->where('user_id', $user->id)->orWhere('granted_by', $user->id)
@@ -174,6 +181,7 @@ class LocationModuleRoles
     public function grant(User $by, int $locationId, int $userId, string $module, ?string $role, string $reason, ?string $expiresAt = null): LocationModuleRole
     {
         return DB::transaction(function () use ($by, $locationId, $userId, $module, $role, $reason, $expiresAt) {
+            $members = User::withoutGlobalScopes()->whereIn('id', [$by->id, $userId])->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             $this->authorize($by);
             $reason = trim($reason);
             Validator::make(['reason' => $reason, 'expires_at' => $expiresAt], [
@@ -187,7 +195,7 @@ class LocationModuleRoles
                 throw ValidationException::withMessages(['module' => 'Nur vorbereitete Rollen: Anwesenheit, Mitteilungen oder getrennte Kleiderkammer-Teilrechte.']);
             }
             $location = Location::query()->lockForUpdate()->find($locationId);
-            $member = User::withoutGlobalScopes()->lockForUpdate()->find($userId);
+            $member = $members->get($userId);
             $membership = DB::table('x_location_user')->where('location_id', $locationId)->where('user_id', $userId)->lockForUpdate()->first();
             if (! $location?->getAttribute('is_active') || ! $member?->is_active || ! $this->activeModule($module)
                 || ((int) $member->getAttribute('ext_location_id') !== $locationId && ! $membership)) {

@@ -27,6 +27,17 @@ class ClothingReadinessReport
 
     private const OPTIONAL = ['kk_member_sizes', 'kk_equipment_messages', 'kk_item_treatments'];
 
+    private const JOURNALS = [
+        'x_clothing_stock_transfers' => ['immutable_stock_transfer_journal', [
+            'id', 'operation_key', 'from_stock_id', 'to_stock_id', 'from_location_id', 'to_location_id',
+            'quantity', 'from_before', 'to_before', 'actor_id', 'reason', 'catalog', 'reverses_id', 'recorded_at',
+        ]],
+        'x_clothing_history_corrections' => ['private_documentary_source_review_journal', [
+            'id', 'issuance_id', 'reviewed_stock_id', 'reviewed_location_id', 'actor_id',
+            'previous_id', 'reason', 'evidence', 'state_hash', 'original', 'recorded_at',
+        ]],
+    ];
+
     public const FAILURE = 'Kleiderkammer-Prüfung nicht verfügbar: PostgreSQL, Schutzmanifest und erforderliches Schema prüfen. Es wurden keine Daten geändert.';
 
     public function report(): array
@@ -92,8 +103,8 @@ class ClothingReadinessReport
             'x_locations' => ['id', 'is_active'],
             'x_location_user' => ['location_id', 'user_id'],
         ];
-        foreach (self::TABLES as $table => [, $columns]) {
-            if (($manifest['tables'][$table]['module'] ?? null) !== 'kleiderkammer') {
+        foreach ([...self::TABLES, ...self::JOURNALS] as $table => [, $columns]) {
+            if (($manifest['tables'][$table]['module'] ?? null) !== (isset(self::JOURNALS[$table]) ? 'extensions.locations' : 'kleiderkammer')) {
                 throw new RuntimeException;
             }
             if (! isset($normalized[$table]) && in_array($table, self::OPTIONAL, true)) {
@@ -113,7 +124,7 @@ class ClothingReadinessReport
     private function snapshot(Connection $connection, array $available): array
     {
         $tables = [];
-        foreach (self::TABLES as $table => [$classification]) {
+        foreach ([...self::TABLES, ...self::JOURNALS] as $table => [$classification]) {
             $present = in_array($table, $available, true);
             $tables[] = [
                 'table' => $table,
@@ -124,6 +135,14 @@ class ClothingReadinessReport
         }
 
         $checks = [];
+        $this->aggregate($connection, $checks, 'stock_transfer_journal', '
+            SELECT count(*) AS entries,
+                   count(*) FILTER (WHERE reverses_id IS NOT NULL) AS counterbookings
+            FROM x_clothing_stock_transfers');
+        $this->aggregate($connection, $checks, 'documentary_source_reviews', '
+            SELECT count(*) AS entries, count(DISTINCT issuance_id) AS reviewed_issuances,
+                   count(*) FILTER (WHERE previous_id IS NOT NULL) AS amendments
+            FROM x_clothing_history_corrections');
         $this->aggregate($connection, $checks, 'items', '
             SELECT count(*) FILTER (WHERE i.ext_location_id IS NULL) AS null_location,
                    count(*) FILTER (WHERE l.is_active = false) AS inactive_location
@@ -227,6 +246,8 @@ class ClothingReadinessReport
                 'resolves_stock_rows' => false,
             ],
             'stock_operation_policy' => 'explicit_source_for_multiple_warehouses_source_bound_returns_exact_legacy_returns_only_sole_candidate_or_unowned_recreation_when_unprotected_no_inference_no_full_isolation_certification',
+            'stock_transfer_policy' => 'explicit_existing_accounts_both_endpoint_rights_atomic_quantities_append_only_exact_counterbooking',
+            'historical_review_policy' => 'closed_bulk_documentary_overlay_admin_preview_and_history_only_original_source_unchanged_no_automatic_stock_or_financial_balancing',
             'stock_global_uniqueness_preserved' => in_array('kk_stock', $available, true)
                 ? collect($connection->getSchemaBuilder()->getIndexes('kk_stock'))
                     ->contains(fn (array $index): bool => $index['unique']

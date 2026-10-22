@@ -12,6 +12,7 @@ use Extensions\Locations\Services\LeadershipAssignments;
 use Extensions\Locations\Services\LocationModuleRoles;
 use Extensions\Locations\Services\ProtectionManifest;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Env;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +22,7 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 beforeEach(function () {
     $this->travelTo(now()->startOfSecond());
     config(['locations.enabled' => true, 'locations.leadership_enabled' => true]);
-    Module::whereIn('key', ['einsatzbericht', 'fahrzeuge', 'ausruestung', 'kleiderkammer', 'mitteilungen'])
+    Module::whereIn('key', ['einsatzbericht', 'fahrzeuge', 'ausruestung', 'kleiderkammer', 'personalverwaltung', 'mitteilungen'])
         ->update(['is_active' => true, 'auto_assign' => false]);
     app(ModuleRegistry::class)->clearCache();
     $this->leadership = app(LeadershipAssignments::class);
@@ -35,24 +36,43 @@ beforeEach(function () {
         $capabilities ?? LeadershipAssignments::PROFILES[$profile], 'Befristeter Testauftrag',
         $expires ?? now()->addDay()->toIso8601String(), $start,
     );
+    // Seed pre-upgrade history without reopening the retired grant/approval API.
+    $this->historicalMunicipalGrant = function (bool $approved = false) {
+        DB::statement('ALTER TABLE x_leadership_assignments DISABLE TRIGGER x_leadership_history');
+        try {
+            return LeadershipAssignment::create([
+                'user_id' => $this->member->id, 'location_id' => $this->north->id,
+                'profile' => 'kommunaler_admin', 'capabilities' => ['announcement_configuration'],
+                'granted_by' => $this->admin->id, 'granted_at' => now(),
+                'reason' => 'Historischer Auftrag', 'valid_from' => now(), 'expires_at' => now()->addDay(),
+                'approved_by' => $approved ? $this->approver->id : null,
+                'approved_at' => $approved ? now() : null,
+            ])->refresh();
+        } finally {
+            DB::statement('ALTER TABLE x_leadership_assignments ENABLE TRIGGER x_leadership_history');
+        }
+    };
 });
 
 dataset('leadership profiles', [
     'mayor' => ['buergermeister', ['incident_totals']],
     'municipality' => ['kommune', ['incident_totals']],
-    'fire authority' => ['brandschutzamt', ['fleet_deadlines', 'equipment_deadlines']],
-    'GBI' => ['gbi', ['fleet_summary', 'stock_summary']],
-    'SPI' => ['spi', ['fleet_summary', 'stock_summary']],
-    'municipal administrator' => ['kommunaler_admin', ['announcement_configuration']],
+    'fire authority' => ['brandschutzamt', ['fleet_deadlines', 'equipment_deadlines', 'fleet_inspections', 'equipment_inspections', 'stock_summary', 'personnel_summary']],
+    'GBI' => ['gbi', ['location_overview', 'fleet_summary', 'equipment_summary', 'stock_summary', 'personnel_summary']],
+    'SPI' => ['spi', ['location_overview', 'fleet_summary', 'equipment_summary', 'stock_summary', 'personnel_summary']],
 ]);
 
 dataset('leadership tuples', [
-    ['incident_totals', 'einsatzbericht', 'read', 'aggregate_counts'],
+    ['incident_totals', 'einsatzbericht', 'read', 'yearly_incident_counts'],
     ['fleet_deadlines', 'fahrzeuge', 'read', 'inspection_deadlines'],
     ['equipment_deadlines', 'ausruestung', 'read', 'inspection_deadlines'],
+    ['fleet_inspections', 'fahrzeuge', 'read', 'approved_inspection_summary'],
+    ['equipment_inspections', 'ausruestung', 'read', 'approved_inspection_summary'],
     ['fleet_summary', 'fahrzeuge', 'read', 'approved_fleet_summary'],
+    ['equipment_summary', 'ausruestung', 'read', 'approved_equipment_summary'],
     ['stock_summary', 'kleiderkammer', 'read', 'approved_stock_summary'],
-    ['announcement_configuration', 'mitteilungen', 'manage', 'administration'],
+    ['personnel_summary', 'personalverwaltung', 'read', 'approved_personnel_summary'],
+    ['location_overview', 'locations', 'read', 'approved_location_overview'],
 ]);
 
 it('defaults the preparatory foundation to disabled without an environment opt-in', function () {
@@ -69,6 +89,15 @@ it('defaults the preparatory foundation to disabled without an environment opt-i
     }
 });
 
+it('defines conservative read-only projection contracts without raw data or automatic consumers', function () {
+    expect(array_keys(LeadershipAssignments::PROJECTION_FIELDS))->toBe(array_keys(LeadershipAssignments::CAPABILITIES))
+        ->and(LeadershipAssignments::PROJECTION_FIELDS['incident_totals'])->toBe(['year', 'incident_count'])
+        ->and(LeadershipAssignments::PROJECTION_FIELDS['personnel_summary'])->toBe(['active_member_count', 'department_counts']);
+    foreach (LeadershipAssignments::CAPABILITIES as $tuple) {
+        expect($tuple[1])->toBe('read');
+    }
+});
+
 it('can revoke historical grants while the preparatory foundation is disabled', function () {
     $grant = ($this->grant)();
     config(['locations.leadership_enabled' => false]);
@@ -80,16 +109,15 @@ it('can revoke historical grants while the preparatory foundation is disabled', 
 it('bounds the profile by exact location module action and projection without inferred roles', function (
     string $profile, array $allowed, string $capability, string $module, string $action, string $dataClass
 ) {
-    $grant = ($this->grant)($profile);
-    if ($profile === 'kommunaler_admin') {
-        $this->leadership->approve($this->approver, $grant->id, $this->north->id);
-    }
+    ($this->grant)($profile);
     expect($this->leadership->allows($this->member, $this->north->id, $module, $action, $dataClass))
         ->toBe(in_array($capability, $allowed, true))
         ->and($this->leadership->allows($this->member, $this->south->id, $module, $action, $dataClass))->toBeFalse()
         ->and($this->leadership->allows($this->member, null, $module, $action, $dataClass))->toBeFalse()
         ->and($this->leadership->allows($this->member, $this->north->id, 'unknown', $action, $dataClass))->toBeFalse()
         ->and($this->leadership->allows($this->member, $this->north->id, $module, 'export', $dataClass))->toBeFalse()
+        ->and($this->leadership->allows($this->member, $this->north->id, $module, 'edit', $dataClass))->toBeFalse()
+        ->and($this->leadership->allows($this->member, $this->north->id, $module, 'manage', $dataClass))->toBeFalse()
         ->and($this->leadership->allows($this->member, $this->north->id, $module, $action, 'raw'))->toBeFalse()
         ->and(DB::table('x_location_user')->where('user_id', $this->member->id)->exists())->toBeFalse()
         ->and(DB::table('module_user')->where('user_id', $this->member->id)->exists())->toBeFalse()
@@ -97,15 +125,22 @@ it('bounds the profile by exact location module action and projection without in
 })->with('leadership profiles')->with('leadership tuples');
 
 it('never permits sensitive leadership data across modules', function (string $profile, array $allowed, string $module, string $dataClass) {
-    $grant = ($this->grant)($profile);
-    if ($profile === 'kommunaler_admin') {
-        $this->leadership->approve($this->approver, $grant->id, $this->north->id);
-    }
+    ($this->grant)($profile);
     foreach (['read', 'manage', 'export'] as $action) {
         expect($this->leadership->allows($this->member, $this->north->id, $module, $action, $dataClass))->toBeFalse();
     }
 })->with('leadership profiles')->with([
     ['personalverwaltung', 'personnel'],
+    ['personalverwaltung', 'personnel_file'],
+    ['personalverwaltung', 'health'],
+    ['personalverwaltung', 'bank'],
+    ['einsatzbericht', 'aggregate_counts'],
+    ['einsatzbericht', 'report'],
+    ['einsatzbericht', 'raw'],
+    ['fahrzeuge', 'inspection_reports'],
+    ['ausruestung', 'inspection_reports'],
+    ['kleiderkammer', 'personal_issuances'],
+    ['mitteilungen', 'administration'],
     ['atemschutz', 'health'],
     ['verbandbuch', 'health'],
     ['finanzen', 'bank'],
@@ -141,6 +176,21 @@ it('rechecks fresh user location module and extension state without using cached
     expect($this->leadership->allows($this->member, $this->north->id, 'fahrzeuge', 'read', 'approved_fleet_summary'))->toBeFalse();
 })->with(['user', 'location', 'module', 'extension', 'leadership']);
 
+it('rechecks the fresh active module for every approved projection contract', function (
+    string $capability, string $module, string $action, string $dataClass
+) {
+    $profile = array_key_first(array_filter(LeadershipAssignments::PROFILES,
+        fn (array $capabilities) => in_array($capability, $capabilities, true)));
+    ($this->grant)($profile, [$capability]);
+    expect($this->leadership->allows($this->member, $this->north->id, $module, $action, $dataClass))->toBeTrue();
+    if ($module === LeadershipAssignments::CORE_AREA) {
+        config(['locations.enabled' => false]);
+    } else {
+        DB::table('modules')->where('key', $module)->update(['is_active' => false]);
+    }
+    expect($this->leadership->allows($this->member, $this->north->id, $module, $action, $dataClass))->toBeFalse();
+})->with('leadership tuples');
+
 it('preserves all data access only for a fresh active global administrator', function () {
     config(['locations.enabled' => false, 'locations.leadership_enabled' => false]);
     foreach ([['personalverwaltung', 'personnel'], ['atemschutz', 'health'], ['finanzen', 'bank'], ['unknown', 'unknown']] as [$module, $dataClass]) {
@@ -163,27 +213,37 @@ it('requires fresh active global admins for both mutations', function (string $c
     expect(fn () => ($this->grant)('spi'))->toThrow(HttpException::class);
 })->with(['demoted', 'inactive', 'local admin']);
 
-it('rejects municipal self-grants', function () {
+it('rejects every new municipal grant including self-grants', function (bool $self) {
     expect(fn () => $this->leadership->grant(
-        $this->admin, $this->admin->id, $this->north->id, 'kommunaler_admin', ['announcement_configuration'],
+        $this->admin, $self ? $this->admin->id : $this->member->id, $this->north->id, 'kommunaler_admin', ['announcement_configuration'],
         'Keine Selbstvergabe', now()->addDay()->toIso8601String(),
     ))->toThrow(ValidationException::class);
-});
+    expect(LeadershipAssignment::count())->toBe(0)
+        ->and(LeadershipAssignments::PROFILES)->not->toHaveKey('kommunaler_admin')
+        ->and(LeadershipAssignments::CAPABILITIES)->not->toHaveKey('announcement_configuration');
+})->with([false, true]);
 
-it('keeps municipal grants pending until a distinct separate approval action', function () {
-    $grant = ($this->grant)('kommunaler_admin');
-    $can = fn () => $this->leadership->allows($this->member, $this->north->id, 'mitteilungen', 'manage', 'administration');
-    expect($can())->toBeFalse()->and($grant->getAttribute('approved_by'))->toBeNull()
+it('denies historical municipal grants whether approved or pending without rewriting history', function (bool $approved) {
+    $grant = ($this->historicalMunicipalGrant)($approved);
+    $history = $grant->getRawOriginal();
+    expect($this->leadership->allows($this->member, $this->north->id, 'mitteilungen', 'manage', 'administration'))->toBeFalse()
         ->and((new LeadershipCommand)->getDefinition()->hasOption('approver'))->toBeFalse();
-    $this->leadership->approve($this->approver, $grant->id, $this->north->id);
-    expect($can())->toBeTrue()
-        ->and($grant->fresh()->getAttribute('approved_by'))->toBe($this->approver->id)
-        ->and($grant->fresh()->getAttribute('approved_at')->equalTo(now()))->toBeTrue();
+    foreach (LeadershipAssignments::CAPABILITIES as [$module, $action, $dataClass]) {
+        expect($this->leadership->allows($this->member, $this->north->id, $module, $action, $dataClass))->toBeFalse();
+    }
     expect(fn () => $this->leadership->approve($this->approver, $grant->id, $this->north->id))->toThrow(ValidationException::class);
-});
+    expect($grant->fresh()->getRawOriginal())->toBe($history);
+    config(['locations.leadership_enabled' => false]);
+    $this->leadership->revoke($this->admin, $grant->id, $this->north->id, 'Historischen Auftrag geschlossen');
+    foreach ($history as $field => $value) {
+        if (! in_array($field, ['revoked_at', 'revoked_by', 'revoke_reason'], true)) {
+            expect($grant->fresh()->getRawOriginal($field))->toBe($value);
+        }
+    }
+})->with([false, true]);
 
-it('requires a second fresh active independent global admin for municipal administration', function (string $approval) {
-    $grant = ($this->grant)('kommunaler_admin');
+it('never reactivates the retired approval action for any actor', function (string $approval) {
+    $grant = ($this->historicalMunicipalGrant)();
     $actor = match ($approval) {
         'grantor' => $this->admin,
         'recipient' => $this->member,
@@ -198,25 +258,10 @@ it('requires a second fresh active independent global admin for municipal admini
     }
     expect(fn () => $this->leadership->approve($actor, $grant->id, $this->north->id))
         ->toThrow(in_array($approval, ['demoted', 'inactive'], true) ? HttpException::class : ValidationException::class);
-})->with(['grantor', 'recipient', 'demoted', 'inactive']);
+})->with(['grantor', 'recipient', 'demoted', 'inactive', 'independent admin']);
 
-it('rejects approval when grant target module location dates or foundation are no longer eligible', function (string $change) {
-    $grant = ($this->grant)('kommunaler_admin');
-    match ($change) {
-        'expired' => $this->travel(1)->days(),
-        'revoked' => $this->leadership->revoke($this->admin, $grant->id, $this->north->id, 'Widerrufen'),
-        'user' => DB::table('users')->where('id', $this->member->id)->update(['is_active' => false]),
-        'location' => DB::table('x_locations')->where('id', $this->north->id)->update(['is_active' => false]),
-        'module' => DB::table('modules')->where('key', 'mitteilungen')->update(['is_active' => false]),
-        'extension' => config(['locations.enabled' => false]),
-        'leadership' => config(['locations.leadership_enabled' => false]),
-    };
-    expect(fn () => $this->leadership->approve($this->approver, $grant->id, $this->north->id))->toThrow(ValidationException::class);
-    expect($grant->fresh()->getAttribute('approved_by'))->toBeNull();
-})->with(['expired', 'revoked', 'user', 'location', 'module', 'extension', 'leadership']);
-
-it('requires the exact approval location and municipal profile', function () {
-    $municipal = ($this->grant)('kommunaler_admin');
+it('keeps exact assignment lookup while retiring approval for every profile', function () {
+    $municipal = ($this->historicalMunicipalGrant)();
     expect(fn () => $this->leadership->approve($this->approver, $municipal->id, $this->south->id))->toThrow(ModelNotFoundException::class);
     $ordinary = ($this->grant)('gbi');
     expect(fn () => $this->leadership->approve($this->approver, $ordinary->id, $this->north->id))->toThrow(ValidationException::class);
@@ -244,11 +289,34 @@ it('requires active explicit grant targets and modules', function (string $chang
     expect(fn () => ($this->grant)('gbi', ['fleet_summary']))->toThrow(ValidationException::class);
 })->with(['user', 'location', 'module', 'extension', 'leadership']);
 
+it('locks users then sorted modules before locations consistently with stock operations', function () {
+    $locks = [];
+    DB::listen(function (QueryExecuted $query) use (&$locks) {
+        if (str_contains($query->sql, 'for update')) {
+            $locks[] = ['sql' => $query->sql, 'bindings' => $query->bindings];
+        }
+    });
+    ($this->grant)('gbi', ['stock_summary', 'personnel_summary', 'equipment_summary', 'fleet_summary', 'location_overview']);
+    $tables = array_map(function (array $lock) {
+        preg_match('/from "([^"]+)"/', $lock['sql'], $matches);
+
+        return $matches[1];
+    }, $locks);
+    expect($tables)->toBe(['users', 'users', 'modules', 'modules', 'modules', 'modules', 'x_locations']);
+    $modules = array_values(array_filter($locks, fn (array $lock) => str_contains($lock['sql'], 'from "modules"')));
+    expect(array_map(fn (array $lock) => $lock['bindings'][0], $modules))
+        ->toBe(['ausruestung', 'fahrzeuge', 'kleiderkammer', 'personalverwaltung']);
+});
+
 it('rejects invalid capability or profile tuples and wildcard grants', function (string $profile, array $capabilities) {
     expect(fn () => ($this->grant)($profile, $capabilities))->toThrow(ValidationException::class);
 })->with([
     ['gbi', []], ['gbi', ['*']], ['*', ['fleet_summary']], ['unknown', ['fleet_summary']],
-    ['buergermeister', ['fleet_summary']], ['brandschutzamt', ['stock_summary']],
+    ['buergermeister', ['fleet_summary']], ['brandschutzamt', ['location_overview']],
+    ['kommune', ['personnel_summary']], ['brandschutzamt', ['equipment_summary']],
+    ['spi', ['fleet_inspections']], ['gbi', ['equipment_deadlines']],
+    ['gbi', ['personnel']], ['gbi', ['health']], ['gbi', ['bank']], ['gbi', ['personnel_file']],
+    ['kommunaler_admin', ['announcement_configuration']],
     ['kommunaler_admin', ['fleet_summary']], ['spi', ['fleet_summary', 'fleet_summary']],
     ['gbi', ['module' => 'fleet_summary']], ['gbi', ['fahrzeuge:read:personnel']],
 ]);
@@ -322,15 +390,13 @@ it('enforces finite profile capabilities dates approval and scope at the databas
         'partial approval' => [$attributes['profile'], $attributes['capabilities'], $attributes['approved_at']] = ['kommunaler_admin', '["announcement_configuration"]', now()],
         'self approval' => [$attributes['profile'], $attributes['capabilities'], $attributes['approved_by']] = ['kommunaler_admin', '["announcement_configuration"]', $this->admin->id],
         'preapproved insert' => [$attributes['profile'], $attributes['capabilities'], $attributes['approved_by'], $attributes['approved_at']] = ['kommunaler_admin', '["announcement_configuration"]', $this->approver->id, now()],
+        'retired municipal insert' => [$attributes['profile'], $attributes['capabilities']] = ['kommunaler_admin', '["announcement_configuration"]'],
     };
     expect(fn () => DB::transaction(fn () => DB::table('x_leadership_assignments')->insert($attributes)))->toThrow(QueryException::class);
-})->with(['capability', 'profile', 'wildcard scope', 'unbounded expiry', 'long expiry', 'invalid dates', 'partial approval', 'self approval', 'preapproved insert']);
+})->with(['capability', 'profile', 'wildcard scope', 'unbounded expiry', 'long expiry', 'invalid dates', 'partial approval', 'self approval', 'preapproved insert', 'retired municipal insert']);
 
-it('enforces one-way independent approval separately from revocation in PostgreSQL', function (string $mutation) {
-    $grant = ($this->grant)('kommunaler_admin');
-    if (in_array($mutation, ['remove approval', 'rewrite approver'], true)) {
-        $this->leadership->approve($this->approver, $grant->id, $this->north->id);
-    }
+it('preserves historical approvals and forbids any new approval in PostgreSQL', function (string $mutation) {
+    $grant = ($this->historicalMunicipalGrant)(in_array($mutation, ['remove approval', 'rewrite approver'], true));
     if ($mutation === 'approve revoked') {
         $this->leadership->revoke($this->admin, $grant->id, $this->north->id, 'Widerrufen');
     }
@@ -340,6 +406,7 @@ it('enforces one-way independent approval separately from revocation in PostgreS
         match ($mutation) {
             'remove approval' => $query->update(['approved_by' => null, 'approved_at' => null]),
             'rewrite approver' => $query->update(['approved_by' => User::factory()->create(['is_admin' => true])->id]),
+            'new approval' => $query->update($approval),
             'approve revoked' => $query->update($approval),
             'change scope' => $query->update([...$approval, 'location_id' => $this->south->id]),
             'combine revocation' => $query->update([...$approval, 'revoked_at' => now(), 'revoked_by' => $this->admin->id, 'revoke_reason' => 'Kombiniert']),
@@ -347,11 +414,10 @@ it('enforces one-way independent approval separately from revocation in PostgreS
             'recipient approves' => $query->update(['approved_by' => $this->member->id, 'approved_at' => now()]),
         };
     }))->toThrow(QueryException::class);
-})->with(['remove approval', 'rewrite approver', 'approve revoked', 'change scope', 'combine revocation', 'grantor approves', 'recipient approves']);
+})->with(['new approval', 'remove approval', 'rewrite approver', 'approve revoked', 'change scope', 'combine revocation', 'grantor approves', 'recipient approves']);
 
 it('protects every historical user reference from deletion and member transfer', function (string $reference) {
-    $grant = ($this->grant)('kommunaler_admin');
-    $this->leadership->approve($this->approver, $grant->id, $this->north->id);
+    $grant = ($this->historicalMunicipalGrant)(true);
     $revoker = User::factory()->create(['is_admin' => true]);
     $this->leadership->revoke($revoker, $grant->id, $this->north->id, 'Testende');
     $user = match ($reference) {
@@ -363,6 +429,16 @@ it('protects every historical user reference from deletion and member transfer',
     expect(fn () => DB::transaction(fn () => DB::table('users')->where('id', $user->id)->delete()))->toThrow(QueryException::class);
 })->with(['recipient', 'grantor', 'approver', 'revoker']);
 
+it('upgrades the matrix without changing historical grants or approvals', function () {
+    $grant = ($this->historicalMunicipalGrant)(true);
+    $history = $grant->getRawOriginal();
+    $migration = require base_path('extensions/Locations/database/migrations/2026_12_29_000000_update_leadership_profile_contracts.php');
+    $migration->up();
+    expect($grant->fresh()->getRawOriginal())->toBe($history)
+        ->and($this->leadership->allows($this->member, $this->north->id, 'mitteilungen', 'manage', 'administration'))->toBeFalse();
+    ($this->grant)('brandschutzamt', ['personnel_summary', 'stock_summary', 'fleet_inspections', 'equipment_inspections']);
+});
+
 it('records an optional manifest table without claiming policy integration', function () {
     $manifest = config('locations.protection');
     expect($manifest['optional_extensions']['extensions.locations']['tables'])->toContain('x_leadership_assignments')
@@ -373,22 +449,37 @@ it('records an optional manifest table without claiming policy integration', fun
 it('supports exact administrative CLI grants and revocation without enabling old views', function () {
     $this->artisan('locations:leadership', [
         'operation' => 'grant', '--by' => (string) $this->admin->id, '--user' => (string) $this->member->id,
-        '--location' => (string) $this->north->id, '--profile' => 'kommunaler_admin',
-        '--capability' => ['announcement_configuration'], '--reason' => 'Geprüfter Auftrag',
+        '--location' => (string) $this->north->id, '--profile' => 'gbi',
+        '--capability' => ['personnel_summary'], '--reason' => 'Geprüfter Auftrag',
         '--expires' => now()->addDay()->toIso8601String(),
     ])->assertSuccessful();
     $grant = LeadershipAssignment::firstOrFail();
-    expect($this->leadership->allows($this->member, $this->north->id, 'mitteilungen', 'manage', 'administration'))->toBeFalse();
-    $this->artisan('locations:leadership', [
-        'operation' => 'approve', '--by' => (string) $this->approver->id, '--assignment' => (string) $grant->id,
-        '--location' => (string) $this->north->id,
-    ])->assertSuccessful();
-    expect($this->leadership->allows($this->member, $this->north->id, 'mitteilungen', 'manage', 'administration'))->toBeTrue();
+    expect($this->leadership->allows($this->member, $this->north->id, 'personalverwaltung', 'read', 'approved_personnel_summary'))->toBeTrue()
+        ->and($this->leadership->allows($this->member, $this->north->id, 'personalverwaltung', 'read', 'personnel'))->toBeFalse();
     $this->artisan('locations:leadership', [
         'operation' => 'revoke', '--by' => (string) $this->admin->id, '--assignment' => (string) $grant->id,
         '--location' => (string) $this->north->id, '--reason' => 'Auftrag beendet',
     ])->assertSuccessful();
     expect($grant->fresh()->getAttribute('revoked_at'))->not->toBeNull();
+});
+
+it('retires municipal CLI grants and approvals but permits historical revocation', function () {
+    $this->artisan('locations:leadership', [
+        'operation' => 'grant', '--by' => (string) $this->admin->id, '--user' => (string) $this->member->id,
+        '--location' => (string) $this->north->id, '--profile' => 'kommunaler_admin',
+        '--capability' => ['announcement_configuration'], '--reason' => 'Nicht vorgesehen',
+        '--expires' => now()->addDay()->toIso8601String(),
+    ])->assertFailed();
+    $grant = ($this->historicalMunicipalGrant)();
+    $this->artisan('locations:leadership', [
+        'operation' => 'approve', '--by' => (string) $this->approver->id,
+        '--assignment' => (string) $grant->id, '--location' => (string) $this->north->id,
+    ])->expectsOutputToContain('Kommunale Administration ist nicht vorgesehen')->assertFailed();
+    expect($grant->fresh()->getAttribute('approved_at'))->toBeNull();
+    $this->artisan('locations:leadership', [
+        'operation' => 'revoke', '--by' => (string) $this->admin->id, '--assignment' => (string) $grant->id,
+        '--location' => (string) $this->north->id, '--reason' => 'Historie geschlossen',
+    ])->assertSuccessful();
 });
 
 it('rejects unsafe CLI parameters inactive actors and expired grants', function (string $change) {

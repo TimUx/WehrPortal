@@ -114,9 +114,16 @@ it('reports aggregate hybrid readiness without guessing personal or quantity sto
             'kk_item_groups' => 'catalog', 'kk_items' => 'direct_item', 'kk_stock' => 'unresolved_quantity_stock',
             'kk_issued_items' => 'user_and_optional_item', 'kk_member_sizes' => 'user',
             'kk_equipment_messages' => 'user_and_optional_parent', 'kk_item_treatments' => 'parent_item',
+            'x_clothing_stock_transfers' => 'immutable_stock_transfer_journal',
+            'x_clothing_history_corrections' => 'private_documentary_source_review_journal',
         ]);
     $json = json_encode($report);
     expect($json)->not->toContain('Hanna', '@', 'Vertraulicher', 'Niemals', 'user_id', 'location_id');
+});
+
+it('requires journal metadata before reporting count-only historical review inventory', function () {
+    DB::statement('ALTER TABLE x_clothing_history_corrections DROP COLUMN evidence CASCADE');
+    expect(fn () => app(ClothingReadinessReport::class)->report())->toThrow(RuntimeException::class, ClothingReadinessReport::FAILURE);
 });
 
 it('is independent of caller authorization and selected location and changes no records or notifications', function () {

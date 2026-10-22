@@ -13,30 +13,55 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Foundation for future explicit consumers, not an adapter for existing policies.
- * Tuples are preparatory contracts, not approved views. A capability decision is
+ * Explicit contracts for LeadershipProjections, not an adapter for existing policies.
+ * A capability decision alone is
  * neither raw-object authorization nor an aggregation/anonymization guarantee.
  */
 class LeadershipAssignments
 {
     public const MAX_DAYS = 366;
 
+    /** Core location metadata is an extension area, not a fictitious modules-table entry. */
+    public const CORE_AREA = 'locations';
+
     public const CAPABILITIES = [
-        'incident_totals' => ['einsatzbericht', 'read', 'aggregate_counts'],
+        'incident_totals' => ['einsatzbericht', 'read', 'yearly_incident_counts'],
         'fleet_deadlines' => ['fahrzeuge', 'read', 'inspection_deadlines'],
         'equipment_deadlines' => ['ausruestung', 'read', 'inspection_deadlines'],
+        'fleet_inspections' => ['fahrzeuge', 'read', 'approved_inspection_summary'],
+        'equipment_inspections' => ['ausruestung', 'read', 'approved_inspection_summary'],
         'fleet_summary' => ['fahrzeuge', 'read', 'approved_fleet_summary'],
+        'equipment_summary' => ['ausruestung', 'read', 'approved_equipment_summary'],
         'stock_summary' => ['kleiderkammer', 'read', 'approved_stock_summary'],
-        'announcement_configuration' => ['mitteilungen', 'manage', 'administration'],
+        'personnel_summary' => ['personalverwaltung', 'read', 'approved_personnel_summary'],
+        'location_overview' => [self::CORE_AREA, 'read', 'approved_location_overview'],
+    ];
+
+    /**
+     * Allowlisted output fields, not permission to load raw records.
+     * Counts must cover exactly the authorized location; incident counts are yearly only.
+     * No personal names, health/bank data, personnel files, free text, attachments or drill-down links.
+     * Inspection results and asset statuses are fixed categorical count buckets.
+     */
+    public const PROJECTION_FIELDS = [
+        'incident_totals' => ['year', 'incident_count'],
+        'fleet_deadlines' => ['overdue', 'due_within_30_days', 'later', 'undated'],
+        'equipment_deadlines' => ['overdue', 'due_within_30_days', 'later', 'undated'],
+        'fleet_inspections' => ['year', 'passed', 'limited', 'failed', 'unknown'],
+        'equipment_inspections' => ['year', 'passed', 'failed'],
+        'fleet_summary' => ['vehicle_count', 'status_counts'],
+        'equipment_summary' => ['equipment_count', 'status_counts'],
+        'stock_summary' => ['stock_quantity', 'tracked_item_count'],
+        'personnel_summary' => ['active_member_count', 'department_counts'],
+        'location_overview' => ['location_name', 'short_name'],
     ];
 
     public const PROFILES = [
         'buergermeister' => ['incident_totals'],
         'kommune' => ['incident_totals'],
-        'brandschutzamt' => ['fleet_deadlines', 'equipment_deadlines'],
-        'gbi' => ['fleet_summary', 'stock_summary'],
-        'spi' => ['fleet_summary', 'stock_summary'],
-        'kommunaler_admin' => ['announcement_configuration'],
+        'brandschutzamt' => ['fleet_deadlines', 'equipment_deadlines', 'fleet_inspections', 'equipment_inspections', 'stock_summary', 'personnel_summary'],
+        'gbi' => ['location_overview', 'fleet_summary', 'equipment_summary', 'stock_summary', 'personnel_summary'],
+        'spi' => ['location_overview', 'fleet_summary', 'equipment_summary', 'stock_summary', 'personnel_summary'],
     ];
 
     /** Capability decision only. No membership, session, loaded relation or cached state grants it. */
@@ -61,8 +86,6 @@ class LeadershipAssignments
             ->where('location.is_active', true)->where('grants.location_id', $locationId)
             ->where('grants.user_id', $user->id)->whereNull('grants.revoked_at')
             ->where('grants.valid_from', '<=', now())->where('grants.expires_at', '>', now())
-            ->where(fn (Builder $query) => $query->where('grants.profile', '<>', 'kommunaler_admin')
-                ->orWhere(fn (Builder $approval) => $approval->whereNotNull('grants.approved_by')->where('grants.approved_at', '<=', now())))
             ->whereIn('grants.profile', array_keys(array_filter(self::PROFILES,
                 fn (array $capabilities) => in_array($capability, $capabilities, true))))
             ->whereJsonContains('grants.capabilities', $capability)->exists();
@@ -95,18 +118,17 @@ class LeadershipAssignments
                 || array_diff($capabilities, self::PROFILES[$profile]) !== []) {
                 throw ValidationException::withMessages(['capabilities' => 'Nur ausdrücklich erlaubte Profil-Capabilities ohne Platzhalter zulässig.']);
             }
-            if ($profile === 'kommunaler_admin' && $by->id === $userId) {
-                throw ValidationException::withMessages(['user_id' => 'Keine Selbstvergabe des kommunalen Adminprofils.']);
+            $modules = array_unique(array_map(fn (string $capability) => self::CAPABILITIES[$capability][0], $capabilities));
+            sort($modules);
+            foreach ($modules as $module) {
+                if (! $this->activeModule($module, true)) {
+                    throw ValidationException::withMessages(['capabilities' => 'Alle betroffenen Module müssen aktiv sein.']);
+                }
             }
             $location = DB::table('x_locations')->where('id', $locationId)->lockForUpdate()->first();
             $member = DB::table('users')->where('id', $userId)->first();
             if (! config('locations.enabled') || ! $location?->is_active || ! $member?->is_active) {
                 throw ValidationException::withMessages(['location_id' => 'Locations, aktiver Standort und aktive Person erforderlich.']);
-            }
-            foreach ($capabilities as $capability) {
-                if (! $this->activeModule(self::CAPABILITIES[$capability][0], true)) {
-                    throw ValidationException::withMessages(['capabilities' => 'Alle betroffenen Module müssen aktiv sein.']);
-                }
             }
             if (LeadershipAssignment::where('user_id', $userId)->where('location_id', $locationId)
                 ->where('profile', $profile)->whereNull('revoked_at')->exists()) {
@@ -122,29 +144,13 @@ class LeadershipAssignments
         });
     }
 
-    /** A distinct operator action attests approval; looking up another admin ID never activates a grant. */
+    /** @deprecated Municipal administration is not supported; historical approvals remain immutable. */
     public function approve(User $by, int $assignmentId, int $locationId): void
     {
         DB::transaction(function () use ($by, $assignmentId, $locationId) {
             $this->authorize($by->id);
-            $grant = LeadershipAssignment::where('location_id', $locationId)->lockForUpdate()->findOrFail($assignmentId);
-            if (! config('locations.enabled') || ! config('locations.leadership_enabled')
-                || $grant->getAttribute('profile') !== 'kommunaler_admin'
-                || $grant->getAttribute('approved_at') !== null || $grant->getAttribute('revoked_at') !== null
-                || $grant->getAttribute('expires_at')->lte(now())
-                || in_array($by->id, [$grant->getAttribute('granted_by'), $grant->getAttribute('user_id')], true)) {
-                throw ValidationException::withMessages(['assignment' => 'Nur eine offene, nicht abgelaufene Vergabe durch einen unabhängigen zweiten Administrator freigeben.']);
-            }
-            if (! DB::table('users')->where('id', $grant->getAttribute('user_id'))->where('is_active', true)->exists()
-                || ! DB::table('x_locations')->where('id', $locationId)->where('is_active', true)->exists()) {
-                throw ValidationException::withMessages(['assignment' => 'Person und Standort müssen aktiv sein.']);
-            }
-            foreach ($grant->getAttribute('capabilities') as $capability) {
-                if (! $this->activeModule(self::CAPABILITIES[$capability][0], true)) {
-                    throw ValidationException::withMessages(['assignment' => 'Betroffenes Modul muss aktiv sein.']);
-                }
-            }
-            $grant->update(['approved_by' => $by->id, 'approved_at' => now()]);
+            LeadershipAssignment::where('location_id', $locationId)->lockForUpdate()->findOrFail($assignmentId);
+            throw ValidationException::withMessages(['assignment' => 'Kommunale Administration ist nicht vorgesehen; historische Vergaben können nur widerrufen werden.']);
         });
     }
 
@@ -162,6 +168,11 @@ class LeadershipAssignments
         });
     }
 
+    public function projectionEnabled(string $module): bool
+    {
+        return config('locations.enabled') && config('locations.leadership_enabled') && $this->activeModule($module);
+    }
+
     private function authorize(int $userId): void
     {
         $actor = DB::table('users')->where('id', $userId)->lockForUpdate()->first();
@@ -170,6 +181,10 @@ class LeadershipAssignments
 
     private function activeModule(string $module, bool $lock = false): bool
     {
+        if ($module === self::CORE_AREA) {
+            return (bool) config('locations.enabled');
+        }
+
         return app(ModuleRegistry::class)->has($module)
             && DB::table('modules')->where('key', $module)->where('is_active', true)
                 ->when($lock, fn (Builder $query) => $query->lockForUpdate())->first() !== null;

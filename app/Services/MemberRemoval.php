@@ -52,7 +52,7 @@ class MemberRemoval
              WHERE c.contype = 'f' AND c.confrelid = 'users'::regclass AND c.confdeltype IN ('a', 'r', 'n') AND c.conrelid <> 'users'::regclass
              ORDER BY 1, 2"
         ))->map(fn ($r) => ['table' => $r->tbl, 'column' => $r->col])
-            ->reject(fn ($r) => in_array($r['table'], ['x_location_module_roles', 'x_location_data_assignments'], true)
+            ->reject(fn ($r) => in_array($r['table'], ['x_location_module_roles', 'x_location_data_assignments', 'x_clothing_stock_transfers', 'x_clothing_history_corrections'], true)
                 || in_array($r['table'].'.'.$r['column'], self::KEEP, true));
     }
 

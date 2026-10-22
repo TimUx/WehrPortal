@@ -13,6 +13,7 @@ Für Gemeinden mit mehreren Feuerwehrhäusern. Code: `extensions/Locations/`, Ab
 - [Wirkung](#wirkung)
 - [Standortbezogene Modulrollen: gestufte Umstellung](#standortbezogene-modulrollen-gestufte-umstellung)
 - [Führungsprofile: vorbereitete Berechtigungsgrundlage (P6)](#führungsprofile-vorbereitete-berechtigungsgrundlage-p6)
+- [Kleiderkammer: Umbuchungen und historische Korrekturvermerke (P4)](#kleiderkammer-umbuchungen-und-historische-korrekturvermerke-p4)
 - [Betriebsbereitschaft prüfen (P7)](#betriebsbereitschaft-prüfen-p7)
 - [Kleiderkammer: optionaler Mengenbestandsadapter](#kleiderkammer-optionaler-mengenbestandsadapter)
 - [Schutzmanifest und Schema-Guard](#schutzmanifest-und-schema-guard)
@@ -92,41 +93,73 @@ Lesestatistik, Erinnerungen, Anhangverwaltung und ausdrücklich angeforderter Ve
 
 Kommunale Führungsprofile sind **keine globalen Admins**. Die neue Grundlage trennt eine ausdrückliche, befristete Vergabe für genau einen Standort von einer tatsächlich freigegebenen Modulsicht. Weder Primärstandort, Standort-Adminrolle, globale Modulrolle noch der Standortumschalter erzeugen eine Führungsvergabe. Globale aktive Admins behalten sämtliche Datenzugriffe, auch auf sensible Inhalte.
 
-Die Grundlage ist standardmäßig ausgeschaltet (`LOCATIONS_LEADERSHIP_ENABLED=false`). Ein Einschalten ersetzt keine fachliche Freigabe: Der Resolver prüft ausschließlich eine genaue Capability mit Modul, Aktion, Datenklasse und Standort. Er erweitert weder die bestehende Standortmitgliedschaft noch den Moduleinstieg und ist nicht in vorhandene Modul-Policies eingebaut. Eine erlaubte Capability bedeutet insbesondere **nicht**, dass rohe Datensätze freigegeben oder Kennzahlen hinreichend anonymisiert sind.
+Die Grundlage ist standardmäßig ausgeschaltet (`LOCATIONS_LEADERSHIP_ENABLED=false`). Ein Einschalten ersetzt keine fachliche Freigabe: Der Resolver prüft ausschließlich eine genaue Capability mit Modul, Aktion, Datenklasse und Standort. Er erweitert weder die bestehende Standortmitgliedschaft noch den Moduleinstieg und ist nicht in vorhandene Modul-Policies eingebaut. Ein eigener begrenzter Konsolenleser liefert ausschließlich die unten beschriebenen Zusammenfassungen. Eine erlaubte Capability bedeutet insbesondere **nicht**, dass rohe Datensätze freigegeben oder Kennzahlen hinreichend anonymisiert sind.
 
-Das vorbereitete Zielmodell beschränkt Kommune/Bürgermeister auf aggregierte Sichten, Brandschutzamt auf Prüffristen, GBI/SPI auf ausdrücklich freigegebene Lesesichten und kommunale Admins auf Verwaltungsfunktionen. Personalakten, Gesundheits-, Bank- und Authentisierungsdaten erhalten dadurch keine zusätzlichen Leserechte. Die konkreten fachlichen Sichten, Aggregationsregeln und kommunalen Zuständigkeitsgrenzen müssen vor einer Integration bestätigt werden. Ein NULL-Standort oder eine Wildcard ist kein kommunaler Geltungsbereich; mehrere Standorte benötigen getrennte Vergaben.
+Die bestätigte Profilentscheidung beschränkt Kommune/Bürgermeister auf grobe jährliche Einsatzzahlen ohne Einzelberichte. Brandschutzamt umfasst Fahrzeug-/Geräteprüfungen und Fälligkeiten, Kleiderkammer und Personal. GBI/SPI umfasst Standortübersicht, Fahrzeuge/Geräte, Kleiderkammer und Personal. Ein **kommunales Adminprofil ist nicht vorgesehen**. Die Fachbereiche werden durch genaue Leseklassen begrenzt, nicht durch pauschale Freigaben bestehender Vollansichten. Personalakten, Gesundheits-, Bank- und Authentisierungsdaten erhalten dadurch keine zusätzlichen Leserechte. Ein NULL-Standort oder eine Wildcard ist kein kommunaler Geltungsbereich; mehrere Standorte benötigen getrennte Vergaben.
 
 | Profil | Vorbereitete Capability | Exakter Vertrag (Modul / Aktion / Datenklasse) |
 |---|---|---|
-| `buergermeister`, `kommune` | `incident_totals` | `einsatzbericht / read / aggregate_counts` |
-| `brandschutzamt` | `fleet_deadlines`, `equipment_deadlines` | `fahrzeuge` beziehungsweise `ausruestung / read / inspection_deadlines` |
-| `gbi`, `spi` | `fleet_summary`, `stock_summary` | `fahrzeuge / read / approved_fleet_summary` beziehungsweise `kleiderkammer / read / approved_stock_summary` |
-| `kommunaler_admin` | `announcement_configuration` (erst nach gesonderter Bestätigung wirksam) | `mitteilungen / manage / administration` |
+| `buergermeister`, `kommune` | `incident_totals` | `einsatzbericht / read / yearly_incident_counts` |
+| `brandschutzamt` | `fleet_deadlines`, `equipment_deadlines`, `fleet_inspections`, `equipment_inspections`, `stock_summary`, `personnel_summary` | Fahrzeug-/Geräteprüfungen und Fristen sowie freigegebene Bestands-/Personalübersichten |
+| `gbi`, `spi` | `location_overview`, `fleet_summary`, `equipment_summary`, `stock_summary`, `personnel_summary` | Freigegebene Standort-, Fahrzeug-, Geräte-, Bestands- und Personalübersichten |
+| `kommunaler_admin` | keine | Nicht mehr vergebbar oder nutzbar; historischer Verlauf bleibt erhalten |
 
-Diese Namen bezeichnen zukünftige, einzeln zu prüfende Projektionen, keine Freigabe der heutigen Vollansichten. Andere Module, Aktionen, Datenklassen oder frei zusammengesetzte Berechtigungen sind für Führungsprofile nicht zulässig. Aktive Person, aktiver Zielstandort, aktives Modul sowie Beginn, Ablauf und Entzug werden frisch geprüft; veraltete Benutzerobjekte oder eine alte Standortauswahl ersetzen keine Vergabe.
+Diese Namen bezeichnen begrenzte Projektionen, keine Freigabe der heutigen Vollansichten. Andere Module, Aktionen, Datenklassen oder frei zusammengesetzte Berechtigungen sind für Führungsprofile nicht zulässig. Aktive Person, aktiver Zielstandort, aktives Modul sowie Beginn, Ablauf und Entzug werden frisch geprüft; veraltete Benutzerobjekte oder eine alte Standortauswahl ersetzen keine Vergabe.
 
-### P6-Vorschlag zur fachlichen Bestätigung
+Die genauen Verträge und zulässigen Ausgabefelder stehen in `LeadershipAssignments::CAPABILITIES` und `PROJECTION_FIELDS`: Personalübersichten bestehen aus aktiven Mitgliederzahlen und Abteilungszahlen, Bestandsübersichten aus verfügbarer Gesamtmenge und Einzelteilanzahl, Betriebsmittelübersichten aus festen Statuszählungen. Die Standortübersicht enthält nur Standortname und Kurzname; sie verwendet den expliziten Kernbereich `locations`, keinen künstlichen Eintrag in der Modultabelle. Keine Projektion erhält dadurch Personennamen, Freitexte, Anlagen, Rohdatensatzlinks oder personenbezogene Ausgabehistorien. Der jährliche Einsatzvertrag ersetzt den früheren unspezifischen `aggregate_counts`-Vertrag; alte Aufrufer müssen den genauen neuen Vertrag verwenden.
 
-Benötigt wird keine technische Konfiguration durch den Betreiber, sondern eine Entscheidung: **Welche Personengruppe darf an welchen ausdrücklich benannten Standorten welche Informationen sehen oder ändern?** Die folgende Matrix ist ein Vorschlag, keine aktivierte Berechtigung und keine zusätzliche Bestandsfreigabe:
+### Bestätigter P6-Fachumfang und Grenzen
 
-| Profil | Vorgeschlagene Informationen | Vorgeschlagene Aktionen | Ausdrücklich ausgeschlossen |
+Die Profilmatrix wurde fachlich bestätigt. Das ersetzt weder die ausdrückliche Standortvergabe noch die Prüfung jeder konkreten Projektion. Ohne zusätzlich festgelegte Felder und Aktionen werden aus „Personal“ keine Einzelakten und aus „Kleiderkammer“ keine personenbezogenen Ausgabehistorien abgeleitet:
+
+| Profil | Bestätigter Fachbereich | Begrenzter Leseumfang | Ausdrücklich ausgeschlossen |
 |---|---|---|---|
-| Bürgermeister / Kommune | Jahreszahlen abgeschlossener, für Statistiken freigegebener Einsätze nach grober Kategorie, ohne Personen- oder Einzelereignisbezug | Nur lesen; zunächst keine Exporte oder Detailaufrufe | Einsatzadressen, Freitexte, Teilnehmer, Personal-, Gesundheits- und Bankdaten |
-| Brandschutzamt | Betriebsmittelkennung, Standort, Prüfart, Fälligkeit und Prüfstatus von Fahrzeugen und Ausrüstung | Nur Fristenübersicht lesen | Personenbezüge, interne Notizen, Dokumente und Änderung der Prüfergebnisse |
-| GBI / SPI | Freigegebene Fahrzeugübersicht und Mengenbestände je ausdrücklich zugewiesenem Standort | Nur lesen, keine Umbuchungen oder Mengenkorrekturen | Persönliche Größen, Ausgabehistorien, Meldungstexte und Personalakten |
-| Kommunaler Admin | Eng begrenzte, ausdrücklich freigegebene Mitteilungs-Verwaltungsfunktionen | Zunächst gesperrt; konkrete Konfigurationsfelder separat festlegen und Vier-Augen-Freigabe beibehalten | Allgemeine Adminrechte, Rollenvergabe, Zugangsdaten, externe Kanalgeheimnisse und automatisch alle Mitteilungen |
+| Bürgermeister / Kommune | Grobe jährliche Einsatzzahlen | Nur Jahresaggregate, keine Einzelberichte | Einsatzadressen, Freitexte, Teilnehmer, Personal-, Gesundheits- und Bankdaten |
+| Brandschutzamt | Fahrzeug-/Geräteprüfungen und Fälligkeiten, Kleiderkammer, Personal | Ausdrückliche Prüfungs-, Bestands- und Personalübersichten | Ungeprüfte Rohdaten, persönliche Größen, Ausgabehistorien, sensible Einzelfelder und Schreibaktionen |
+| GBI / SPI | Standortübersicht, Fahrzeuge/Geräte, Kleiderkammer, Personal | Ausdrückliche Standort-, Betriebsmittel-, Bestands- und Personalübersichten | Ungeprüfte Rohdaten, Personalakten, Gesundheits-/Bankdaten und pauschale Schreibaktionen |
+| Kommunaler Admin | Nicht vorgesehen | Keine wirksamen Profilrechte | Neue Vergaben und Nutzung historischer Adminvergaben |
 
-Beispiel: Eine Person mit Profil **Brandschutzamt** und Vergabe für **Wache Nord** sieht nur die freigegebenen Prüfungsübersichten dieser Wache. Für Wache Süd ist eine weitere ausdrückliche Vergabe erforderlich. Ein Link auf Fahrzeugakte, Unterlagen oder personenbezogene Informationen wird dadurch nicht freigegeben.
+Beispiel: Eine Person mit Profil **Brandschutzamt** und Vergabe für **Wache Nord** darf nur die konkret zugewiesenen Leseklassen dieser Wache nutzen. Für Wache Süd ist eine weitere ausdrückliche Vergabe erforderlich. Ein Link auf Fahrzeugakte, Unterlagen oder personenbezogene Informationen wird dadurch nicht freigegeben.
 
-Vor Umsetzung sind die Profile und Standorte, die aufgezählten Felder, erlaubte Exporte und gewünschte Abweichungen zu bestätigen. Als konservativer Ausgangspunkt für Einsatzzahlen werden nur ganze Jahre ohne frei kombinierbare Detailfilter vorgeschlagen; Kategorien mit weniger als fünf Fällen werden zusammengefasst oder unterdrückt. Auch Rückrechnung aus Summen und mehreren Abfragen muss verhindert und die konkrete Darstellung fachlich geprüft werden: Diese Schwelle allein garantiert keine Anonymität. Bis dahin bleiben die betreffenden Sichten deaktiviert. Globale Admins behalten unabhängig davon alle bestehenden Rechte.
+Einzelne Zielstandorte werden weiterhin ausdrücklich vergeben. Zusätzliche personenbezogene Felder, Schreibaktionen und Exporte sind nicht Teil dieser Entscheidung. Als konservativer Ausgangspunkt für Einsatzzahlen gelten ganze Jahre ohne frei kombinierbare Detailfilter; kleine Fallzahlen und Rückrechnung aus mehreren Abfragen müssen gesondert berücksichtigt werden. Reine Summen garantieren keine Anonymität. Globale Admins behalten unabhängig davon alle bestehenden Rechte.
 
-Vergaben und Entzüge benötigen einen aktuell aktiven globalen Admin, eine Begründung und einen endlichen Gültigkeitszeitraum (höchstens 366 Tage ab Vergabe). **Kommunale Adminprofile beginnen ausstehend:** Die Vergabe selbst aktiviert keine Capability. Erst eine gesonderte Bestätigungsaktion durch einen anderen aktuell aktiven globalen Admin speichert die Bestätigeridentität und den Zeitpunkt. Weder der vergebende Admin noch die begünstigte Person darf bestätigen; eine vorweg übergebene zweite Admin-ID ersetzt diese Aktion nicht. Die gespeicherten Vergabebedingungen bleiben unveränderlich; Entzug ist endgültig, eine erneute Berechtigung benötigt eine neue Vergabe. Personen und Standorte im Verlauf dürfen nicht durch Löschen oder Übertragen nachträglich umgedeutet werden.
+Vergaben und Entzüge benötigen einen aktuell aktiven globalen Admin, eine Begründung und einen endlichen Gültigkeitszeitraum (höchstens 366 Tage ab Vergabe). Das frühere kommunale Adminprofil wird weder neu vergeben noch aus historischen Vergaben wirksam. Seine unveränderlichen Vergabe- und Bestätigungseinträge bleiben als Verlauf erhalten. Die gespeicherten Vergabebedingungen bleiben unveränderlich; Entzug ist endgültig, eine erneute Berechtigung benötigt eine neue Vergabe. Personen und Standorte im Verlauf dürfen nicht durch Löschen oder Übertragen nachträglich umgedeutet werden.
 
 Die Bedienung erfolgt zunächst ausschließlich in der geschützten Betreiberkonsole: `php artisan help locations:leadership` zeigt die Operationen und Pflichtoptionen. Die angegebene Admin-ID dokumentiert die vom vertrauenswürdigen Konsolenbetreiber vertretene Person; sie ist kein Login oder Nachweis einer fremden Zustimmung. Grund, Zielstandort und Ablauf sind ausdrücklich anzugeben; ein abgelaufener Eintrag wird vor einer erneuten Vergabe widerrufen, nicht überschrieben. Der Resolver öffnet selbst keine Seite und versendet keine Daten.
 
-`grant` benötigt `--by`, `--user`, `--location`, `--profile`, mindestens einmal `--capability`, `--reason` und `--expires`; `--valid-from` ist optional. Datumsangaben sollten eine explizite Zeitzone enthalten. `approve` verwendet die andere Adminidentität mit `--by`, die genaue `--assignment` und denselben `--location`. `revoke` benötigt `--by`, `--assignment`, `--location` und `--reason`. Während die Grundlage abgeschaltet ist, bleiben Entzüge zur Bereinigung möglich; neue Vergaben und ihre Nutzung sind gesperrt. Die vertrauenswürdige Konsole ersetzt keine spätere persönlich authentifizierte Freigabeoberfläche.
+`grant` benötigt `--by`, `--user`, `--location`, `--profile`, mindestens einmal `--capability`, `--reason` und `--expires`; `--valid-from` ist optional. Datumsangaben sollten eine explizite Zeitzone enthalten. `revoke` benötigt `--by`, `--assignment`, `--location` und `--reason`. Historische kommunale Adminvergaben können entzogen, aber nicht mehr als nutzbare Rechte bestätigt werden. Während die Grundlage abgeschaltet ist, bleiben Entzüge zur Bereinigung möglich; neue Vergaben und ihre Nutzung sind gesperrt. Die vertrauenswürdige Konsole ersetzt keine spätere persönlich authentifizierte Freigabeoberfläche.
 
-**Noch keine vollständige P6-Abnahme:** Rollenoberfläche, Standort-Pivotrolle `wehrführung`, fachlich bestätigte Modulsichten und deren Objekt-/Export-/Empfängerprüfungen folgen getrennt. Bestehende Wehrführungsrechte werden weder kopiert noch automatisch ersetzt. Diese Grundlage schließt den historischen P1-Befund nicht.
+`php artisan locations:leadership summary --by=<id> --location=<id> --capability=<name>` liest genau eine freigegebene Zusammenfassung der vertretenen aktiven Person. `incident_totals`, `fleet_inspections` und `equipment_inspections` benötigen zusätzlich `--year=<jahr>`; andere Zusammenfassungen erlauben keinen Jahresfilter. Es gelten die aktivierte Grundlage, aktive Zielstandorte, aktive Fachmodule und ausdrückliche aktuelle Vergaben. Vor und nach den Abfragen wird erneut autorisiert. Ausgaben sind JSON, keine Links zu Rohdatensätzen; eine neue Weboberfläche wird nicht geöffnet.
+
+Fristen werden als Anzahlen „überfällig“, „in den nächsten 30 Tagen“, „später“ und „ohne Termin“ ausgegeben. Prüfungen werden pro Jahr nach festen Ergebnisklassen gezählt. Bürgermeister/Kommune sehen nur eine Gesamteinsatzzahl für das gewählte Berliner Kalenderjahr ohne Nebenberichte; die bestehende Einstellung zur Zählung nur freigegebener Berichte bleibt maßgeblich. Kleine Zahlen sind nicht automatisch anonym; diese Konsole ist keine öffentliche Statistik.
+
+**Noch keine vollständige P6-Abnahme:** Rollenoberfläche, Standort-Pivotrolle `wehrführung` sowie Integration in Moduloberflächen und deren Objekt-/Export-/Empfängerprüfungen folgen getrennt. Bestehende Wehrführungsrechte werden weder kopiert noch automatisch ersetzt. Die Konsolenzusammenfassungen sind keine Freigabe bestehender Modul-Vollansichten.
+
+## Kleiderkammer: Umbuchungen und historische Korrekturvermerke (P4)
+
+Die zusätzlichen Werkzeuge gehören in die **geschützte Betreiberkonsole**, nicht in eine öffentliche Route. Voraussetzung sind PostgreSQL, die installierten Operationsjournale, aktivierte Locations und der Mengenbestandsadapter (`LOCATIONS_CLOTHING_STOCK_ENABLED=true`). Wie bei den bestehenden Zuordnungswerkzeugen dokumentiert `--by` die vom vertrauenswürdigen Konsolenbetreiber vertretene Person; eine bekannte Benutzer-ID ist kein Login. Gründe und Belegreferenzen dürfen keine unnötigen personenbezogenen Daten oder Geheimnisse enthalten.
+
+### Mengen zwischen Standorten umbuchen
+
+`php artisan locations:transfer-clothing-stock <from> <to> <quantity> --by=<id> --reason="..." --key=<uuid>` bucht zwischen zwei **bereits vorhandenen Bestandskonten**. Quelle und Ziel benötigen dieselbe Artikeltyp-/Größen-/Gruppenkombination, verschiedene aktive Standorte und ausreichenden verfügbaren Quellbestand. Standortlose Konten sind ausgeschlossen. Es werden weder Katalogeinträge noch Zielbestände automatisch angelegt.
+
+Die aktive Person benötigt frisch geprüfte Bestandsrechte an **beiden** Standorten; ein globaler Admin behält seine globalen Rechte. Reine Bestandsrechte werden dafür nicht um persönliche Größen-, Ausgabehistorien- oder sonstige Kleiderwartrechte erweitert. Standortwechsel, alte geladene Rollen oder die Angabe einer fremden Operator-ID ersetzen keine Berechtigung.
+
+Beide Mengenänderungen und das Journal werden in einer Transaktion geschrieben. Der bestehende Bestandsauswahllock wird vor weiteren Sperren genommen. Das unveränderliche Journal hält Quelle, Ziel, Standort- und Katalogsnapshot, Stückzahl, Ausgangsmengen, Operator, Begründung und Zeitpunkt fest. Ein neuer UUID-Buchungsschlüssel ist Pflicht; die Wiederholung desselben Schlüssels wird ohne zweite Mengenänderung verweigert.
+
+Eine falsche Umbuchung wird **nicht bearbeitet oder gelöscht**: Derselbe Befehl mit umgekehrten Konten, identischer Stückzahl, neuem Schlüssel und `--reverse=<original-id>` erzeugt eine vollständige Gegenbuchung. Dafür gelten die aktuellen Rechte und Mengenprüfungen erneut. Ein Original kann nur einmal so umgekehrt werden; reichen die inzwischen verfügbaren Mengen nicht aus oder passen Konten/Katalog nicht mehr, wird die Gegenbuchung verweigert. Ausgaben, Rücknahmen und ihre ursprüngliche Herkunft werden nicht umgeschrieben.
+
+### Belegte historische Herkunftsaussage ergänzen
+
+`php artisan locations:correct-clothing-history <issuance> <source> --by=<admin-id> --reason="..." --evidence="..."` liefert zuerst eine Vorschau mit Zustandsprüfwert. Nur ein aktuell aktiver globaler Admin darf das Werkzeug nutzen. Es akzeptiert ausschließlich **bereits zurückgegebene, nicht gelöschte Mengenausgaben** mit positiver Stückzahl und einem ausdrücklich belegten Quellkonto gleicher Katalogkombination an einem aktiven Standort.
+
+Die Übernahme benötigt dieselben Angaben, `--apply --confirmed --expect=<hash>` und eine unveränderte Vorschau. Die Belegreferenz ist eine verpflichtende fachliche Angabe: Das Werkzeug liest keine Belegdatei und bestätigt nicht automatisch deren Echtheit. Änderungen am geprüften Zustand oder ein bereits gleichlautender Vermerk verhindern eine Übernahme.
+
+Ein separates append-only Korrekturjournal bewahrt Originaldaten, geprüfte Quell-/Standortreferenz, vorangehenden Vermerk, Operator, Grund, Belegreferenz und Zeitpunkt. Eine spätere Korrektur ergänzt einen neuen verknüpften Vermerk, statt alte Aussagen zu überschreiben. `php artisan locations:correct-clothing-history <issuance> --by=<admin-id> --history` zeigt diesen Verlauf in der geschützten Konsole.
+
+**Bewusste Grenze:** Diese historische Richtigstellung ist ein nachvollziehbarer Korrekturvermerk, keine nachträgliche operative Herkunftsänderung. `ext_source_stock_id`, Originalausgabe, damalige Rücknahme und Mengen bleiben unverändert; aktive Ausgaben werden nicht umgeroutet, alte Rücknahmen nicht neu gebucht und Herkunft nicht aus heutigen Mitgliedschaften geraten. Mengenfehler müssen gesondert fachlich geprüft werden. Der Vermerk ersetzt keine reale Inventur, Belegprüfung oder Backup-/Restoreabnahme.
+
+Die Journale sind durch PostgreSQL gegen Update, Delete und Truncate geschützt; Referenzen dürfen nicht stillschweigend auf andere Mitglieder übertragen werden. Ein Migrationsrollback mit vorhandenen Journalzeilen wird verweigert. Vor produktiver Nutzung sind Backup und Wiederherstellung zu prüfen; das alte JSON-Transferformat wird dadurch weiterhin nicht lagerfähig.
 
 ## Betriebsbereitschaft prüfen (P7)
 
@@ -342,7 +375,7 @@ Bei ausgeschaltetem Bestandsadapter bleiben die bisherigen Berechtigungsregeln b
 
 ### Verbleibende Grenzen
 
-Standortgetrennte Zeilen derselben Katalogkombination sind ein eigener Schema-/Bedienungsschritt, siehe unten. Es gibt weiterhin weder automatische Lageraufteilung noch Umbuchung, historische Herkunftszuordnung oder neue kommunale Führungsrechte. Die übrigen persönlichen und Einzelteilpfade der Kleiderkammer werden durch den Bestandsadapter allein nicht auf persönliche Standortrollen umgestellt; dafür ist der gesonderte persönliche Adapter vorgesehen. Insbesondere ersetzt dieser Teilabschluss nicht P3, P5–P7 oder die Mehrstandort-Betriebsfreigabe.
+Standortgetrennte Zeilen derselben Katalogkombination sind ein eigener Schema-/Bedienungsschritt, siehe unten. Der Bestandsadapter allein bietet keine automatische Lageraufteilung, Umbuchung oder historische Herkunftszuordnung. Die später ergänzten expliziten Konsolenumbuchungen und historischen Korrekturvermerke sind oben separat beschrieben; sie ändern keine Originalherkunft. Die übrigen persönlichen und Einzelteilpfade der Kleiderkammer werden durch den Bestandsadapter allein nicht auf persönliche Standortrollen umgestellt; dafür ist der gesonderte persönliche Adapter vorgesehen. Insbesondere ersetzt dieser Teilabschluss nicht P3, P5–P7 oder die Mehrstandort-Betriebsfreigabe.
 
 ## Kleiderkammer: standortgetrennter Mengenbestand (P4)
 
@@ -362,7 +395,7 @@ Rücknahmen mit gespeichertem Herkunftsverweis bleiben exakt an diesen Bestand g
 
 Gibt es noch gar keinen passenden Bestand und sind die Schutzadapter aus, bleibt die bisherige Wiederanlage einer unzugeordneten Bestandszeile für die Rücknahme erhalten. Bei aktivierter Durchsetzung darf dieser Weg keinen fehlenden Standort erraten; die Neuanlage scheitert dann atomar an der Standortpflicht.
 
-Solche historischen Fälle benötigen eine gesondert geprüfte fachliche Korrektur; nicht durch künstliche Rücknahmen, Umbenennungen oder Löschungen vermeintlich passend machen. Es gibt in diesem Schritt keinen Herkunfts-Backfill, keine Lagerumbuchung und keine automatische Aufteilung.
+Solche historischen Fälle benötigen eine gesondert geprüfte fachliche Korrektur; nicht durch künstliche Rücknahmen, Umbenennungen oder Löschungen vermeintlich passend machen. Der Lagerschemaschritt führt keinen Herkunfts-Backfill, keine Lagerumbuchung und keine automatische Aufteilung aus. Die separat beschriebenen Konsolenwerkzeuge erlauben ausdrückliche Mengenumbuchungen und dokumentarische Korrekturvermerke, aber weiterhin kein Umrouten aktiver historischer Ausgaben.
 
 ### Grenzen der Datenübertragung
 
