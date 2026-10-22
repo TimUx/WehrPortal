@@ -832,7 +832,7 @@ class FileService
             $ids = $subjectType === 'user'
                 ? [$subjectId]
                 : DB::table('x_files_group_members')->where('group_id', $subjectId)->pluck('user_id')->all();
-            $recipients = User::query()->whereIn('id', $ids)->whereKeyNot($actor->id)->where('is_active', true)->get()
+            $recipients = User::withoutGlobalScopes()->whereIn('id', $ids)->whereKeyNot($actor->id)->where('is_active', true)->get()
                 ->filter(fn (User $recipient) => $this->access->can($recipient, $target, 'read'));
             foreach ($recipients as $recipient) {
                 try {

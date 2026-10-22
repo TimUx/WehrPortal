@@ -6,6 +6,8 @@ use Extensions\Dateien\Livewire\Explorer;
 use Extensions\Dateien\Models\FileGroup;
 use Extensions\Dateien\Models\Permission;
 use Extensions\Dateien\Models\Space;
+use Extensions\Dateien\Notifications\FileActivityNotification;
+use Extensions\Dateien\Notifications\SharedWithYouNotification;
 use Extensions\Dateien\Services\CollaborationService;
 use Extensions\Dateien\Services\FileAccess;
 use Extensions\Dateien\Services\FileService;
@@ -70,6 +72,23 @@ test('internal downloads bind versions to their parent and independently require
     $this->get(route('dateien.download', ['node' => $south->id, 'version' => $southVersion->id]))->assertForbidden();
     $this->actingAs($this->admin)->get(route('dateien.download', ['node' => $south->id, 'version' => $southVersion->id]))
         ->assertOk()->assertStreamedContent('Inhalt south');
+});
+
+test('either surviving primary or pivot membership retains the target Standort access', function () {
+    $node = $this->nodes['north'];
+    $url = route('dateien.download', ['node' => $node->id, 'version' => $node->versions()->sole()->id]);
+    DB::table('x_location_user')->where('user_id', $this->member->id)->where('location_id', $this->north->id)->delete();
+    expect($this->access->can($this->member, $node, 'read'))->toBeTrue();
+    $this->actingAs($this->member)->get($url)->assertOk()->assertStreamedContent('Inhalt north');
+
+    DB::table('x_location_user')->insert(['location_id' => $this->north->id, 'user_id' => $this->member->id, 'role' => 'member']);
+    User::withoutGlobalScopes()->whereKey($this->member->id)->update(['ext_location_id' => $this->south->id]);
+    expect($this->access->can($this->member, $node, 'read'))->toBeTrue();
+    $this->get($url)->assertOk()->assertStreamedContent('Inhalt north');
+
+    DB::table('x_location_user')->where('user_id', $this->member->id)->where('location_id', $this->north->id)->delete();
+    expect($this->access->can($this->member, $node, 'read'))->toBeFalse();
+    $this->get($url)->assertForbidden();
 });
 
 test('cached image previews still enforce live target membership and ACL', function () {
@@ -220,4 +239,88 @@ test('public shares preserve guest bearer access while managers and child IDs re
     $this->get(route('dateien.share', ['token' => $southToken]))->assertNotFound();
     $shares->revoke($this->admin, $southShare);
     expect($southShare->fresh()->revoked_by)->toBe($this->admin->id);
+});
+
+test('shared NULL subscriptions deliver across Standorte independently of the requesting actor', function (bool $authenticated) {
+    $recipient = filesMember('Bernd Blaulicht', $this->south);
+    $space = $this->files->createSpace($this->admin, ['name' => 'Gemeinsame Ausbildung']);
+    $node = $this->files->upload($this->admin, $space, null, filesUpload());
+    $this->files->setPermission($this->admin, $node, 'user', $this->member->id, 'edit');
+    $this->files->setPermission($this->admin, $node, 'user', $recipient->id, 'read');
+    $this->collab->toggleSubscription($recipient, $node);
+    if ($authenticated) {
+        $this->actingAs($this->member);
+    }
+    $this->collab->comment($this->member, $node, 'Bitte gemeinsam prüfen.');
+    Notification::assertSentTo($recipient, FileActivityNotification::class);
+    Notification::assertNotSentTo($this->member, FileActivityNotification::class);
+})->with(['authenticated North actor' => true, 'without request authentication' => false]);
+
+test('deferred shared NULL notifications reauthorize recipients before delivery without request authentication', function (string $revocation) {
+    $recipient = filesMember('Bernd Blaulicht', $this->south);
+    $space = $this->files->createSpace($this->admin, ['name' => 'Gemeinsame Ausbildung']);
+    $node = $this->files->upload($this->admin, $space, null, filesUpload());
+    $this->files->setPermission($this->admin, $node, 'user', $recipient->id, 'read');
+    $this->collab->toggleSubscription($recipient, $node);
+
+    Notification::fake();
+    DB::beginTransaction();
+    $this->collab->notifySubscribers($this->member, $node, 'version');
+    Notification::assertNothingSent();
+    match ($revocation) {
+        'acl' => Permission::where('subject_type', 'user')->where('subject_id', $recipient->id)->delete(),
+        'module' => $recipient->moduleAccess()->where('module', 'dateien')->delete(),
+        'inactive' => $recipient->fresh()->update(['is_active' => false]),
+        'none' => null,
+    };
+    DB::commit();
+
+    expect(auth()->check())->toBeFalse();
+    if ($revocation === 'none') {
+        Notification::assertSentTo($recipient, FileActivityNotification::class);
+    } else {
+        Notification::assertNothingSent();
+    }
+})->with(['acl', 'module', 'inactive', 'none']);
+
+test('authenticated North managers notify eligible South recipients of shared NULL ACL grants', function (string $subjectType) {
+    $recipient = filesMember('Bernd Blaulicht', $this->south);
+    $space = $this->files->createSpace($this->admin, ['name' => 'Gemeinsame Ausbildung']);
+    $node = $this->files->upload($this->admin, $space, null, filesUpload());
+    $this->files->setPermission($this->admin, $node, 'user', $this->member->id, 'manage');
+    $group = FileGroup::create(['name' => 'Gemeinsame Ausbildung', 'ext_location_id' => null]);
+    $group->members()->attach($recipient->id, ['is_manager' => false]);
+    Notification::fake();
+
+    $this->actingAs($this->member);
+    $this->files->setPermission($this->member, $node, $subjectType, $subjectType === 'user' ? $recipient->id : $group->id, 'read');
+
+    Notification::assertSentTo($recipient, SharedWithYouNotification::class);
+    Notification::assertNotSentTo($this->member, SharedWithYouNotification::class);
+    expect($this->access->can($recipient, $node, 'read'))->toBeTrue();
+})->with(['user', 'group']);
+
+test('deferred shared NULL group grant notifications check current recipient eligibility without request authentication', function () {
+    $eligible = filesMember('Bernd Blaulicht', $this->south);
+    $inactive = filesMember('Clara C-Schlauch', $this->south);
+    $moduleRevoked = filesMember('Dora Drehleiter', $this->south);
+    $groupRevoked = filesMember('Emil Einsatz', $this->south);
+    $space = $this->files->createSpace($this->admin, ['name' => 'Gemeinsame Ausbildung']);
+    $group = FileGroup::create(['name' => 'Gemeinsame Ausbildung', 'ext_location_id' => null]);
+    $group->members()->attach([$eligible->id, $inactive->id, $moduleRevoked->id, $groupRevoked->id]);
+    Notification::fake();
+
+    DB::beginTransaction();
+    $this->files->setPermission($this->admin, $space, 'group', $group->id, 'read');
+    Notification::assertNothingSent();
+    $inactive->fresh()->update(['is_active' => false]);
+    $moduleRevoked->moduleAccess()->where('module', 'dateien')->delete();
+    $group->members()->detach($groupRevoked->id);
+    DB::commit();
+
+    Notification::assertSentTo($eligible, SharedWithYouNotification::class);
+    foreach ([$inactive, $moduleRevoked, $groupRevoked] as $revoked) {
+        Notification::assertNotSentTo($revoked, SharedWithYouNotification::class);
+    }
+    expect(auth()->check())->toBeFalse();
 });
