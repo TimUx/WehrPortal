@@ -16,7 +16,7 @@ use InvalidArgumentException;
 
 class LocationModuleRoles
 {
-    public const SUPPORTED_MODULES = ['anwesenheit'];
+    public const SUPPORTED_MODULES = ['anwesenheit', 'mitteilungen'];
 
     /** Grant vocabulary is deliberately broader than fully certified module adapters. */
     public const STOCK_ROLE = 'bestand';
@@ -25,7 +25,7 @@ class LocationModuleRoles
 
     public function grantableModules(): array
     {
-        return ['anwesenheit' => 'Anwesenheit', 'kleiderkammer' => 'Kleiderkammer – getrennte Teilrechte'];
+        return ['anwesenheit' => 'Anwesenheit', 'mitteilungen' => 'Mitteilungen', 'kleiderkammer' => 'Kleiderkammer – getrennte Teilrechte'];
     }
 
     public function grantableRoles(string $module): array
@@ -42,8 +42,9 @@ class LocationModuleRoles
         $modules = config('locations.scoped_role_modules', []);
         if (! is_array($modules) || ! array_is_list($modules)
             || array_diff($modules, self::SUPPORTED_MODULES) !== []
-            || ($modules !== [] && (! config('locations.enabled') || ! config('anwesenheit.enabled')))) {
-            throw new InvalidArgumentException('Scoped location roles require Locations and Anwesenheit; only anwesenheit is supported.');
+            || ($modules !== [] && ! config('locations.enabled'))
+            || (in_array('anwesenheit', $modules, true) && ! config('anwesenheit.enabled'))) {
+            throw new InvalidArgumentException('Scoped location roles require Locations and each selected adapter; only anwesenheit and mitteilungen are supported.');
         }
 
         return $modules;
@@ -175,7 +176,7 @@ class LocationModuleRoles
             if (! array_key_exists($module, $this->grantableModules()) || ! $definition
                 || ($module === 'kleiderkammer' && ! in_array($role, [self::STOCK_ROLE, self::PERSONAL_ROLE], true))
                 || ($role !== null && ! array_key_exists($role, $this->grantableRoles($module)))) {
-                throw ValidationException::withMessages(['module' => 'Nur vorbereitete Rollen: Anwesenheit oder getrennte Kleiderkammer-Teilrechte.']);
+                throw ValidationException::withMessages(['module' => 'Nur vorbereitete Rollen: Anwesenheit, Mitteilungen oder getrennte Kleiderkammer-Teilrechte.']);
             }
             $location = Location::query()->lockForUpdate()->find($locationId);
             $member = User::withoutGlobalScopes()->lockForUpdate()->find($userId);

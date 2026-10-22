@@ -60,14 +60,14 @@ Eine Zuweisung ohne Fachrolle ermöglicht nur den Moduleinstieg, keine Verwaltun
 
 Endet die wirksame Standortmitgliedschaft, werden die dortigen Vergaben mit einer systemseitigen Begründung geschlossen. Solange noch eine Mitgliedschaft über Primärstandort oder Pivot besteht, bleibt sie wirksam. Ein späterer Wiedereintritt stellt entzogene Rollen nicht wieder her; dafür ist eine neue ausdrückliche Vergabe erforderlich.
 
-**Bewusster Kompatibilitätsmodus:** Standardmäßig bleibt `locations.scoped_role_modules` leer. Damit ändern vorbereitete Zuweisungen noch keine vorhandenen Modulberechtigungen. Der erste unterstützte Adapter ist **Anwesenheit**. Weitere Module dürfen nicht ohne vollständige Umstellung ihrer Objekt-, Datei-, Such- und Hintergrundprüfungen aktiviert werden; unbekannte Adapter werden nicht stillschweigend akzeptiert.
+**Bewusster Kompatibilitätsmodus:** Standardmäßig bleibt `locations.scoped_role_modules` leer. Damit ändern vorbereitete Zuweisungen noch keine vorhandenen Modulberechtigungen. Unterstützt werden **Anwesenheit** und **Mitteilungen**. Weitere Module dürfen nicht ohne vollständige Umstellung ihrer Objekt-, Datei-, Such- und Hintergrundprüfungen aktiviert werden; unbekannte Adapter werden nicht stillschweigend akzeptiert. Die getrennten Kleiderkammer-Schalter bleiben davon unabhängig.
 
 ### Vorbereitung und Aktivierung
 
 1. PostgreSQL-Backup und Wiederherstellung prüfen, anschließend die neuen Migrationen ausführen.
 2. `php artisan locations:inventory-module-roles` aufrufen. Der Bericht listet alte Modulrollen und mögliche Standorte als **zero**, **single** oder **multiple**. Auch ein einzelner Kandidat ist noch keine Freigabe. Der Befehl schreibt nichts, kopiert keine Rolle auf alle Standorte und verwendet keinen pauschalen Hauptstandort.
-3. Als globaler Admin die benötigten Anwesenheitsrollen ausdrücklich je Standort vergeben. Personen ohne Standort oder mit mehrdeutiger Zuständigkeit zuerst prüfen. Bei den übrigen Modulen bleiben die bisherigen Rollen maßgeblich.
-4. Den Anwesenheitsadapter über `LOCATIONS_SCOPED_ROLE_MODULES=anwesenheit` einschalten und den Konfigurationscache erneuern beziehungsweise die Anwendung neu starten. Locations und Anwesenheit müssen dabei geladen sein. Die Fachmodule werden weiterhin unter **Admin → Module** aktiviert.
+3. Als globaler Admin die benötigten Rollen ausdrücklich je Standort vergeben: `verwalter` für Anwesenheit beziehungsweise `redakteur` für Mitteilungen. Personen ohne Standort oder mit mehrdeutiger Zuständigkeit zuerst prüfen. Bei den übrigen Modulen bleiben die bisherigen Rollen maßgeblich.
+4. Nur die vorbereiteten Adapter einschalten: `LOCATIONS_SCOPED_ROLE_MODULES=anwesenheit`, `LOCATIONS_SCOPED_ROLE_MODULES=mitteilungen` oder gemeinsam `LOCATIONS_SCOPED_ROLE_MODULES=anwesenheit,mitteilungen`. Den Konfigurationscache erneuern beziehungsweise die Anwendung neu starten. Locations und die betreffenden Erweiterungen müssen geladen sein. Die Fachmodule werden weiterhin unter **Admin → Module** aktiviert.
 5. Zugriffe als Mitglied, standortbezogener Verwalter und globaler Admin prüfen; insbesondere Entzug, Ablauf und mehrere Standortmitgliedschaften kontrollieren.
 
 Nach Aktivierung zählt für Anwesenheits-Verwaltungsaktionen ausschließlich die gültige Rolle `verwalter` am Zielstandort. Alte globale Modulrollen und die bloße Standort-Adminrolle sind dafür kein Ersatz. Globale Admins behalten Zugriff auf alle Daten. Bestehende normale Moduleinstiege beziehungsweise Auto-Assign können weiter gelten; sie sind keine Verwaltungsberechtigung. Eigene Listen und Teilnahmen behalten ihre ausdrücklich geprüften Mitgliedsaktionen.
@@ -77,6 +77,14 @@ Die bisherige globale Modulverwaltung bleibt für Legacy-Zugänge zuständig. Do
 Der Primärstandort bleibt vorerst wie bisher eine Mitgliedschaftsquelle. Es gibt in diesem Schritt keine automatische Umstellung auf „nur Voreinstellung“, keine Bestandsdatenmigration und keine allgemeine Freigabe gemeinsamer Inhalte. Eine Rücknahme der Adapteraktivierung stellt die Legacy-Regeln wieder her und ist daher **keine sicherheitsneutrale Rollback-Maßnahme**; sie erfordert eine bewusste Betriebsentscheidung.
 
 **Geschützte Identität:** Personen, die im Rollenverlauf als Mitglied oder vergebender/entziehender Admin referenziert werden, können nicht gelöscht oder mit „Löschen mit Übertragung“ auf eine andere Person übertragen werden. Das gilt auch für bereits entzogene Vergaben. Stattdessen den Mitgliedsstatus auf inaktiv/ausgetreten setzen; die Historie darf weder fremde Rechte noch eine falsche Urheberschaft erzeugen. Standorte mit Rollenverlauf sind ebenfalls gegen Löschen geschützt.
+
+### Mitteilungen: zielbezogene Redakteursrechte
+
+Bei aktiviertem Mitteilungen-Adapter verwalten Nicht-Admins ausschließlich Mitteilungen mit einer gültigen ausdrücklichen Rolle `redakteur` am konkreten aktiven Zielstandort. Eine globale Legacy-Redakteursrolle, Autorenschaft, Standort-Adminrechte, der Standortumschalter oder eine bloße Modulzugangsvergabe ersetzen diese Rolle nicht. Bei einer Standortänderung müssen sowohl der bisherige als auch der neue Geltungsbereich erlaubt sein. Die Auswahl im Formular bietet nur berechtigte Ziele an; direkte Dienst- und Livewire-Aufrufe prüfen trotzdem erneut.
+
+**Allgemein** (`announcements.ext_location_id = NULL`) bleibt nach den bestehenden Empfängerregeln lesbar, kann im aktivierten Adapter aber nur von aktiven globalen Admins verwaltet werden. Diese behalten alle Standortzugriffe. Eine Redakteursvergabe macht niemanden automatisch zum Empfänger fremder Zielgruppen; Anhänge bleiben für berechtigte Empfänger oder zuständige Verwalter zugänglich. Gruppen und Funktionen müssen zur zulässigen Zielgruppe passen.
+
+Lesestatistik, Erinnerungen, Anhangverwaltung und ausdrücklich angeforderter Versand benötigen dieselbe zielbezogene Verwaltungsbefugnis. Die Konfiguration externer ntfy-/Matrix-Ziele bleibt davon getrennt: Eine Redakteursrolle gewährt keine Token- oder Kanalkonfigurationsrechte. Externe Mitgliedschaften bleiben Betreiberaufgabe. Details: [Mitteilungen](MITTEILUNGEN.md).
 
 ## Schutzmanifest und Schema-Guard
 

@@ -2,12 +2,15 @@
 
 namespace Extensions\Mitteilungen\Services;
 
+use App\Models\User;
+use App\Support\SafeUrl;
 use Extensions\Mitteilungen\Models\ChannelDelivery;
 use Extensions\Mitteilungen\Models\ChannelDestination;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Modules\Mitteilungen\src\Models\Announcement;
+use Modules\Mitteilungen\src\Services\AnnouncementService;
 use Throwable;
 
 class AnnouncementDelivery
@@ -15,8 +18,9 @@ class AnnouncementDelivery
     public function __construct(private ChannelSettings $settings) {}
 
     /** @param array{ntfy: bool, matrix: bool} $requested @return list<string> */
-    public function send(Announcement $announcement, array $requested): array
+    public function send(Announcement $announcement, array $requested, ?User $by = null): array
     {
+        app(AnnouncementService::class)->assertActionAuthority($announcement, $by);
         $result = [];
 
         foreach (ChannelSettings::TRANSPORTS as $transport) {
@@ -182,7 +186,7 @@ class AnnouncementDelivery
             throw new \RuntimeException('Only public HTTPS targets are allowed.');
         }
 
-        [$host, $port, $ip] = \App\Support\SafeUrl::check($url);
+        [$host, $port, $ip] = SafeUrl::check($url);
         $options = [
             'allow_redirects' => false,
             'curl' => [CURLOPT_RESOLVE => [$host.':'.$port.':'.$ip]],

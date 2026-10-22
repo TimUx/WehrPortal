@@ -17,6 +17,7 @@ use Extensions\Locations\Services\ClothingPersonalAccess;
 use Extensions\Locations\Services\ClothingStockAccess;
 use Extensions\Locations\Services\LocationAccess;
 use Extensions\Locations\Services\LocationModuleRoles;
+use Extensions\Locations\Services\ScopedAnnouncementService;
 use Extensions\Locations\Support\AssignsLocation;
 use Filament\Facades\Filament;
 use Illuminate\Database\Events\MigrationsStarted;
@@ -37,6 +38,7 @@ use Modules\Kleiderkammer\src\Models\Size;
 use Modules\Kleiderkammer\src\Models\Stock;
 use Modules\Kleiderkammer\src\Services\PersonalAccess;
 use Modules\Kleiderkammer\src\Services\StockAccess;
+use Modules\Mitteilungen\src\Services\AnnouncementService;
 
 /**
  * Several Standorte (fire stations) in one instance. Personnel, vehicles, equipment, reports … carry
@@ -65,6 +67,9 @@ class LocationsServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->app->make(LocationModuleRoles::class)->configuredModules();
+        if ($this->app->make(LocationModuleRoles::class)->enabled('mitteilungen')) {
+            $this->app->singleton(AnnouncementService::class, ScopedAnnouncementService::class);
+        }
         if (config('locations.clothing_stock_enabled')) {
             $this->app->make(ClothingStockAccess::class)->validateConfiguration();
         }

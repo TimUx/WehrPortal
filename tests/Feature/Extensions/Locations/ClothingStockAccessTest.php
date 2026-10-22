@@ -68,7 +68,7 @@ beforeEach(function () {
 });
 
 it('separates grantable capabilities from certified module adapters and legacy roles', function () {
-    expect(LocationModuleRoles::SUPPORTED_MODULES)->toBe(['anwesenheit'])
+    expect(LocationModuleRoles::SUPPORTED_MODULES)->toBe(['anwesenheit', 'mitteilungen'])
         ->and(app(StockAccess::class))->toBe($this->access)
         ->and($this->worker->canManageKleiderkammer())->toBeFalse()
         ->and($this->worker->hasModuleRole('kleiderkammer', 'kleiderwart'))->toBeFalse()

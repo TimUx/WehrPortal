@@ -122,7 +122,7 @@ it('keeps capabilities distinct from certification and default legacy role APIs'
         ->and($this->stockOnly->canManageKleiderkammer())->toBeFalse()
         ->and($this->legacy->canManageKleiderkammer())->toBeFalse()
         ->and($this->worker->hasModuleRole('kleiderkammer', 'kleiderwart'))->toBeFalse()
-        ->and(LocationModuleRoles::SUPPORTED_MODULES)->toBe(['anwesenheit']);
+        ->and(LocationModuleRoles::SUPPORTED_MODULES)->toBe(['anwesenheit', 'mitteilungen']);
     expect($this->access->members($this->worker)->pluck('id')->all())->toContain($this->shared->id)->not->toContain($this->foreign->id, $this->unknown->id);
     config(['locations.scoped_role_modules' => ['kleiderkammer']]);
     expect(fn () => $this->roles->configuredModules())->toThrow(InvalidArgumentException::class);
