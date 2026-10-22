@@ -39,6 +39,7 @@ class ClothingStockLocationAssignment extends ClothingLocationAssignment
         $messagesAvailable = Schema::hasTable('kk_equipment_messages');
 
         return DB::transaction(function () use ($plan, $apply, $by, $reason, $expect, $messagesAvailable) {
+            app(ClothingStockAccess::class)->lockSelection();
             // Legacy bulk issuances have no source. Table locks prevent matching-key
             // phantoms, including historical writes and writes without parent locks.
             DB::statement('LOCK TABLE x_location_user, kk_issued_items'.($messagesAvailable ? ', kk_equipment_messages' : '').' IN SHARE MODE');

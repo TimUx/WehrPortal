@@ -339,7 +339,11 @@ Eine neue Mengenausgabe muss den konkreten Bestand belasten. Wird kein Bestand a
 
 Die vorhandene Seite **Massenbestand** zeigt den Standort und bietet ihn bei der Neuanlage an. Bei aktivierter Bestands- oder Personendurchsetzung legt nur ein aktuell berechtigter globaler Admin neue Bestandszeilen mit ausdrücklich gewähltem aktivem Standort an. Das Standortfeld ist beim Bearbeiten keine Umbuchungsfunktion. Der personenbezogene Dialog **Aus Bestand ausgeben** wählt bei installiertem Lagerschema die konkrete Bestandsposition; die Bezeichnung unterscheidet Artikel, Gruppe, Größe und Lager. Bei vollständig abgeschalteter Erweiterung bleiben Bestands-IDs die technische Unterscheidung.
 
+Die Auswahlprüfung wird innerhalb der Buchung gegen parallele Bestandsanlage und Mengenänderung abgesichert. Dafür werden Bestandsoperationen kurzzeitig über eine Tabellensperre serialisiert; auch unterschiedliche Lager können aufeinander warten. Umfangreiche Zuordnungen und Übertragungen gehören deshalb weiterhin in ein Wartungsfenster, nicht in den laufenden Ausgabeandrang.
+
 Rücknahmen mit gespeichertem Herkunftsverweis bleiben exakt an diesen Bestand gebunden. Bei historischen NULL-Herkünften wird kein vermeintlicher Herkunftsbestand ergänzt. Gibt es mehrere passende Bestandszeilen, wird die Rücknahme vollständig abgewiesen: keine Mengenänderung, kein Rücknahmedatum und keine teilweise Sammelrücknahme. Das gilt auch für globale Admins und bei ausgeschalteten Adaptern beziehungsweise abgeschalteter Locations-Erweiterung mit weiterhin installiertem Schema. Eine eindeutige technische Auswahl ist weiterhin kein Beweis historischer Eigentümerschaft.
+
+Gibt es noch gar keinen passenden Bestand und sind die Schutzadapter aus, bleibt die bisherige Wiederanlage einer unzugeordneten Bestandszeile für die Rücknahme erhalten. Bei aktivierter Durchsetzung darf dieser Weg keinen fehlenden Standort erraten; die Neuanlage scheitert dann atomar an der Standortpflicht.
 
 Solche historischen Fälle benötigen eine gesondert geprüfte fachliche Korrektur; nicht durch künstliche Rücknahmen, Umbenennungen oder Löschungen vermeintlich passend machen. Es gibt in diesem Schritt keinen Herkunfts-Backfill, keine Lagerumbuchung und keine automatische Aufteilung.
 

@@ -50,6 +50,7 @@ class ClothingStockAccess extends StockAccess
         unset($data['ext_location_id']);
 
         return $this->asActor($actor, fn () => app(ClothingPersonalAccess::class)->asActor($actor, fn () => DB::transaction(function () use ($data, $location) {
+            $this->lockSelection();
             $stock = new Stock($data);
             if ($this->hasWarehouseSchema()) {
                 $stock->forceFill(['ext_location_id' => $location]);

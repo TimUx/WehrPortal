@@ -1,7 +1,10 @@
 <?php
 
+use App\Models\Module;
 use App\Models\User;
+use App\Services\ModuleRegistry;
 use Extensions\Locations\Services\ClothingStockLocationAssignment;
+use Extensions\Locations\Services\ClothingStockService;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -57,6 +60,7 @@ it('prevents concurrent matching-key phantoms child edits and parent changes dur
             fn () => $other->table('x_location_user')->insert(['location_id' => $location, 'user_id' => $admin->id, 'role' => 'member']),
             fn () => $other->statement('ALTER TABLE kk_stock DROP CONSTRAINT kk_stock_ext_location_id_foreign'),
             fn () => $other->statement('ALTER TABLE x_location_data_assignments DROP CONSTRAINT x_location_data_assignments_target'),
+            fn () => $other->statement('LOCK TABLE kk_stock IN SHARE ROW EXCLUSIVE MODE'),
         ];
         foreach ($writes as $index => $write) {
             try {
@@ -69,6 +73,7 @@ it('prevents concurrent matching-key phantoms child edits and parent changes dur
             test()->fail("Concurrent write {$index} unexpectedly succeeded.");
         }
     });
+
     try {
         $service = app(ClothingStockLocationAssignment::class);
         $hash = $service->run($path, by: $admin->id, reason: 'Fachlich geprüft')['hash'];
@@ -79,5 +84,34 @@ it('prevents concurrent matching-key phantoms child edits and parent changes dur
     } finally {
         $other->disconnect();
         File::delete($path);
+    }
+});
+
+it('serializes stock adjustment before row locks to prevent issuing table-upgrade deadlocks', function () {
+    Module::where('key', 'kleiderkammer')->update(['is_active' => true]);
+    app(ModuleRegistry::class)->clearCache();
+    $admin = User::factory()->create(['is_admin' => true]);
+    $type = DB::table('kk_item_types')->insertGetId(['name' => 'Handschuhe']);
+    $stock = DB::table('kk_stock')->insertGetId(['item_type_id' => $type, 'quantity' => 4]);
+    config(['locations.clothing_stock_enabled' => true]);
+    $configuration = DB::connection()->getConfig();
+    unset($configuration['name']);
+    $other = DB::build($configuration);
+    $other->statement("SET lock_timeout = '100ms'");
+    $tested = false;
+    Event::listen(QueryExecuted::class, function (QueryExecuted $query) use (&$tested, $other) {
+        if ($tested || ! str_contains($query->sql, 'from "kk_stock"') || ! str_contains($query->sql, 'for update')) {
+            return;
+        }
+        $tested = true;
+        // Issuing must wait at the table boundary, not hold it while adjustment upgrades.
+        expect(fn () => $other->transaction(fn () => $other->statement('LOCK TABLE kk_stock IN SHARE ROW EXCLUSIVE MODE')))
+            ->toThrow(QueryException::class, 'lock timeout');
+    });
+    try {
+        app(ClothingStockService::class)->adjust($admin, $stock, 8);
+        expect($tested)->toBeTrue()->and(DB::table('kk_stock')->where('id', $stock)->value('quantity'))->toBe(8);
+    } finally {
+        $other->disconnect();
     }
 });

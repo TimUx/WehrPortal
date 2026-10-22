@@ -8,13 +8,17 @@ use Extensions\Locations\Services\ClothingStockService;
 use Extensions\Locations\Services\LocationModuleRoles;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
+use Filament\Notifications\Notification;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Database\QueryException;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
+use Modules\Kleiderkammer\src\Filament\Pages\DataTransferPage;
 use Modules\Kleiderkammer\src\Filament\Resources\MemberResource\Pages\EditMember;
 use Modules\Kleiderkammer\src\Filament\Resources\MemberResource\RelationManagers\IssuancesRelationManager;
 use Modules\Kleiderkammer\src\Filament\Resources\StockResource\Pages\CreateStock;
@@ -194,6 +198,41 @@ it('fails stock transfer closed for warehouse ownership including when flags are
     expect(ItemType::where('name', 'Nicht importieren')->exists())->toBeFalse()
         ->and(Stock::sum('quantity'))->toBe(30);
     expect($transfer->export(['item_types'], $this->admin)['groups']['catalog']['item_types'])->toHaveCount(1);
+});
+
+it('shows a German refusal instead of a failed download for assigned stock and bound issuance exports', function (bool $bound) {
+    $this->actingAs($this->admin);
+    if ($bound) {
+        ($this->issue)($this->south->id, $this->admin);
+    }
+    $component = Livewire::test(DataTransferPage::class);
+    if ($bound) {
+        $component->set('exportData.parts', ['issuances']);
+    }
+    $component->call('export')->assertSuccessful()->assertNoFileDownloaded()
+        ->assertNotified(Notification::make()->title('Export nicht möglich')
+            ->body('Standortbestände, mehrdeutige Bestandspositionen und Herkunftsbindungen werden von diesem Datentransfer nicht unterstützt. Wähle andere Bereiche oder verwende für eine vollständige Sicherung ein PostgreSQL-Backup.')
+            ->danger());
+    $component->set('exportData.parts', ['item_types'])->call('export')
+        ->assertFileDownloaded('kleiderkammer-export-'.now()->format('Y-m-d').'.json');
+})->with([false, true]);
+
+it('shows a German import refusal and leaves all selected parts unchanged', function () {
+    Storage::fake('local');
+    $this->actingAs($this->admin);
+    $json = json_encode(['version' => 1, 'groups' => [
+        'catalog' => ['item_types' => [['id' => 991, 'name' => 'Nicht importieren']]],
+        'inventory' => ['stock' => [['item_type_name' => 'Handschuhe', 'quantity' => 999]]],
+    ]]);
+    Livewire::test(DataTransferPage::class)
+        ->fillForm(['file' => UploadedFile::fake()->createWithContent('export.json', $json)], 'importForm')
+        ->set('importData.parts', ['item_types', 'stock'])->call('import')->assertSuccessful()
+        ->assertNotified(Notification::make()->title('Import nicht möglich')
+            ->body('Standortbestände, mehrdeutige Bestandspositionen und Herkunftsbindungen werden von diesem Datentransfer nicht unterstützt. Wähle andere Bereiche oder verwende für eine vollständige Sicherung ein PostgreSQL-Backup.')
+            ->danger());
+    expect(ItemType::where('name', 'Nicht importieren')->exists())->toBeFalse()
+        ->and(Stock::sum('quantity'))->toBe(30)
+        ->and(Storage::disk('local')->allFiles('kleiderkammer-imports'))->toBeEmpty();
 });
 
 it('rejects unresolved ownership and provenance metadata before any import mutation', function (string $field) {
