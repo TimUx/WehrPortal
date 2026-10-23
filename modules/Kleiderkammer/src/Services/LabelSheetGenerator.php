@@ -2,6 +2,7 @@
 
 namespace Modules\Kleiderkammer\src\Services;
 
+use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Collection;
 use Modules\Kleiderkammer\src\Models\Item;
@@ -23,12 +24,15 @@ class LabelSheetGenerator
      *
      * @param  Collection<int, Item>  $items
      */
-    public function generate(Collection $items): string
+    public function generate(Collection $items, ?User $actor = null): string
     {
+        foreach ($items as $item) {
+            app(PersonalAccess::class)->authorizeItem($actor ?? auth()->user(), $item);
+        }
         $labels = $items->map(fn (Item $item) => [
             'code' => $item->code,
-            'qr' => $this->qr->dataUri($item),
-            'barcode' => $this->barcode->dataUri($item),
+            'qr' => $this->qr->dataUri($item, $actor),
+            'barcode' => $this->barcode->dataUri($item, $actor),
         ])->all();
 
         $html = $this->buildHtml($labels);
@@ -43,9 +47,9 @@ class LabelSheetGenerator
      *
      * @param  Collection<int, Item>  $items
      */
-    public function download(Collection $items, string $filename = 'etiketten.pdf'): Response
+    public function download(Collection $items, string $filename = 'etiketten.pdf', ?User $actor = null): Response
     {
-        $pdf = $this->generate($items);
+        $pdf = $this->generate($items, $actor);
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',

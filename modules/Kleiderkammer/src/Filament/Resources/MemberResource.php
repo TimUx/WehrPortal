@@ -19,6 +19,7 @@ use Modules\Kleiderkammer\src\Filament\Concerns\KleiderkammerArea;
 use Modules\Kleiderkammer\src\Filament\Resources\MemberResource\Pages;
 use Modules\Kleiderkammer\src\Filament\Resources\MemberResource\RelationManagers;
 use Modules\Kleiderkammer\src\Services\IssuingService;
+use Modules\Kleiderkammer\src\Services\PersonalAccess;
 
 // The suite's users seen from the Kleiderkammer. Kleiderwarte edit only the Kleiderkammer profile
 // (notes, clothing sizes, equipment); Abteilungen, functions, rank and status stay with the admins (/admin/users).
@@ -45,16 +46,35 @@ class MemberResource extends Resource
         return false;
     }
 
+    /** @return Builder<User> */
+    public static function getEloquentQuery(): Builder
+    {
+        return app(PersonalAccess::class)->members(auth()->user())
+            ->when(static::minimalProfile(), fn (Builder $query) => $query->select(['users.id', 'users.name', 'users.status']));
+    }
+
+    public static function minimalProfile(): bool
+    {
+        return app(PersonalAccess::class)->usesMinimalMemberProfile(auth()->user());
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return static::canAccess() && app(PersonalAccess::class)->members(auth()->user())->whereKey($record->getKey())->exists();
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
             Section::make('Mitglied')
-                ->description('Abteilungen, Funktionen, Dienstgrad und Status pflegen Admins in der Kameradenverwaltung.')
-                ->schema([
+                ->description(fn () => static::minimalProfile()
+                    ? 'Konfektionsgrößen gelten für die Person an allen Standorten. Ausgaben werden getrennt nach berechtigter Herkunft angezeigt. Allgemeine Mitgliedsnotizen bleiben globalen Admins vorbehalten.'
+                    : 'Abteilungen, Funktionen, Dienstgrad und Status pflegen Admins in der Kameradenverwaltung.')
+                ->schema(array_filter([
                     TextEntry::make('name')->label('Name'),
-                    TextEntry::make('groups_list')->label('Abteilungen')->state(fn (User $record) => $record->groups->pluck('name')->implode(', '))->placeholder('–'),
-                    TextEntry::make('functions_list')->label('Funktionen')->state(fn (User $record) => $record->functions->map->fullLabel()->implode(', '))->placeholder('–'),
-                    TextEntry::make('rank')->label('Dienstgrad')->placeholder('–'),
+                    static::minimalProfile() ? null : TextEntry::make('groups_list')->label('Abteilungen')->state(fn (User $record) => $record->groups->pluck('name')->implode(', '))->placeholder('–'),
+                    static::minimalProfile() ? null : TextEntry::make('functions_list')->label('Funktionen')->state(fn (User $record) => $record->functions->map->fullLabel()->implode(', '))->placeholder('–'),
+                    static::minimalProfile() ? null : TextEntry::make('rank')->label('Dienstgrad')->placeholder('–'),
                     TextEntry::make('status')
                         ->label('Status')
                         ->badge()
@@ -64,11 +84,11 @@ class MemberResource extends Resource
                             MemberStatus::Inactive => 'warning',
                             MemberStatus::Left => 'danger',
                         }),
-                    Forms\Components\Textarea::make('notes')
+                    static::minimalProfile() ? null : Forms\Components\Textarea::make('notes')
                         ->label('Notizen')
                         ->rows(3)
                         ->columnSpanFull(),
-                ])
+                ]))
                 ->columns(['default' => 1, 'md' => 4])
                 ->columnSpanFull(),
         ]);
@@ -84,19 +104,19 @@ class MemberResource extends Resource
         $options = fn (string $enum) => collect($enum::cases())->mapWithKeys(fn ($c) => [$c->value => $c->label()])->all();
 
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->withCount('kleiderkammerItems')->with('groups'))
-            ->columns([
+            ->modifyQueryUsing(fn (Builder $query) => $query->withCount('kleiderkammerItems')->when(! static::minimalProfile(), fn ($q) => $q->with('groups')))
+            ->columns(array_filter([
                 Tables\Columns\TextColumn::make('name')
                     ->label('Name')
                     ->searchable()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('groups.name')
+                static::minimalProfile() ? null : Tables\Columns\TextColumn::make('groups.name')
                     ->label('Abteilungen')
                     ->badge()
                     ->placeholder('–'),
 
-                Tables\Columns\TextColumn::make('rank')
+                static::minimalProfile() ? null : Tables\Columns\TextColumn::make('rank')
                     ->label('Dienstgrad')
                     ->placeholder('–')
                     ->searchable(),
@@ -115,15 +135,15 @@ class MemberResource extends Resource
                     ->label('Ausgeliehen')
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('notes')
+                static::minimalProfile() ? null : Tables\Columns\TextColumn::make('notes')
                     ->label('Notizen')
                     ->limit(40)
                     ->placeholder('–')
                     ->toggleable(),
-            ])
+            ]))
             ->defaultSort('name')
-            ->filters([
-                Tables\Filters\SelectFilter::make('groups')
+            ->filters(array_filter([
+                static::minimalProfile() ? null : Tables\Filters\SelectFilter::make('groups')
                     ->label('Abteilung')
                     ->relationship('groups', 'name', fn ($query) => $query->orderBy('sort_order')->orderBy('name'))
                     ->multiple()
@@ -136,7 +156,7 @@ class MemberResource extends Resource
                 Tables\Filters\Filter::make('has_items')
                     ->label('Mit Ausrüstung')
                     ->query(fn (Builder $query) => $query->has('kleiderkammerItems')),
-            ])
+            ]))
             ->recordUrl(fn (User $record) => static::getUrl('edit', ['record' => $record]))
             ->recordActions([
                 Actions\EditAction::make()->label('Profil'),

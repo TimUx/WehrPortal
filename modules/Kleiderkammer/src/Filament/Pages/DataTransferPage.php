@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Storage;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Modules\Kleiderkammer\src\Filament\Concerns\KleiderkammerArea;
 use Modules\Kleiderkammer\src\Services\DataTransferService;
+use Modules\Kleiderkammer\src\Services\PersonalAccess;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DataTransferPage extends Page implements HasForms
@@ -45,6 +46,11 @@ class DataTransferPage extends Page implements HasForms
     // Admins only, not every Kleiderwart
     public static function canAccess(): bool
     {
+        $access = app(PersonalAccess::class);
+        if ($access->enabled()) {
+            return $access->canManageCatalog(auth()->user());
+        }
+
         return (bool) auth()->user()?->is_admin && KleiderkammerDashboard::canAccess();
     }
 
@@ -73,12 +79,19 @@ class DataTransferPage extends Page implements HasForms
         ])->statePath('exportData');
     }
 
-    public function export(): StreamedResponse
+    public function export(): ?StreamedResponse
     {
         $parts = $this->exportForm->getState()['parts'] ?? [];
 
+        try {
+            $data = app(DataTransferService::class)->export($parts);
+        } catch (\DomainException) {
+            $this->notifyUnsupportedTransfer('Export nicht möglich');
+
+            return null;
+        }
         $json = json_encode(
-            app(DataTransferService::class)->export($parts),
+            $data,
             JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
         );
 
@@ -193,6 +206,8 @@ class DataTransferPage extends Page implements HasForms
                 ? $notification->success()
                 : $notification->warning()->persistent();
             $notification->send();
+        } catch (\DomainException) {
+            $this->notifyUnsupportedTransfer('Import nicht möglich');
         } catch (\JsonException $e) {
             Notification::make()
                 ->title('Ungültige JSON-Datei')
@@ -208,5 +223,14 @@ class DataTransferPage extends Page implements HasForms
         } finally {
             Storage::disk('local')->delete($path);
         }
+    }
+
+    private function notifyUnsupportedTransfer(string $title): void
+    {
+        Notification::make()
+            ->title($title)
+            ->body('Standortbestände, mehrdeutige Bestandspositionen und Herkunftsbindungen werden von diesem Datentransfer nicht unterstützt. Wähle andere Bereiche oder verwende für eine vollständige Sicherung ein PostgreSQL-Backup.')
+            ->danger()
+            ->send();
     }
 }

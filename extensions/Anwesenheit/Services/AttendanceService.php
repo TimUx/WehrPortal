@@ -12,7 +12,9 @@ use Extensions\Anwesenheit\Models\AttendanceFile;
 use Extensions\Anwesenheit\Models\AttendanceList;
 use Extensions\Anwesenheit\Models\AttendanceTemplate;
 use Extensions\Locations\Models\Location;
+use Extensions\Locations\Scopes\LocationScope;
 use Extensions\Locations\Services\LocationAccess;
+use Extensions\Locations\Services\LocationModuleRoles;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -40,6 +42,10 @@ class AttendanceService
     /** Global admins, Standort-Admins (of their own Standort) and users with the module role "verwalter" */
     public static function canManage(User $user): bool
     {
+        if (app(LocationModuleRoles::class)->enabled('anwesenheit')) {
+            return $user->canUseModule('anwesenheit') && $user->hasAnyModuleRole('anwesenheit', 'verwalter');
+        }
+
         if (! $user->is_active) {
             return false;
         }
@@ -51,25 +57,95 @@ class AttendanceService
 
     public static function canSee(User $user, AttendanceList $list): bool
     {
-        return self::canManage($user)
+        return self::canAccessLocation($user, $list->ext_location_id) && (self::canManageAt($user, $list->ext_location_id)
             || (int) $list->created_by === (int) $user->id
             || (int) $list->leader_id === (int) $user->id
-            || $list->participants()->whereKey($user->id)->exists();
+            || $list->participants()->whereKey($user->id)->exists());
+    }
+
+    public static function canManageAt(User $user, ?int $locationId): bool
+    {
+        if (! self::canAccessLocation($user, $locationId)) {
+            return false;
+        }
+
+        if (app(LocationModuleRoles::class)->enabled('anwesenheit')) {
+            return $user->hasModuleRole('anwesenheit', 'verwalter', $locationId);
+        }
+
+        return $user->is_admin || $user->hasModuleRole('anwesenheit', 'verwalter', $locationId)
+            || (self::locationsOn() && in_array($locationId, app(LocationAccess::class)->adminLocationIds($user), true));
+    }
+
+    private static function canAccessLocation(User $user, ?int $locationId): bool
+    {
+        $roles = app(LocationModuleRoles::class);
+        if ($roles->enabled('anwesenheit')) {
+            return $user->canUseModule('anwesenheit')
+                && ($roles->isGlobalAdmin($user) || $roles->canAccessLocation($user, $locationId));
+        }
+
+        if (self::locationsOn()) {
+            app(LocationAccess::class)->forget($user);
+        }
+
+        return $user->is_active && $user->canUseModule('anwesenheit') && ($user->is_admin || ! self::locationsOn()
+            || ($locationId !== null && app(LocationAccess::class)->canSee($user, $locationId)));
     }
 
     /** The creator edits until the list is submitted; managers also correct submitted lists */
     public static function canEdit(User $user, AttendanceList $list): bool
     {
-        return self::canManage($user) || ((int) $list->created_by === (int) $user->id && ! $list->isSubmitted());
+        return self::canAccessLocation($user, $list->ext_location_id)
+            && (self::canManageAt($user, $list->ext_location_id) || ((int) $list->created_by === (int) $user->id && ! $list->isSubmitted()));
+    }
+
+    public static function canResend(User $user, AttendanceList $list): bool
+    {
+        return $list->isSubmitted() && self::canAccessLocation($user, $list->ext_location_id)
+            && (self::canManageAt($user, $list->ext_location_id) || (int) $list->created_by === (int) $user->id);
     }
 
     /** @return Builder<AttendanceList> */
     public function visibleTo(User $user): Builder
     {
-        $query = AttendanceList::query();
+        $query = AttendanceList::withoutGlobalScope(LocationScope::class);
 
-        if (! self::canManage($user)) {
-            $query->where(fn (Builder $q) => $q->where('created_by', $user->id)->orWhere('leader_id', $user->id)
+        $roles = app(LocationModuleRoles::class);
+        if ($roles->enabled('anwesenheit')) {
+            if (! $user->canUseModule('anwesenheit')) {
+                return $query->whereRaw('1 = 0');
+            }
+            if ($roles->isGlobalAdmin($user)) {
+                return $query;
+            }
+            $locations = Location::where('is_active', true)->pluck('id')
+                ->filter(fn ($id) => $roles->canAccessLocation($user, (int) $id))->all();
+            $managed = $roles->roleLocationIds($user, 'anwesenheit', 'verwalter');
+
+            return $query->whereIn('ext_location_id', $locations)
+                ->where(fn (Builder $q) => $q->whereIn('ext_location_id', $managed)
+                    ->orWhere('created_by', $user->id)->orWhere('leader_id', $user->id)
+                    ->orWhereIn('id', DB::table('x_att_participants')->where('user_id', $user->id)->select('list_id')));
+        }
+
+        if (! $user->is_active || ! $user->canUseModule('anwesenheit')) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ($user->is_admin) {
+            return $query;
+        }
+
+        if (self::locationsOn()) {
+            app(LocationAccess::class)->forget($user);
+            $query->whereIn('ext_location_id', app(LocationAccess::class)->visibleLocationIds($user));
+        }
+
+        if (! $user->hasModuleRole('anwesenheit', 'verwalter')) {
+            $managed = self::locationsOn() ? app(LocationAccess::class)->adminLocationIds($user) : [];
+            $query->where(fn (Builder $q) => $q->whereIn('ext_location_id', $managed)
+                ->orWhere('created_by', $user->id)->orWhere('leader_id', $user->id)
                 ->orWhereIn('id', DB::table('x_att_participants')->where('user_id', $user->id)->select('list_id')));
         }
 
@@ -81,6 +157,13 @@ class AttendanceService
     {
         if (! self::locationsOn()) {
             return [];
+        }
+
+        $roles = app(LocationModuleRoles::class);
+        if ($roles->enabled('anwesenheit')) {
+            return Location::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get()
+                ->filter(fn (Location $location) => $roles->isGlobalAdmin($user) || $roles->canAccessLocation($user, (int) $location->id))
+                ->pluck('name', 'id')->all();
         }
 
         return Location::query()->whereIn('id', app(LocationAccess::class)->visibleLocationIds($user))
@@ -109,6 +192,24 @@ class AttendanceService
     }
 
     /**
+     * Templates may contain personal recipients/leadership: NULL is not a shared catalog.
+     *
+     * @param  Builder<AttendanceTemplate>  $query
+     * @return Builder<AttendanceTemplate>
+     */
+    public function restrictTemplateQuery(Builder $query, User $user): Builder
+    {
+        $query->withoutGlobalScope(LocationScope::class);
+        if (self::locationsOn() && ! $user->is_admin) {
+            $access = app(LocationAccess::class);
+            $access->forget($user);
+            $query->whereIn('x_att_templates.ext_location_id', $access->visibleLocationIds($user));
+        }
+
+        return $query;
+    }
+
+    /**
      * Optional shortcuts that prefill the form: templates and, when the Kalender is on, today's and recent
      * Übungen. Nothing is stored about the source except its key.
      *
@@ -116,7 +217,7 @@ class AttendanceService
      */
     public function prefillOptions(User $user): array
     {
-        $options = AttendanceTemplate::where('is_active', true)->orderBy('name')->get()
+        $options = $this->restrictTemplateQuery(AttendanceTemplate::query(), $user)->where('is_active', true)->orderBy('name')->get()
             ->map(fn (AttendanceTemplate $t) => ['key' => 'tpl:'.$t->id, 'label' => 'Vorlage: '.$t->name])->all();
 
         foreach ($this->events($user) as $event) {
@@ -132,7 +233,7 @@ class AttendanceService
         [$type, $id] = array_pad(explode(':', $key, 2), 2, null);
         $blank = ['title' => null, 'kind' => 'uebung', 'starts_at' => null, 'ends_at' => null, 'leader_id' => null, 'recipients' => null, 'template_id' => null, 'source_event_id' => null];
 
-        if ($type === 'tpl' && ($template = AttendanceTemplate::where('is_active', true)->find((int) $id))) {
+        if ($type === 'tpl' && ($template = $this->restrictTemplateQuery(AttendanceTemplate::query(), $user)->where('is_active', true)->find((int) $id))) {
             $start = now('Europe/Berlin')->startOfMinute();
 
             return [...$blank, 'title' => $template->title ?: $template->name, 'kind' => $template->kind, 'leader_id' => $template->leader_id, 'recipients' => $template->recipients,
@@ -201,6 +302,8 @@ class AttendanceService
      */
     public function save(User $by, ?AttendanceList $list, array $data, array $participantIds, array $uploads = [], bool $submit = false): AttendanceList
     {
+        abort_unless($by->is_active && $by->canUseModule('anwesenheit'), 403);
+
         if ($list && ! self::canEdit($by, $list)) {
             throw ValidationException::withMessages(['form' => 'Diese Liste kann nicht mehr bearbeitet werden.']);
         }
@@ -213,6 +316,11 @@ class AttendanceService
         $leaderId = ! empty($data['leader_id']) ? (int) $data['leader_id'] : null;
         $guests = max(0, min(999, (int) ($data['guests'] ?? 0)));
         $locationId = ! empty($data['ext_location_id']) ? (int) $data['ext_location_id'] : null;
+
+        if (! $list && $locationId === null && app(LocationModuleRoles::class)->enabled('anwesenheit')
+            && ! app(LocationModuleRoles::class)->isGlobalAdmin($by)) {
+            $errors['form.ext_location_id'] = 'Bitte einen zugänglichen Standort ausdrücklich auswählen.';
+        }
 
         if ($title === '' || mb_strlen($title) > 150) {
             $errors['form.title'] = 'Bitte einen Titel (höchstens 150 Zeichen) angeben.';
@@ -229,6 +337,10 @@ class AttendanceService
         }
         if ($locationId !== null && (! self::locationsOn() || ! in_array($locationId, array_keys($this->locationsFor($by)), true))) {
             $errors['form.ext_location_id'] = 'Kein Zugriff auf diesen Standort.';
+        }
+        if ($list && $locationId !== null && $locationId !== $list->ext_location_id
+            && ! self::canManageAt($by, $locationId)) {
+            $errors['form.ext_location_id'] = 'Keine Verwaltungsberechtigung für diesen Standort.';
         }
 
         $recipients = (string) ($data['recipients'] ?? '');
@@ -312,7 +424,7 @@ class AttendanceService
     /** Only managers delete, and the creator while the list is still a draft */
     public function delete(User $by, AttendanceList $list): void
     {
-        if (! self::canManage($by) && ! ((int) $list->created_by === (int) $by->id && ! $list->isSubmitted())) {
+        if (! self::canEdit($by, $list)) {
             throw ValidationException::withMessages(['form' => 'Diese Liste kann nicht gelöscht werden.']);
         }
         $list->delete();
@@ -325,8 +437,10 @@ class AttendanceService
     }
 
     /** Mail with the PDF and the uploads; a failure is reported but never thrown (the list stays saved) */
-    public function send(AttendanceList $list): bool
+    public function send(User $by, AttendanceList $list): bool
     {
+        abort_unless(self::canResend($by, $list), 403);
+
         $to = self::recipientsFor($list);
         if ($to === []) {
             return false;

@@ -6,7 +6,7 @@ Alle Fälle sind mit erfundenen Testdaten und einer PostgreSQL-Testdatenbank aus
 
 | Identität | Standortgebundene Daten | Hybride Daten | Übergreifende Daten | Bewusst globale Daten |
 |---|---|---|---|---|
-| Globaler Administrator | Nur explizit geregelte Administration; sensiblen Zugriff protokollieren; unzulässige Sicht negativ testen. | Freigabe/Änderung nur über berechtigte Aktion mit Auditspur. | Darf im freigegebenen Scope lesen/ändern. | Darf verwalten. |
+| Globaler Administrator | Zugriff auf alle Daten aller Standorte positiv testen, einschließlich sensibler Inhalte (Entscheidung vom 21.10.2026). | Darf standortübergreifend lesen und verwalten. | Darf global lesen/ändern. | Darf verwalten. |
 | Kommunale Administration | Fremde Personal-/Gesundheits-/Finanzdetails standardmäßig verweigern. | Nur freigegebene Module und Datenfelder; aggregierte Ansicht positiv, Detailansicht negativ. | Positiver Zugriff nur bei expliziter Zuweisung. | Gemäß globaler Administration. |
 | Bürgermeister / Brandschutzamt | Personenbezogene Detailansicht negativ, sofern nicht explizit freigegeben. | Freigegebene Übersichten/Fristen positiv; nicht freigegebene Details negativ. | Leserechte gemäß Capability positiv/negativ abdecken. | Nur falls fachlich freigegeben. |
 | GBI/SPI / Führungsprofil | Kein pauschaler Bypass sensibler oder fremder Standortdaten. | Nur nach Profil × Modul × Aktion × Datenklasse. | Explizite Zuweisung testen. | Nur dokumentierte Rechte. |

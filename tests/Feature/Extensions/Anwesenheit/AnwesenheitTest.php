@@ -1,8 +1,11 @@
 <?php
 
 use App\Models\Module;
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\HoursRegistry;
+use Extensions\Anwesenheit\Filament\Resources\TemplateResource;
+use Extensions\Anwesenheit\Filament\SettingsPage;
 use Extensions\Anwesenheit\Livewire\ListForm;
 use Extensions\Anwesenheit\Livewire\ListIndex;
 use Extensions\Anwesenheit\Livewire\ListShow;
@@ -15,6 +18,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
 function stationOf(string $name): Location
@@ -204,4 +208,99 @@ it('puts the offline draft markers on the form fields', function () {
     $this->actingAs($this->hanna)->get(route('anwesenheit.create'))->assertOk()
         ->assertSee('data-offline-draft="anwesenheit-list"', false)->assertSee('data-offline-draft-field', false)
         ->assertDontSee('localStorage');
+});
+
+it('keeps global settings writable only by active global administrators', function () {
+    Setting::set('anwesenheit.recipients', 'listen@example.com');
+    $manager = kamerad('Walter Wehrführer', $this->south, 'admin');
+    $this->actingAs($manager)->get('/admin/anwesenheit/einstellungen')->assertOk()->assertDontSee('>Speichern<', false);
+    Livewire::actingAs($manager)->test(SettingsPage::class)->call('save')->assertForbidden();
+    expect(AttendanceService::defaultRecipients())->toBe('listen@example.com');
+
+    $global = kamerad('Gisela Gemeinde', null, 'member', true);
+    Livewire::actingAs($global)->test(SettingsPage::class)
+        ->fillForm(['recipients' => 'verwaltung@example.com'])->call('save')->assertHasNoFormErrors();
+    expect(AttendanceService::defaultRecipients())->toBe('verwaltung@example.com');
+});
+
+it('preserves global administration of every list and template', function () {
+    $global = kamerad('Gisela Gemeinde', null, 'member', true);
+    $service = app(AttendanceService::class);
+    foreach ([$this->south, $this->north] as $location) {
+        $list = AttendanceList::create(['title' => 'Übung', 'created_by' => $this->hanna->id, 'ext_location_id' => $location->id, 'status' => 'submitted']);
+        $template = AttendanceTemplate::create(['name' => 'Übung', 'kind' => 'uebung', 'ext_location_id' => $location->id]);
+        $this->actingAs($global);
+        expect(AttendanceService::canSee($global, $list))->toBeTrue()
+            ->and(AttendanceService::canEdit($global, $list))->toBeTrue()
+            ->and(AttendanceService::canResend($global, $list))->toBeTrue()
+            ->and(TemplateResource::canEdit($template))->toBeTrue()
+            ->and($service->visibleTo($global)->whereKey($list->id)->exists())->toBeTrue();
+        $service->delete($global, $list);
+        expect($list->exists)->toBeFalse();
+    }
+});
+
+it('keeps participant permissions read only and creator draft permissions intact', function () {
+    $list = AttendanceList::create(['title' => 'Übung', 'created_by' => $this->hanna->id, 'ext_location_id' => $this->south->id]);
+    $list->participants()->attach($this->bernd->id);
+    $this->actingAs($this->bernd);
+    expect(AttendanceService::canSee($this->bernd, $list))->toBeTrue()
+        ->and(AttendanceService::canEdit($this->bernd, $list))->toBeFalse()
+        ->and(AttendanceService::canResend($this->bernd, $list))->toBeFalse()
+        ->and(AttendanceService::canEdit($this->hanna, $list))->toBeTrue();
+    expect(fn () => app(AttendanceService::class)->delete($this->bernd, $list))->toThrow(ValidationException::class);
+    $list->update(['status' => 'submitted']);
+    expect(AttendanceService::canEdit($this->hanna, $list))->toBeFalse()
+        ->and(AttendanceService::canResend($this->hanna, $list))->toBeTrue();
+});
+
+it('requires current target permissions for management contracts', function () {
+    $list = AttendanceList::create(['title' => 'Übung', 'created_by' => $this->hanna->id, 'ext_location_id' => $this->south->id]);
+    $template = AttendanceTemplate::create(['name' => 'Übung', 'kind' => 'uebung', 'ext_location_id' => $this->south->id]);
+    foreach (['member' => false, 'admin' => true] as $role => $allowed) {
+        $user = kamerad('Walter Wehrführer', $this->south, $role);
+        $this->actingAs($user);
+        expect(AttendanceService::canManageAt($user, $this->south->id))->toBe($allowed)
+            ->and(AttendanceService::canEdit($user, $list))->toBe($allowed)
+            ->and(TemplateResource::canEdit($template))->toBe($allowed)
+            ->and(TemplateResource::canDelete($template))->toBe($allowed);
+    }
+});
+
+it('resolves management contracts independently for each assigned location', function () {
+    $manager = kamerad('Walter Wehrführer', $this->south, 'admin');
+    DB::table('x_location_user')->insert(['location_id' => $this->north->id, 'user_id' => $manager->id, 'role' => 'member']);
+    $list = AttendanceList::create(['title' => 'Übung', 'created_by' => $this->nord->id, 'ext_location_id' => $this->north->id, 'status' => 'submitted']);
+    $template = AttendanceTemplate::create(['name' => 'Übung', 'kind' => 'uebung', 'ext_location_id' => $this->north->id]);
+    $this->actingAs($manager);
+
+    expect(AttendanceService::canManageAt($manager, $this->south->id))->toBeTrue()
+        ->and(AttendanceService::canManageAt($manager, $this->north->id))->toBeFalse()
+        ->and(AttendanceService::canSee($manager, $list))->toBeFalse()
+        ->and(AttendanceService::canEdit($manager, $list))->toBeFalse()
+        ->and(AttendanceService::canResend($manager, $list))->toBeFalse()
+        ->and(TemplateResource::canEdit($template))->toBeFalse()
+        ->and(TemplateResource::getEloquentQuery()->whereKey($template->id)->exists())->toBeFalse()
+        ->and(app(AttendanceService::class)->visibleTo($manager)->whereKey($list->id)->exists())->toBeFalse();
+});
+
+it('drops revoked location permissions for already loaded records', function () {
+    $manager = kamerad('Walter Wehrführer', $this->south, 'admin');
+    DB::table('x_location_user')->insert(['location_id' => $this->north->id, 'user_id' => $manager->id, 'role' => 'admin']);
+    $list = AttendanceList::create(['title' => 'Übung', 'created_by' => $this->nord->id, 'ext_location_id' => $this->north->id]);
+    $this->actingAs($manager);
+    expect(AttendanceService::canEdit($manager, $list))->toBeTrue();
+
+    DB::table('x_location_user')->where('location_id', $this->north->id)->where('user_id', $manager->id)->delete();
+    expect(AttendanceService::canSee($manager, $list))->toBeFalse()
+        ->and(AttendanceService::canEdit($manager, $list))->toBeFalse()
+        ->and(app(AttendanceService::class)->visibleTo($manager)->whereKey($list->id)->exists())->toBeFalse();
+});
+
+it('rechecks read permission on subsequent component renders', function () {
+    $list = AttendanceList::create(['title' => 'Übung', 'created_by' => $this->hanna->id, 'ext_location_id' => $this->south->id]);
+    $list->participants()->attach($this->bernd->id);
+    $component = Livewire::actingAs($this->bernd)->test(ListShow::class, ['list' => $list])->assertOk();
+    $list->participants()->detach($this->bernd->id);
+    $component->call('$refresh')->assertForbidden();
 });

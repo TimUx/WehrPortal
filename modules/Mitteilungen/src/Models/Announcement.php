@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Modules\Mitteilungen\src\Services\AnnouncementService;
 
 /**
  * A notice on the start page; important ones are highlighted and cannot be dismissed. Meant for Abteilungen
@@ -87,21 +88,17 @@ class Announcement extends Model
                 ->whereNotExists(fn ($audience) => $audience->selectRaw('1')->from('announcement_function')
                     ->whereColumn('announcement_function.announcement_id', 'announcements.id')))
             ->orWhereExists(fn ($audience) => $audience->selectRaw('1')->from('announcement_group')
-                    ->whereColumn('announcement_group.announcement_id', 'announcements.id')
-                    ->whereIn('announcement_group.group_id', $groupIds))
+                ->whereColumn('announcement_group.announcement_id', 'announcements.id')
+                ->whereIn('announcement_group.group_id', $groupIds))
             ->orWhereExists(fn ($audience) => $audience->selectRaw('1')->from('announcement_function')
-                    ->whereColumn('announcement_function.announcement_id', 'announcements.id')
-                    ->whereIn('announcement_function.member_function_id', $withParents)));
+                ->whereColumn('announcement_function.announcement_id', 'announcements.id')
+                ->whereIn('announcement_function.member_function_id', $withParents)));
 
         if (! Schema::hasTable('x_location_user')) {
             return $query->whereNull('announcements.ext_location_id');
         }
 
-        $locationIds = DB::table('x_location_user')->where('user_id', $user->id)->pluck('location_id')
-            ->map(fn ($id) => (int) $id)->all();
-        if ($user->getAttribute('ext_location_id')) {
-            $locationIds[] = (int) $user->getAttribute('ext_location_id');
-        }
+        $locationIds = app(AnnouncementService::class)->readerLocationIds($user);
 
         return $query->where(fn (Builder $location) => $location->whereNull('announcements.ext_location_id')
             ->orWhereIn('announcements.ext_location_id', array_values(array_unique($locationIds))));

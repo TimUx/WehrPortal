@@ -8,6 +8,7 @@ use App\Filament\ModuleAreas;
 use App\Services\AuthMethodRegistry;
 use App\Services\ModuleRegistry;
 use Database\Factories\UserFactory;
+use Extensions\Locations\Services\LocationModuleRoles;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -18,6 +19,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Cache;
 use Modules\Fahrzeugbuchung\src\Models\Booking;
+use Modules\Kleiderkammer\src\Services\PersonalAccess;
 
 class User extends Authenticatable implements FilamentUser
 {
@@ -77,6 +79,8 @@ class User extends Authenticatable implements FilamentUser
     // alone (factories, app:ensure-admins) are mapped back onto the status.
     protected static function booted(): void
     {
+        static::deleting(fn (User $user) => app(LocationModuleRoles::class)->assertMemberDeletable($user));
+
         static::saving(function (User $user) {
             if ($user->isDirty('status')) {
                 $user->is_active = $user->status === MemberStatus::Active;
@@ -119,6 +123,11 @@ class User extends Authenticatable implements FilamentUser
     /** Admins and Kleiderwarte manage the clothing store; other members only see their own equipment */
     public function canManageKleiderkammer(): bool
     {
+        if (app(PersonalAccess::class)->enabled()) {
+            // Navigation only. Record authorization belongs to the personal-data adapter.
+            return app(PersonalAccess::class)->canEnter($this);
+        }
+
         return $this->is_active
             && $this->canUseModule('kleiderkammer')
             && ($this->is_admin || $this->hasModuleRole('kleiderkammer', 'kleiderwart'));
@@ -143,6 +152,10 @@ class User extends Authenticatable implements FilamentUser
     /** Admins and Redakteure (e.g. the Wehrführung) write the notices of the Mitteilungen module */
     public function canPostAnnouncements(): bool
     {
+        if (app(LocationModuleRoles::class)->enabled('mitteilungen')) {
+            return $this->hasAnyModuleRole('mitteilungen', 'redakteur');
+        }
+
         return $this->is_active
             && $this->canUseModule('mitteilungen')
             && ($this->is_admin || $this->hasModuleRole('mitteilungen', 'redakteur'));
@@ -276,6 +289,16 @@ class User extends Authenticatable implements FilamentUser
      */
     public function canUseModule(string $key): bool
     {
+        $scopedRoles = app(LocationModuleRoles::class);
+        if ($scopedRoles->enabled($key)) {
+            if (! $scopedRoles->eligible($this, $key)) {
+                return false;
+            }
+            if ($scopedRoles->isGlobalAdmin($this) || $scopedRoles->canEnter($this, $key)) {
+                return true;
+            }
+        }
+
         if (! app(ModuleRegistry::class)->isActive($key)) {
             return false;
         }
@@ -297,12 +320,25 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /** Whether this user holds a specific role within a module. */
-    public function hasModuleRole(string $key, string $role): bool
+    public function hasModuleRole(string $key, string $role, ?int $locationId = null): bool
     {
+        $scopedRoles = app(LocationModuleRoles::class);
+        if ($scopedRoles->enabled($key)) {
+            return $scopedRoles->hasRole($this, $key, $role, $locationId);
+        }
+
         return $this->moduleAccess()
             ->where('module', $key)
             ->where('role', $role)
             ->exists();
+    }
+
+    /** Navigation only; object authorization must use hasModuleRole with an explicit target. */
+    public function hasAnyModuleRole(string $key, string $role): bool
+    {
+        $scopedRoles = app(LocationModuleRoles::class);
+
+        return $scopedRoles->enabled($key) ? $scopedRoles->hasAnyRole($this, $key, $role) : $this->hasModuleRole($key, $role);
     }
 
     public function scopeActive($query)

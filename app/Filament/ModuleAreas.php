@@ -17,7 +17,12 @@ final class ModuleAreas
         $panel = Filament::getPanel('admin');
         $groups = $panel->getNavigationGroups();
 
-        return collect($panel->getPages())
+        // Reuse resource indexes as entry areas without registering another page or route.
+        $resourceEntries = collect($panel->getResources())
+            ->map(fn (string $resource) => ($resource::getPages()['index'] ?? null)?->getPage())
+            ->filter();
+
+        return collect($panel->getPages())->merge($resourceEntries)->unique()
             ->filter(fn (string $page) => is_subclass_of($page, ModuleArea::class) && $page::allows($user))
             ->sortBy(fn (string $page) => array_search($page::getNavigationGroup(), $groups, true))
             ->values()

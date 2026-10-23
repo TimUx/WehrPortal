@@ -2,10 +2,20 @@
 
 use App\Support\SafeUrl;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\RefreshCommittedDatabase;
 use Tests\TestCase;
 
 uses(TestCase::class, RefreshDatabase::class)->in('Feature');
 uses(TestCase::class)->in('Unit');
+
+// Committed fixtures for independent connections, with Laravel's worker database isolation.
+uses(RefreshCommittedDatabase::class)->in(
+    'Unit/Extensions/Locations/ClothingReadinessReportTest.php',
+    'Unit/Extensions/Locations/ClothingStockAssignmentLockTest.php',
+    'Unit/Extensions/Locations/LocationRelationInventoryTest.php',
+    'Unit/Extensions/Locations/OperationalReadinessTest.php',
+    'Unit/FreshInstallTest.php',
+);
 
 // Outbound requests to typed-in addresses resolve to a public test address (no DNS in tests)
 uses()->beforeEach(fn () => SafeUrl::resolveUsing(fn (string $host) => in_array($host, ['localhost', 'intern.example.com'], true) ? ['127.0.0.1'] : ['93.184.216.34']))->in('Feature');

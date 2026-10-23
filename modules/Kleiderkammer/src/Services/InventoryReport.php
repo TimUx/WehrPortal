@@ -2,6 +2,7 @@
 
 namespace Modules\Kleiderkammer\src\Services;
 
+use App\Models\User;
 use Illuminate\Support\Collection;
 use Modules\Kleiderkammer\src\Enums\ItemStatus;
 use Modules\Kleiderkammer\src\Models\IssuedItem;
@@ -14,10 +15,16 @@ class InventoryReport
      * Returns a collection of objects with:
      *   item_type_id, name, total, available, issued, retired
      */
-    public function trackedByType(): Collection
+    public function trackedByType(?User $actor = null): Collection
     {
-        return ItemType::where('is_tracked', true)
-            ->with(['items' => fn ($q) => $q->withTrashed()])
+        app(PersonalAccess::class)->authorizeOverview($actor ?? auth()->user());
+        app(StockAccess::class)->authorizePersonal($actor ?? auth()->user());
+
+        return app(PersonalAccess::class)->asActor($actor ?? auth()->user(), fn () => ItemType::where('is_tracked', true)
+            ->with(['items' => function ($query) use ($actor) {
+                $query->withTrashed();
+                app(PersonalAccess::class)->scopeInventory($query->getQuery(), $actor ?? auth()->user());
+            }])
             ->get()
             ->map(fn (ItemType $type) => (object) [
                 'item_type_id' => $type->id,
@@ -26,16 +33,23 @@ class InventoryReport
                 'available' => $type->items->where('status', ItemStatus::Available)->count(),
                 'issued' => $type->items->where('status', ItemStatus::Issued)->count(),
                 'retired' => $type->items->where('status', ItemStatus::Retired)->count(),
-            ]);
+            ]));
     }
 
     /**
      * Stock quantities for non-tracked item types, grouped by type + size.
      */
-    public function stockByType(): Collection
+    public function stockByType(?User $actor = null): Collection
     {
+        app(PersonalAccess::class)->authorizeOverview($actor ?? auth()->user());
+        $actor ??= auth()->user();
+        $access = app(StockAccess::class);
+        $access->authorizePersonal($actor);
+
         return ItemType::where('is_tracked', false)
-            ->with(['stock.size'])
+            ->with(['stock' => fn ($query) => $query
+                ->whereIn('kk_stock.id', app(PersonalAccess::class)->issueStockQuery($actor)->select('kk_stock.id'))
+                ->with('size')])
             ->get()
             ->flatMap(fn (ItemType $type) => $type->stock->map(fn ($row) => (object) [
                 'item_type_id' => $type->id,
@@ -48,12 +62,15 @@ class InventoryReport
     /**
      * Open issuance records (items still out with members), ordered by issued_at.
      */
-    public function openLoans(): Collection
+    public function openLoans(?User $actor = null): Collection
     {
-        return IssuedItem::with(['user', 'item.itemType', 'itemType', 'size'])
+        app(PersonalAccess::class)->authorizeOverview($actor ?? auth()->user());
+        app(StockAccess::class)->authorizePersonal($actor ?? auth()->user());
+
+        return app(PersonalAccess::class)->asActor($actor ?? auth()->user(), fn () => IssuedItem::with(['user', 'item.itemType', 'itemType', 'size'])
             ->whereNull('returned_at')
             ->orderBy('issued_at')
-            ->get();
+            ->get());
     }
 
     /**
@@ -61,14 +78,18 @@ class InventoryReport
      *
      * @return array{tracked_total: int, available: int, issued: int, retired: int, open_loans: int}
      */
-    public function summary(): array
+    public function summary(?User $actor = null): array
     {
+        app(PersonalAccess::class)->authorizeOverview($actor ?? auth()->user());
+        $actor ??= auth()->user();
+        app(StockAccess::class)->authorizePersonal($actor);
+
         return [
-            'tracked_total' => $this->trackedByType()->sum('total'),
-            'available' => $this->trackedByType()->sum('available'),
-            'issued' => $this->trackedByType()->sum('issued'),
-            'retired' => $this->trackedByType()->sum('retired'),
-            'open_loans' => IssuedItem::whereNull('returned_at')->count(),
+            'tracked_total' => $this->trackedByType($actor)->sum('total'),
+            'available' => $this->trackedByType($actor)->sum('available'),
+            'issued' => $this->trackedByType($actor)->sum('issued'),
+            'retired' => $this->trackedByType($actor)->sum('retired'),
+            'open_loans' => app(PersonalAccess::class)->asActor($actor, fn () => IssuedItem::whereNull('returned_at')->count()),
         ];
     }
 }

@@ -13,7 +13,7 @@
         @if($locationsEnabled)
             <label class="block text-sm text-gray-700">Geltungsbereich
                 <select wire:model.live="locationId" class="mt-1 {{ $input }}">
-                    <option value="">Allgemein – standortübergreifend</option>
+                    @if($canManageGeneral)<option value="">Allgemein – standortübergreifend</option>@endif
                     @foreach($locations as $id => $name)<option value="{{ $id }}">Nur {{ $name }}</option>@endforeach
                 </select>
                 <span class="mt-1 block text-xs text-gray-500">Standortmitteilungen sehen nur aktive Mitteilungensempfänger, die diesem Standort angehören.</span>

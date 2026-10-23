@@ -8,6 +8,7 @@ use App\Models\Group;
 use App\Models\User;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Modules\Kleiderkammer\src\Models\IssuedItem;
 use Modules\Kleiderkammer\src\Models\Item;
 use Modules\Kleiderkammer\src\Models\ItemCategory;
@@ -68,23 +69,40 @@ class DataTransferService
     }
 
     /** @param string[]|null $parts */
-    public function export(?array $parts = null): array
+    public function export(?array $parts = null, ?User $actor = null): array
     {
-        $parts = $this->resolveParts($parts);
-        $has = fn (string ...$wanted) => array_intersect($wanted, $parts) !== [];
-        $data = ['version' => 1, 'exported_at' => now()->toIso8601String(), 'groups' => []];
+        app(StockAccess::class)->authorizeTransfer($actor ?? auth()->user());
+        $actor ??= auth()->user();
+        app(PersonalAccess::class)->authorizeTransfer($actor);
 
-        if ($has('categories', 'item_types')) {
-            $data['groups']['catalog'] = $this->exportCatalog($has('categories'), $has('item_types'));
-        }
-        if ($has('members')) {
-            $data['groups']['members'] = $this->exportMembers();
-        }
-        if ($has('items', 'stock', 'treatments', 'issuances')) {
-            $data['groups']['inventory'] = $this->exportInventory($parts);
-        }
+        return app(PersonalAccess::class)->asActor($actor, fn () => DB::transaction(function () use ($parts) {
+            $parts = $this->resolveParts($parts);
+            if (array_intersect(['stock', 'issuances'], $parts) !== []) {
+                app(StockAccess::class)->lockSelection();
+            }
+            if (in_array('stock', $parts, true)) {
+                $this->assertLegacyStockTransfer();
+            }
+            if (in_array('issuances', $parts, true)
+                && Schema::hasColumn('kk_issued_items', 'ext_source_stock_id')
+                && DB::table('kk_issued_items')->whereNotNull('ext_source_stock_id')->exists()) {
+                throw new \DomainException('The legacy transfer format cannot represent stock provenance.');
+            }
+            $has = fn (string ...$wanted) => array_intersect($wanted, $parts) !== [];
+            $data = ['version' => 1, 'exported_at' => now()->toIso8601String(), 'groups' => []];
 
-        return $data;
+            if ($has('categories', 'item_types')) {
+                $data['groups']['catalog'] = $this->exportCatalog($has('categories'), $has('item_types'));
+            }
+            if ($has('members')) {
+                $data['groups']['members'] = $this->exportMembers();
+            }
+            if ($has('items', 'stock', 'treatments', 'issuances')) {
+                $data['groups']['inventory'] = $this->exportInventory($parts);
+            }
+
+            return $data;
+        }));
     }
 
     /**
@@ -121,22 +139,55 @@ class DataTransferService
      * @param  string[]|null  $types  only rows of these item type names; null or empty = all
      * @return array{skipped_members: string[], issued_items: int, skipped_issued_items: int}
      */
-    public function import(array $data, ?array $parts = null, ?array $types = null): array
+    public function import(array $data, ?array $parts = null, ?array $types = null, ?User $actor = null): array
     {
-        $groups = $this->filter($data, $parts, $types)['groups'] ?? [];
+        $actor ??= auth()->user();
+        $access = app(StockAccess::class);
+        $access->authorizeTransfer($actor);
+        app(PersonalAccess::class)->authorizeTransfer($actor);
         $report = ['skipped_members' => [], 'issued_items' => 0, 'skipped_issued_items' => 0];
 
-        DB::transaction(function () use ($groups, &$report) {
-            $catalog = $this->importCatalog($groups['catalog'] ?? []);
-            $members = $this->importMembers($groups['members']['members'] ?? [], $report);
-            $this->importMemberSizes($groups['members']['sizes'] ?? [], $catalog, $members);
+        app(PersonalAccess::class)->asImportActor($actor, function () use ($actor, $access, $data, $parts, $types, &$report) {
+            $groups = $this->filter($data, $parts, $types)['groups'] ?? [];
+            $access->asActor($actor, function () use ($groups, &$report) {
+                DB::transaction(function () use ($groups, &$report) {
+                    $inventory = $groups['inventory'] ?? [];
+                    if (($inventory['stock'] ?? []) !== [] || ($inventory['issued_items'] ?? []) !== []) {
+                        app(StockAccess::class)->lockSelection();
+                    }
+                    if (($inventory['stock'] ?? []) !== []) {
+                        $this->assertLegacyStockTransfer();
+                    }
+                    foreach (array_merge($inventory['stock'] ?? [], $inventory['issued_items'] ?? []) as $row) {
+                        if (($row['ext_location_id'] ?? null) !== null || ($row['ext_source_stock_id'] ?? null) !== null) {
+                            throw new \DomainException('The legacy transfer format cannot resolve warehouse ownership or stock provenance.');
+                        }
+                    }
+                    $catalog = $this->importCatalog($groups['catalog'] ?? []);
+                    $members = $this->importMembers($groups['members']['members'] ?? [], $report);
+                    $this->importMemberSizes($groups['members']['sizes'] ?? [], $catalog, $members);
 
-            if (isset($groups['inventory'])) {
-                $this->importInventory($groups['inventory'], $catalog, $members, $report);
-            }
+                    if (isset($groups['inventory'])) {
+                        $this->importInventory($groups['inventory'], $catalog, $members, $report);
+                    }
+                });
+            });
         });
 
         return $report;
+    }
+
+    /** Only unowned, globally unambiguous legacy stock is representable in version 1. */
+    private function assertLegacyStockTransfer(): void
+    {
+        if (Schema::hasColumn('kk_stock', 'ext_location_id')
+            && DB::table('kk_stock')->whereNotNull('ext_location_id')->exists()) {
+            throw new \DomainException('The legacy transfer format cannot represent warehouse stock ownership.');
+        }
+        if (DB::table('kk_stock')->select(['item_type_id', 'size_id', 'group_id'])
+            ->groupBy('item_type_id', 'size_id', 'group_id')->havingRaw('count(*) > 1')->exists()) {
+            throw new \DomainException('The legacy transfer format cannot select ambiguous warehouse stock.');
+        }
     }
 
     /** Drops everything from the file that was not selected */
@@ -463,6 +514,7 @@ class DataTransferService
             }
         }
 
+        $stockKeys = [];
         foreach ($data['stock'] ?? [] as $row) {
             $type = $this->resolveType($row['item_type_name'] ?? null, $row['item_type_id'] ?? null, $catalog);
             if ($type === null) {
@@ -470,6 +522,11 @@ class DataTransferService
             }
             $group = $this->resolveGroup($type, $row['group_name'] ?? null, $row['group_id'] ?? null, $catalog);
             $size = $this->resolveSize($type, $row['size_name'] ?? null, $row['size_id'] ?? null, $catalog, $group);
+            $key = json_encode([$type->id, $size?->id, $group?->id]);
+            if (isset($stockKeys[$key])) {
+                throw new \DomainException('The legacy import contains duplicate stock positions without warehouse ownership.');
+            }
+            $stockKeys[$key] = true;
 
             Stock::updateOrCreate(
                 ['item_type_id' => $type->id, 'size_id' => $size?->id, 'group_id' => $group?->id],
@@ -498,6 +555,9 @@ class DataTransferService
                 'item_type_id' => $type?->id,
                 'issued_at' => $row['issued_at'],
             ]);
+            if (($issued->getAttributes()['ext_source_stock_id'] ?? null) !== null) {
+                throw new \DomainException('The legacy import cannot overwrite a source-bound issuance.');
+            }
             $group = $type ? $this->resolveGroup($type, $row['group_name'] ?? null, $row['group_id'] ?? null, $catalog) : null;
             $issued->fill([
                 'size_id' => $type ? $this->resolveSize($type, $row['size_name'] ?? null, $row['size_id'] ?? null, $catalog, $group)?->id : null,

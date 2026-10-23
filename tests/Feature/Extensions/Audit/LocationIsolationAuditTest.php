@@ -5,14 +5,17 @@ declare(strict_types=1);
 use App\Models\User;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\LocationAccess;
+use Extensions\Locations\Services\ProtectionManifest;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
+use Tests\TestCase;
 
 uses()->group('audit');
 
 it('does not expose a vehicle from another location by id', function () {
+    /** @var TestCase $this */
     $north = Location::create(['name' => 'FF Musterstadt Nord', 'slug' => 'audit-nord']);
     $south = Location::create(['name' => 'FF Musterstadt Süd', 'slug' => 'audit-sued']);
     $member = User::factory()->create(['name' => 'Hanna Hydrant']);
@@ -31,6 +34,7 @@ it('does not expose a vehicle from another location by id', function () {
 });
 
 it('keeps a null-location vehicle visible as shared data', function () {
+    /** @var TestCase $this */
     $location = Location::create(['name' => 'FF Musterstadt', 'slug' => 'audit-musterstadt']);
     $shared = Vehicle::factory()->create();
     $shared->forceFill(['ext_location_id' => null])->save();
@@ -59,6 +63,7 @@ it('does not apply location filtering to model queries without an authenticated 
 });
 
 it('limits a user without a location to shared rows only', function () {
+    /** @var TestCase $this */
     $location = Location::create(['name' => 'FF Musterstadt', 'slug' => 'audit-musterstadt']);
     $local = Vehicle::factory()->create(['ext_location_id' => $location->id]);
     $shared = Vehicle::factory()->create();
@@ -111,36 +116,56 @@ it('drops a removed location membership after its access cache is cleared', func
 });
 
 it('requires an explicit tenant scope decision for each application table', function () {
-    $decisions = collect(config('locations.models', []))
-        ->filter(fn (string $class) => class_exists($class))
-        ->mapWithKeys(fn (string $class) => [(new $class)->getTable() => 'standortgebunden'])
-        ->merge([
-            'x_hc_hydrants' => 'hybrid',
-            'x_hc_years' => 'hybrid',
-            'x_hc_inspections' => 'hybrid',
-            'x_files_spaces' => 'hybrid',
-            'x_files_groups' => 'hybrid',
-            'announcements' => 'hybrid',
-        ])
-        ->all();
+    $violations = app(ProtectionManifest::class)->violations(config('locations.protection'));
 
-    $infrastructure = [
-        'cache',
-        'cache_locks',
-        'failed_jobs',
-        'jobs',
-        'job_batches',
-        'migrations',
-        'password_reset_tokens',
-        'sessions',
-    ];
-    $tables = collect(Schema::getTableListing())
-        ->map(fn (string $table) => Str::afterLast($table, '.'))
-        ->reject(fn (string $table) => in_array($table, $infrastructure, true))
-        ->values();
-    $unclassified = $tables->diff(array_keys($decisions))->sort()->values()->all();
-
-    expect($unclassified === [])->toBeTrue(
-        'Every application table must be explicitly classified as location-bound, cross-location, hybrid, or intentionally global. Unclassified table count: '.count($unclassified),
-    )->and(collect($decisions)->every(fn (string $mode) => in_array($mode, ['standortgebunden', 'übergreifend', 'hybrid', 'bewusst global'], true)))->toBeTrue();
+    expect($violations)->toBe([], implode("\n", $violations));
 });
+
+it('inventories literal table creations in every core module and extension migration including retired tables', function () {
+    $manifest = config('locations.protection');
+    $inventoried = array_merge(array_keys($manifest['tables']), array_keys($manifest['infrastructure']), array_keys($manifest['retired_tables']));
+    $migrations = array_merge(
+        glob(database_path('migrations/*.php')),
+        glob(base_path('modules/*/database/migrations/*.php')),
+        glob(base_path('extensions/*/database/migrations/*.php')),
+    );
+    $missing = [];
+    foreach ($migrations as $migration) {
+        preg_match_all('/Schema::create\(\s*[\'"]([a-z][a-z0-9_]*)[\'"]/', file_get_contents($migration), $matches);
+        foreach ($matches[1] as $table) {
+            if (! in_array($table, $inventoried, true)) {
+                $missing[] = $table.' in '.str_replace(base_path().'/', '', $migration);
+            }
+        }
+    }
+
+    expect($missing)->toBe([], implode("\n", $missing));
+});
+
+it('leaves global administrator visibility unchanged when validating the manifest', function () {
+    /** @var TestCase $this */
+    $north = Location::create(['name' => 'FF Musterstadt Nord', 'slug' => 'audit-admin-nord']);
+    $south = Location::create(['name' => 'FF Musterstadt Süd', 'slug' => 'audit-admin-sued']);
+    $admin = User::factory()->create(['name' => 'Hanna Hydrant', 'is_admin' => true]);
+    $admin->forceFill(['ext_location_id' => $north->id])->save();
+    $foreign = Vehicle::factory()->create(['ext_location_id' => $south->id]);
+    $this->actingAs($admin);
+
+    $before = Vehicle::find($foreign->id)?->id;
+    $violations = app(ProtectionManifest::class)->violations(config('locations.protection'));
+
+    expect($violations)->toBe([], implode("\n", $violations))
+        ->and($before)->toBe($foreign->id)
+        ->and(Vehicle::find($foreign->id)?->id)->toBe($before);
+});
+
+it('rejects removed or retargeted installed Locations foreign keys', function (bool $retarget) {
+    Schema::table('users', fn (Blueprint $table) => $table->dropForeign(['ext_location_id']));
+    if ($retarget) {
+        Schema::table('users', fn (Blueprint $table) => $table->foreign('ext_location_id')->references('id')->on('groups'));
+    }
+
+    $violations = app(ProtectionManifest::class)->violations(config('locations.protection'));
+
+    expect($violations)->toContain('users.ext_location_id: declared foreign key to x_locations.id does not exist.');
+})->with([[false], [true]]);

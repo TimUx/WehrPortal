@@ -103,7 +103,7 @@ class ListForm extends Component
             return $this->redirectRoute('anwesenheit.edit', $list, navigate: false);
         }
 
-        $sent = $service->send($list);
+        $sent = $service->send(auth()->user(), $list);
         $recipients = AttendanceService::recipientsFor($list);
         session()->flash('flash', 'Liste abgeschlossen.'.($sent ? ' Die E-Mail mit PDF wurde versendet.' : ($recipients === [] ? ' Es ist kein E-Mail-Empfänger hinterlegt.' : ' Die E-Mail konnte nicht gesendet werden; sie lässt sich auf der Listenseite erneut senden.')));
 

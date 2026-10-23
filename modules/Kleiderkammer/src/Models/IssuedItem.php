@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Modules\Kleiderkammer\src\Concerns\TracksUser;
+use Modules\Kleiderkammer\src\Services\PersonalAccess;
 
 class IssuedItem extends Model
 {
@@ -37,7 +38,12 @@ class IssuedItem extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        $relation = $this->belongsTo(User::class);
+        if (app(PersonalAccess::class)->enabled()) {
+            $relation->withoutGlobalScopes();
+        }
+
+        return $relation;
     }
 
     public function item(): BelongsTo

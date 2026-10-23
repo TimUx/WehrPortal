@@ -19,12 +19,17 @@ class IssuingService
      * Issue a tracked item to a member.
      * The item must be available and not soft-deleted.
      */
-    public function issueTracked(User $member, Item $item, string $notes = ''): IssuedItem
+    public function issueTracked(User $member, Item $item, string $notes = '', ?User $actor = null): IssuedItem
     {
-        $this->ensureCanReceive($member);
+        $actor ??= auth()->user();
+        app(StockAccess::class)->authorizePersonal($actor);
+        $personal = app(PersonalAccess::class);
 
-        return DB::transaction(function () use ($member, $item, $notes) {
-            $fresh = Item::lockForUpdate()->findOrFail($item->id);
+        return $personal->asActor($actor, fn () => DB::transaction(function () use ($member, $item, $notes, $actor, $personal) {
+            $member = User::query()->when($personal->enabled(), fn ($query) => $query->withoutGlobalScopes())->lockForUpdate()->findOrFail($member->id);
+            $this->ensureCanReceive($member);
+            $fresh = Item::query()->when($personal->enabled(), fn ($query) => $query->withoutGlobalScopes())->whereNull('deleted_at')->lockForUpdate()->findOrFail($item->id);
+            $personal->authorizeIssue($actor, $member, $fresh);
 
             if ($fresh->status !== ItemStatus::Available) {
                 throw new \DomainException("Item {$fresh->code} is not available (status: {$fresh->status->value}).");
@@ -41,35 +46,53 @@ class IssuingService
             $fresh->update(['status' => ItemStatus::Issued]);
 
             return $issuedItem;
-        });
+        }));
     }
 
     /**
      * Issue stock items (non-tracked) to a member.
      * Decreases the stock quantity accordingly.
      */
-    public function issueStock(User $member, ItemType $itemType, ?Size $size, int $quantity, string $notes = '', ?ItemGroup $group = null): IssuedItem
+    public function issueStock(User $member, ItemType $itemType, ?Size $size, int $quantity, string $notes = '', ?ItemGroup $group = null, ?int $stockId = null, ?User $actor = null): IssuedItem
     {
-        $this->ensureCanReceive($member);
+        $actor ??= auth()->user();
+        $access = app(StockAccess::class);
+        $access->authorizePersonal($actor);
+        $personal = app(PersonalAccess::class);
 
         if ($quantity <= 0) {
             throw new \InvalidArgumentException('Quantity must be greater than zero.');
         }
 
-        return DB::transaction(function () use ($member, $itemType, $size, $quantity, $notes, $group) {
-            $stock = Stock::lockForUpdate()
+        return $personal->asActor($actor, fn () => $access->asActor($actor, fn () => DB::transaction(function () use ($member, $itemType, $size, $quantity, $notes, $group, $stockId, $actor, $access, $personal) {
+            $access->lockSelection();
+            $member = User::query()->when($personal->enabled(), fn ($query) => $query->withoutGlobalScopes())->lockForUpdate()->findOrFail($member->id);
+            $this->ensureCanReceive($member);
+            abort_if($personal->enabled() && $stockId === null, 403);
+            $stocks = Stock::lockForUpdate()
+                ->when($stockId !== null, fn ($query) => $query->whereKey($stockId))
                 ->where('item_type_id', $itemType->id)
                 ->where('size_id', $size?->id)
                 ->where('group_id', $group?->id)
-                ->first();
+                ->get();
+            if ($stocks->count() > 1) {
+                throw new \DomainException('Select an explicit warehouse stock position.');
+            }
+            $stock = $stocks->count() === 1 ? $stocks[0] : null;
 
+            if ($stock !== null) {
+                $personal->authorizeIssue($actor, $member, $stock);
+                $access->authorizeStock($actor, $stock);
+            } elseif ($access->enabled() || $personal->enabled()) {
+                abort(403);
+            }
             $available = $stock?->quantity ?? 0;
 
             if ($available < $quantity) {
                 throw new \DomainException("Not enough stock (available: {$available}, requested: {$quantity}).");
             }
 
-            $issuedItem = IssuedItem::create([
+            $issuedItem = new IssuedItem([
                 'user_id' => $member->id,
                 'item_type_id' => $itemType->id,
                 'size_id' => $size?->id,
@@ -78,11 +101,15 @@ class IssuingService
                 'issued_at' => now(),
                 'notes' => $notes,
             ]);
+            if ($issuedItem->getConnection()->getSchemaBuilder()->hasColumn($issuedItem->getTable(), 'ext_source_stock_id')) {
+                $issuedItem->forceFill(['ext_source_stock_id' => $stock->id]);
+            }
+            $issuedItem->save();
 
             $stock->decrement('quantity', $quantity);
 
             return $issuedItem;
-        });
+        })));
     }
 
     /**
@@ -90,10 +117,16 @@ class IssuingService
      * Sets returned_at and, for tracked items, flips the status back to available.
      * For stock items, restores the quantity.
      */
-    public function return(IssuedItem $issuedItem): void
+    public function return(IssuedItem $issuedItem, ?User $actor = null): void
     {
-        DB::transaction(function () use ($issuedItem) {
-            $fresh = IssuedItem::lockForUpdate()->findOrFail($issuedItem->id);
+        $actor ??= auth()->user();
+        $access = app(StockAccess::class);
+        $access->authorizePersonal($actor);
+        $personal = app(PersonalAccess::class);
+        $personal->asActor($actor, fn () => $access->asActor($actor, fn () => DB::transaction(function () use ($issuedItem, $actor, $access, $personal) {
+            $access->lockSelection();
+            $fresh = IssuedItem::query()->when($personal->enabled(), fn ($query) => $query->withoutGlobalScopes())->whereNull('deleted_at')->lockForUpdate()->findOrFail($issuedItem->id);
+            $personal->authorizeIssuance($actor, $fresh);
 
             if ($fresh->returned_at !== null) {
                 throw new \DomainException('This record has already been returned.');
@@ -101,25 +134,56 @@ class IssuingService
 
             $fresh->update(['returned_at' => now()]);
 
-            if ($fresh->item_id !== null) {
-                Item::where('id', $fresh->item_id)->update(['status' => ItemStatus::Available->value]);
-            } elseif ($fresh->item_type_id !== null) {
-                Stock::firstOrCreate(
-                    ['item_type_id' => $fresh->item_type_id, 'size_id' => $fresh->size_id, 'group_id' => $fresh->group_id],
-                    ['quantity' => 0],
-                )->increment('quantity', $fresh->quantity);
+            $sourceStockId = $fresh->getAttributes()['ext_source_stock_id'] ?? null;
+            if ($sourceStockId !== null) {
+                if ($fresh->item_id !== null) {
+                    throw new \DomainException('A tracked item cannot have a stock source.');
+                }
+                $stock = Stock::lockForUpdate()->findOrFail($sourceStockId);
+                $access->authorizeStock($actor, $stock);
+                $stock->increment('quantity', $fresh->quantity);
+            } elseif ($fresh->item_id !== null) {
+                $item = Item::query()->when($personal->enabled(), fn ($query) => $query->withoutGlobalScopes())
+                    ->lockForUpdate()->findOrFail($fresh->item_id);
+                $item->update(['status' => ItemStatus::Available]);
+            } else {
+                $access->authorizeLegacyReturn($actor);
+                if ($fresh->item_type_id !== null) {
+                    $stocks = Stock::where('item_type_id', $fresh->item_type_id)
+                        ->where('size_id', $fresh->size_id)->where('group_id', $fresh->group_id)
+                        ->lockForUpdate()->get();
+                    if ($stocks->count() > 1) {
+                        throw new \DomainException('Historical return has multiple warehouse stock candidates.');
+                    }
+                    $stock = $stocks->count() === 1 ? $stocks[0] : Stock::create([
+                        'item_type_id' => $fresh->item_type_id, 'size_id' => $fresh->size_id,
+                        'group_id' => $fresh->getAttribute('group_id'), 'quantity' => 0,
+                    ]);
+                    $access->authorizeStock($actor, $stock);
+                    $stock->increment('quantity', $fresh->quantity);
+                }
             }
-        });
+        })));
     }
 
     /**
      * Forcibly return all open items from a member.
      * Typically called when a member leaves (DeactivateMemberAction).
      */
-    public function takeBack(User $member): void
+    public function takeBack(User $member, ?User $actor = null): void
     {
-        $member->kleiderkammerItems()->with('item')->each(function (IssuedItem $issuedItem) {
-            $this->return($issuedItem);
+        $actor ??= auth()->user();
+        app(StockAccess::class)->authorizePersonal($actor);
+        $personal = app(PersonalAccess::class);
+        $personal->authorizeMember($actor, $member);
+        DB::transaction(function () use ($member, $actor, $personal) {
+            app(StockAccess::class)->lockSelection();
+            User::query()->when($personal->enabled(), fn ($query) => $query->withoutGlobalScopes())->lockForUpdate()->findOrFail($member->id);
+            // Never use a scoped relation here: mixed-source returns must fail atomically.
+            IssuedItem::query()->when($personal->enabled(), fn ($query) => $query->withoutGlobalScopes())->where('user_id', $member->id)->whereNull('returned_at')->whereNull('deleted_at')
+                ->lockForUpdate()->get()->each(function (IssuedItem $issuedItem) use ($actor) {
+                    $this->return($issuedItem, $actor);
+                });
         });
     }
 
@@ -134,10 +198,14 @@ class IssuingService
      * Retire a tracked item (worn out / disposed of).
      * The item must not currently be issued.
      */
-    public function retire(Item $item, string $notes = ''): void
+    public function retire(Item $item, string $notes = '', ?User $actor = null): void
     {
-        DB::transaction(function () use ($item, $notes) {
-            $fresh = Item::lockForUpdate()->findOrFail($item->id);
+        $actor ??= auth()->user();
+        app(StockAccess::class)->authorizePersonal($actor);
+        $personal = app(PersonalAccess::class);
+        $personal->asActor($actor, fn () => DB::transaction(function () use ($item, $notes, $actor, $personal) {
+            $fresh = Item::query()->when($personal->enabled(), fn ($query) => $query->withoutGlobalScopes())->whereNull('deleted_at')->lockForUpdate()->findOrFail($item->id);
+            $personal->authorizeItem($actor, $fresh);
 
             if ($fresh->status === ItemStatus::Issued) {
                 throw new \DomainException("Item {$fresh->code} is currently issued and cannot be retired.");
@@ -149,6 +217,6 @@ class IssuingService
             }
 
             $fresh->update($update);
-        });
+        }));
     }
 }

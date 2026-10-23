@@ -5,10 +5,18 @@ namespace Modules\Kleiderkammer\src\Filament\Widgets;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Modules\Kleiderkammer\src\Services\InventoryReport;
+use Modules\Kleiderkammer\src\Services\StockAccess;
 
 class OverviewWidget extends StatsOverviewWidget
 {
     protected static ?int $sort = 1;
+
+    public static function canView(): bool
+    {
+        return ! app(StockAccess::class)->enabled()
+            ? parent::canView()
+            : (auth()->user()?->canManageKleiderkammer() ?? false);
+    }
 
     protected function getStats(): array
     {

@@ -47,6 +47,8 @@ Eine Direktfreigabe verrät keine Namen gesperrter Eltern oder Geschwister. Ein 
 
 Bei aktiver Locations-Extension prüft die zentrale Berechtigungslogik zusätzlich den Standort der Ablage. Auch ein direktes Benutzerrecht oder eine Gruppenmitgliedschaft umgeht diese Grenze nicht. Das gilt für technische Downloads und Service-Aufrufe, nicht nur für die Oberfläche. Gruppenverwalter sehen nur gemeinsame Gruppen und Gruppen ihrer Standorte und dürfen keine fremden Standortmitglieder durch manipulierte IDs hinzufügen. Globale Admins verwalten alle Standorte. Standortlose Ablagen und Gruppen sind bewusst gemeinsam – für vertrauliche Standortdaten immer einen Standort setzen.
 
+Eine Mitgliedschaft über den Primärstandort **oder** eine ausdrückliche Standortzuordnung genügt für diese zusätzliche Standortgrenze; sie erteilt noch keine Datei-ACL. Entfällt nur eine von mehreren passenden Mitgliedschaftsquellen, ist das nicht automatisch der vollständige Standortentzug. Beim nächsten Zugriff zählen die dann gültigen Rechte, nicht ein zuvor geöffnetes Formular oder eine frühere erfolgreiche Anmeldung. Öffentliche Links sind die unten beschriebene, ausdrücklich eingeschaltete Ausnahme für Gäste.
+
 ## Versionierung und Papierkorb
 
 - Jede neue Datei beginnt mit Version 1. Inhaltsänderungen hängen eine neue Version an; bestehende Versionsmetadaten sind durch einen PostgreSQL-Trigger gegen Updates geschützt.
@@ -98,6 +100,8 @@ Pest-Featuretests liegen unter `tests/Feature/Extensions/Dateien/` und benötige
 ```
 
 Geprüft werden Modulfreigabe, Benutzer-/Gruppenrechte, Vererbungsgrenzen, Direktfreigaben ohne Metadatenlecks, Versionierung und Wiederherstellung, Namens-/Versionskonflikte, Papierkorb, IDOR-Schutz und Standortgrenzen.
+
+Die gezielten Zwei-Standort-Regressionen in `LocationBoundaryTest.php` und `OfficeLocationBoundaryTest.php` umfassen Downloads mit fremden Versions-IDs, bereits erzeugte Vorschaubilder, rekursive ZIPs, gefilterte Listen und geöffnete Explorer-/Office-Sitzungen nach Rechteentzug. Office-Anfragen verwenden gültige JWT-/WOPI-Nachweise ohne Browser-Anmeldung. Die lokalen Tests ersetzen keine Abnahme einer externen Office-Installation und bestätigen nicht die übrigen Audit-Pakete.
 
 Die Suche umfasst Namen und Beschreibungen, aber keine Dateiinhalte. Nicht enthalten sind WebDAV, Desktop-Sync, Offline-Bearbeitung und PDF-Vorschau. Favoriten und „Zuletzt verwendet“ sind inzwischen Teil des späteren Meilensteins 6.
 
@@ -160,6 +164,7 @@ Alle Listen werden beim Lesen mit den vollen Rechten gefiltert: Wer ein Recht ve
 - **Beschreibung:** Freitext (max. 2000 Zeichen) pro Datei/Ordner, bearbeitbar mit Recht „Bearbeiten“.
 - **Kommentare:** Jeder mit Leserecht darf kommentieren; löschen dürfen Autor, Verwalter des Eintrags und Admins (Audit `comment.created`/`comment.deleted`).
 - **Abos („Bei Änderungen benachrichtigen“):** gelten für den Eintrag und – bei Ordnern – alles darunter. Mail + Glocke bei neuer Datei/neuem Ordner, neuer Version (keine Office-Zwischenspeicherungen) und neuem Kommentar; nur an Abonnenten mit Leserecht auf den betroffenen Eintrag, nie an den Auslöser, höchstens eine Mail je Eintrag und Kamerad in 10 Minuten. Die Mail nennt nur Namen, nie Inhalte oder Kommentartexte. Versand nach dem Commit, Fehler brechen nichts ab.
+- **Gemeinsame Ablagen:** Berechtigte Empfänger anderer Standorte erhalten Freigabe- und Abo-Benachrichtigungen ebenfalls. Maßgeblich sind ihr eigener aktueller Modulzugang und ihre Datei-Rechte, nicht die Standorte des Auslösers; ein Abo allein verleiht keine Rechte.
 - **Bildvorschau:** JPEG, PNG, GIF, WebP; serverseitig mit GD auf 480 px verkleinert (WebP, sonst PNG) und pro Version in `x_files_previews` (Datenbank) zwischengespeichert – wird mit der Version gelöscht und taucht nie als verwaiste Datei auf. Route `/dateien/dateien/{id}/vorschau` prüft Leserecht bei jedem Aufruf. Bilder über 20 MB oder 16 Megapixel (`dateien.previews.*`) bekommen keine Vorschau (Schutz vor Speicher-Bomben). Keine PDF-/Office-Vorschau (kein zusätzlicher Parser).
 - **Ordner als ZIP:** `/dateien/ordner/{id}/zip`; enthält nur, was der Kamerad lesen darf – ein Unterordner ohne Leserecht fehlt samt Inhalt und Namen. Unkomprimiert gestreamt (konstanter Speicher), UTF-8-Namen, jeweils die neueste Version. Grenzen: 2000 Einträge, 2 GiB, 5 ZIPs pro Minute (`dateien.zip.*`); darüber Hinweis „Unterordner einzeln herunterladen“. Audit `folder.zipped`.
 - **Volltextsuche:** Die Suche findet zusätzlich zu Teilstrings im Namen Wörter in Name und Beschreibung (PostgreSQL `to_tsvector('german', …)`, GIN-Index `x_files_nodes_fulltext`, Wortstämme: „Grundausbildungen“ findet „Grundausbildung“). Treffer werden wie bisher einzeln gegen die Rechte geprüft. Dateiinhalte werden nicht durchsucht.

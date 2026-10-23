@@ -9,9 +9,21 @@ Beim Schreiben wählen Redakteure **Allgemein** oder genau einen Standort. Allge
 Bestehende Mitteilungen erhalten bei der Migration `ext_location_id = NULL` und bleiben damit allgemein sichtbar; frühere Empfänger werden nicht rückwirkend ausgeschlossen. Die Migration legt bei aktivem Locations eine Fremdschlüsselbeziehung an und verhindert, dass ein Standort mit Mitteilungen gelöscht wird.
 
 - Globale Admins behalten die bisherige standortübergreifende Verwaltung.
-- Redakteure können allgemeine Mitteilungen sowie Mitteilungen für Standorte verwalten, denen sie angehören.
-- Standort-Admins dürfen nur ihre Standorte verwalten. Auch mit einer zusätzlichen Redakteur-Rolle können sie Mitteilungen nicht auf **Allgemein** oder einen fremden Standort umstellen.
+- Im standardmäßigen Legacy-Modus können Redakteure allgemeine Mitteilungen sowie Mitteilungen für Standorte verwalten, denen sie angehören.
+- Im Legacy-Modus dürfen Standort-Admins nur ihre Standorte verwalten. Auch mit einer zusätzlichen Redakteur-Rolle können sie Mitteilungen nicht auf **Allgemein** oder einen fremden Standort umstellen.
 - Als Empfänger zählt eine Person nur, wenn sie aktiv ist, das Modul nutzen darf und – bei Standortmitteilungen – tatsächlich Mitglied dieses Standorts ist. Globale Adminrechte allein machen niemanden zum Empfänger.
+
+## Optionale Standort-Redakteursrollen (P2b)
+
+`LOCATIONS_SCOPED_ROLE_MODULES=mitteilungen` aktiviert nach ausdrücklicher Vorbereitung die zielbezogenen Verwaltungsrechte. Ist Anwesenheit bereits umgestellt, lautet die gemeinsame Einstellung `LOCATIONS_SCOPED_ROLE_MODULES=anwesenheit,mitteilungen`. Standardmäßig ist kein Adapter eingeschaltet. Die Vergabe erfolgt durch globale Admins unter **Admin → Standorte → Standort bearbeiten → Standort-Modulrollen und Verlauf**, für Mitteilungen mit der Rolle **Redakteur** (`redakteur`), Begründung und optionalem Ablauf.
+
+Im aktivierten Adapter benötigen Nicht-Admins eine gültige Vergabe am jeweiligen Zielstandort. Aktiver Nutzer, aktives Modul, aktiver Standort und tatsächliche Mitgliedschaft werden erneut geprüft; entzogene oder abgelaufene Vergaben gelten nicht. Alte globale Rollen, Autorenschaft und Standort-Adminrechte sind kein Verwaltungsfallback. Ein Standortwechsel benötigt Rechte am alten und neuen Ziel. Allgemeine Mitteilungen können dann nur globale Admins verwalten; deren standortübergreifende Rechte bleiben erhalten.
+
+Diese Regeln betreffen auch direkte Dienstaufrufe, Änderungen, Löschen, Anhänge, Lesestatistik, Erinnerungen sowie Versandanforderungen. Normale Leserechte und Empfängerzielgruppen bleiben eigenständig: Eine Redakteursrolle erlaubt nicht automatisch den Empfang aller Mitteilungen. Die externe Kanalkonfiguration bleibt den bisherigen Kanalverwaltern vorbehalten.
+
+**Hintergrundaufrufe:** Statistik, Erinnerungen, Mail/Push und externe Versanddienste benötigen im aktivierten Adapter einen ausdrücklich übergebenen, aktuell berechtigten Akteur. Ein Aufruf ohne Akteur wird abgewiesen; weder Scheduler noch Konsolenaufruf erhalten dadurch stillschweigend globale Rechte.
+
+Es gibt keine automatische Übernahme alter Rollen und keine Aktivierung anderer Fachmodule. Beim Abschalten gelten wieder die Legacy-Verwaltungsregeln; das ist eine bewusste Berechtigungsänderung, kein sicherheitsneutraler Rückfall. Vorbereitung und Grenzen: [Locations](LOCATIONS.md#standortbezogene-modulrollen-gestufte-umstellung).
 
 ## ntfy und Matrix einrichten
 

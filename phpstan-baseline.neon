@@ -3649,38 +3649,14 @@ parameters:
 			path: modules/Kleiderkammer/src/Services/IssuingService.php
 
 		-
-			message: '#^Anonymous function has an unused use \$member\.$#'
-			identifier: closure.unusedUse
-			count: 1
-			path: modules/Kleiderkammer/src/Services/IssuingService.php
-
-		-
 			message: '#^Anonymous function has an unused use \$notes\.$#'
 			identifier: closure.unusedUse
 			count: 1
 			path: modules/Kleiderkammer/src/Services/IssuingService.php
 
 		-
-			message: '#^Call to an undefined method App\\Models\\User\:\:kleiderkammerItems\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: modules/Kleiderkammer/src/Services/IssuingService.php
-
-		-
 			message: '#^Cannot access property \$value on string\.$#'
 			identifier: property.nonObject
-			count: 1
-			path: modules/Kleiderkammer/src/Services/IssuingService.php
-
-		-
-			message: '#^Method Modules\\Kleiderkammer\\src\\Services\\IssuingService\:\:issueTracked\(\) should return Modules\\Kleiderkammer\\src\\Models\\IssuedItem but returns null\.$#'
-			identifier: return.type
-			count: 1
-			path: modules/Kleiderkammer/src/Services/IssuingService.php
-
-		-
-			message: '#^Result of static method Illuminate\\Database\\Connection\:\:transaction\(\) \(void\) is used\.$#'
-			identifier: staticMethod.void
 			count: 1
 			path: modules/Kleiderkammer/src/Services/IssuingService.php
 

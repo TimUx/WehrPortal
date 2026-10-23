@@ -26,6 +26,7 @@ use Modules\Kleiderkammer\src\Services\EquipmentMessageService;
 use Modules\Kleiderkammer\src\Services\InventoryReport;
 use Modules\Kleiderkammer\src\Services\IssuingService;
 use Modules\Kleiderkammer\src\Services\LabelSheetGenerator;
+use Modules\Kleiderkammer\src\Services\PersonalAccess;
 use Modules\Kleiderkammer\src\Services\QrCodeRenderer;
 
 class KleiderkammerServiceProvider extends ServiceProvider
@@ -78,6 +79,11 @@ class KleiderkammerServiceProvider extends ServiceProvider
                 // An item that is out with someone opens that member, otherwise the item itself
                 $holder = $item->currentIssuance()->latest('issued_at')->value('user_id');
 
+                if (app(PersonalAccess::class)->enabled()
+                    && ! app(PersonalAccess::class)->canEditItem(auth()->user(), $item)) {
+                    return null;
+                }
+
                 return $holder !== null
                     ? MemberResource::getUrl('edit', ['record' => $holder])
                     : ItemResource::getUrl('edit', ['record' => $item->getKey()]);
@@ -88,7 +94,7 @@ class KleiderkammerServiceProvider extends ServiceProvider
 
         // Unknown code: whoever manages the Kleiderkammer can register the item right away.
         // A fallback, so codes of other modules are not mistaken for new items.
-        app(ScanRegistry::class)->registerFallback('kleiderkammer', fn (string $code): ?string => auth()->user()?->canManageKleiderkammer()
+        app(ScanRegistry::class)->registerFallback('kleiderkammer', fn (string $code): ?string => app(PersonalAccess::class)->canManageCatalog(auth()->user())
             ? ItemResource::getUrl('create', ['code' => $code])
             : null);
 
@@ -99,11 +105,12 @@ class KleiderkammerServiceProvider extends ServiceProvider
             }
             $like = '%'.$term.'%';
 
-            return Item::with(['itemType', 'size'])->where(fn ($q) => $q->where('code', 'ilike', $like)->orWhereHas('itemType', fn ($t) => $t->where('name', 'ilike', $like)))
+            return app(PersonalAccess::class)->asActor($user, fn () => Item::with(['itemType', 'size'])->where(fn ($q) => $q->where('code', 'ilike', $like)->orWhereHas('itemType', fn ($t) => $t->where('name', 'ilike', $like)))
                 ->orderBy('code')->limit(50)->get()
+                ->filter(fn (Item $item) => ! app(PersonalAccess::class)->enabled() || app(PersonalAccess::class)->canEditItem($user, $item))
                 ->map(fn (Item $item) => ['title' => trim(($item->itemType?->name ?? 'Teil').' '.($item->size?->name ?? '')), 'code' => $item->code, 'place' => null,
                     'state' => $item->status->label(), 'tone' => $item->isRetired() ? 'gray' : ($item->isIssued() ? 'blue' : 'green'),
-                    'url' => ItemResource::getUrl('edit', ['record' => $item->getKey()])]);
+                    'url' => ItemResource::getUrl('edit', ['record' => $item->getKey()])]));
         }, order: 40);
 
         // The Modulleiste: tabs and Verwaltung, each only for who may use it

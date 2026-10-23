@@ -160,7 +160,8 @@ class CollaborationService
                 if ($userIds->isEmpty() || ! $fresh) {
                     return;
                 }
-                foreach (User::whereIn('id', $userIds)->where('is_active', true)->get() as $recipient) {
+                // Recipient access is independent of the actor's Standort and checked below.
+                foreach (User::withoutGlobalScopes()->whereIn('id', $userIds)->where('is_active', true)->get() as $recipient) {
                     if (! $this->access->can($recipient, $fresh, 'read')) {
                         continue;
                     }

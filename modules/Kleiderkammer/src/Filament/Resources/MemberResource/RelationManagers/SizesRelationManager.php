@@ -2,6 +2,7 @@
 
 namespace Modules\Kleiderkammer\src\Filament\Resources\MemberResource\RelationManagers;
 
+use App\Models\User;
 use Filament\Actions;
 use Filament\Forms;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -10,7 +11,9 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\Rules\Unique;
+use Modules\Kleiderkammer\src\Filament\Resources\MemberResource;
 use Modules\Kleiderkammer\src\Models\ItemGroup;
 use Modules\Kleiderkammer\src\Models\ItemType;
 use Modules\Kleiderkammer\src\Models\Size;
@@ -24,6 +27,12 @@ class SizesRelationManager extends RelationManager
     protected static ?string $modelLabel = 'Konfektionsgröße';
 
     protected static ?string $pluralModelLabel = 'Konfektionsgrößen';
+
+    public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
+    {
+        return $ownerRecord instanceof User
+            && MemberResource::canEdit($ownerRecord);
+    }
 
     public function isReadOnly(): bool
     {

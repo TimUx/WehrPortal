@@ -2,11 +2,13 @@
 
 ## Ist-/Soll-Abgleich
 
+**Verbindliche Klarstellung vom 21.10.2026:** Globale Admins dürfen auf alle Daten aller Standorte zugreifen, einschließlich sensibler Inhalte. Die frühere Empfehlung, sie auf technische Administration zu begrenzen, ist damit verworfen. Kommunale Profile und Standort-Admins erhalten diesen globalen Zugriff nicht.
+
 Das Sollmodell dieser Tabelle ist die Vorgabe des Audits, nicht eine Behauptung über existierende Rollen. Im Ist gibt es Modulzugang/-rollen und Standortmitgliedschaft, aber kein nachgewiesenes zentrales Rollenmodell mit den Ebenen Kommune, Standort, Modul, Verein und Datenklasse.
 
 | Rolle/Zugriff | Implementierter Mechanismus | Soll und Lücke |
 |---|---|---|
-| Globaler Administrator | `users.is_admin`; LocationScope lässt ihn ungefiltert passieren (`LocationScope.php:27-30`). | Globale Administration darf Schutzregeln für sensible Daten nicht pauschal umgehen; sensible Sonderzugriffe müssen einzeln begründet und protokolliert werden. |
+| Globaler Administrator | `users.is_admin`; LocationScope lässt ihn ungefiltert passieren (`LocationScope.php:27-30`). | Bewusst globaler Zugriff auf sämtliche Daten; diese Identität bleibt vom kommunalen Admin und Standort-Admin getrennt. |
 | Standort-Administrator | `x_location_user.role = admin`; `LocationAccess::canManage()` begrenzt Standortverwaltung (`LocationAccess.php:40-58`). | Der Standortadmin ist nicht automatisch Modulmanager oder Standortführung für alle Module. Diese Trennung muss in UI und Berechtigungsübersicht sichtbar sein. |
 | Modulrolle | `module_user` mit Rolle auf Nutzer/Modul (`2026_10_07_100001_create_module_user_table.php:11-17`); Abfragen über `hasModuleRole()` (`User.php:299-305`). | Standortbezug, Aktion und Datenklasse fehlen im Zuweisungsschema; siehe TEN-02. |
 | Kommune / Bürgermeister / Brandschutzamt / GBI/SPI | Keine allgemeine, über Module hinweg zentrale Profil-/Capability-Zuweisung nachgewiesen. `uebergreifend` ist eine Fachsonderrolle, keine allgemeine Ebene. | Nur freigegebene Module, Standorte und Aggregationsstufen; kein pauschaler Zugriff auf Personal-, Gesundheits- oder Finanzdetails. |

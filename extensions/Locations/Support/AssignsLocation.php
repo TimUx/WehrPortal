@@ -3,11 +3,13 @@
 namespace Extensions\Locations\Support;
 
 use App\Models\User;
+use Extensions\Locations\Services\ClothingPersonalAccess;
 use Extensions\Locations\Services\LocationAccess;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
+use Modules\Kleiderkammer\src\Models\Item;
 
 /** The creating/updating hooks: new records get the current Standort; nobody writes into a foreign one */
 class AssignsLocation
@@ -22,6 +24,10 @@ class AssignsLocation
 
     public static function creating(Model $model): void
     {
+        if (($model instanceof Item || $model instanceof User)
+            && app(ClothingPersonalAccess::class)->isImporting()) {
+            return; // Imported history has no trustworthy local provenance.
+        }
         if (! self::ready()) {
             return;
         }

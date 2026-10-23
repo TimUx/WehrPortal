@@ -55,7 +55,8 @@ class SettingsPage extends Page implements HasForms, ModuleArea
     {
         return $schema->statePath('data')->components([
             Forms\Components\Textarea::make('recipients')->label('Standard-Empfänger der Listen')
-                ->helperText('E-Mail-Adressen, getrennt durch Komma oder Zeilenumbruch. Gilt, wenn weder die Liste noch die Vorlage Empfänger nennt.')
+                ->helperText('Instanzweite Einstellung, nur durch globale Admins änderbar. Gilt, wenn weder die Liste noch die Vorlage Empfänger nennt.')
+                ->disabled(fn () => ! auth()->user()?->is_admin)
                 ->rows(3)->maxLength(2000)
                 ->rule(fn () => function (string $attribute, mixed $value, \Closure $fail) {
                     $all = preg_split('/[\s,;]+/', (string) $value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
@@ -68,6 +69,8 @@ class SettingsPage extends Page implements HasForms, ModuleArea
 
     public function save(): void
     {
+        abort_unless(auth()->user()?->is_active && auth()->user()?->is_admin, 403);
+
         $recipients = trim((string) ($this->form->getState()['recipients'] ?? ''));
         $recipients === '' ? Setting::forget('anwesenheit.recipients') : Setting::set('anwesenheit.recipients', $recipients);
 
