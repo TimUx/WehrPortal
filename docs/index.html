@@ -328,10 +328,10 @@
     <section class="section tinted" id="installation">
       <div class="wrap">
         <h2>Installation</h2>
-        <p class="section-lead">WehrPortal läuft als Docker-Image mit PostgreSQL. Die Schritt-für-Schritt-Anleitung im README führt ohne Vorwissen durch die Einrichtung.</p>
+        <p class="section-lead">WehrPortal läuft mit Docker Compose auf einem eigenen VPS, unabhängig vom Hosting-Anbieter. Die Schritt-für-Schritt-Anleitung im README erklärt die Einrichtung mit PostgreSQL und HTTPS; Linux- und Docker-Grundkenntnisse werden vorausgesetzt.</p>
         <ol class="install">
-          <li><span class="num">1</span><div><h3>Server</h3><p>Eine kleine virtuelle Maschine, z. B. bei einem europäischen Cloud-Anbieter, mit Coolify als Verwaltungsoberfläche.</p></div></li>
-          <li><span class="num">2</span><div><h3>Datenbank und App</h3><p>PostgreSQL anlegen, das Image <code>ghcr.io/timux/wehrportal</code> starten. Die Datenbank wird beim Start automatisch eingerichtet.</p></div></li>
+          <li><span class="num">1</span><div><h3>Server</h3><p>Linux-VPS beim Anbieter eigener Wahl vorbereiten, Docker mit Compose installieren und Domain sowie HTTPS-Reverse-Proxy einrichten.</p></div></li>
+          <li><span class="num">2</span><div><h3>Datenbank und App</h3><p>Compose-Datei und Umgebungsvariablen konfigurieren, das Image <code>ghcr.io/timux/wehrportal</code> starten. PostgreSQL und Redis sind enthalten; die Datenbank wird beim Start automatisch eingerichtet.</p></div></li>
           <li><span class="num">3</span><div><h3>Loslegen</h3><p>Als Admin anmelden, Fahrzeuge, Abteilungen und Funktionen anlegen und die gewünschten Module einschalten.</p></div></li>
         </ol>
         <div class="actions center">
@@ -354,7 +354,7 @@
           <div><dt>Oberfläche</dt><dd>Livewire 4, Tailwind 4, Alpine</dd></div>
           <div><dt>Admin-Bereich</dt><dd>Filament 5</dd></div>
           <div><dt>Datenbank</dt><dd>PostgreSQL 18</dd></div>
-          <div><dt>Betrieb</dt><dd>Docker-Image, z. B. mit Coolify</dd></div>
+          <div><dt>Betrieb</dt><dd>Docker Compose auf einem eigenen VPS</dd></div>
           <div><dt>Karten</dt><dd>OpenStreetMap, ohne API-Schlüssel</dd></div>
         </dl>
       </div>

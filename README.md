@@ -330,7 +330,7 @@ Nur-Lese-Ansicht für den Bildschirm in der Wache im Stil von Divera. Sie aktual
 - **Fahrzeugkacheln:** Grün heißt frei (mit nächster Buchung). Gelb heißt ab einer Uhrzeit innerhalb der nächsten 2 Stunden gebucht. Rot heißt unterwegs bis …, jeweils mit Zweck und Name.
 - **Liste:** die nächsten Buchungen der kommenden 7 Tage, offene Anfragen mit „Angefragt“ markiert.
 - **Datenschutz:** Namen werden verkürzt angezeigt („Hanna H.“). Es gibt keinerlei Bearbeitungsfunktionen, und die Seite ist keinem Benutzer zugeordnet.
-- **Zugriff:** Der Wachen-PC öffnet `/monitor/<DISPLAY_TOKEN>` ohne Login. Ohne oder mit falschem Schlüssel antwortet die Seite mit 404. Admins öffnen `/monitor` direkt. Den fertigen Link zeigt das Admin-Dashboard. Wird `DISPLAY_TOKEN` in Coolify geändert, ist der alte Link ungültig.
+- **Zugriff:** Der Wachen-PC öffnet `/monitor/<DISPLAY_TOKEN>` ohne Login. Ohne oder mit falschem Schlüssel antwortet die Seite mit 404. Admins öffnen `/monitor` direkt. Den fertigen Link zeigt das Admin-Dashboard. Wird `DISPLAY_TOKEN` in der Betriebskonfiguration geändert und die App mit `docker compose up -d` neu erstellt, ist der alte Link ungültig.
 
 #### E-Mails
 
@@ -1046,130 +1046,63 @@ Nach der ersten Veröffentlichung das Package in GitHub auf **Public** stellen, 
 | Backend    | PHP ^8.2 (Docker und CI: PHP 8.4), Laravel 12, Livewire 4 |
 | Admin      | Filament 5                                           |
 | Frontend   | Tailwind CSS 4, Alpine.js, FullCalendar 6, Vite      |
-| Datenbank  | PostgreSQL (CI: 18, Docker Compose: 16, Installationsbeispiel: 18; mit `btree_gist`) |
+| Datenbank  | PostgreSQL (CI: 18, Docker Compose: 16; mit `btree_gist`) |
 | Tests      | Pest 3                                               |
-| Deployment | Docker (serversideup/php), GitHub Actions, Coolify   |
+| Deployment | Docker Compose auf einem VPS, Docker-Image (serversideup/php), GitHub Actions |
 
 ### Installation
 
-Der **[Installationsguide](handbuch/INSTALLATION.md)** führt durch Voraussetzungen, Produktions- und Entwicklungsbetrieb, Abnahme, Sicherung und Updates. Die folgende Serveranleitung beschreibt den konkreten Weg mit UpCloud und Coolify.
+Der **[Installationsguide](handbuch/INSTALLATION.md)** führt durch Voraussetzungen, Produktions- und Entwicklungsbetrieb, Abnahme, Sicherung und Updates. Die folgende Anleitung beschreibt den **Betrieb mit Docker Compose auf einem eigenen VPS**, unabhängig vom Hosting-Anbieter und ohne Verwaltungsplattform.
 
-Diese Anleitung bringt WehrPortal auf einen eigenen Server: eine virtuelle Maschine bei **UpCloud**, darauf **Coolify** als Verwaltungsoberfläche, darin eine **PostgreSQL-Datenbank** und die App mit eigener Domain und HTTPS. Programmieren muss dafür niemand; gebraucht werden ein UpCloud-Konto, eine Domain (bzw. Zugriff auf die DNS-Einträge der Wehr-Domain), ein Postfach zum Versenden der Mails und etwa eine Stunde Zeit.
+Benötigt werden ein Linux-VPS mit SSH-Zugang und Administratorrechten, eine Domain mit Zugriff auf die DNS-Einträge sowie ein SMTP-Postfach zum Versenden der Login-Mails. Grundkenntnisse im Umgang mit Linux, Docker und einem Reverse-Proxy sind erforderlich. Die Beispiele verwenden die erfundene Wehr „FF Musterstadt“ und `https://wehrportal.ff-musterstadt.de`.
 
-Die Beispiele verwenden die Wehr „FF Musterstadt“ mit der Domain `ff-musterstadt.de`. Die App soll unter `wehrportal.ff-musterstadt.de` laufen, Coolify unter `coolify.ff-musterstadt.de`.
+#### 1. VPS vorbereiten
 
-#### 1. UpCloud-Konto anlegen
+Mindestens **2 CPU-Kerne, 4 GB RAM und 50 GB Speicher** vorsehen; der tatsächliche Speicherbedarf hängt von Uploads und Sicherungen ab. Ein gepflegtes Linux-System verwenden, z. B. Ubuntu Server 24.04 LTS oder Debian. Den Standort nach den eigenen Datenschutzanforderungen wählen.
 
-UpCloud ist ein europäischer Cloud-Anbieter mit Rechenzentrum in Frankfurt; abgerechnet wird stundengenau.
+- Mit einem SSH-Schlüssel anmelden. Bei Bedarf auf dem eigenen Rechner mit `ssh-keygen -t ed25519` erzeugen und den **öffentlichen** Schlüssel beim Server hinterlegen.
+- Betriebssystem aktuell halten und Sicherheitsupdates einrichten.
+- In Server- und gegebenenfalls Anbieter-Firewall nur SSH (üblicherweise Port **22**, möglichst auf Verwaltungszugänge beschränkt), **80** und **443** freigeben. PostgreSQL und Redis nicht öffentlich erreichbar machen.
+- **Docker Engine und das Docker-Compose-Plugin** nach der [offiziellen Anleitung für das verwendete Linux-System](https://docs.docker.com/engine/install/) installieren. Danach `docker version` und `docker compose version` prüfen.
+- Docker beim Systemstart aktivieren. Die folgenden Docker-Befehle benötigen entsprechende Rechte; falls nötig `sudo` voranstellen. Mitgliedschaft in der Docker-Gruppe entspricht praktisch Root-Zugriff.
 
-Ein Konto direkt unter <https://upcloud.com/> anlegen. WehrPortal verwendet keinen Empfehlungslink des früheren Projekts.
+#### 2. Domain einrichten
 
-Nach der Anmeldung im UpCloud-Hub die Zahlungsdaten hinterlegen und unter **Account → SSH keys** deinen öffentlichen SSH-Schlüssel eintragen. Wer noch keinen hat, erzeugt ihn auf dem eigenen Rechner mit `ssh-keygen -t ed25519` und kopiert den Inhalt von `~/.ssh/id_ed25519.pub`.
+Für `wehrportal.ff-musterstadt.de` einen **A-Eintrag** auf die öffentliche IPv4-Adresse des VPS setzen. Einen **AAAA-Eintrag** nur setzen, wenn IPv6 am Server einschließlich Firewall und Reverse-Proxy tatsächlich funktioniert. Eine weitere Verwaltungsdomain ist nicht nötig.
 
-#### 2. Server anlegen
-
-Im UpCloud-Hub **Servers → Deploy server**:
-
-| Einstellung | Wert |
-|---|---|
-| Standort | **DE-FRA1 (Frankfurt)** – die Daten bleiben in Deutschland |
-| Plan | mindestens **2 CPU-Kerne und 4 GB RAM**. Das reicht für Coolify, die Datenbank und WehrPortal; gebaut wird auf dem Server nichts, das fertige Image kommt von GitHub. |
-| Speicher | 50 GB oder mehr (Belege und Fotos liegen in der Datenbank) |
-| Betriebssystem | **Ubuntu Server 24.04 LTS** |
-| Anmeldung | den SSH-Schlüssel aus Schritt 1, **kein** Passwort |
-| Hostname | z. B. `wehrportal` |
-| Backups | tägliche Sicherung des ganzen Servers einschalten (*Simple Backups*) |
-
-Nach ein bis zwei Minuten läuft der Server. Seine **öffentliche IPv4- und IPv6-Adresse** steht in der Serverübersicht.
-
-**Firewall:** Unter dem Server → **Firewall** nur eingehende Verbindungen auf den Ports **22** (SSH), **80** (HTTP) und **443** (HTTPS) erlauben, alles andere sperren. Die Oberfläche von Coolify (Port 8000) bleibt damit von außen zu; für die Ersteinrichtung reicht ein SSH-Tunnel (Schritt 4).
-
-#### 3. Domains auf den Server zeigen lassen
-
-Beim Anbieter der Domain (oder bei dem, der die Domain der Wehr verwaltet) zwei Einträge anlegen:
-
-| Name | Typ | Ziel |
-|---|---|---|
-| `wehrportal.ff-musterstadt.de` | A (und AAAA) | IPv4 (und IPv6) des Servers |
-| `coolify.ff-musterstadt.de` | A (und AAAA) | IPv4 (und IPv6) des Servers |
-
-Alternativ ein Platzhalter-Eintrag `*.ff-musterstadt.de`, dann sind alle Unterdomains sofort erreichbar. Bis die Einträge überall bekannt sind, kann es einige Minuten dauern; prüfen lässt sich das mit `ping wehrportal.ff-musterstadt.de`.
-
-#### 4. Coolify installieren
-
-Coolify ist eine freie Oberfläche, mit der sich Apps und Datenbanken per Klick betreiben lassen; sie kümmert sich auch um die HTTPS-Zertifikate (Let's Encrypt).
-
-```bash
-ssh root@<IP-des-Servers>
-curl -fsSL https://cdn.coollabs.io/coolify/install.sh | sudo bash
-```
-
-Die Installation dauert einige Minuten. Danach auf dem eigenen Rechner einen SSH-Tunnel öffnen:
-
-```bash
-ssh -L 8000:localhost:8000 root@<IP-des-Servers>
-```
-
-und im Browser `http://localhost:8000` aufrufen. **Sofort** das Admin-Konto anlegen – bis dahin könnte das jeder mit Zugang zum Server. Danach in Coolify:
-
-- **Settings → General → Instance's Domain:** `https://coolify.ff-musterstadt.de` eintragen und speichern. Ab dann ist Coolify ohne Tunnel über diese Adresse erreichbar, mit HTTPS.
-- **Profil → Two-factor authentication** einschalten.
-- **Settings → Notifications:** E-Mail einrichten, damit Coolify bei fehlgeschlagenen Deployments oder Backups Bescheid gibt.
-
-#### 5. Datenbank anlegen
-
-**Projects → + Add** → Name z. B. `FF Musterstadt`. Im Projekt **+ New → Database → PostgreSQL**:
-
-- **Image:** `postgres:18-alpine`
-- Datenbankname und Benutzer z. B. `wehrportal`, das **Passwort von Coolify erzeugen lassen**
-- **Keinen öffentlichen Port** freigeben – die App erreicht die Datenbank intern
-- **Start** klicken
-
-Unter der Datenbank steht die **interne Verbindung** (Postgres URL, *internal*). Daraus werden für die App gebraucht: der **Hostname** (eine lange Zeichenkette), Benutzer und Passwort. Die Erweiterung `btree_gist`, die WehrPortal braucht, legt die App beim ersten Start selbst an.
-
-**Backups der Datenbank** (dringend empfohlen): Bei der Datenbank → **Backups** einen täglichen Zeitplan anlegen, z. B. `0 3 * * *`. Sicherer als auf dem Server selbst liegen die Sicherungen in einem S3-Speicher, z. B. **UpCloud Managed Object Storage**: Bucket anlegen, in Coolify unter **Settings → S3 Storages** eintragen (Endpoint, Bucket, Access Key, Secret Key, mit **Validate** prüfen) und beim Backup als Ziel wählen. Aufbewahrung z. B. 30 Tage.
-
-#### 6. WehrPortal anlegen
-
-Die Konfiguration bezieht sich ausschließlich auf WehrPortal.
+#### 3. Compose-Dateien bereitstellen
 
 > **Image-Verfügbarkeit:** Der Release-Workflow veröffentlicht `ghcr.io/timux/wehrportal` nach erfolgreichen Prüfungen mit dem passenden Versions-Tag. Vor dem Deployment den erfolgreichen Lauf und das vorhandene [Package](https://github.com/TimUx/WehrPortal/pkgs/container/wehrportal) prüfen. Nach der ersten Veröffentlichung das Package für anonyme Downloads auf **Public** stellen. Falls bewusst lokal gebaut werden soll, die zusätzliche `docker-compose.build.yml` verwenden. Kein Workflow löst ein Deployment aus; keine Images anderer Repositories als Ersatz verwenden.
 
-Im selben Projekt **+ New → Docker Image**:
+Einen tatsächlich veröffentlichten festen Tag aus den [WehrPortal-Releases](https://github.com/TimUx/WehrPortal/releases) wählen, z. B. `v0.9.5.5`. `latest` folgt dem letzten stabilen Release, ist aber nicht fest gepinnt. `docker-compose.yml` und `.env.example` **aus diesem Release** in ein eigenes Betriebsverzeichnis auf dem VPS herunterladen, beispielsweise:
 
-| Feld | Wert |
-|---|---|
-| Image | `ghcr.io/timux/wehrportal` |
-| Tag | eine tatsächlich veröffentlichte feste Version aus den [WehrPortal-Releases](https://github.com/TimUx/WehrPortal/releases), z. B. `v0.9.5.5`. `latest` folgt dem letzten stabilen Release, ist aber nicht fest gepinnt. |
-| Ports Exposes | `8080` |
-| Domains | `https://wehrportal.ff-musterstadt.de` (mehrere Adressen mit Komma trennen) |
-| Health Check | Pfad `/up`, Port `8080` |
+```bash
+mkdir -p ~/wehrportal
+cd ~/wehrportal
+curl -fSLo docker-compose.yml https://raw.githubusercontent.com/TimUx/WehrPortal/v0.9.5.5/docker-compose.yml
+curl -fSLo .env.example https://raw.githubusercontent.com/TimUx/WehrPortal/v0.9.5.5/.env.example
+cp .env.example .env
+chmod 600 .env
+```
 
-**Persistenten Speicher einrichten:** In Coolify ein dauerhaftes Volume für `/var/www/html/storage/app` anlegen und für den App-Benutzer schreibbar einbinden. Insbesondere das Modul Dateien legt seine Inhalte dort unter `private/dateien` ab. Datenbank und diesen Dateispeicher immer zusammen sichern; ein Redeploy darf ihn nicht ersetzen.
+Bei einer anderen Version beide Download-URLs und später `WEHRPORTAL_VERSION` entsprechend ändern. Die folgenden Compose-Befehle immer in diesem Betriebsverzeichnis ausführen.
 
-**Noch nicht deployen** – erst die Umgebungsvariablen eintragen (**Environment Variables**, am bequemsten über **Developer view**):
+Compose startet App, Worker, PostgreSQL und Redis im gemeinsamen internen Netz. Datenbank und Redis veröffentlichen keine Ports. Die benannten Volumes `pgdata`, `redisdata` und `app_storage` bleiben bei Containerwechseln erhalten. `app_storage` ist unter `/var/www/html/storage/app` eingebunden und enthält insbesondere `private/dateien`. **Nie `docker compose down -v` ausführen**, solange diese Daten gebraucht werden.
+
+Für den hier beschriebenen Reverse-Proxy **auf dem VPS selbst** in `docker-compose.yml` beim Dienst `app` die Portfreigabe `"8080:8080"` durch **`"127.0.0.1:8080:8080"` ersetzen**. So ist die App nicht direkt aus dem Internet erreichbar; auf eine Firewall allein sollte man bei veröffentlichten Docker-Ports nicht vertrauen. Für automatischen Wiederanlauf nach einem Neustart bei allen vier Diensten auf derselben Ebene wie `image:` jeweils `restart: unless-stopped` ergänzen.
+
+#### 4. WehrPortal konfigurieren
+
+In `.env` die folgenden Werte setzen und alle Platzhalter ersetzen. Compose übernimmt die unterstützten Variablen und setzt Produktionsmodus, interne Datenbankverbindung und Cache-Konfiguration selbst:
 
 ```env
+WEHRPORTAL_VERSION=v0.9.5.5
 APP_NAME="FF Musterstadt"
 APP_ENV=production
 APP_DEBUG=false
 APP_KEY=base64:...
 APP_URL=https://wehrportal.ff-musterstadt.de
-APP_TIMEZONE=Europe/Berlin
-APP_LOCALE=de
-APP_FALLBACK_LOCALE=de
-
-DB_CONNECTION=pgsql
-DB_HOST=<interner Hostname aus Schritt 5>
-DB_PORT=5432
-DB_DATABASE=wehrportal
-DB_USERNAME=wehrportal
-DB_PASSWORD=<Passwort aus Schritt 5>
-
-SESSION_DRIVER=database
-SESSION_LIFETIME=129600
-CACHE_STORE=database
-QUEUE_CONNECTION=database
+DB_PASSWORD=<starkes zufälliges Datenbankpasswort>
 
 MAIL_MAILER=smtp
 MAIL_SCHEME=smtps
@@ -1182,15 +1115,52 @@ MAIL_FROM_NAME="FF Musterstadt"
 
 ADMIN_EMAILS=wehrfuehrer@ff-musterstadt.de
 DISPLAY_TOKEN=<zufälliger Schlüssel>
-MAGIC_LINK_TTL_MINUTES=15
 ```
 
-- **`APP_KEY`** verschlüsselt Sitzungen und gespeicherte Schlüssel. Einmal erzeugen und **nie wieder ändern**: `echo "base64:$(openssl rand -base64 32)"`
+- **`APP_KEY`** schützt unter anderem gespeicherte Zugangsdaten und Fachdaten. Einmal erzeugen und **nie wieder ändern**: `echo "base64:$(openssl rand -base64 32)"`
+- **`DB_PASSWORD`** z. B. mit `openssl rand -hex 32` erzeugen. Compose initialisiert PostgreSQL beim ersten Start mit diesem Passwort und richtet die Datenbank `wehrportal` ein. Ein später geänderter `.env`-Wert ändert das Passwort einer vorhandenen Datenbank nicht automatisch.
 - **`DISPLAY_TOKEN`** ist der Schlüssel für den Wachen-Monitor ohne Login: `openssl rand -hex 24`. Leer lassen, wenn kein Monitor gebraucht wird.
 - **E-Mail:** Ohne funktionierenden Mailversand kann sich niemand anmelden – die Login-Links kommen per Mail. Am einfachsten ist ein eigenes Postfach der Wehr beim Domain-Anbieter. Für Port 587 gilt `MAIL_SCHEME=smtp`, für Port 465 `smtps`. Zum Ausprobieren ohne Versand: `MAIL_MAILER=log` (die Mails stehen dann im Log der App).
 - **`ADMIN_EMAILS`:** eine oder mehrere Adressen (mit Komma getrennt), die bei jedem Start als aktive Admins angelegt werden.
 
-Jetzt **Deploy** klicken. Coolify lädt das Image, die App legt beim ersten Start alle Tabellen an und holt das HTTPS-Zertifikat. Wenn der Status auf *Running (healthy)* steht, ist WehrPortal unter `https://wehrportal.ff-musterstadt.de` erreichbar.
+Geheimnisse nicht in Git speichern. `.env`, Compose-Datei und `APP_KEY` geschützt sichern. Zeitstempel speichert die App in UTC; angezeigt wird `Europe/Berlin`.
+
+#### 5. Container starten
+
+```bash
+docker compose config --quiet
+docker compose pull
+docker compose up -d
+docker compose ps
+docker compose logs --tail=100 app
+curl --fail http://127.0.0.1:8080/up
+```
+
+Die App legt beim ersten Start die Tabellen einschließlich der benötigten PostgreSQL-Erweiterung `btree_gist` an. Migrationen und Scheduler laufen im App-Container; für den synchronen Mailversand ist kein zusätzlicher Worker nötig. Der in Compose enthaltene Worker verarbeitet andere Queue-Aufgaben.
+
+#### 6. HTTPS-Reverse-Proxy einrichten
+
+Ein Reverse-Proxy nimmt öffentliche Anfragen auf Port **443** entgegen, verwaltet das TLS-Zertifikat und leitet intern an **`http://127.0.0.1:8080`** weiter. Die Compose-Datei stellt selbst **kein HTTPS** bereit. Geeignet sind beispielsweise Caddy, nginx oder Apache; Installation und Zertifikatserneuerung nach der Dokumentation des gewählten Proxys einrichten.
+
+**Beispiel mit Caddy als Systemdienst direkt auf dem VPS:** Caddy nach der [offiziellen Anleitung](https://caddyserver.com/docs/install) installieren und in `/etc/caddy/Caddyfile` den folgenden Website-Block eintragen:
+
+```caddyfile
+wehrportal.ff-musterstadt.de {
+    reverse_proxy 127.0.0.1:8080
+}
+```
+
+Anschließend die Konfiguration prüfen und laden:
+
+```bash
+sudo caddy validate --config /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+curl --fail https://wehrportal.ff-musterstadt.de/up
+```
+
+Bei korrekt gesetztem DNS und erreichbaren Ports 80/443 beschafft und erneuert Caddy das Zertifikat automatisch und leitet HTTP auf HTTPS um. Es darf kein anderer Dienst dieselben öffentlichen Ports belegen. Bei einem anderen Proxy Hostname sowie `X-Forwarded-Proto` korrekt weitergeben. Die Adresse in `APP_URL` muss zur öffentlichen HTTPS-Adresse passen.
+
+Ein Proxy **in einem Container** benötigt stattdessen ein gemeinsames Docker-Netz und das Ziel `app:8080`; `127.0.0.1` würde dort den Proxy-Container selbst meinen. Die obige Loopback-Portfreigabe und Caddy-Konfiguration gelten für den Proxy auf dem Host.
 
 #### 7. Erste Schritte in WehrPortal
 
@@ -1205,9 +1175,10 @@ Jetzt **Deploy** klicken. Coolify lädt das Image, die App legt beim ersten Star
 
 Updates kommen ausschließlich aus den [WehrPortal-Releases](https://github.com/TimUx/WehrPortal/releases) beziehungsweise dem eigenständigen `main`-Branch. Nur tatsächlich veröffentlichte Tags und Images verwenden; es gibt keinen automatischen Abgleich mit einem Basis-Repository.
 
-1. Vor jedem Update einen konsistenten Sicherungsstand von Datenbank und App-Dateispeicher erstellen; Schreibzugriffe einschließlich automatisierter Änderungen währenddessen unterbinden. In Coolify bei der Datenbank **Backups → Backup Now** verwenden und den zugehörigen privaten Dateispeicher ebenfalls sichern. `APP_KEY` und Betriebs-/Umgebungskonfiguration getrennt geschützt aufbewahren.
-2. Bei der App den tatsächlich veröffentlichten WehrPortal-Tag im Format `v<Version>` setzen, **Save**, dann **Redeploy**.
+1. Vor jedem Update einen konsistenten Sicherungsstand von Datenbank und App-Dateispeicher erstellen; Schreibzugriffe einschließlich automatisierter Änderungen währenddessen unterbinden. `APP_KEY` und Betriebs-/Umgebungskonfiguration getrennt geschützt aufbewahren. Ablauf: [Sichern und wiederherstellen](handbuch/INSTALLATION.md#sichern-und-wiederherstellen).
+2. In `.env` `WEHRPORTAL_VERSION` auf den tatsächlich veröffentlichten Tag im Format `v<Version>` setzen und `docker compose pull && docker compose up -d` ausführen. Bei geänderten Compose-Vorgaben die Release-Datei mit der eigenen Konfiguration abgleichen; Loopback-Portbindung, Neustartregeln und Volumes beibehalten.
 3. Datenbank-Änderungen laufen beim Start automatisch. Die Version steht im Admin-Bereich oben klein hinter dem Titel.
+4. `docker compose ps` und `docker compose logs --tail=100 app` prüfen, danach HTTPS-Health-Check, Anmeldung und Mailversand kontrollieren.
 
 **Wie oft?** Mindestens **monatlich**, und sofort, wenn ein Release als **Sicherheitsupdate** gekennzeichnet ist. Wer „Watch → Custom → Releases“ beim Repository einschaltet, bekommt jede neue Version per Mail.
 
@@ -1217,17 +1188,17 @@ Ein alter Image-Tag dreht die Datenbankmigrationen nicht zurück. Benötigt die 
 
 | Was | Wo | Wie oft |
 |---|---|---|
-| Datenbank | Coolify → S3-Speicher | täglich |
+| Datenbank | PostgreSQL-Dump, z. B. mit `docker compose exec -T pgsql pg_dump -U wehrportal -d wehrportal -Fc > wehrportal.dump`; anschließend geschützt extern ablegen | täglich |
 | App-Dateispeicher, insbesondere `storage/app/private/dateien` | persistentes App-Volume → geschützter externer Sicherungsspeicher, konsistent mit der Datenbank | täglich |
 | `APP_KEY` und Betriebs-/Umgebungskonfiguration | getrennt geschützter Sicherungsspeicher | bei Einrichtung und jeder Änderung |
-| ganzer Server | UpCloud *Simple Backups* | täglich |
-| Coolify-Einstellungen | Coolify → **Settings → Backup** → S3-Speicher | täglich |
+| Reverse-Proxy-Konfiguration und Sicherungsaufträge | geschützter externer Sicherungsspeicher | bei Einrichtung und jeder Änderung |
+| ganzer Server (ergänzend) | unabhängige Server-Sicherung oder Snapshot beim gewählten Anbieter | nach eigenem Sicherungskonzept |
 
-Einmal im Quartal ausprobieren, ob sich ein Datenbank-Backup wirklich einspielen lässt – am besten in eine zweite, leere Instanz.
+Der Datenbank-Dump allein sichert keine App-Dateien. Für einen konsistenten gemeinsamen Stand alle schreibenden App-/Worker-/Integrationsdienste während Datenbank- und Dateisicherung anhalten; PostgreSQL für den Dump weiterlaufen lassen. Sicherungen verschlüsseln, Erfolg und freien Speicher überwachen und mindestens vierteljährlich eine vollständige Wiederherstellung in einer getrennten Instanz erproben. Details: [Sichern und wiederherstellen](handbuch/INSTALLATION.md#sichern-und-wiederherstellen).
 
 ### Konfiguration
 
-Die technischen Basiseinstellungen laufen über Umgebungsvariablen (in Coolify unter **Environment Variables**). Wehrname, Logo und viele Moduleinstellungen werden dagegen in der Admin-Oberfläche gepflegt. Die wichtigsten Umgebungsvariablen:
+Die technischen Basiseinstellungen laufen über Umgebungsvariablen. Beim Compose-Betrieb stehen die unterstützten Werte in `.env` im Betriebsverzeichnis; `docker-compose.yml` übergibt sie an die Container. Weitere Variablen müssen dort ausdrücklich unter `environment` ergänzt werden. Änderungen mit `docker compose up -d` übernehmen; ein bloßes `docker compose restart` lädt geänderte Umgebungsvariablen nicht neu. Wehrname, Logo und viele Moduleinstellungen werden dagegen in der Admin-Oberfläche gepflegt. Die wichtigsten Umgebungsvariablen:
 
 | Variable                 | Beschreibung                                            |
 |--------------------------|---------------------------------------------------------|
