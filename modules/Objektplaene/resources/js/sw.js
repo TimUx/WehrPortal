@@ -1,4 +1,4 @@
-// openwehr Objektpläne: keeps the plans usable without network (cellar, rural area, dead zone).
+// WehrPortal Objektpläne: keeps the plans usable without network (cellar, rural area, dead zone).
 // Plan files never change (a new upload is a new version), so they come from the cache first;
 // pages are fetched fresh and only taken from the cache when the network is gone. "Für offline
 // speichern" on the library page sends the list of pages and files to cache.

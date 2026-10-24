@@ -7,7 +7,9 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="theme-color" content="#1B2645">
     <link rel="manifest" href="/manifest.webmanifest">
-    <link rel="apple-touch-icon" href="/images/icon-192.png">
+    <link rel="icon" href="/images/wehrportal-icon.svg" type="image/svg+xml">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="/images/apple-touch-icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <title>{{ $title ? $title.' – '.($orgName ?? 'WehrPortal') : ($orgName ?? 'WehrPortal') }}</title>
@@ -27,12 +29,12 @@
         <header class="bg-fw-navy text-white shadow-sm">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between h-11 sm:h-14">
-                    <a href="{{ route('home') }}" class="flex items-center gap-2.5">
-                        <img src="{{ $orgLogoUrl ?? asset('images/openwehr-logo.svg') }}" alt="{{ $orgName ?? 'WehrPortal' }}" class="h-6 sm:h-8 w-auto brightness-0 invert">
-                        <span class="font-semibold text-sm">{{ $orgName ?? 'WehrPortal' }}</span>
+                    <a href="{{ route('home') }}" class="flex min-w-0 flex-1 items-center gap-2.5 mr-3">
+                        <img src="{{ $orgLogoUrl ?? asset('images/wehrportal-logo.svg') }}" alt="" class="h-7 sm:h-9 w-9 sm:w-12 shrink-0 object-contain">
+                        <span class="font-semibold text-sm truncate" title="{{ $orgName ?? 'WehrPortal' }}">{{ $orgName ?? 'WehrPortal' }}</span>
                     </a>
                     @auth
-                    <div class="flex items-center gap-4 sm:gap-6">
+                    <div class="flex shrink-0 items-center gap-2 sm:gap-6">
                     <nav class="hidden sm:flex items-center gap-6 text-sm">
                         <a href="{{ route('profile') }}" class="inline-flex items-center gap-2 hover:text-fw-grey-light {{ request()->routeIs('profile') ? 'font-semibold' : '' }}"><x-avatar :user="auth()->user()" size="h-7 w-7" text="text-[10px]" />Profil @if($unreadFeedback)<span class="ml-1 inline-block w-2 h-2 rounded-full bg-fw-red align-middle" title="Neue Antwort auf dein Feedback"></span>@endif</a>
                         @if($showAdmin)

@@ -45,6 +45,7 @@ class AdminPanelProvider extends PanelProvider
             // The name in the top bar, with the app version behind it in small
             ->brandLogo(fn () => view('filament.brand', ['name' => app(OrganizationSettings::class)->shortName().' Admin']))
             ->brandLogoHeight('auto')
+            ->favicon(asset('images/wehrportal-icon.svg'))
             ->navigationItems([
                 NavigationItem::make('Zur Übersicht')
                     ->url(fn () => route('home'))

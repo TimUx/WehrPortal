@@ -2,10 +2,14 @@
     @php
         $context = app(\Extensions\Locations\Services\LocationContext::class)->forUser(auth()->user());
         $contextId = $contextId ?? 'admin-location';
+        $currentLocation = $context['locations']->firstWhere('id', $context['current']);
     @endphp
     <div style="padding: 0.5rem;">
         <p><strong>Standort für neue Datensätze:</strong>
-            {{ $context['locations']->firstWhere('id', $context['current'])?->name ?? 'Kein aktiver berechtigter Standort' }}
+            @if($currentLocation?->crestUrl())
+                <img src="{{ $currentLocation->crestUrl() }}" alt="Wappen {{ $currentLocation->name }}" style="display: inline-block; vertical-align: middle; width: 2rem; height: 2rem; object-fit: contain; margin-inline: 0.25rem;">
+            @endif
+            {{ $currentLocation?->name ?? 'Kein aktiver berechtigter Standort' }}
         </p>
         <p id="{{ $contextId }}-help" style="font-size: 0.875rem;">
             @if($context['globalAdmin'])

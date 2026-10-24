@@ -1,5 +1,7 @@
 # Test- und Abnahmematrix
 
+> Historische Abnahmematrix des Vorgängerprojekts vom 20.10.2026, keine Abnahme des aktuellen WehrPortal-Stands; siehe [Migration und Betrieb](../../MIGRATION.md).
+
 Alle Fälle sind mit erfundenen Testdaten und einer PostgreSQL-Testdatenbank auszuführen. Pro relevante Kombination gibt es mindestens einen **erlaubten** und einen **verbotenen** Test. Versteckte Navigation ist kein Ersatz für einen direkten serverseitigen Negativtest.
 
 ## Matrix: Rollen × Datenklasse

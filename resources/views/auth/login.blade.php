@@ -4,7 +4,7 @@
         <div class="w-full max-w-sm">
             {{-- Logo / Header --}}
             <div class="text-center mb-8">
-                <img src="{{ $org->logoUrl() ?? asset('images/openwehr-logo.svg') }}" alt="{{ $org->shortName() }}" class="h-28 w-auto mx-auto mb-4">
+                <img src="{{ $org->logoUrl() ?? asset('images/wehrportal-logo.svg') }}" alt="{{ $org->shortName() }}" class="h-28 max-w-full object-contain mx-auto mb-4">
                 <h1 class="text-2xl font-bold text-fw-grey-dark">{{ $org->shortName() }}</h1>
             </div>
 

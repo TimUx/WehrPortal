@@ -1,5 +1,7 @@
 # Repository-Audit – Zusammenfassung
 
+> Historischer Audit des Vorgängerprojekts vom 20.10.2026, keine Abnahme des aktuellen WehrPortal-Stands. Repository- und Workflow-Verweise gelten für den geprüften Commit; siehe [Migration und Betrieb](../../MIGRATION.md).
+
 **Stand:** 20. Oktober 2026 · **geprüfter Commit:** `b224e50ff629009135ef3ee900128be3a3af134f`
 
 ## Ergebnis

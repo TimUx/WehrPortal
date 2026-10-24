@@ -21,7 +21,7 @@
         </div>
         <div class="lg:col-span-2 rounded-2xl bg-white/5 border border-white/10 px-6 py-4 flex items-center gap-5">
             @inject('org', \App\Services\OrganizationSettings::class)
-            <img src="{{ $org->logoUrl() ?? asset('images/openwehr-logo.svg') }}" alt="" class="h-16 w-auto brightness-0 invert">
+            <img src="{{ $org->logoUrl() ?? asset('images/wehrportal-logo.svg') }}" alt="" class="h-16 max-w-48 object-contain">
             <div class="flex-1">
                 <p class="text-3xl font-bold">Fahrzeugbelegung</p>
                 <p class="text-white/60">{{ $org->name() }}</p>

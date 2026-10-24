@@ -1,7 +1,7 @@
 <div class="mx-auto max-w-5xl space-y-5">
     <div>
         <h1 class="text-xl font-bold text-gray-900">Gefahrstoffdaten importieren</h1>
-        <p class="mt-1 text-sm text-gray-600">Importiere nur Daten, die du verwenden und in Openwehr speichern darfst. Der Import überschreibt vorhandene UN-Nummern, löscht aber keine nicht enthaltenen Datensätze.</p>
+        <p class="mt-1 text-sm text-gray-600">Importiere nur Daten, die du verwenden und in WehrPortal speichern darfst. Der Import überschreibt vorhandene UN-Nummern, löscht aber keine nicht enthaltenen Datensätze.</p>
     </div>
 
     @if($result)

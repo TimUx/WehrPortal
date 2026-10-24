@@ -1,5 +1,7 @@
 <?php
 
+use Symfony\Component\Yaml\Yaml;
+
 test('package metadata identifies WehrPortal and keeps lockfiles in sync', function () {
     $composer = json_decode(file_get_contents(base_path('composer.json')), true, flags: JSON_THROW_ON_ERROR);
     $package = json_decode(file_get_contents(base_path('package.json')), true, flags: JSON_THROW_ON_ERROR);
@@ -38,4 +40,25 @@ test('local storage identifiers remain compatible with existing installations', 
         ->toContain("'openwehr_extern'");
     expect(public_path('images/openwehr-logo.svg'))->toBeFile();
     expect(base_path('docs/CNAME'))->not->toBeFile();
+});
+
+test('CI checks run once and release images cannot bypass them', function () {
+    $ci = file_get_contents(base_path('.github/workflows/deploy.yml'));
+    $release = file_get_contents(base_path('.github/workflows/release.yml'));
+    expect(substr_count($ci, './vendor/bin/pest'))->toBe(1)
+        ->and($ci)->toContain('workflow_call:', 'npm run build', './vendor/bin/pest --parallel');
+    expect($release)->toContain('needs: checks', 'uses: ./.github/workflows/deploy.yml', 'Scan Image', "exit-code: '1'");
+    expect(strpos($release, 'Scan Image'))->toBeLessThan(strpos($release, 'Push Image'));
+});
+
+test('Dependabot covers the app, E2E tooling, base images and CI actions', function () {
+    $config = Yaml::parseFile(base_path('.github/dependabot.yml'));
+    $entries = collect($config['updates']);
+    expect($entries->pluck('package-ecosystem')->unique()->sort()->values()->all())
+        ->toBe(['composer', 'docker', 'github-actions', 'npm']);
+    expect($entries->where('package-ecosystem', 'npm')->pluck('directory')->all())->toBe(['/', '/tests/e2e']);
+    foreach ($entries as $entry) {
+        expect($entry['schedule']['interval'])->toBe('weekly')
+            ->and($entry['open-pull-requests-limit'])->toBeLessThanOrEqual(3);
+    }
 });

@@ -27,7 +27,7 @@
 </head>
 <body>
     <main>
-        <img src="{{ asset('images/openwehr-logo.svg') }}" alt="{{ config('app.name') }}">
+        <img src="{{ asset('images/wehrportal-logo.svg') }}" alt="{{ config('app.name') }}">
         <div class="code">@yield('code')</div>
         <h1>@yield('heading')</h1>
         @yield('message')

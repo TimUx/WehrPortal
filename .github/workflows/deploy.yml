@@ -1,6 +1,7 @@
 name: WehrPortal CI
 
 on:
+  workflow_call:
   push:
     branches: [main]
     paths-ignore:
@@ -12,6 +13,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -63,12 +68,6 @@ jobs:
           exit 1
       - name: Configure Test Database
         run: php artisan migrate --env=testing --force
-      - name: Validate Protection Manifest
-        run: ./vendor/bin/pest tests/Unit/Extensions/Locations/ProtectionManifestTest.php tests/Feature/Extensions/Audit
-      - name: Run Dateien Tests
-        run: ./vendor/bin/pest tests/Feature/Extensions/Dateien
-      - name: Run Locations Context and Readiness Regression Tests
-        run: ./vendor/bin/pest tests/Feature/Extensions/Locations tests/Unit/Extensions/Locations
       - name: Compile Blade Views
         run: php artisan view:cache && php artisan view:clear
       - name: Run Regression Tests
@@ -110,6 +109,8 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: npm Audit
         run: npm audit --omit=dev --audit-level=high
+      - name: Build Assets
+        run: npm run build
       - name: Secret Scan
         uses: gitleaks/gitleaks-action@v2
         env:
@@ -120,7 +121,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test, security]
     # Publishing is opt-in. No workflow calls a production deployment webhook.
-    if: github.event_name == 'push' && vars.PUBLISH_IMAGES == 'true'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PUBLISH_IMAGES == 'true'
     permissions:
       contents: read
       packages: write

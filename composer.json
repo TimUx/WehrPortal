@@ -2,7 +2,7 @@
     "$schema": "https://getcomposer.org/schema.json",
     "name": "timux/wehrportal",
     "type": "project",
-    "description": "WehrPortal – modular web app for volunteer fire brigades.",
+    "description": "WehrPortal – independent adaptation based on the idea and code of roberteinsle/openwehr for volunteer fire brigades.",
     "keywords": ["wehrportal", "feuerwehr", "fire-brigade", "vehicle-booking", "laravel"],
     "license": "AGPL-3.0-only",
     "require": {
@@ -12,7 +12,7 @@
         "filament/filament": "^5.0",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
-        "livewire/livewire": "^4.0",
+        "livewire/livewire": "^4.4.8",
         "minishlink/web-push": "^11.0",
         "picqer/php-barcode-generator": "^3.3",
         "web-token/jwt-library": "^4.0"

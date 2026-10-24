@@ -12,7 +12,7 @@
                 <select wire:model="type" class="mt-1 {{ $input }}">@foreach($types as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach</select>
             </label>
         </div>
-        <label class="block text-sm font-medium text-gray-700">Ort<input type="text" wire:model="location" list="openwehr-places" maxlength="150" class="mt-1 {{ $input }}"></label>
+        <label class="block text-sm font-medium text-gray-700">Ort<input type="text" wire:model="location" list="wehrportal-places" maxlength="150" class="mt-1 {{ $input }}"></label>
         <label class="block text-sm font-medium text-gray-700">Beschreibung<textarea wire:model="description" rows="2" maxlength="5000" class="mt-1 {{ $input }}"></textarea></label>
 
         <div class="space-y-2">

@@ -1,5 +1,7 @@
 # Architektur und Inventar
 
+> Historischer Audit des Vorgängerprojekts. Repository-, Workflow- und Upstream-Bezüge beschreiben den damaligen Stand, nicht die aktuelle WehrPortal-Konfiguration; siehe [Migration und Betrieb](../../MIGRATION.md).
+
 ## Prüfkontext
 
 Geprüft wurde der bereitgestellte Snapshot `b224e50ff629009135ef3ee900128be3a3af134f`. Der ausgecheckte Branch heißt `copilot/extended-another-one`; `extended` war weder als lokaler Branch noch als Remote-Ref vorhanden. Der Audit wechselt den Branch nicht und erhebt keinen Anspruch, einen anderen Commit zu beschreiben.

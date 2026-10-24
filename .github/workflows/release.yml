@@ -9,9 +9,21 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
+permissions:
+  contents: read
+
 jobs:
+  checks:
+    name: Release Checks
+    if: vars.PUBLISH_IMAGES == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/deploy.yml
+
   release:
     name: Build Image & Create Release
+    needs: checks
     if: vars.PUBLISH_IMAGES == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -54,7 +66,25 @@ jobs:
             type=ref,event=tag
             type=raw,value=latest
 
-      - name: Build and Push Image
+      - name: Build Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: wehrportal:release-scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan Image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: wehrportal:release-scan
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: table
+
+      - name: Push Image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -62,7 +92,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Create or update GitHub Release
         env:

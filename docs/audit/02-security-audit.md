@@ -1,5 +1,7 @@
 # Sicherheits- und Datenschutzprüfung
 
+> Historischer Audit des Vorgängerprojekts vom 20.10.2026. Befunde und Verweise beziehen sich auf den damaligen Snapshot, nicht auf eine aktuelle WehrPortal-Abnahme; siehe [Migration und Betrieb](../../MIGRATION.md).
+
 ## Methodik und Grenzen
 
 Read-only-Prüfung durch gezielte statische Inspektion plus unabhängigen Security-Review. Es wurden keine externen oder produktiven Systeme angegriffen. Der konkrete Nachweis SEC-01 wird wegen der Veröffentlichungspolitik in `SECURITY.md:3-13` nicht mit Endpoint, Objektart, Zeilen oder Reproduktion in dieses Repository kopiert. Die private Sicherheitsmeldung ist durch den Audit nicht übermittelt worden; die Maintainer müssen sie separat über GitHub Security einreichen.

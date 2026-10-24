@@ -1,6 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140" role="img" aria-label="WehrPortal">
-  <path d="M60 4 L112 22 V64 C112 98 90 124 60 136 C30 124 8 98 8 64 V22 Z" fill="#ED2F12"/>
-  <path d="M60 14 L102 29 V64 C102 92 84 114 60 125 C36 114 18 92 18 64 V29 Z" fill="#1B2A4A"/>
-  <path d="M60 34 C66 48 80 56 78 76 C77 92 68 102 60 104 C52 102 43 92 42 78 C41 66 48 60 52 52 C54 60 57 64 61 66 C63 56 58 46 60 34 Z" fill="#ED2F12"/>
-  <path d="M60 66 C64 74 70 80 68 90 C67 96 64 100 60 100 C56 100 52 96 52 90 C52 84 56 80 60 66 Z" fill="#FFB020"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="WehrPortal">
+  <path fill="#ED2F12" d="M9 57V27a23 23 0 0 1 46 0v30H44V27a12 12 0 0 0-24 0v30Z"/>
+  <path fill="#FFB020" d="M34 21c1 9 10 13 10 21a12 12 0 0 1-24 0c0-5 3-9 7-13-1 6 1 8 4 10 4-5 0-11 3-18Z"/>
+  <path fill="#ED2F12" d="M33 38c0 5 5 7 5 11a6 6 0 0 1-12 0c0-4 5-6 7-11Z"/>
 </svg>

@@ -1,5 +1,7 @@
 # Performance, Tests und Codequalität
 
+> Historischer Audit des Vorgängerprojekts vom 20.10.2026. Befunde und Verweise beziehen sich auf den damaligen Snapshot, nicht auf eine aktuelle WehrPortal-Abnahme; siehe [Migration und Betrieb](../../MIGRATION.md).
+
 ## Ausgeführte Prüfungen
 
 | Prüfung | Ergebnis |

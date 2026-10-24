@@ -11,9 +11,9 @@ use App\Services\CredentialRegistry;
 use App\Services\HoursRegistry;
 use App\Services\Impersonation;
 use App\Services\OrganizationSettings;
+use App\Support\FileResponse;
 use App\Support\HoursCsv;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Str;
 
 // Root: the personal start page with notices, module cards and the modules (requires login)
 Route::view('/', 'pages.home')->middleware(['auth', 'active'])->name('home');
@@ -116,10 +116,11 @@ Route::get('/nachweis/{user}', function (User $user) {
 })->middleware(['signed', 'throttle:60,1'])->whereNumber('user')->name('credentials.check');
 
 // The app on the home screen (PWA): manifest and the page the service worker shows without network
-Route::get('/manifest.webmanifest', function (OrganizationSettings $org) {
+Route::get('/manifest.webmanifest', function () {
     return response()->json([
-        'name' => $org->shortName(),
-        'short_name' => Str::limit($org->shortName(), 12, ''),
+        'id' => '/',
+        'name' => 'WehrPortal',
+        'short_name' => 'WehrPortal',
         'start_url' => '/',
         'scope' => '/',
         'display' => 'standalone',
@@ -127,8 +128,9 @@ Route::get('/manifest.webmanifest', function (OrganizationSettings $org) {
         'theme_color' => '#1B2645',
         'lang' => 'de',
         'icons' => [
-            ['src' => '/images/icon-192.png', 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any maskable'],
-            ['src' => '/images/icon-512.png', 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any maskable'],
+            ['src' => '/images/icon-192.png', 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any'],
+            ['src' => '/images/icon-512.png', 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any'],
+            ['src' => '/images/icon-maskable-512.png', 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'maskable'],
         ],
     ], 200, ['Content-Type' => 'application/manifest+json', 'Cache-Control' => 'public, max-age=3600'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 })->name('manifest');
@@ -138,13 +140,28 @@ Route::get('/organisation/logo', function () {
     $org = app(OrganizationSettings::class);
     abort_unless($org->logoData(), 404);
 
-    // An uploaded SVG may carry scripts: opened directly, nothing in it may run
-    return response(base64_decode($org->logoData()), 200, [
-        'Content-Type' => $org->logoMime() ?? 'image/webp',
-        'Cache-Control' => 'public, max-age=31536000, immutable',
-        'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox",
-        'X-Content-Type-Options' => 'nosniff',
-    ]);
+    $cache = request('v') === $org->logoUpdatedAt()
+        ? 'public, max-age=31536000, immutable'
+        : 'no-store';
+    $bytes = base64_decode($org->logoData());
+
+    // Existing SVG logos remain usable as images, with scripts disabled even on direct navigation.
+    if ($org->logoMime() === 'image/svg+xml') {
+        return response($bytes, 200, [
+            'Content-Type' => 'image/svg+xml',
+            'Cache-Control' => $cache,
+            'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox",
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    $extension = match ($org->logoMime()) {
+        'image/png' => 'png',
+        'image/jpeg' => 'jpg',
+        default => 'webp',
+    };
+
+    return FileResponse::make($bytes, 'Feuerwehrlogo.'.$extension, $cache);
 })->name('organization.logo');
 
 // -----------------------------------------------------------------------

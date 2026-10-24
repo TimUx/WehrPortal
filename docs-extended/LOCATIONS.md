@@ -30,6 +30,14 @@ Für Gemeinden mit mehreren Feuerwehrhäusern. Code: `extensions/Locations/`, Ab
 
 Standort-Admins erreichen `/admin` über `MyLocationPage` (`ModuleArea`), `User::canAccessPanel` bleibt unverändert. Core-Ressourcen (`AdminOnly`) bleiben globalen Admins vorbehalten.
 
+## Standortwappen
+
+Unter **Admin → Standorte → Neu / Bearbeiten** kann jeder Standort ein eigenes optionales Wappen erhalten. Globale Admins verwalten alle, Standort-Admins nur ihre eigenen Standorte. Das Wappen ist unabhängig vom Feuerwehrlogo unter **Admin → Einstellungen** und von der WehrPortal-App-Marke; es ersetzt keines von beiden.
+
+PNG, JPEG oder WebP bis 2 MB und höchstens 4096 × 4096 Pixel werden serverseitig geprüft und ohne Metadaten als WebP neu kodiert. Neue SVG-Uploads sind nicht erlaubt. Die Bilddaten liegen in `x_locations.crest_data`, nicht in einem öffentlichen Uploadverzeichnis. Ein neuer Upload ersetzt das alte Bild, Speichern ohne Upload behält es. **Vorhandenes Standortwappen entfernen** löscht die Bilddaten; beim Löschen des Standorts verschwinden sie ebenfalls. Pro Standort gibt es keine Bildhistorie und keine verwaisten Dateien. Im Aktivitätsprotokoll wird nur die Änderung, nicht der Bildinhalt festgehalten.
+
+Das Wappen erscheint in der Standortliste, als Vorschau beim Bearbeiten und neben dem ausgewählten Standort im App-/Admin-Standortkontext. Ohne Wappen bleibt dort die Textanzeige. Jede Bildabfrage verlangt ein aktives angemeldetes Mitglied mit Standortzugriff oder globale Adminrechte. Die Bild-URL enthält einen Inhaltsprüfwert; Browser speichern diese zugriffsgeschützten Bilder nicht dauerhaft, damit ein entzogener Standortzugriff wirksam bleibt.
+
 ## Datenmodell
 
 - `x_locations`, `x_location_user`; Spalte `ext_location_id` (nullable, FK, `nullOnDelete`) an `users`, `groups`, `member_functions`, `vehicles`, `ar_equipment`, `ar_categories`, `kk_items`, `eb_reports`, `mm_defects`, `kal_events` (Liste in `config/locations.php`).

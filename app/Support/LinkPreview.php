@@ -55,7 +55,7 @@ class LinkPreview
         return [
             'title' => $module ? $module['name'].' – '.$this->org->shortName() : $site,
             'description' => $module['description'] ?? 'Die App der '.$site.': Fahrzeuge buchen, Termine, Mitteilungen und mehr.',
-            'image' => $this->org->logoUrl() ?? asset('images/openwehr-logo.svg'),
+            'image' => $this->org->logoUrl() ?? asset('images/wehrportal-logo.svg'),
             'url' => $url,
             'site' => $site,
         ];

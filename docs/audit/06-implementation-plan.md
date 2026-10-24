@@ -1,5 +1,7 @@
 # Priorisierter Umsetzungsplan für Copilot Plan Mode
 
+> Historischer Plan des Vorgängerprojekts vom 20.10.2026, keine aktuellen Repository- oder Update-Anweisungen. Für WehrPortal gilt [Migration und Betrieb](../../MIGRATION.md).
+
 Dieser Plan ändert keine Funktionalität im Rahmen des Audits. P1 bedeutet, dass Mehrstandortbetrieb erst nach erfolgreichem Abschluss der betroffenen Phase freigegeben werden sollte.
 
 ## Phase 0 — Sicherheitsbefund schließen (P1)

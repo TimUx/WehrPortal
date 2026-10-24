@@ -13,13 +13,13 @@ class OrganizationSettings
     /** Full name, e.g. "Freiwillige Feuerwehr Musterstadt" */
     public function name(): string
     {
-        return Setting::get('org_name') ?? config('app.name', 'Meine Feuerwehr');
+        return trim((string) Setting::get('org_name')) ?: config('app.name', 'WehrPortal');
     }
 
     /** Short name for compact contexts, e.g. "FF Musterstadt" */
     public function shortName(): string
     {
-        return Setting::get('org_short_name') ?? $this->name();
+        return trim((string) Setting::get('org_short_name')) ?: $this->name();
     }
 
     /** Closing line in outgoing mails, e.g. "Deine Freiwillige Feuerwehr Musterstadt" */
@@ -58,7 +58,7 @@ class OrganizationSettings
     {
         Setting::set('org_logo', $base64);
         Setting::set('org_logo_mime', $mime);
-        Setting::set('org_logo_updated_at', (string) now()->timestamp);
+        Setting::set('org_logo_updated_at', hash('sha256', $base64));
     }
 
     public function deleteLogo(): void

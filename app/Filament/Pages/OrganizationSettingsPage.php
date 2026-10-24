@@ -3,9 +3,9 @@
 namespace App\Filament\Pages;
 
 use App\Models\Setting;
-use App\Services\AvatarService;
 use App\Services\OrganizationSettings;
 use App\Services\ServiceSettings;
+use App\Support\BrandingImage;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -39,9 +39,6 @@ class OrganizationSettingsPage extends Page implements HasForms
 
     public string $org_code_prefix = '';
 
-    /** Logo formats with their file extensions */
-    private const LOGO_TYPES = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp', 'image/svg+xml' => 'svg'];
-
     /** @var array<int, TemporaryUploadedFile>|null */
     public ?array $logo = [];
 
@@ -50,7 +47,9 @@ class OrganizationSettingsPage extends Page implements HasForms
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->is_admin ?? false;
+        $user = auth()->user();
+
+        return $user && $user->is_admin && $user->is_active;
     }
 
     public function mount(): void
@@ -77,7 +76,7 @@ class OrganizationSettingsPage extends Page implements HasForms
                         Forms\Components\TextInput::make('org_name')
                             ->label('Vollständiger Name')
                             ->placeholder('Freiwillige Feuerwehr Musterstadt')
-                            ->helperText('Wird in Mails und im Admin-Bereich angezeigt.')
+                            ->helperText('Wird in Mails und als Vorgabe für den Namen im Header angezeigt.')
                             ->maxLength(150),
 
                         Forms\Components\TextInput::make('org_short_name')
@@ -117,8 +116,8 @@ class OrganizationSettingsPage extends Page implements HasForms
                             ->image()
                             ->storeFiles(false)
                             ->maxSize(2048)
-                            ->acceptedFileTypes(array_keys(self::LOGO_TYPES))
-                            ->helperText('PNG, JPEG, WebP oder SVG, höchstens 2 MB. Wird im Header, bei der Anmeldung und auf dem Wachen-Monitor angezeigt.')
+                            ->acceptedFileTypes(BrandingImage::TYPES)
+                            ->helperText('PNG, JPEG oder WebP, höchstens 2 MB und 4096 × 4096 Pixel. Wird im Header, bei der Anmeldung und auf dem Wachen-Monitor angezeigt. Die WehrPortal-App-Marke bleibt davon unabhängig.')
                             ->nullable(),
                     ])
                     ->columnSpanFull(),
@@ -126,40 +125,35 @@ class OrganizationSettingsPage extends Page implements HasForms
             ->statePath('');
     }
 
-    public function save(AvatarService $avatarService): void
+    public function save(): void
     {
+        abort_unless(static::canAccess(), 403);
         $data = $this->form->getState();
         $org = app(OrganizationSettings::class);
 
-        Setting::set('org_name', $data['org_name'] ?: null);
-        Setting::set('org_short_name', $data['org_short_name'] ?: null);
-        Setting::set('org_salutation', $data['org_salutation'] ?: null);
-        Setting::set('org_code_prefix', $data['org_code_prefix'] ?: null);
-
         $file = collect(is_array($data['logo'] ?? null) ? $data['logo'] : [$data['logo'] ?? null])
             ->first(fn ($f) => $f instanceof TemporaryUploadedFile);
-        if ($file) {
-            $org->saveLogo(base64_encode((string) file_get_contents($file->getRealPath())), $this->logoMime($file));
+        $encoded = $file ? BrandingImage::encode($file, 'logo') : null;
+
+        Setting::set('org_name', trim($data['org_name'] ?? '') ?: null);
+        Setting::set('org_short_name', trim($data['org_short_name'] ?? '') ?: null);
+        Setting::set('org_salutation', trim($data['org_salutation'] ?? '') ?: null);
+        Setting::set('org_code_prefix', $data['org_code_prefix'] ?: null);
+
+        if ($encoded !== null) {
+            $org->saveLogo($encoded, 'image/webp');
             $this->logo = [];
+            $file->delete();
         }
 
         Notification::make()->title($file ? 'Einstellungen und Logo gespeichert' : 'Einstellungen gespeichert')->success()->send();
     }
 
-    /** SVGs are often detected as text/xml or image/svg; the extension decides then */
-    private function logoMime(TemporaryUploadedFile $file): string
-    {
-        $mime = (string) $file->getMimeType();
-        if (isset(self::LOGO_TYPES[$mime])) {
-            return $mime;
-        }
-
-        return array_search(strtolower($file->getClientOriginalExtension()), [...self::LOGO_TYPES, 'image/jpeg' => 'jpeg'], true) ?: 'image/png';
-    }
-
     public function deleteLogo(): void
     {
+        abort_unless(static::canAccess(), 403);
         app(OrganizationSettings::class)->deleteLogo();
+        $this->logo = [];
         Notification::make()->title('Logo gelöscht')->success()->send();
     }
 
@@ -214,6 +208,7 @@ class OrganizationSettingsPage extends Page implements HasForms
 
     public function saveServices(): void
     {
+        abort_unless(static::canAccess(), 403);
         $data = $this->servicesForm->getState();
         $services = app(ServiceSettings::class);
 
@@ -239,6 +234,7 @@ class OrganizationSettingsPage extends Page implements HasForms
     /** Tests the key typed in the form, otherwise the saved one */
     public function testGoogleMaps(): void
     {
+        abort_unless(static::canAccess(), 403);
         $key = $this->servicesData['google_maps_key'] ?? null ?: app(ServiceSettings::class)->googleMapsKey();
 
         $this->report($key, fn (string $key) => app(ServiceSettings::class)->testGoogleMaps($key));
@@ -246,6 +242,7 @@ class OrganizationSettingsPage extends Page implements HasForms
 
     public function testOpenRouter(): void
     {
+        abort_unless(static::canAccess(), 403);
         $key = $this->servicesData['openrouter_key'] ?? null ?: app(ServiceSettings::class)->openRouterKey();
 
         $this->report($key, fn (string $key) => app(ServiceSettings::class)->testOpenRouter($key));

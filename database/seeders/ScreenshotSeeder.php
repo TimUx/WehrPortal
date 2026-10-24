@@ -13,8 +13,8 @@ use Extensions\Hydrantenkontrolle\Models\Hydrant;
 use Extensions\Hydrantenkontrolle\Models\Inspection;
 use Extensions\Hydrantenkontrolle\Services\InspectionService;
 use Extensions\Locations\Models\Location;
-use Extensions\Vereinsverwaltung\Models\MembershipApplication;
 use Extensions\Vereinsverwaltung\Models\Association;
+use Extensions\Vereinsverwaltung\Models\MembershipApplication;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -514,7 +514,7 @@ class ScreenshotSeeder extends Seeder
         foreach ($materials as [$un, $name, $class, $group, $hazard]) {
             Material::firstOrCreate(['un_number' => $un], [
                 'name' => $name, 'adr_class' => $class, 'packing_group' => $group, 'hazard_number' => $hazard,
-                'source_name' => 'Beispieldaten openwehr', 'imported_by' => $this->admin->id, 'imported_at' => now(),
+                'source_name' => 'Beispieldaten WehrPortal', 'imported_by' => $this->admin->id, 'imported_at' => now(),
             ]);
         }
     }

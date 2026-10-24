@@ -13,6 +13,6 @@ test('404 page is German, with logo and the fire brigade text', function () {
         ->assertSee('Ups! Hier ist etwas in Flammen aufgegangen.')
         ->assertSee('Die Seite, die du suchst, existiert leider nicht (mehr).')
         ->assertSee('Keine Sorge, unsere Kameraden sind bereits alarmiert!')
-        ->assertSee('images/openwehr-logo.svg')
+        ->assertSee('images/wehrportal-logo.svg')
         ->assertDontSee('Not Found');
 });

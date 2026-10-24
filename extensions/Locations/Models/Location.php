@@ -16,7 +16,16 @@ class Location extends Model
 {
     protected $table = 'x_locations';
 
-    protected $fillable = ['name', 'short_name', 'slug', 'is_default', 'is_active', 'sort_order'];
+    protected $fillable = ['name', 'short_name', 'slug', 'is_default', 'is_active', 'sort_order', 'crest_data'];
+
+    protected $hidden = ['crest_data'];
+
+    public function crestUrl(): ?string
+    {
+        return $this->crest_data
+            ? route('locations.crest', ['location' => $this, 'v' => hash('sha256', $this->crest_data)])
+            : null;
+    }
 
     protected function casts(): array
     {
@@ -41,7 +50,9 @@ class Location extends Model
         // Extensions\ models are not picked up by the core activity log, so changes are written here
         $log = fn (string $event) => function (Location $location) use ($event) {
             $changes = $event === 'updated' ? collect($location->getChanges())->except('updated_at')
-                ->mapWithKeys(fn ($new, $field) => [$field => [$location->getOriginal($field), $new]])->all() : [];
+                ->mapWithKeys(fn ($new, $field) => [$field => $field === 'crest_data'
+                    ? [$location->getOriginal($field) === null ? null : '(Bild)', $new === null ? null : '(Bild)']
+                    : [$location->getOriginal($field), $new]])->all() : [];
             if ($event !== 'updated' || $changes !== []) {
                 app(ActivityRecorder::class)->record($event, static::class, $location->getKey(), $location->name, $changes);
             }

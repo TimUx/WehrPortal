@@ -14,6 +14,9 @@ self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys()
             .then((keys) => Promise.all(keys.filter((key) => key.startsWith('openwehr-') && key !== CACHE).map((key) => caches.delete(key))))
+            // Refresh the app artwork without discarding reference data or IndexedDB drafts.
+            .then(() => caches.open(CACHE))
+            .then((cache) => cache.keys().then((requests) => Promise.all(requests.filter((request) => new URL(request.url).pathname.startsWith('/images/')).map((request) => cache.delete(request)))))
             .then(() => self.clients.claim()),
     );
 });

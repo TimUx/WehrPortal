@@ -1,5 +1,7 @@
 # UX, Design und Barrierefreiheit
 
+> Historischer Audit des Vorgängerprojekts vom 20.10.2026. Befunde und Verweise beziehen sich auf den damaligen Snapshot, nicht auf eine aktuelle WehrPortal-Abnahme; siehe [Migration und Betrieb](../../MIGRATION.md).
+
 ## Befundlage
 
 Es wurde keine Browserinstanz mit vollständigem Testkonto durchlaufen; daher gibt es keine bestätigten WCAG-, Kontrast-, Tastatur-, Screenreader-, Mobil- oder Touch-Befunde. Die Aussagen unten sind dokumentierte/statische Befunde und Prüfempfehlungen, keine simulierten Nutzertests.

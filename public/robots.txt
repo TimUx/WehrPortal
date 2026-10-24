@@ -1,4 +1,4 @@
-# openwehr is the internal app of a Feuerwehr: nothing here is for search engines or AI models.
+# WehrPortal is the internal app of a Feuerwehr: nothing here is for search engines or AI models.
 User-agent: *
 Disallow: /
 

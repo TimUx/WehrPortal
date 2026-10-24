@@ -1,5 +1,7 @@
 # Rollen, Berechtigungen und Daten-Scopes
 
+> Historischer Audit des Vorgängerprojekts vom 20.10.2026. Befunde und Verweise beziehen sich auf den damaligen Snapshot, nicht auf eine aktuelle WehrPortal-Abnahme; siehe [Migration und Betrieb](../../MIGRATION.md).
+
 ## Ist-/Soll-Abgleich
 
 **Verbindliche Klarstellung vom 21.10.2026:** Globale Admins dürfen auf alle Daten aller Standorte zugreifen, einschließlich sensibler Inhalte. Die frühere Empfehlung, sie auf technische Administration zu begrenzen, ist damit verworfen. Kommunale Profile und Standort-Admins erhalten diesen globalen Zugriff nicht.

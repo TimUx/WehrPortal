@@ -9,12 +9,20 @@ erhalten. Andere Quellbranches und Tags werden nicht automatisch übertragen.
 
 ## Herkunft und Lizenz
 
-Die Anwendung basiert auf **openwehr** von Robert Einsle und weiteren Beitragenden
+WehrPortal ist auf der Idee und Codebasis von **openwehr** von Robert Einsle und weiteren Beitragenden
 ([ursprüngliches Projekt](https://github.com/roberteinsle/openwehr)) sowie den
-Erweiterungen aus `TimUx/openwehr-extended`. Code und die übernommenen
-Logo-Illustrationen bleiben unter der **GNU AGPL-3.0-only**; die vollständige
+Erweiterungen aus `TimUx/openwehr-extended` entstanden, für eigene Zwecke angepasst
+und wird eigenständig weiterentwickelt. Code und die historischen
+Illustrationen bleiben unter der **GNU AGPL-3.0-only**; die vollständige
 Lizenz steht in [LICENSE](LICENSE). Frühere Copyright- und Urheberhinweise bleiben
 gültig. Die Umbenennung beansprucht keine alleinige Urheberschaft.
+
+Die aktuelle App-Marke (rotes Portal mit Flamme) ist ein eigenständiger Entwurf
+für WehrPortal, keine Übernahme eines fremden Logos oder Feuerwehrwappens.
+Quellen: `public/images/wehrportal-logo.svg` und `wehrportal-icon.svg`; die
+Icon-Varianten erzeugt `bash tools/build-branding.sh` mit ImageMagick. Die neue
+Marke steht ebenfalls unter AGPL-3.0-only. Feuerwehrlogo und Standortwappen
+sind davon unabhängige, durch berechtigte Admins pflegbare Instanzdaten.
 
 Diese Herkunft ist keine technische Abhängigkeit: Installation, Builds, Updates
 und Releases beziehen sich ausschließlich auf WehrPortal. Es gibt keinen
@@ -64,10 +72,24 @@ Der Compose-Projektname `openwehr` bleibt absichtlich erhalten, damit
 durch leere neue Volumes ersetzt werden. Auch der Projektname einer bestehenden
 Compose-Installation außerhalb dieser Datei muss unverändert bleiben
 (`docker compose -p <bisheriger-Name> …`). Datenbank-/Testbenutzer, die öffentliche
-Logo-Datei `images/openwehr-logo.svg`, DOM-IDs, externe Melde-Cookies,
+Logo-Datei `images/openwehr-logo.svg` (Alias der neuen Marke), externe Melde-Cookies,
 Offline-/IndexedDB-Namen, Cache-Schlüssel und der UID-Fallback bestehender
 Kalenderfeeds bleiben aus Kompatibilitätsgründen erhalten. Diese lokalen
 Bezeichner stellen keine Verbindung zu einem anderen Repository her.
+
+Auch `X-Openwehr-Resend-Of` bleibt als interner Mail-Header für die
+Wiederholungszuordnung erhalten. OIDC-Testfixtures mit `openwehr` prüfen die
+Weiterverwendung bestehender IdP-Clientkennungen. Historische Auditbelege und
+Screenshots bleiben als solche erkennbar; sie werden nicht nachträglich als
+WehrPortal-Prüfergebnisse ausgegeben. Die Datenbank- und Testbenutzernamen
+werden konsistent beibehalten, nicht nur in Compose, sondern auch in
+Devcontainer, Testprofilen und CI.
+
+Die additive Standortwappen-Migration ergänzt nur eine optionale Bildspalte.
+Bestehende Namen und Feuerwehrlogos bleiben erhalten. Neue Bilduploads sind
+auf PNG/JPEG/WebP begrenzt und werden neu kodiert; bestehende SVG-Logos bleiben
+sandboxed abrufbar, bis ein Admin sie ersetzt oder entfernt. Der Service Worker
+erneuert nur gecachte App-Bilder, nicht Offline-Entwürfe oder Referenzdaten.
 
 Bei einem Domainwechsel funktionieren bestehende signierte Links, Push-Abos,
 OIDC-Rückrufe und browserlokale Entwürfe nicht automatisch weiter. Deshalb ist
@@ -81,10 +103,10 @@ ein Domainwechsel **nicht** Bestandteil dieser Migration.
 - `.github/workflows/deploy.yml` führt Tests und Sicherheitsprüfungen für `main`
   aus. Container-Publikation ist standardmäßig aus und benötigt die Repository-
   Variable **`PUBLISH_IMAGES=true`**. Es gibt **keinen Deployment-Webhook**.
-- `.github/workflows/release.yml` verwendet unabhängige Tags mit zwei bis vier
+- `.github/workflows/release.yml` verwendet dieselben CI-Prüfungen und verwendet unabhängige Tags mit zwei bis vier
   Versionsbestandteilen, z. B. `v0.9.5.5`, passend zu `V.0.9.5.5` in
   `config/app.php`. Auch dieser Workflow benötigt `PUBLISH_IMAGES=true`.
-  Tags und Images aus den früheren Repositories werden nicht übernommen.
+  Release-Images werden ebenfalls vor dem Push gescannt. Tags und Images aus den früheren Repositories werden nicht übernommen.
 - `.github/workflows/security.yml` prüft wöchentlich Abhängigkeiten; der
   Image-Scan läuft erst nach Aktivierung der Image-Publikation.
 - Dokumentationsbilder werden bewusst **manuell** über „Docs Screenshots“ auf
@@ -94,10 +116,10 @@ ein Domainwechsel **nicht** Bestandteil dieser Migration.
 
 Vor der ersten Image-Veröffentlichung GHCR-Zugriff und Paketsichtbarkeit prüfen.
 GitHub-Einstellungen werden nicht durch Git übertragen: Actions-Berechtigungen,
-Branch-Schutz, Dependabot, private Sicherheitsmeldungen und Benachrichtigungen
+Branch-Schutz, Dependabot-Sicherheitsupdates, private Sicherheitsmeldungen und Benachrichtigungen
 im neuen Repository separat konfigurieren. Optionale Secrets sind
-`DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` und für den KI-Review
-`ANTHROPIC_API_KEY`. Deployment-Secrets des alten Repositories werden nicht
+`DOCKERHUB_USERNAME` und `DOCKERHUB_TOKEN`. Der optionale externe KI-Review wurde
+entfernt; es ist kein `ANTHROPIC_API_KEY` mehr erforderlich. Deployment-Secrets des alten Repositories werden nicht
 kopiert. Secret-Werte gehören weder in Git noch in Migrationsberichte.
 
 `docs/` ist eine statische Projektseiten-Vorlage, keine übernommene Website:

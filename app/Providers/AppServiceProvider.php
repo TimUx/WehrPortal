@@ -6,8 +6,8 @@ use App\Http\Middleware\EnsureModuleAccess;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Models\User;
 use App\Services\ActivityRecorder;
-use App\Services\AssociationRegistry;
 use App\Services\AnnualReportRegistry;
+use App\Services\AssociationRegistry;
 use App\Services\BadgeRegistry;
 use App\Services\CredentialRegistry;
 use App\Services\DashboardRegistry;
@@ -92,7 +92,7 @@ class AppServiceProvider extends ServiceProvider
         View::composer(['components.layouts.app', 'filament.*'], function ($view) {
             $org = app(OrganizationSettings::class);
             $view->with('orgName', $org->shortName());
-            $view->with('orgLogoUrl', $org->logoUrl() ?? asset('images/openwehr-logo.svg'));
+            $view->with('orgLogoUrl', $org->logoUrl() ?? asset('images/wehrportal-logo.svg'));
         });
     }
 }

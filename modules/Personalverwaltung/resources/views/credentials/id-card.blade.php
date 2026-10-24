@@ -41,7 +41,7 @@
         </dl>
         {{-- Band at the bottom: logo of the Wehr and what it is --}}
         <div class="absolute inset-x-0 bottom-0 flex h-[29.8%] items-center justify-between bg-gradient-to-r from-fw-navy to-[#2b3d6e] px-[5%] text-white">
-            <img src="{{ $org->logoUrl() ?? asset('images/openwehr-logo.svg') }}" alt="" class="h-[55%] w-auto max-w-[35%] object-contain brightness-0 invert">
+            <img src="{{ $org->logoUrl() ?? asset('images/wehrportal-logo.svg') }}" alt="" class="h-[55%] w-auto max-w-[35%] object-contain">
             <div class="text-right leading-none">
                 <p class="text-[6.4cqw] font-bold tracking-wide">FEUERWEHR</p>
                 <p class="mt-[0.8cqw] text-[4.6cqw] tracking-wide">DIENSTAUSWEIS</p>
