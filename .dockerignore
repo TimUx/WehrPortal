@@ -17,6 +17,7 @@ tests
 # Documentation and project page (incl. the screenshots in docs-extended/screenshots/)
 docs
 docs-extended
+handbuch
 *.md
 # Development and CI configuration
 .devcontainer
@@ -27,6 +28,7 @@ docs-extended
 .dockerignore
 Dockerfile
 docker-compose.yml
+docker-compose.build.yml
 phpstan.neon
 phpstan-baseline.neon
 phpunit.xml

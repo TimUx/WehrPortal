@@ -10,7 +10,7 @@ Bitte über **GitHub → Security → „Report a vulnerability“** in diesem R
 - wie sich die Lücke nachvollziehen lässt,
 - was ein Angreifer damit erreichen kann.
 
-Bitte keine echten Daten einer Wehr in die Meldung schreiben und keine fremden Instanzen angreifen – zum Nachvollziehen reicht eine eigene Testinstanz (`docker compose up --build`).
+Bitte keine echten Daten einer Wehr in die Meldung schreiben und keine fremden Instanzen angreifen – zum Nachvollziehen reicht eine eigene Testinstanz. Nach der [Compose-Einrichtung](handbuch/INSTALLATION.md#mit-docker-compose-starten) startet `docker compose up -d` das veröffentlichte Release-Image; für lokale Quellcodeänderungen `docker compose -f docker-compose.yml -f docker-compose.build.yml up --build -d` verwenden.
 
 ## Was danach passiert
 

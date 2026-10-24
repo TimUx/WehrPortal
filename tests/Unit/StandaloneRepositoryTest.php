@@ -22,13 +22,12 @@ test('workflows have no original repository binding or automatic deployment', fu
             ->not->toContain('roberteinsle/openwehr', 'TimUx/openwehr-extended', 'COOLIFY_', 'refs/heads/extended');
     }
 
-    foreach (['deploy', 'release'] as $workflow) {
-        expect(file_get_contents(base_path(".github/workflows/{$workflow}.yml")))
-            ->toContain("vars.PUBLISH_IMAGES == 'true'", 'github.repository');
-    }
-
+    expect(file_get_contents(base_path('.github/workflows/release.yml')))
+        ->toContain('github.repository')
+        ->not->toContain('PUBLISH_IMAGES');
     expect(file_get_contents(base_path('.github/workflows/security.yml')))
-        ->toContain("vars.PUBLISH_IMAGES == 'true'", 'ghcr.io/timux/wehrportal:latest');
+        ->toContain('ghcr.io/timux/wehrportal:latest')
+        ->not->toContain('PUBLISH_IMAGES');
 });
 
 test('runtime storage and integrations consistently identify WehrPortal', function () {
@@ -56,6 +55,48 @@ test('CI checks run once and release images cannot bypass them', function () {
         ->and($ci)->toContain('workflow_call:', 'npm run build', './vendor/bin/pest --parallel');
     expect($release)->toContain('needs: checks', 'uses: ./.github/workflows/deploy.yml', 'Scan Image', "exit-code: '1'");
     expect(strpos($release, 'Scan Image'))->toBeLessThan(strpos($release, 'Push Image'));
+});
+
+test('only releases publish images and stable releases update latest', function () {
+    $ci = Yaml::parseFile(base_path('.github/workflows/deploy.yml'));
+    $release = Yaml::parseFile(base_path('.github/workflows/release.yml'));
+
+    expect(array_keys($ci['jobs']))->toBe(['test', 'security'])
+        ->and($release['on']['push']['tags'])->toContain('v[0-9]+.[0-9]+*')
+        ->and($release['on']['release']['types'])->toBe(['published'])
+        ->and($release['jobs']['checks'])->not->toHaveKey('if')
+        ->and($release['jobs']['release'])->not->toHaveKey('if')
+        ->and($release['jobs']['release']['permissions']['packages'])->toBe('write');
+
+    $steps = collect($release['jobs']['release']['steps'])->keyBy('name');
+    expect($steps['Checkout']['with']['ref'])->toBe('${{ env.RELEASE_TAG }}')
+        ->and($steps['Extract Docker Metadata']['with']['flavor'])->toBe('latest=false')
+        ->and($steps['Extract Docker Metadata']['with']['tags'])
+        ->toContain('type=ref,event=tag', '!github.event.release.prerelease')
+        ->and($steps['Build Image']['with']['tags'])->toContain('${{ steps.meta.outputs.tags }}')
+        ->and($steps['Push Image']['run'])->toContain('docker push "$tag"')
+        ->and($steps['Push Image'])->not->toHaveKey('uses')
+        ->and($steps['Create or update GitHub Release']['if'])->toBe("github.event_name == 'push'")
+        ->and($steps['Validate version tag matches config/app.php']['run'])->toContain('TAG="$RELEASE_TAG"');
+});
+
+test('compose runs pinned registry images and local builds are explicit', function () {
+    $compose = Yaml::parseFile(base_path('docker-compose.yml'));
+    $build = Yaml::parseFile(base_path('docker-compose.build.yml'));
+
+    foreach (['app', 'worker'] as $service) {
+        expect($compose['services'][$service])->not->toHaveKey('build')
+            ->and($compose['services'][$service]['image'])
+            ->toMatch('/^ghcr\\.io\\/timux\\/wehrportal:\\$\\{WEHRPORTAL_VERSION:-v[0-9]+(?:\\.[0-9]+){1,3}\\}$/')
+            ->and($compose['services'][$service]['environment'])
+            ->toContain('APP_KEY=${APP_KEY:?Set a persistent APP_KEY in .env}', 'DB_PASSWORD=${DB_PASSWORD:?Set a database password in .env}')
+            ->and($build['services'][$service]['image'])->toBe('wehrportal:local')
+            ->and($build['services'][$service]['build']['dockerfile'])->toBe('Dockerfile');
+    }
+
+    expect($compose['services']['app']['image'])->toBe($compose['services']['worker']['image'])
+        ->and($compose['services']['pgsql']['environment']['POSTGRES_PASSWORD'])
+        ->toBe('${DB_PASSWORD:?Set a database password in .env}');
 });
 
 test('runtime sources and infrastructure contain no predecessor identifiers', function () {

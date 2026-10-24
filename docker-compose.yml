@@ -2,17 +2,17 @@ name: wehrportal
 
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/timux/wehrportal:${WEHRPORTAL_VERSION:-v0.9.5.5}
     ports:
       - "8080:8080"
     environment:
       - AUTORUN_ENABLED=true
-      - APP_NAME=WehrPortal
-      - APP_ENV=local
-      - APP_DEBUG=true
-      - APP_URL=http://localhost:8080
+      - APP_NAME=${APP_NAME:-WehrPortal}
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_KEY=${APP_KEY:?Set a persistent APP_KEY in .env}
+      - APP_URL=${APP_URL:-http://localhost:8080}
+      - ADMIN_EMAILS=${ADMIN_EMAILS:-}
       - APP_TIMEZONE=Europe/Berlin
       - APP_LOCALE=de
       - DB_CONNECTION=pgsql
@@ -20,7 +20,7 @@ services:
       - DB_PORT=5432
       - DB_DATABASE=wehrportal
       - DB_USERNAME=wehrportal
-      - DB_PASSWORD=secret
+      - DB_PASSWORD=${DB_PASSWORD:?Set a database password in .env}
       - SESSION_DRIVER=database
       - SESSION_COOKIE=wehrportal-session
       - SESSION_LIFETIME=129600
@@ -30,7 +30,15 @@ services:
       - CACHE_PREFIX=wehrportal-cache-
       - REDIS_PREFIX=wehrportal-database-
       - MAGIC_LINK_TTL_MINUTES=15
-      - MAIL_MAILER=log
+      - MAIL_MAILER=${MAIL_MAILER:-log}
+      - MAIL_SCHEME=${MAIL_SCHEME:-}
+      - MAIL_HOST=${MAIL_HOST:-127.0.0.1}
+      - MAIL_PORT=${MAIL_PORT:-1025}
+      - MAIL_USERNAME=${MAIL_USERNAME:-}
+      - MAIL_PASSWORD=${MAIL_PASSWORD:-}
+      - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS:-info@example.com}
+      - MAIL_FROM_NAME=${MAIL_FROM_NAME:-WehrPortal}
+      - DISPLAY_TOKEN=${DISPLAY_TOKEN:-}
     depends_on:
       pgsql:
         condition: service_healthy
@@ -40,14 +48,15 @@ services:
       - app_storage:/var/www/html/storage/app
 
   worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/timux/wehrportal:${WEHRPORTAL_VERSION:-v0.9.5.5}
     command: ["php", "artisan", "queue:work", "--tries=3", "--sleep=3"]
     environment:
       - AUTORUN_ENABLED=false
-      - APP_NAME=WehrPortal
-      - APP_ENV=local
+      - APP_NAME=${APP_NAME:-WehrPortal}
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_KEY=${APP_KEY:?Set a persistent APP_KEY in .env}
+      - APP_URL=${APP_URL:-http://localhost:8080}
       - APP_TIMEZONE=Europe/Berlin
       - APP_LOCALE=de
       - DB_CONNECTION=pgsql
@@ -55,7 +64,7 @@ services:
       - DB_PORT=5432
       - DB_DATABASE=wehrportal
       - DB_USERNAME=wehrportal
-      - DB_PASSWORD=secret
+      - DB_PASSWORD=${DB_PASSWORD:?Set a database password in .env}
       - SESSION_DRIVER=database
       - SESSION_COOKIE=wehrportal-session
       - QUEUE_CONNECTION=redis
@@ -64,7 +73,14 @@ services:
       - CACHE_PREFIX=wehrportal-cache-
       - REDIS_PREFIX=wehrportal-database-
       - MAGIC_LINK_TTL_MINUTES=15
-      - MAIL_MAILER=log
+      - MAIL_MAILER=${MAIL_MAILER:-log}
+      - MAIL_SCHEME=${MAIL_SCHEME:-}
+      - MAIL_HOST=${MAIL_HOST:-127.0.0.1}
+      - MAIL_PORT=${MAIL_PORT:-1025}
+      - MAIL_USERNAME=${MAIL_USERNAME:-}
+      - MAIL_PASSWORD=${MAIL_PASSWORD:-}
+      - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS:-info@example.com}
+      - MAIL_FROM_NAME=${MAIL_FROM_NAME:-WehrPortal}
     depends_on:
       - app
       - redis
@@ -74,7 +90,7 @@ services:
     environment:
       POSTGRES_DB: wehrportal
       POSTGRES_USER: wehrportal
-      POSTGRES_PASSWORD: secret
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set a database password in .env}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:

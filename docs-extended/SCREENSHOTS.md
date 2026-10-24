@@ -1,6 +1,6 @@
 # E2E-Test und Screenshots
 
-[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md)
+[Zur Hauptdokumentation](../README.md) · [Modulhandbücher](README.md)
 
 Der Workflow `.github/workflows/screenshots.yml` baut eine vollständige Testinstallation mit Beispieldaten auf, meldet sich im Browser an und fotografiert jedes Modul. Die Bilder liegen in `docs-extended/screenshots/` und sind in die Dokumentation eingebunden (README bei jedem Modul, [Galerie](#galerie)); `.github/workflows/docs-screenshots.yml` hält sie aktuell. Der Lauf dient zugleich als Smoke-Test vor Releases: Lädt eine Seite nicht, endet sie mit Fehler oder führt sie zurück zur Anmeldung, schlägt der Lauf fehl.
 
@@ -69,7 +69,7 @@ Die Seitenliste steht in `tests/e2e/fixtures/pages.ts` (Modul, Name, Pfad, erwar
 | Wasserkarte, Objektpläne | `wasserkarte/karte`, `objektplaene/objekte` |
 | Personalverwaltung, Schlüssel | `personalverwaltung/kameraden`, `schluessel/schluessel` |
 | Gefahrenmatrix, Gefahrstoffe | `gefahrenmatrix/matrix`, `gefahrstoffe/datenbank` |
-| Erweiterungen | `anwesenheit/listen`, `hydrantenkontrolle/jahreskontrollen`, `hydrantenkontrolle/hydranten`, `dateien/bereiche`, `locations/standorte` (`/admin/standorte`), `vereinsverwaltung/beitritt` (`/vereinsbeitritt`), `vereinsverwaltung/antraege` (`/verein`) |
+| Weitere Module | `anwesenheit/listen`, `hydrantenkontrolle/jahreskontrollen`, `hydrantenkontrolle/hydranten`, `dateien/bereiche`, `locations/standorte` (`/admin/standorte`), `vereinsverwaltung/beitritt` (`/vereinsbeitritt`), `vereinsverwaltung/antraege` (`/verein`) |
 
 `ScreenshotSeeder` ruft die Demo-Seeder (Fahrzeuge, Abteilungen, Admin `admin@example.com`, Kameraden, Kleiderkammer) auf, schaltet **alle** registrierten Module und Erweiterungen ein (`ScreenshotSeeder::modules()`, mit automatischer Freischaltung) und legt pro Modul ein paar Datensätze an (Buchungen, Mitteilungen, Termine, Mängel, Einsatzberichte, Hydranten mit laufender Jahreskontrolle, offener Vereinsantrag, zweiter Standort …). Er ist wiederholbar (`firstOrCreate`/`updateOrCreate`). Nur erfundene Personen; nie auf einer echten Datenbank ausführen – `migrate:fresh` löscht alles.
 
