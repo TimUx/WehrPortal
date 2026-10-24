@@ -1,8 +1,12 @@
-# Erweiterungen von WehrPortal
+# Modulhandbücher
 
 [Zur Hauptdokumentation](../README.md)
 
-Die Erweiterungen ergänzen die 25 Fachmodule. Sie werden über den Erweiterungs-Provider geladen; ob ein Modul für Kameraden verfügbar ist, wird davon getrennt unter **Admin → Module** gesteuert. Die Umgebungsvariablen in der Tabelle schalten die jeweilige Erweiterung selbst ab, sofern nicht anders angegeben.
+Alle Funktionen gehören zu WehrPortal; es gibt keine unterschiedlichen Modulklassen. Dieser Index sammelt weiterführende Handbücher für einzelne Module und übergreifende Funktionen. Die vollständige [Modulübersicht mit Screenshots](../README.md#module-im-überblick) steht in der README. Der bestehende Verzeichnisname `docs-extended/` bleibt erhalten, damit Dokumentations- und Bildlinks weiter funktionieren.
+
+Für den Einstieg: **[Installationsguide](../handbuch/INSTALLATION.md)** · **[Admin-Guide](../handbuch/ADMIN.md)** · **[User-Guide](../handbuch/USER.md)**.
+
+Ob ein Fachmodul für Kameraden verfügbar ist, wird unter **Admin → Module** gesteuert. Einige Module und übergreifende Funktionen lassen sich vom Betreiber zusätzlich per Umgebungsvariable gar nicht laden. Diese technischen Schalter ersetzen weder Modulfreigaben noch Fach- und Objektberechtigungen.
 
 ## Inhalt
 
@@ -13,16 +17,16 @@ Die Erweiterungen ergänzen die 25 Fachmodule. Sie werden über den Erweiterungs
 
 ## Übersicht
 
-| Erweiterung | Zweck | Zugang, Aktivierung und wichtige Grenzen |
+| Modul / Funktion | Zweck | Zugang, Aktivierung und wichtige Grenzen |
 |---|---|---|
-| Vereinsverwaltung | Öffentlicher Beitrittsantrag mit Vereinsauswahl, Datenschutz- und optionaler Fotoeinwilligung, kostenfreie Jugend-/Kinderfeuerwehr-Mitgliedschaft, Beitrags- und SEPA-Mandatsdokumentation; Kameraden können aus der Personalakte übernommen werden, ohne Kontaktdaten doppelt zu speichern. | System-Admins verwalten unter Admin → Vereine Namen, Standort und Vorstandszuordnungen. Jeder Vorstand verwaltet nur den zugewiesenen Verein; relevante Personaldaten sind auf dessen Standort begrenzt. Beitritt unter `/vereinsbeitritt`. Bank- und Personendaten verschlüsselt; keine SEPA-Dateien oder Zahlungsabwicklung. Ab 14 Jahren wird für Jugendfotos zusätzlich die eigene Zustimmung verlangt. Weitere Einstellungen über `VEREIN_*`; `VEREINSVERWALTUNG_ENABLED=false` schaltet die Erweiterung ab. |
-| [Hydrantenkontrolle](#hydrantenkontrolle-bedienungsanleitung) | Stammdaten, fortsetzbare Jahreskontrollen, Kontrollhistorie je Hydrant, Mängelcheckliste und echte PDF-Berichte. | Unter Admin → Module aktivieren und Rolle `hydrantenwart` (eigener Ort) oder `uebergreifend` (alle Orte) vergeben; Admins ebenfalls berechtigt. `HYDRANTENKONTROLLE_ENABLED=false` lädt die Erweiterung nicht. Jahresbezogene Stammdatenkopien und Konfliktschutz beim Speichern; keine automatische Wasserkarte-/Excel-Synchronisierung. |
+| Vereinsverwaltung | Öffentlicher Beitrittsantrag mit Vereinsauswahl, Datenschutz- und optionaler Fotoeinwilligung, kostenfreie Jugend-/Kinderfeuerwehr-Mitgliedschaft, Beitrags- und SEPA-Mandatsdokumentation; Kameraden können aus der Personalakte übernommen werden, ohne Kontaktdaten doppelt zu speichern. | System-Admins verwalten unter Admin → Vereine Namen, Standort und Vorstandszuordnungen. Jeder Vorstand verwaltet nur den zugewiesenen Verein; relevante Personaldaten sind auf dessen Standort begrenzt. Beitritt unter `/vereinsbeitritt`. Bank- und Personendaten verschlüsselt; keine SEPA-Dateien oder Zahlungsabwicklung. Ab 14 Jahren wird für Jugendfotos zusätzlich die eigene Zustimmung verlangt. Weitere Einstellungen über `VEREIN_*`; `VEREINSVERWALTUNG_ENABLED=false` schaltet das Modul ab. |
+| [Hydrantenkontrolle](#hydrantenkontrolle-bedienungsanleitung) | Stammdaten, fortsetzbare Jahreskontrollen, Kontrollhistorie je Hydrant, Mängelcheckliste und echte PDF-Berichte. | Unter Admin → Module aktivieren und Rolle `hydrantenwart` (eigener Ort) oder `uebergreifend` (alle Orte) vergeben; Admins ebenfalls berechtigt. `HYDRANTENKONTROLLE_ENABLED=false` lädt das Modul nicht. Jahresbezogene Stammdatenkopien und Konfliktschutz beim Speichern; keine automatische Wasserkarte-/Excel-Synchronisierung. |
 | [Locations](LOCATIONS.md) | Mitglieder und ausgewählte Datensätze Standorten zuordnen. | `LOCATIONS_ENABLED=false` deaktiviert Scope und Standortverwaltung. Nur konfigurierte Modelle werden begrenzt; Standortloses (`NULL`) bleibt gemeinsam sichtbar. Keine vollständige Mandantentrennung. |
 | [Offline/PWA](OFFLINE.md) | Offline-Fallback sowie lokale Entwürfe ausdrücklich markierter Formulare. | `OFFLINE_ENABLED=false` schaltet Statusanzeige und Entwürfe ab, aber nicht Manifest, Service Worker und Fallback-Seite. Keine automatische Übermittlung oder Synchronisierung von Formularen; Objektpläne nutzen einen separaten Worker. |
 | [OIDC](OIDC.md) | Anmeldung über einen externen OpenID-Connect-Anbieter. | `OIDC_ENABLED=false` lädt OIDC nicht. Nur aktive Konten mit bestätigter E-Mail werden verknüpft; JIT-Anlage ist optional, IdP-Rollen werden nicht übernommen. Bei „Nur Single Sign-On“ lokale System-Admins und Notfallzugang erhalten. |
-| [Anwesenheit](ANWESENHEIT.md) | Eigenständige Anwesenheitslisten, Vorlagen, PDF und E-Mail. | Modul nach Migration zunächst inaktiv; `ANWESENHEIT_ENABLED=false` schaltet die Erweiterung ab. Optional: Kalender zur Vorbelegung, Locations zur Standortbegrenzung und Offline für lokale Formularentwürfe. |
+| [Anwesenheit](ANWESENHEIT.md) | Eigenständige Anwesenheitslisten, Vorlagen, PDF und E-Mail. | Modul nach Migration zunächst inaktiv; `ANWESENHEIT_ENABLED=false` schaltet das Modul ab. Optional: Kalender zur Vorbelegung, Locations zur Standortbegrenzung und Offline für lokale Formularentwürfe. |
 | [Dateien](DATEIEN.md) | Private Dateiablagen mit ACL, Versionen, Suche und optionaler Office-Bearbeitung bzw. öffentlicher Lesefreigabe. | Modul nach Migration zunächst inaktiv. Es gibt keinen `DATEIEN_ENABLED`-Schalter. Zugriff wird zusätzlich zu Modulzugang pro Ablage/Eintrag vergeben; öffentliche Links sind standardmäßig aus. Online-Office benötigt einen separat betriebenen Server. |
-| [EinsatzberichtPlus](EINSATZBERICHT.md) | Zusätzliche Einsatzangaben und ein nicht blockierender Sollbesatzungshinweis. | `EINSATZBERICHT_PLUS_ENABLED=false` schaltet die Erweiterung ab. Nutzt die Rollen und Standortgrenzen des Einsatzberichts; Zusatzangaben sind derzeit nicht Teil von Druck oder Statistik. |
+| [EinsatzberichtPlus](EINSATZBERICHT.md) | Zusätzliche Einsatzangaben und ein nicht blockierender Sollbesatzungshinweis. | `EINSATZBERICHT_PLUS_ENABLED=false` schaltet die Zusatzfunktionen ab. Nutzt die Rollen und Standortgrenzen des Einsatzberichts; Zusatzangaben sind derzeit nicht Teil von Druck oder Statistik. |
 | [Mitteilungen-Kanäle](MITTEILUNGEN.md) | Standortbezogene Mitteilungen und optionale zusätzliche ntfy-/Matrix-Ziele. | ntfy und Matrix sind aus, bis Admins ihre getrennten Ziele einrichten. Gruppen-/Funktionsmitteilungen werden nicht extern gesendet; externe Mitgliedschaften synchronisieren sich nicht automatisch. |
 
 ![Screenshot: Öffentlicher Vereinsbeitritt](screenshots/vereinsverwaltung/beitritt.png)
@@ -41,7 +45,7 @@ Die Hydrantenkontrolle ist ein eigenes Modul für die jährliche Prüfung von Un
 ### Einrichtung und Rechte
 
 1. Die neue Anwendungsversion mit den Datenbankmigrationen installieren; vor einem Update die Datenbank sichern. Im Produktionscontainer laufen Migrationen beim Start, bei einer manuellen Installation mit `php artisan migrate --force`.
-2. Die Erweiterung ist standardmäßig geladen. `HYDRANTENKONTROLLE_ENABLED=false` schaltet ihren Provider und ihre Routen ab; gespeicherte Daten werden dadurch nicht gelöscht. Nach Änderungen an Umgebungsvariablen die Anwendung mit aktualisierter Konfiguration neu starten.
+2. Das Modul wird standardmäßig geladen. `HYDRANTENKONTROLLE_ENABLED=false` schaltet seinen Provider und seine Routen ab; gespeicherte Daten werden dadurch nicht gelöscht. Nach Änderungen an Umgebungsvariablen die Anwendung mit aktualisierter Konfiguration neu starten.
 3. Unter **Admin → Module** das zunächst inaktive Modul **Hydrantenkontrolle** einschalten.
 4. Den zuständigen Kameraden Modulzugang und die Modulrolle **Hydrantenwart** (`hydrantenwart`) geben. Für Kommune, Brandschutzamt/GBI, SPI und weitere übergreifende Bearbeiter die Rolle `uebergreifend` vergeben; sie sehen Hydranten aller Orte und Standorte. Aktive globale Admins dürfen das aktive Modul ohne zusätzliche Rollenzuweisung nutzen.
 5. Das Modul über die Startseite beziehungsweise das App-Menü öffnen. Die Modulleiste enthält **Jahreskontrollen** und **Hydranten**.
@@ -50,7 +54,7 @@ Modulzugang allein genügt nicht: Auch das Lesen der Übersichten und der PDF-Ex
 
 Die Rolle **Hydrantenwart** sieht und bearbeitet nur Hydranten, deren Ort mit dem im Kameradenprofil hinterlegten Ort übereinstimmt. Beim Erfassen wird dieser Ort vorbelegt und ist für Hydrantenwarte nicht änderbar; fehlt der Ort im Profil, muss er dort zuerst ergänzt werden. Die Rolle `uebergreifend` sieht und bearbeitet Hydranten aller Orte und Standorte.
 
-Bereits vor dieser Erweiterung erfasste Hydranten haben zunächst keinen Ort. Ein übergreifender Bearbeiter muss ihnen einmalig den zutreffenden Ort zuweisen, bevor örtliche Hydrantenwarte sie sehen können.
+Hydranten ohne Ortszuordnung werden örtlichen Hydrantenwarten nicht angezeigt. Ein übergreifender Bearbeiter muss ihnen den zutreffenden Ort zuweisen.
 
 Bei aktivem **Locations** vor dem Erfassen den gewünschten Standort auswählen. Neue Hydranten und neue Jahreskontrollen gehören zum aktuellen Standort; **Öffnen / ergänzen** nimmt nur dessen aktive Hydranten am eigenen Ort auf. Sichtbare Jahre werden mit Standort angezeigt. Standortlose Datensätze bleiben nach dem bisherigen Muster gemeinsam sichtbar; dies ist keine vollständige Mandantentrennung.
 
@@ -150,7 +154,7 @@ Der PDF-Export verwendet die bereits vorhandene Dompdf-Bibliothek und benötigt 
 
 ## Betrieb und Planung
 
-- Erweiterungen und Module haben getrennte Aktivierung: ein aktiver Provider bedeutet nicht, dass ein Kamerad automatisch Zugriff auf ein Modul oder eine Dateiablage hat.
+- Technisches Laden und Modulzugang sind getrennte Prüfungen: ein aktiver Provider bedeutet nicht, dass ein Kamerad automatisch Zugriff auf ein Modul oder eine Dateiablage hat.
 - Die Standortbegrenzung umfasst nur die konfigurierten Modelle und schützt nicht automatisch jede SQL-Abfrage. Zu den Grenzen siehe [Locations](LOCATIONS.md).
 - Offline-Entwürfe bleiben lokal im Browser, laufen ab und müssen von der Person geprüft und regulär abgesendet werden. Es gibt keine automatische Formularsynchronisierung; siehe [Offline/PWA](OFFLINE.md).
 - Die Dateien-Roadmap trennt umgesetzte Meilensteine von offenem Ausbau; geplante Punkte sind keine verfügbaren Funktionen: [Dateien-Roadmap](DATEIEN-ROADMAP.md).

@@ -38,7 +38,6 @@ jobs:
 
   image:
     name: Image Scan (latest)
-    if: vars.PUBLISH_IMAGES == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Scan ghcr.io/timux/wehrportal:latest

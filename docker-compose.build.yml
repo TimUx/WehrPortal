@@ -1,0 +1,13 @@
+# Explicit opt-in for local source builds instead of published release images.
+services:
+  app:
+    image: wehrportal:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+  worker:
+    image: wehrportal:local
+    build:
+      context: .
+      dockerfile: Dockerfile

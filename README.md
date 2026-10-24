@@ -26,10 +26,11 @@ Die eigenständig entworfene **App-Marke** zeigt ein stilisiertes rotes Portal m
 ## Inhaltsverzeichnis
 
 - [Schnellzugriff](#schnellzugriff)
+- [Handbücher](#handbücher)
+  - [Installationsguide](handbuch/INSTALLATION.md)
+  - [Admin-Guide](handbuch/ADMIN.md)
+  - [User-Guide](handbuch/USER.md)
 - [Module im Überblick](#module-im-überblick)
-  - [Erweiterungen von WehrPortal](#erweiterungen-von-wehrportal)
-  - [Gefahrenmatrix](#gefahrenmatrix)
-  - [Gefahrstoffdatenbank](#gefahrstoffdatenbank)
 - [Kernfunktionen](#kernfunktionen)
   - [Startseite und Navigation](#startseite-und-navigation)
   - [Fahrzeugbuchung](#fahrzeugbuchung)
@@ -46,6 +47,8 @@ Die eigenständig entworfene **App-Marke** zeigt ein stilisiertes rotes Portal m
     - [Wachen-Monitor](#wachen-monitor)
     - [E-Mails](#e-mails)
 - [Module im Detail](#module-im-detail)
+  - [Gefahrenmatrix](#gefahrenmatrix)
+  - [Gefahrstoffdatenbank](#gefahrstoffdatenbank)
   - [Kleiderkammer](#kleiderkammer)
   - [Mängelmanagement](#mängelmanagement)
   - [Schichtplan](#schichtplan)
@@ -70,97 +73,102 @@ Die eigenständig entworfene **App-Marke** zeigt ein stilisiertes rotes Portal m
   - [Objektpläne und Brandschutzunterlagen](#objektpläne--brandschutzunterlagen)
   - [Personalverwaltung](#personalverwaltung)
   - [Schlüsselverwaltung](#schlüsselverwaltung)
-- [Erweiterungen im Detail](#erweiterungen-im-detail)
   - [Hydrantenkontrolle](#hydrantenkontrolle)
+  - [Vereinsverwaltung](#vereinsverwaltung)
   - [Anwesenheit](#anwesenheit-im-detail)
   - [Dateien](#dateien-im-detail)
   - [Locations](#locations-im-detail)
+- [Übergreifende Funktionen](#übergreifende-funktionen)
   - [Offline und PWA](#offline-und-pwa-im-detail)
   - [OIDC / Single Sign-On](#oidc--single-sign-on-im-detail)
 - [Betrieb und Entwicklung](#betrieb-und-entwicklung)
+  - [Docker-Images und Releases](#docker-images-und-releases)
   - [Tech-Stack](#tech-stack)
   - [Installation](#installation)
   - [Konfiguration](#konfiguration)
   - [Sicherheit](#sicherheit)
   - [Lizenz](#lizenz)
-- [Erweiterungsdokumentation](docs-extended/README.md)
+- [Weiterführende Modulhandbücher](docs-extended/README.md)
 
 ## Schnellzugriff
 
-| Wenn du … | Einstieg |
-|---|---|
-| als Kamerad die App nutzen möchtest | [Startseite, Personalakte und Navigation](#startseite-und-navigation) |
-| Fahrzeuge buchen oder Entscheidungen treffen möchtest | [Fahrzeugbuchung](#fahrzeugbuchung) |
-| ein bestimmtes Modul suchst | [Modulübersicht](#module-im-überblick) oder [Moduldetails](#module-im-detail) |
-| die Installation oder Updates vorbereitest | [Installation](#installation) |
-| eine Erweiterung einrichtest | [Erweiterungsdokumentation](docs-extended/README.md) |
-| an WehrPortal mitarbeitest | [Betrieb und Entwicklung](#betrieb-und-entwicklung) |
-| sehen möchtest, wie es aussieht | [Screenshots aller Module](docs-extended/SCREENSHOTS.md#galerie) – zusätzlich steht bei jedem Modul unten sein Screenshot |
+- **App kennenlernen:** [User-Guide](handbuch/USER.md) – Anmeldung, Navigation und die wichtigsten Alltagsabläufe.
+- **Wehr einrichten:** [Admin-Guide](handbuch/ADMIN.md) – Mitglieder, Standorte, Modulzugänge und Rollen.
+- **Selbst betreiben:** [Installationsguide](handbuch/INSTALLATION.md) – Voraussetzungen, Installation, Sicherung und Updates.
+- **Ein Modul suchen:** [Modulübersicht](#module-im-überblick) oder [ausführliche Vorstellungen](#module-im-detail).
+- **Bilder ansehen:** [Screenshot-Galerie](docs-extended/SCREENSHOTS.md#galerie); bei jeder Modulvorstellung stehen die zugehörigen Bilder.
+- **Mitentwickeln:** [Betrieb und Entwicklung](#betrieb-und-entwicklung).
+
+## Handbücher
+
+**[Installationsguide →](handbuch/INSTALLATION.md)**
+
+Für Betreiber: von der ersten Installation mit PostgreSQL und HTTPS über den Mailversand bis zum überprüften Backup und zum Versionswechsel. Die ausführliche Serveranleitung steht weiterhin [direkt in dieser README](#installation).
+
+**[Admin-Guide →](handbuch/ADMIN.md)**
+
+Für globale Admins und Modulverantwortliche: eine sinnvolle Reihenfolge für die Ersteinrichtung, gezielte Rechtevergabe, Einladungen und laufende Verwaltung.
+
+**[User-Guide →](handbuch/USER.md)**
+
+Für Kameradinnen und Kameraden: der erste Login, die App auf dem Handy, Benachrichtigungen, Personalakte und typische Aufgaben in den freigeschalteten Modulen.
 
 ## Module im Überblick
 
-| Modul | Wofür | Rollen im Modul |
-|---|---|---|
-| [Fahrzeugbuchung](#fahrzeugbuchung) | Fahrzeuge (z. B. MTW, Anhänger) im gemeinsamen Kalender reservieren; bei Überschneidungen entscheidet ein Entscheider; Wachen-Monitor | Entscheider |
-| [Kleiderkammer](#kleiderkammer) | Ausgabe und Rücknahme der Bekleidung, Größen, Bestand, QR-Etiketten | Kleiderwart |
-| [Mängelmanagement](#mängelmanagement) | Mängel per QR-Code melden, bearbeiten und bis zur Erledigung verfolgen | Verantwortlicher |
-| [Schichtplan](#schichtplan) | Arbeitsdienste, Feste und Stände: Schichten gerecht verteilen oder Mitglieder selbst eintragen lassen (mit Genehmigung, Zielgruppe und Erinnerung) | Planer |
-| [Mitteilungen](#mitteilungen) | Nachrichten der Wehrführung an Abteilungen oder Funktionen, mit Anhängen und Lesebestätigung, wichtige ganz oben auf der Startseite | Redakteur |
-| [Lehrgänge & Qualifikationen](#lehrgänge--qualifikationen) | Interesse an Lehrgängen des Kreises melden (fox112), Anmeldung über die Ausbildungsleitung, Lehrgangsplan, absolvierte Lehrgänge mit Nachtragen, Personalakte | Ausbildungsleiter, Wehrführung |
-| [Übungsdienstplaner](#übungsdienstplaner) | Übungsdienste der Einsatzabteilung standortbezogen planen – für die Wehrführung; Zusagen und Absagen im Kalender | Wehrführung |
-| [Einsatzbericht](#einsatzbericht) | Einsätze digital erfassen und freigeben, Besatzung und Stärke, DIVERA-24/7-Anbindung, Lagemeldungen, Jahresstatistik, Jahresbericht | Einsatzleiter, Wehrführung |
-| [Gefahrenmatrix](#gefahrenmatrix) | Gefahren an der Einsatzstelle als nicht gespeicherte Merkstütze auswählen | – |
-| [Gefahrstoffdatenbank](#gefahrstoffdatenbank) | Eigene, nachvollziehbar importierte UN-/Gefahrstoffdaten durchsuchen | Gefahrstoffbeauftragter |
-| [Kalender & Termine](#kalender--termine) | Übungen, Dienste und Veranstaltungen mit Zielgruppe, Ort mit Navigation, Kleidung und Rückmeldung, Terminabfragen, Abo für den eigenen Kalender | Terminverwalter |
-| [Ausrüstungsverwaltung](#ausrüstungsverwaltung) | Geräte, Prüffristen, Ausleihe, Rückrufe und Beladeplan; Geräteinfo per QR-Code auch ohne Login (zuschaltbar) | Gerätewart |
-| [Budget & Finanzen](#budget--finanzen) | Ausgaben mit Beleg und Genehmigung, Buchungen und Export; Budgets je Kostenstelle und Jahresabschluss abschaltbar | Kassenwart, Wehrführung |
-| [Verbandbuch & Vorfälle](#verbandbuch--vorfälle) | Verletzungen, Unfälle und Vorfälle nach DGUV 204-021 dokumentieren, mit Unterschrift auf dem Bildschirm, verschlüsselt und mit Löschfrist | Sicherheitsbeauftragter, Wehrführung |
-| [Expositionen (Gefahrstoffe)](#expositionen-gefahrstoffe) | Gefahrstoff-Expositionen nach Einsatz und Übung erfassen, für die Besatzung aus dem Einsatzbericht, verschlüsselt, 40 Jahre aufbewahrt, Meldeliste für die DGUV-ZED | Expositionsbeauftragter |
-| [Führerscheine](#führerscheine) | Führerscheinkontrolle per Foto, Klassen und Feuerwehr-Fahrberechtigung mit Fristen, wer welches Fahrzeug fahren darf | Führerscheinprüfer |
-| [Unterweisungen](#unterweisungen) | Unterweisungen und Einweisungen mit Fristen, Unterschrift auf dem Tablet, Nachweis, Qualifikations-Kürzel | Unterweisungsbeauftragter |
-| [Wartungsmanagement](#wartungsmanagement) | Prüf- und Wartungsverwaltung für die Geräte der Ausrüstungsverwaltung: Vorlagen mit Intervall und Checkliste, fällige Wartungen, unterschriebene Prüfprotokolle als PDF, Fachfirmen, Prüfer-IDs, Zeit und Kosten | Gerätewart, Prüfer |
-| [Atemschutzüberwachung](#atemschutzüberwachung) | Trupps im Einsatz mit Uhr, Drücken, Rückzugsdruck und Warnungen (FwDV 7), Registrierung per RFID, G26.3, Unterweisung und Belastungsübung der Geräteträger, Protokoll als PDF und im Einsatzbericht | Atemschutzwart, Überwacher |
-| [Fahrzeugverwaltung & Flotte](#fahrzeugverwaltung--flotte) | Fahrzeugprofile mit Stammdaten und Ausstattung, Status und Verfügbarkeit, Werkstattzeiten (sperren die Fahrzeugbuchung), Fristen wie HU/SP/UVV mit Dokumentation, Einsätze und Buchungen je Fahrzeug | Fahrzeugwart |
-| [Fahrtenbuch](#fahrtenbuch) | Fahrten mit Start/Ziel, Kilometerstand und Zweck am Handy, automatisch mit Buchung und Einsatz verknüpft, Tanken und Verbrauch, Auswertung und Export für Steuer und Versicherung | Fahrtenbuchwart |
-| [Wasserkarte & Hydranten](#wasserkarte--hydranten) | Alle Löschwasserquellen auf der Karte mit Status und Leistung, Mängel melden, Prüffristen, CSV-Import; im Einsatz die nächsten Quellen zur Einsatzstelle | Hydrantenwart |
-| [Objektpläne & Brandschutzunterlagen](#objektpläne--brandschutzunterlagen) | Feuerwehrpläne, Objektpläne und Brandschutzunterlagen je Objekt mit Versionen; bei Alarm die Pläne der Einsatzstelle per GPS, offline verfügbar | Planverwalter |
-| [Personalverwaltung](#personalverwaltung) | Eigener Bereich für Personalverwalter (kein Admin nötig): Anschrift, Geburtsdatum, Mobilnummer zuschaltbar mit Selbstpflege, Diensthistorie, die sich selbst schreibt, mit Ereignissen und Nachweisen, anrechenbare Dienstzeit, Ehrungen nach Dienstjahren, Dienstausweis (auch digital), Änderungswünsche der Kameraden, Dienstbeteiligung; Zugriff je Abteilung | Personalverwalter |
-| [Schlüsselverwaltung](#schlüsselverwaltung) | Schlüssel, Transponder und Karten mit dem, was sie schließen (Ort, Fahrzeug, Objekt), Ausgabe mit unterschriebener Schlüsselquittung, Rückgabefristen, Verlust, QR-Etikett | Schlüsselwart |
+**Alles sind Module.** Welche Funktionen eure Wehr verwendet, entscheidet ihr anhand eures Bedarfs. Die folgenden Gruppen dienen nur der Orientierung, nicht als Produktstufen oder unterschiedliche Berechtigungsklassen.
+
+### Organisation und Zusammenarbeit
+
+- **[Kalender & Termine](#kalender--termine):** Termine mit Zielgruppen, Rückmeldungen, Terminabfragen und Kalenderabo. Zuständig: Terminverwalter.
+- **[Übungsdienstplaner](#übungsdienstplaner):** Standortbezogene Dienstplanung; Rückmeldungen laufen über den Kalender. Zuständig: Wehrführung.
+- **[Schichtplan](#schichtplan):** Dienste und Veranstaltungen mit Selbstanmeldung oder Zuteilung, Genehmigung und Erinnerung. Zuständig: Planer.
+- **[Anwesenheit](#anwesenheit-im-detail):** Eigenständige Anwesenheitslisten mit Entwurf, Abgabe, Vorlagen, PDF und E-Mail. Zuständig: Verwalter.
+- **[Mitteilungen](#mitteilungen):** Zielgerichtete Nachrichten mit Anhängen und Lesebestätigung; optional ntfy und Matrix. Zuständig: Redakteur.
+- **[Dateien](#dateien-im-detail):** Interne Ablagen mit eigenen Rechten, Versionen, Papierkorb und optional Online-Office. Dateigruppenverwaltung allein erteilt keinen Dateizugriff.
+- **[Locations / Standorte](#locations-im-detail):** Mitglieder und unterstützte Datensätze Standorten zuordnen. Zuständig: globale und Standort-Admins; keine vollständige Mandantentrennung.
+
+### Personal und Ausbildung
+
+- **[Personalverwaltung](#personalverwaltung):** Mitgliedsdaten, Diensthistorie, Ehrungen, Änderungswünsche und digitaler Dienstausweis. Zuständig: Personalverwalter; Personaleinsicht liest.
+- **[Lehrgänge & Qualifikationen](#lehrgänge--qualifikationen):** Interesse, fox112-Warteliste, Termine und absolvierte Lehrgänge einschließlich Nachtragen und Auffrischungen. Zuständig: Ausbildungsleiter; Wehrführung liest.
+- **[Unterweisungen](#unterweisungen):** Unterweisungen und Einweisungen mit Fristen, Unterschriften und Nachweisen. Zuständig: Unterweisungsbeauftragter.
+- **[Führerscheine](#führerscheine):** Fotokontrolle, Führerscheinklassen und Feuerwehr-Fahrberechtigungen. Zuständig: Führerscheinprüfer.
+- **[Vereinsverwaltung](#vereinsverwaltung):** Öffentlicher Beitritt, aktive und passive Mitgliedschaften, Beiträge und Mandatsdokumentation. Zuständig: Vorstand des jeweiligen Vereins; keine Zahlungsabwicklung.
+
+### Fahrzeuge, Geräte und Material
+
+- **[Fahrzeugbuchung](#fahrzeugbuchung):** Gemeinsamer Buchungskalender mit Konfliktentscheidung und Wachen-Monitor. Zuständig: Entscheider; Fahrzeugverwaltung im Admin-Bereich durch globale Admins.
+- **[Fahrzeugverwaltung & Flotte](#fahrzeugverwaltung--flotte):** Fahrzeugakte, Status, Werkstattzeiten, Fristen und Prüfungen. Zuständig: Fahrzeugwart.
+- **[Fahrtenbuch](#fahrtenbuch):** Fahrten, Kilometerstände, Tanken, Verbrauch und nachvollziehbare Korrekturen. Zuständig: Fahrtenbuchwart.
+- **[Ausrüstungsverwaltung](#ausrüstungsverwaltung):** Geräte, Prüffristen, Ausleihe, Beladung und optional öffentliche Geräteinfo. Zuständig: Gerätewart.
+- **[Wartungsmanagement](#wartungsmanagement):** Checklisten, fällige Wartungen und unterschriebene Prüfprotokolle für Geräte der Ausrüstungsverwaltung. Zuständig: Gerätewart und Prüfer.
+- **[Kleiderkammer](#kleiderkammer):** Bekleidung ausgeben und zurücknehmen, Größen, Bestand und QR-Etiketten. Zuständig: Kleiderwart.
+- **[Schlüsselverwaltung](#schlüsselverwaltung):** Schlüssel, Transponder und Karten mit unterschriebener Ausgabe, Rückgabefristen und Verlustmeldung. Zuständig: Schlüsselwart.
+- **[Mängelmanagement](#mängelmanagement):** Mängel melden, zuweisen und bis zur Erledigung verfolgen. Zuständig: Verantwortlicher.
+
+### Einsatz und Sicherheit
+
+- **[Einsatzbericht](#einsatzbericht):** Einsätze, Besatzung, DIVERA-Anbindung, Lagemeldungen, Freigabe und Jahresbericht; [zusätzliche Einsatzangaben](#ergänzung-durch-einsatzberichtplus) sind Teil dieses Ablaufs. Zuständig: Einsatzleiter und Wehrführung.
+- **[Atemschutzüberwachung](#atemschutzüberwachung):** Truppüberwachung, Drücke und Warnungen sowie Geräteträger, Fristen und Atemschutzpass. Zuständig: Atemschutzwart und Überwacher.
+- **[Gefahrenmatrix](#gefahrenmatrix):** Interaktive Merkstütze zur Gefahrenerfassung ohne Speicherung; keine eigene Fachrolle.
+- **[Gefahrstoffdatenbank](#gefahrstoffdatenbank):** Eigene, mit Quelle und Datenstand importierte UN-/Gefahrstoffdaten durchsuchen. Zuständig: Gefahrstoffbeauftragter.
+- **[Verbandbuch & Vorfälle](#verbandbuch--vorfälle):** Verschlüsselte Dokumentation mit Unterschrift und Aufbewahrungsfrist. Zuständig: Sicherheitsbeauftragter und Wehrführung.
+- **[Expositionen](#expositionen-gefahrstoffe):** Gefahrstoffexpositionen mit 40 Jahren Aufbewahrung und Meldeliste für die DGUV-ZED. Zuständig: Expositionsbeauftragter.
+
+### Infrastruktur und Finanzen
+
+- **[Wasserkarte & Hydranten](#wasserkarte--hydranten):** Löschwasserquellen auf der Karte, Status, Leistung und nächstgelegene Quellen. Zuständig: Hydrantenwart.
+- **[Hydrantenkontrolle](#hydrantenkontrolle):** Eigener Hydrantenbestand mit fortsetzbaren Jahreskontrollen, Historie und PDF. Zuständig: Hydrantenwart am eigenen Ort oder übergreifende Bearbeiter; keine automatische Kopplung an die Wasserkarte.
+- **[Objektpläne & Brandschutzunterlagen](#objektpläne--brandschutzunterlagen):** Versionierte Unterlagen je Objekt, GPS-Suche und gezielte Offline-Bereitstellung. Zuständig: Planverwalter.
+- **[Budget & Finanzen](#budget--finanzen):** Ausgaben, Belege, Genehmigung und Export; Budgets und Jahresabschluss sind abschaltbar. Zuständig: Kassenwart und Wehrführung.
+
+Die gemeinsame Suche **[Bestand](#bestand)** verbindet die Bestände der freigeschalteten Module. **[Offline/PWA](#offline-und-pwa-im-detail)** und **[Single Sign-On](#oidc--single-sign-on-im-detail)** sind übergreifende Funktionen ohne eigene Fachmodul-Kachel.
 
 Die Screenshots in dieser Dokumentation stammen aus einer Testinstallation mit erfundenen Beispieldaten (Stand der Daten: 14.10.2026). Ältere Bilder können noch den bisherigen Produktnamen zeigen; neue Bilder werden manuell auf `main` erzeugt ([Ablauf](docs-extended/SCREENSHOTS.md)).
 
-Jedes Modul ist nach der Installation **ausgeschaltet**. Ein Admin schaltet es unter Admin → Module ein und gibt es einzelnen Kameraden oder allen frei; die Rollen vergibt er dort ebenfalls. Admins dürfen in jedem Modul alles. Die Details zu Kern und Modulen stehen unten, die Einrichtung unter [Installation](#installation).
+Fachmodule sind nach der Installation zunächst **ausgeschaltet**. Ein globaler Admin aktiviert sie unter **Admin → Module**, vergibt Zugänge und weist bei Bedarf Fachrollen zu. Standortverwaltung und übergreifende Funktionen haben eigene Einstellungen. Bei einigen Modulen kann der Betreiber das Laden zusätzlich per `*_ENABLED` abschalten; diese technischen Schalter sind keine zweite Modulklasse und ersetzen keine Zugriffsrechte. Bestehende Daten werden durch das Abschalten nicht gelöscht.
 
-### Erweiterungen von WehrPortal
-
-Die folgenden Erweiterungen ergänzen die 25 Fachmodule. Erweiterungen mit einem `*_ENABLED`-Schalter lassen sich unabhängig von der Freischaltung eines Moduls laden oder abschalten; ein ausgeschaltetes Modul erscheint nicht für Kameraden.
-
-| Erweiterung | Funktionen und Zugriff | Aktivierung, Abhängigkeiten und Grenzen |
-|---|---|---|
-| Vereinsverwaltung | Öffentlicher Beitrittsantrag mit Vereinsauswahl, Verwaltung aktiver und passiver Vereinsmitglieder, optionale Verknüpfung mit Kameradenkonten sowie Dokumentation von Beiträgen und SEPA-Mandaten. Jeder Vorstand ist einem Verein zugeordnet. | System-Admins verwalten Vereine, Standorte und Vorstandszuordnungen unter Admin → Vereine; Vorstände sehen nur ihren Verein. `/vereinsbeitritt` ist öffentlich. `VEREINSVERWALTUNG_ENABLED=false` schaltet die Erweiterung ab. Personen- und Bankdaten werden verschlüsselt gespeichert; es gibt keine Zahlung, Lastschriftdatei oder Zahlungsdienstleister-Anbindung. |
-| [Hydrantenkontrolle](#hydrantenkontrolle) ([Bedienungsanleitung](docs-extended/README.md#hydrantenkontrolle-bedienungsanleitung)) | Hydrantenstammdaten, über mehrere Tage bearbeitbare Jahreskontrollen nach Excel-Checkliste, Kontrollhistorie je Hydrant, Suche, Kennzahlen und PDF-Jahresberichte. Rollen `hydrantenwart` (eigener Ort) oder `uebergreifend` (alle Orte); Admins dürfen alles. | Unter Admin → Module freischalten; zunächst inaktiv. `HYDRANTENKONTROLLE_ENABLED=false` lädt die Erweiterung nicht. Jahresdaten behalten eigene Stammdatenkopien; Locations wird berücksichtigt. Keine automatische Kopplung an die Wasserkarte. |
-| [Anwesenheit](#anwesenheit-im-detail) ([Einrichtungsdetails](docs-extended/ANWESENHEIT.md)) | Eigenständige Anwesenheitslisten mit Entwurf/Abgabe, Vorlagen, PDF und E-Mail; Kameraden sehen ihre Listen, `verwalter` und Standort-Admins verwalten den eigenen Standort, globale Admins alle. | Unter Admin → Module freischalten; nach der Migration zunächst inaktiv. `ANWESENHEIT_ENABLED=false` lädt die Erweiterung nicht. Kalendertermine sind nur eine optionale Vorbelegung; Locations begrenzt Listen und Teilnehmende auf Standorte. Offline-Entwürfe speichern ausdrücklich markierte Formularfelder und Teilnehmendenauswahl, aber keine Anhänge, Notizen, Empfänger oder Standortwahl. |
-| [Dateien](#dateien-im-detail) ([Einrichtungsdetails](docs-extended/DATEIEN.md)) | Interne Dateiablagen mit Benutzer-/Gruppenrechten, Versionen, Papierkorb, Favoriten, Suche, Vorschau, ZIP und Zusammenarbeit. `gruppenverwalter` verwalten Gruppen, erhalten dadurch aber keinen Dateizugriff; Rechte an Dateien oder Ablagen werden ausdrücklich vergeben. | Unter Admin → Module freischalten und Ablagen samt Rechten einrichten. Die Erweiterung hat keinen eigenen `DATEIEN_ENABLED`-Schalter. Online-Office benötigt einen separat betriebenen ONLYOFFICE- oder Collabora-Server. Öffentliche, lesende Links sind standardmäßig aus und müssen global und je Ablage erlaubt werden; Datenbank und privates Dateiverzeichnis gemeinsam sichern. |
-| [EinsatzberichtPlus](#ergänzung-durch-einsatzberichtplus) ([Hintergrund](docs-extended/EINSATZBERICHT.md)) | Ergänzt den Einsatzbericht um Kostenpflicht, strukturierte beteiligte Personen, Verdienstausfall und externe Fahrzeuge; Hinweise vergleichen die Besatzung mit der Sollbesatzung. | Wird automatisch mit dem Einsatzbericht angeboten; `EINSATZBERICHT_PLUS_ENABLED=false` schaltet die Erweiterung ab. Es gelten die Rollen des Einsatzberichts (Einsatzleitung, Wehrführung, Admins), einschließlich Standortgrenzen. Die Zusatzangaben erscheinen derzeit weder im Druck noch in Statistiken; der Sollbesatzungshinweis blockiert nichts. |
-| [Locations](#locations-im-detail) ([Einrichtungsdetails](docs-extended/LOCATIONS.md)) | Ordnet Mitglieder und ausgewählte Datensätze Standorten zu. Standort-Admins verwalten ihren Standort; globale Admins sehen alle. `NULL`-Standortdaten bleiben gemeinsam sichtbar. | `LOCATIONS_ENABLED=false` schaltet die Standortbegrenzung ab. Der Scope gilt nur für die in der Konfiguration aufgeführten Modelle; Datenbankabfragen über `DB::table()` umgehen ihn. Das ist keine vollständige Mandantentrennung. |
-| [Offline/PWA](#offline-und-pwa-im-detail) ([Einrichtungsdetails](docs-extended/OFFLINE.md)) | Zeigt bei fehlender Verbindung eine Offline-Seite und speichert ausdrücklich markierte Formulareingaben für Wasserquellen und Anwesenheitslisten lokal zur manuellen Wiederherstellung. | `OFFLINE_ENABLED=false` schaltet Statusanzeige und Entwürfe ab, nicht Manifest, Service Worker oder Offline-Seite. Angemeldete Seiten und Formulardaten werden nicht automatisch synchronisiert; Objektpläne haben einen separaten Offline-Speicher. |
-| [OIDC/Single Sign-On](#oidc--single-sign-on-im-detail) ([Einrichtungsdetails](docs-extended/OIDC.md)) | Anmeldung über einen externen OIDC-Identitätsanbieter; standardmäßig werden bestehende aktive Konten mit bestätigter E-Mail verknüpft, JIT-Anlage ist optional. Rollen und Adminrechte aus Claims werden nicht übernommen. | `OIDC_ENABLED=false` entfernt OIDC-Routen und Einstellungen. Der IdP muss über eine öffentliche HTTPS-Adresse erreichbar sein. Bei „Nur Single Sign-On“ behalten lokale System-Admins den E-Mail-Login; `OIDC_FORCE_DISABLED=true` stellt im Notfall den Link-Login für alle wieder her. |
-
-### Gefahrenmatrix
-
-![Screenshot: Gefahrenmatrix](docs-extended/screenshots/gefahrenmatrix/matrix.png)
-
-Die Gefahrenmatrix bietet eine interaktive Auswahl von Gefahren aus den Gruppen AAAA, CCCC, EEEE und „Weitere“. Sie fasst die Auswahl zusammen, speichert sie aber nicht. Sie leitet weder betroffene Schutzgüter noch Maßnahmen ab und ersetzt keine fachliche Lagebeurteilung. Das Modul ist standardmäßig ausgeschaltet.
-
-### Gefahrstoffdatenbank
-
-![Screenshot: Gefahrstoffdatenbank](docs-extended/screenshots/gefahrstoffe/datenbank.png)
-
-Die Gefahrstoffdatenbank enthält keine vorinstallierten Stoffdaten. Ein Gefahrstoffbeauftragter kann eigene CSV- oder JSON-Datenbestände mit UN-Nummer, Name und optionalen Angaben zu ADR, GHS, Gefahren und Maßnahmen importieren. Vor der Übernahme werden alle Zeilen geprüft; fehlerhafte oder doppelte UN-Nummern verhindern den gesamten Import. Bestehende UN-Nummern werden aktualisiert, nicht enthaltene Datensätze bleiben unverändert. Quelle und Datenstand werden bei jedem Datensatz gespeichert und in der Suche angezeigt.
-
-Importiert werden dürfen nur Daten, für die die Wehr die nötigen Speicher- und Nutzungsrechte hat. Die Importfunktion bezieht selbst keine Daten von BAM, DGUV oder anderen Anbietern. Das Modul Expositionen dokumentiert tatsächliche Expositionen und ist keine Referenzdatenbank.
-
-Die Gefahrenmatrix arbeitet mit lokaler Bedienung ohne Speicherung. In der Gefahrenmatrix und Gefahrstoffdatenbank kann **„Für offline speichern“** gewählt werden. Die Matrix ist anschließend offline nutzbar; für die Stoffsuche wird der zuletzt geladene Datenbestand auf diesem Gerät zwischengespeichert. Nach einem Datenimport muss die Offline-Kopie auf dem Gerät erneut gespeichert werden. Es werden keine personenbezogenen Einsatzdaten für diese Funktion lokal zwischengespeichert.
+Einrichtung und Grenzen stehen bei den jeweiligen Vorstellungen und im [Admin-Guide](handbuch/ADMIN.md). Weiterführende [Modulhandbücher](docs-extended/README.md) ergänzen die Beschreibungen.
 
 ## Kernfunktionen
 
@@ -291,7 +299,7 @@ Es gibt **einen** Admin-Bereich für alle. Was man darin sieht, hängt von der R
 - **Benutzermenü** (Profilbild oben rechts): Name und darunter klein die E-Mail-Adresse, dann „Zur Übersicht“ (zurück in die App), „Meine Personalakte“ und „Abmelden“.
 - **Module** (`/admin/module`): alle Module mit Beschreibung, Rollen und Anzahl freigeschalteter Kameraden; Schalter für „Aktiv“ und „Neue Kameraden automatisch freischalten“. Sortierbar nach Name, Anzahl und den Schaltern, durchsuchbar nach Name, Beschreibung und Rollen, filterbar nach aktiv/ausgeschaltet und automatischer Freischaltung. Ein Klick auf „x Kameraden“ öffnet die **Kameraden des Moduls** (`/admin/module/{modul}/kameraden`): alle Kameraden mit Abteilungen, Status, Schalter „Freigeschaltet“ und – bei Modulen mit Rollen – der Rolle (eine Rolle zu wählen schaltet das Modul gleich mit frei). Suche nach Name und E-Mail, Filter nach freigeschaltet ja/nein, Rolle, Abteilung und Status (vorgewählt: aktiv), sortierbar nach Name und Freischaltung. Mit Häkchen markierte Kameraden lassen sich gesammelt freischalten (optional mit Rolle; vorhandene Rollen bleiben) oder entziehen. Oben steht, wenn das Modul ausgeschaltet ist oder „automatisch freischalten“ ohnehin allen Zugang gibt; Admins haben immer Zugang.
 - **Fahrzeuge:** Name, Kurzname, Farbe, Reihenfolge und aktiv/inaktiv. Ist das Modul **Fahrzeugverwaltung** eingeschaltet, werden Fahrzeuge besser dort gepflegt (dieselbe Liste, mit Profil, Status und Fristen). Eine dort eingetragene **Werkstatt-/Ausfallzeit** sperrt das Fahrzeug: Buchen, Verschieben in diesen Zeitraum und Entscheidungsanfragen werden abgelehnt, das Formular zeigt „Fahrzeug nicht verfügbar“ mit Grund und freien Alternativen, der Kalender die Ausfallzeit grau. Bestehende Buchungen bleiben; ihre Buchenden bekommen eine Mail.
-- **Abteilungen:** Wo jemand Mitglied ist, zum Beispiel Einsatzabteilung, Jugendfeuerwehr, Kinderfeuerwehr oder Alters- und Ehrenabteilung (Datenbank-Tabelle `groups`). Admins pflegen sie frei; ein Mitglied kann in mehreren sein. Mit der Locations-Erweiterung werden Abteilungen je Standort getrennt verwaltet: Standort-Admins bearbeiten sie unter **Admin → Standorte → Standort bearbeiten** und ordnen dort Mitglieder einer oder mehreren Abteilungen ihres Standorts zu. Buchungen lassen sich einer Abteilung zuordnen. Die Reihenfolge ändert man per Drag & Drop („Reihenfolge ändern“).
+- **Abteilungen:** Wo jemand Mitglied ist, zum Beispiel Einsatzabteilung, Jugendfeuerwehr, Kinderfeuerwehr oder Alters- und Ehrenabteilung (Datenbank-Tabelle `groups`). Admins pflegen sie frei; ein Mitglied kann in mehreren sein. Mit dem Modul Locations werden Abteilungen je Standort getrennt verwaltet: Standort-Admins bearbeiten sie unter **Admin → Standorte → Standort bearbeiten** und ordnen dort Mitglieder einer oder mehreren Abteilungen ihres Standorts zu. Buchungen lassen sich einer Abteilung zuordnen. Die Reihenfolge ändert man per Drag & Drop („Reihenfolge ändern“).
 - **Funktionen:** Was jemand macht, zum Beispiel Jugendwart, getrennt von der Abteilung (die Jugendfeuerwehr ist eine Abteilung, der Jugendwart eine Funktion). Jede Funktion kann Unterfunktionen haben (zwei Ebenen); beides ist sortierbar. Das Löschen einer Funktion entfernt sie samt Unterfunktionen bei allen Mitgliedern.
 - **Export und Import (Abteilungen, Funktionen):** Oben auf beiden Listen. „Exportieren“ lädt eine CSV für Excel (UTF-8, Semikolon): Abteilung;Reihenfolge;Mitglieder bzw. Funktion;Unterfunktion;Reihenfolge;Mitglieder – eine Zeile je Funktion und je Unterfunktion, Mitglieder als E-Mail-Adressen. „Importieren“ nimmt so eine Datei (auch mit Komma getrennt): Vorhandene Einträge werden über den Namen erkannt (ohne Groß-/Kleinschreibung) und ihre Reihenfolge aktualisiert, neue angelegt, Unterfunktionen unter ihrer Funktion; gelöscht wird nichts. Mit „Mitglieder zuordnen“ werden die Kameraden über die E-Mail-Adresse hinzugefügt (niemand wird entfernt); unbekannte Adressen stehen in der Meldung. Eine Datei mit anderen Spalten wird abgelehnt.
 - **Einstellungen** (`/admin/einstellungen`, nur aktive globale Admins): Wehrname, Kurzname, Mail-Signatur, Code-Präfix der Kleiderkammer und Feuerwehrlogo. Logos dürfen PNG, JPEG oder WebP bis 2 MB und höchstens 4096 × 4096 Pixel sein. Sie werden geprüft, ohne Metadaten als WebP neu kodiert und in der Datenbank gespeichert. Neues Hochladen ersetzt das bisherige Logo, Speichern ohne Datei behält es; **Logo entfernen** löscht die Bilddaten. Die Bild-URL ändert sich auch bei mehreren Änderungen innerhalb einer Sekunde. SVG-Uploads sind nicht erlaubt. Darunter die **Dienste**: API-Schlüssel für Google Maps und für OpenRouter sowie das KI-Modell, das über OpenRouter genutzt wird (Liste von OpenRouter, nach Namen sortiert). Die Schlüssel werden verschlüsselt gespeichert und nach dem Speichern nicht mehr angezeigt; leer lassen behält den gespeicherten, ein Schalter entfernt ihn. „Google Maps testen“ und „OpenRouter testen“ prüfen den eingegebenen oder gespeicherten Schlüssel. Noch nutzt keine Funktion die Schlüssel.
@@ -342,6 +350,24 @@ Alle Mails sind auf Deutsch und werden sofort verschickt, ein Queue-Worker ist n
 | Antwort vom Admin                | das Mitglied                                             |
 
 ## Module im Detail
+
+Die Vorstellungen beschreiben die verfügbaren Abläufe und ihre Grenzen. Die Screenshots zeigen Beispieldaten; sichtbare Verwaltungsaktionen hängen von der eigenen Rolle ab. Die [Fahrzeugbuchung](#fahrzeugbuchung) ist mit ihren Abläufen bereits oben beschrieben.
+
+### Gefahrenmatrix
+
+![Screenshot: Gefahrenmatrix](docs-extended/screenshots/gefahrenmatrix/matrix.png)
+
+Die Gefahrenmatrix bietet eine interaktive Auswahl von Gefahren aus den Gruppen AAAA, CCCC, EEEE und „Weitere“. Sie fasst die Auswahl zusammen, speichert sie aber nicht. Sie leitet weder betroffene Schutzgüter noch Maßnahmen ab und ersetzt keine fachliche Lagebeurteilung. Das Modul ist standardmäßig ausgeschaltet.
+
+### Gefahrstoffdatenbank
+
+![Screenshot: Gefahrstoffdatenbank](docs-extended/screenshots/gefahrstoffe/datenbank.png)
+
+Die Gefahrstoffdatenbank enthält keine vorinstallierten Stoffdaten. Ein Gefahrstoffbeauftragter kann eigene CSV- oder JSON-Datenbestände mit UN-Nummer, Name und optionalen Angaben zu ADR, GHS, Gefahren und Maßnahmen importieren. Vor der Übernahme werden alle Zeilen geprüft; fehlerhafte oder doppelte UN-Nummern verhindern den gesamten Import. Bestehende UN-Nummern werden aktualisiert, nicht enthaltene Datensätze bleiben unverändert. Quelle und Datenstand werden bei jedem Datensatz gespeichert und in der Suche angezeigt.
+
+Importiert werden dürfen nur Daten, für die die Wehr die nötigen Speicher- und Nutzungsrechte hat. Die Importfunktion bezieht selbst keine Daten von BAM, DGUV oder anderen Anbietern. Das Modul Expositionen dokumentiert tatsächliche Expositionen und ist keine Referenzdatenbank.
+
+Die Gefahrenmatrix arbeitet mit lokaler Bedienung ohne Speicherung. In der Gefahrenmatrix und Gefahrstoffdatenbank kann **„Für offline speichern“** gewählt werden. Die Matrix ist anschließend offline nutzbar; für die Stoffsuche wird der zuletzt geladene Datenbestand auf diesem Gerät zwischengespeichert. Nach einem Datenimport muss die Offline-Kopie auf dem Gerät erneut gespeichert werden. Es werden keine personenbezogenen Einsatzdaten für diese Funktion lokal zwischengespeichert.
 
 ### Kleiderkammer
 
@@ -545,7 +571,7 @@ Mit `EINSATZBERICHT_PLUS_ENABLED` (Standard: an) erscheint im Berichtseditor ein
 - **Externes Fahrzeug:** Ein Fahrzeug, das nicht in der gemeinsamen Fahrzeugliste steht, kann als Freitext angegeben werden; reguläre Fahrzeuge werden weiterhin wie bisher aus der Liste ausgewählt.
 - **Sollbesatzung:** Ist das Modul Fahrzeuge aktiv und im Fahrzeugprofil eine Sollbesatzung hinterlegt, weist der Bericht auf Unter- oder Überbesetzung hin. Das ist ein Hinweis, keine Pflicht und keine Sperre. Ohne Sollbesatzung erscheint kein Hinweis.
 
-Die Zusatzangaben sind derzeit nicht im Berichtsdruck oder in Statistiken enthalten. Die Erweiterung nutzt eigene Tabellen und ändert keine Core-Tabellen. Weitere technische Hintergründe und Grenzen: [EinsatzberichtPlus](docs-extended/EINSATZBERICHT.md).
+Die Zusatzangaben sind derzeit nicht im Berichtsdruck oder in Statistiken enthalten. Sie nutzen eigene Tabellen und ändern keine Core-Tabellen. Weitere technische Hintergründe und Grenzen: [EinsatzberichtPlus](docs-extended/EINSATZBERICHT.md).
 
 ### Kalender & Termine
 
@@ -841,17 +867,13 @@ Wer welchen Schlüssel der Wehr hat – statt Liste im Schlüsselkasten. Das Mod
 - **QR-Etikett:** Die Schlüsselseite zeigt den QR-Code des Schlüssels; der Scan (`/i/SL-0001`) öffnet für den Schlüsselwart den Schlüssel, für alle anderen „Meine Schlüssel“ auf dem Profil.
 - **Mit den anderen Modulen:** Die Seite eines **Objekts** (Objektpläne) und eines **Fahrzeugs** (Fahrzeugverwaltung) zeigt seine Schlüssel mit Aufbewahrung oder „ausgegeben“ (wer ihn hat, sieht nur der Schlüsselwart); die Akte in der **Personalverwaltung** zeigt die Schlüssel des Kameraden. „Löschen mit Übertragung“ überträgt die Ausgaben.
 
-## Erweiterungen im Detail
-
-Die folgenden Anleitungen ergänzen die [Kurzüberblick-Tabelle](#erweiterungen-von-wehrportal). Die Erweiterungen werden technisch geladen, ihre Module beziehungsweise Funktionen haben aber eigene Freischaltungen und Rechte. Verlinkte Detaildokumente beschreiben zusätzliche Betriebs- und Implementierungsgrenzen.
-
 ### Hydrantenkontrolle
 
 ![Screenshot: Hydrantenkontrolle – Jahreskontrollen](docs-extended/screenshots/hydrantenkontrolle/jahreskontrollen.png)
 
 ![Screenshot: Hydrantenkontrolle – Hydranten](docs-extended/screenshots/hydrantenkontrolle/hydranten.png)
 
-Die Erweiterung **Hydrantenkontrolle** wird unter **Admin → Module** aktiviert. Dort Modulzugang und Rolle `hydrantenwart` oder `uebergreifend` vergeben; aktive Admins benötigen keine zusätzliche Rolle. `HYDRANTENKONTROLLE_ENABLED=false` lädt die Erweiterung nicht. Die Modulleiste bietet **Jahreskontrollen** und **Hydranten**. `hydrantenwart` sieht nur Hydranten des im Kameradenprofil hinterlegten Orts; `uebergreifend` ist für Kommune, Brandschutzamt/GBI, SPI und andere Stellen mit Sicht auf alle Orte.
+Das Modul **Hydrantenkontrolle** wird unter **Admin → Module** aktiviert. Dort Modulzugang und Rolle `hydrantenwart` oder `uebergreifend` vergeben; aktive Admins benötigen keine zusätzliche Rolle. `HYDRANTENKONTROLLE_ENABLED=false` lädt das Modul nicht. Die Modulleiste bietet **Jahreskontrollen** und **Hydranten**. `hydrantenwart` sieht nur Hydranten des im Kameradenprofil hinterlegten Orts; `uebergreifend` ist für Kommune, Brandschutzamt/GBI, SPI und andere Stellen mit Sicht auf alle Orte.
 
 - **Stammdaten:** Pflicht-Ort, Nummer, Straße, optionale Hausnummer, Lagebeschreibung und Koordinaten. Beim `hydrantenwart` wird der Ort aus dem Kameradenprofil übernommen und kann nicht geändert werden; für `uebergreifend` ist er frei eintragbar. Straße oder Lagebeschreibung oder ein vollständiges Koordinatenpaar ist Pflicht. Archivieren statt Löschen erhält bestehende Jahresdaten.
 - **Jahreskontrolle:** Erst Stammdaten erfassen, dann das Jahr über **Öffnen / ergänzen** anlegen. Alle aktiven Hydranten des aktuellen Standorts werden als ungeprüft aufgenommen. Das erneute Öffnen ergänzt nur fehlende aktive Hydranten; vorhandene Kontrollwerte und eingefrorene Stammdaten bleiben erhalten. Über die Jahreslinks kann die Bearbeitung an späteren Tagen fortgesetzt werden.
@@ -879,13 +901,13 @@ Bankdaten und persönliche Angaben werden mit dem Anwendungsschlüssel verschlü
 
 Wer **Jugend-/Kinderfeuerwehr** auswählt, wird kostenfrei geführt. Bankdaten und SEPA-Hinweis entfallen; auch bei späterer Bearbeitung setzt die App den Beitrag auf null und entfernt Mandatsdaten. Bei regulären Mitgliedschaften erteilt der Online-Antrag ausdrücklich kein SEPA-Lastschriftmandat; Unterschrift, Mandatsreferenz und Mandatsstatus werden separat dokumentiert. Die App erstellt weder SEPA-Dateien noch führt sie Zahlungen aus.
 
-Vor Inbetriebnahme `VEREIN_ANNUAL_FEE_CENTS` (Standard `1500`), `VEREIN_BILLING_MONTH` (Standard `12`), `VEREIN_BILLING_YEAR_OFFSET` (Standard `1`), `VEREIN_PRIVACY_NOTICE_VERSION`, `VEREIN_PHOTO_CONSENT_VERSION` und optional `VEREIN_CREDITOR_ID` konfigurieren. Die Erweiterung lässt sich mit `VEREINSVERWALTUNG_ENABLED=false` vollständig abschalten. Betreiber müssen vor der öffentlichen Nutzung die Angaben zur Datenverarbeitung, Aufbewahrung und Rechtsgrundlage für ihre konkrete Vereinsorganisation prüfen und ergänzen. Die kurzen Texte und die aufklappbaren Erläuterungen sind keine individuelle Rechtsberatung und müssen vor dem Einsatz mit den Vereinsvorgaben abgeglichen werden.
+Vor Inbetriebnahme `VEREIN_ANNUAL_FEE_CENTS` (Standard `1500`), `VEREIN_BILLING_MONTH` (Standard `12`), `VEREIN_BILLING_YEAR_OFFSET` (Standard `1`), `VEREIN_PRIVACY_NOTICE_VERSION`, `VEREIN_PHOTO_CONSENT_VERSION` und optional `VEREIN_CREDITOR_ID` konfigurieren. Das Modul lässt sich mit `VEREINSVERWALTUNG_ENABLED=false` vollständig abschalten. Betreiber müssen vor der öffentlichen Nutzung die Angaben zur Datenverarbeitung, Aufbewahrung und Rechtsgrundlage für ihre konkrete Vereinsorganisation prüfen und ergänzen. Die kurzen Texte und die aufklappbaren Erläuterungen sind keine individuelle Rechtsberatung und müssen vor dem Einsatz mit den Vereinsvorgaben abgeglichen werden.
 
 ### Anwesenheit im Detail
 
 ![Screenshot: Anwesenheit – Listen](docs-extended/screenshots/anwesenheit/listen.png)
 
-Das Modul „Anwesenheit“ führt eigenständige Listen für Übungen, Dienste und Besprechungen. Ein Kalendertermin ist dafür nicht erforderlich. Nach der Migration ist das Modul zunächst inaktiv. Ein Admin schaltet es unter **Admin → Module** ein und gibt es den Kameraden frei; `ANWESENHEIT_ENABLED=false` deaktiviert die Erweiterung vollständig.
+Das Modul „Anwesenheit“ führt eigenständige Listen für Übungen, Dienste und Besprechungen. Ein Kalendertermin ist dafür nicht erforderlich. Nach der Migration ist das Modul zunächst inaktiv. Ein Admin schaltet es unter **Admin → Module** ein und gibt es den Kameraden frei; `ANWESENHEIT_ENABLED=false` deaktiviert das Modul vollständig.
 
 - **Liste anlegen** (`/anwesenheit`): „Neue Liste“ öffnen und Titel, Art, Beginn, Ende, Übungsleiter und Teilnehmende festlegen. Beginn und Ende bestimmen automatisch Dauer und Teilnehmerzahl. Listen und Vorlagen stehen für den Standort der Liste zur Verfügung. Wenn das Kalender-Modul aktiv ist, kann ein Termin als Vorbelegung für Titel, Art, Ort und Zeiten verwendet werden; danach ist die Anwesenheitsliste ein eigener Datensatz.
 - **Entwurf und Abgabe:** Eine Liste lässt sich zunächst als Entwurf speichern und später vervollständigen. Der Ersteller kann eigene Entwürfe bearbeiten. Mit „Abgeben“ wird die Liste abgeschlossen; danach können Modulverwalter sie weiterhin bearbeiten. Abgegebene Listen zählen im Stundennachweis und Jahresbericht, Entwürfe nicht.
@@ -893,7 +915,7 @@ Das Modul „Anwesenheit“ führt eigenständige Listen für Übungen, Dienste 
 - **PDF und E-Mail:** Eine Liste kann als PDF geöffnet und per E-Mail versendet werden. Als Empfänger gelten die Adressen der einzelnen Liste, sonst die unter **Admin → Anwesenheit → Einstellungen** hinterlegten Standardadressen. Nur globale Admins ändern diesen instanzweiten Standard; Verwalter sehen ihn schreibgeschützt. Ein Versandfehler verhindert nicht, dass die Liste gespeichert bleibt.
 - **Vorlagen:** Unter **Admin → Anwesenheit → Vorlagen** (`/admin/anwesenheit/vorlagen`) können Verwalter Vorlagen anlegen und bearbeiten. Eine Vorlage übernimmt Angaben als Startwerte für neue Listen; spätere Änderungen an der Vorlage ändern keine bereits angelegten Listen.
 - **Zugriff:** Kameraden mit Modulzugang erstellen eigene Listen und bearbeiten ihre Entwürfe. Im bisherigen Rollenmodell verwalten `verwalter` und zuständige Standort-Admins die Listen und Vorlagen. Mit dem optionalen Anwesenheitsadapter (`LOCATIONS_SCOPED_ROLE_MODULES=anwesenheit`) benötigen Nicht-Admins dafür stattdessen eine gültige Rolle `verwalter` am jeweiligen Zielstandort; eine Rolle an einem anderen Standort reicht nicht. Globale Admins behalten sämtliche Datenzugriffe. Die Vorbereitung der Umstellung steht unter [Locations](#locations-im-detail).
-- **Offline:** Bei aktivierter Offline-Erweiterung können Titel, Art, Zeiten, Leitung, Gästezahl und Teilnehmendenauswahl als lokaler Entwurf wiederhergestellt werden. Standortwahl, Notizen, Empfänger und Anhänge werden nicht gespeichert. Der Entwurf muss nach dem Wiederherstellen geprüft und regulär abgesendet werden; er wird nicht automatisch synchronisiert. Siehe [Offline und PWA](#offline-und-pwa-im-detail).
+- **Offline:** Bei aktivierter Offline-Funktion können Titel, Art, Zeiten, Leitung, Gästezahl und Teilnehmendenauswahl als lokaler Entwurf wiederhergestellt werden. Standortwahl, Notizen, Empfänger und Anhänge werden nicht gespeichert. Der Entwurf muss nach dem Wiederherstellen geprüft und regulär abgesendet werden; er wird nicht automatisch synchronisiert. Siehe [Offline und PWA](#offline-und-pwa-im-detail).
 
 Ausführliche technische Angaben zu Rechtevergabe, Standortbezug und Datenspeicherung stehen in der [Dokumentation Anwesenheit](docs-extended/ANWESENHEIT.md).
 
@@ -927,12 +949,12 @@ Nicht verfügbar sind WebDAV, Desktop-Synchronisierung, Offline-Bearbeitung und 
 
 ![Screenshot: Locations – Standorte im Admin-Bereich](docs-extended/screenshots/locations/standorte.png)
 
-Die Locations-Erweiterung ergänzt ausgewählte Datensätze um einen Standort. Sie ist standardmäßig aktiv; `LOCATIONS_ENABLED=false` schaltet Standortverwaltung und Standortbegrenzung ab. Standorte sind eine organisatorische Abgrenzung, keine vollständige Mandantentrennung.
+Das Modul Locations ergänzt ausgewählte Datensätze um einen Standort. Es ist standardmäßig aktiv; `LOCATIONS_ENABLED=false` schaltet Standortverwaltung und Standortbegrenzung ab. Standorte sind eine organisatorische Abgrenzung, keine vollständige Mandantentrennung.
 
 - **Standorte anlegen:** Der globale Admin öffnet **Admin → Standorte** und legt die benötigten Standorte an. Die Migration erzeugt bereits einen Hauptstandort; mindestens ein Standort muss bestehen bleiben. Vorhandene Datensätze werden bei der Migration diesem Standort zugeordnet.
 - **Mitglieder und Zuständigkeiten:** Auf der Standortseite Mitglieder zuordnen und bei Bedarf Standort-Admins festlegen. Ein Mitglied kann einem oder mehreren Standorten zugeordnet werden. Ein Standort-Admin darf nur den eigenen Standort verwalten; globale Admins können alle Standorte einsehen und ändern.
-- **Fahrzeuge und Ausrüstung:** Auf der Standortseite Fahrzeuge und Ausrüstung dem Standort zuweisen. Für die von der Erweiterung unterstützten Datensätze filtern Listen und Abfragen automatisch auf die Standorte, zu denen das angemeldete Mitglied gehört.
-- **Standort auswählen:** Auf angemeldeten App-Seiten steht unter der Kopfzeile der **Standort für neue Datensätze**. Bei mehreren aktiven berechtigten Standorten lässt er sich mit Auswahl und **Standort übernehmen** auch ohne JavaScript wechseln; der bestehende Wechsel im Admin-Menü bleibt erhalten. Die Auswahl ist eine Vorbelegung, kein zusätzlicher Zugriff und kein Filter für sämtliche Daten. Globale Admins behalten ihre standortübergreifenden Rechte. Entzogene oder inaktive Ziele werden nicht angeboten; ohne aktiven berechtigten Standort weist die Anzeige darauf hin und das Anlegen standortbezogener Daten wird abgewiesen, statt stillschweigend den Hauptstandort zu verwenden. Bei ausgeschalteter Locations-Erweiterung erscheint der Bereich nicht.
+- **Fahrzeuge und Ausrüstung:** Auf der Standortseite Fahrzeuge und Ausrüstung dem Standort zuweisen. Für die vom Modul unterstützten Datensätze filtern Listen und Abfragen automatisch auf die Standorte, zu denen das angemeldete Mitglied gehört.
+- **Standort auswählen:** Auf angemeldeten App-Seiten steht unter der Kopfzeile der **Standort für neue Datensätze**. Bei mehreren aktiven berechtigten Standorten lässt er sich mit Auswahl und **Standort übernehmen** auch ohne JavaScript wechseln; der bestehende Wechsel im Admin-Menü bleibt erhalten. Die Auswahl ist eine Vorbelegung, kein zusätzlicher Zugriff und kein Filter für sämtliche Daten. Globale Admins behalten ihre standortübergreifenden Rechte. Entzogene oder inaktive Ziele werden nicht angeboten; ohne aktiven berechtigten Standort weist die Anzeige darauf hin und das Anlegen standortbezogener Daten wird abgewiesen, statt stillschweigend den Hauptstandort zu verwenden. Bei ausgeschaltetem Modul Locations erscheint der Bereich nicht.
 - **Standort-Admin im Admin-Bereich:** Standort-Admins gelangen in ihren begrenzten Verwaltungsbereich. Sie können dort Standortname, Mitglieder und zugehörige Fahrzeuge/Ausrüstung pflegen. Globale Core-Adminseiten bleiben globalen Admins vorbehalten.
 - **Standort-Modulrollen (gestufter Rollout):** Nur globale Admins vergeben unter **Admin → Standorte → Standort bearbeiten → Standort-Modulrollen und Verlauf** Rollen je Person, Modul und Standort mit Begründung und optionalem Ablauf; Entzüge bleiben im Verlauf erhalten. Eine Zuweisung ohne Fachrolle erlaubt nur den Moduleinstieg. Standardmäßig bleiben die bisherigen Modulregeln aktiv. Nach ausdrücklicher Vorbereitung aktiviert `LOCATIONS_SCOPED_ROLE_MODULES=anwesenheit,mitteilungen` die zielbezogenen Adapter für diese beiden Module; auch einzeln aktivierbar. Alte globale Rollen werden dann nicht als Ersatz für fehlende Standort-Verwaltungsrollen verwendet; andere Fachmodule werden dadurch noch nicht umgestellt.
 - **Persönliche Kleiderkammerrechte (separater Opt-in):** `LOCATIONS_CLOTHING_PERSONAL_ENABLED=true` verwendet ausdrücklich je Standort vergebene persönliche Kleiderwartrechte statt alter globaler Kleiderwartrollen. Reine Mengenbestandsrechte bleiben getrennt. Persönliche Größen sind ein gemeinsames Profil des Mitglieds; einzelne Ausgaben und Nachrichten benötigen zusätzlich eine passende bekannte Artikel-/Bestandsherkunft und Empfängermitgliedschaft am konkreten Quellstandort. Es werden weder alte Ausgaben einem heutigen Standort zugerechnet noch Rollen automatisch übertragen. Allgemeine Mitgliedsnotizen, Pflegehistorien und das Abschließen einer Einzelteilwäsche mit Behandlungseintrag bleiben in diesem Modus globalen Admins vorbehalten. Globale Admins behalten alle Rechte; Mitglieder behalten die eigene Selbstbedienung, jedoch nach Rückgabe kein dauerhaftes Recht auf den aktuellen Inventardatensatz. Voraussetzungen, Grenzen und Aktivierung: [personenbezogene Kleiderkammerrechte](docs-extended/LOCATIONS.md#personenbezogene-kleiderkammerrechte-gesonderter-rollout).
@@ -948,14 +970,18 @@ Die Locations-Erweiterung ergänzt ausgewählte Datensätze um einen Standort. S
 - **Lagerumbuchungen und historische Korrekturvermerke:** Die geschützte Betreiberkonsole bietet `locations:transfer-clothing-stock` für atomare, unveränderlich journalisierte Umbuchungen mit ausdrücklichen Rechten an Quelle und Ziel. Gegenbuchungen ersetzen das Bearbeiten alter Buchungen; ein UUID-Schlüssel verhindert doppelte Ausführung. `locations:correct-clothing-history` ergänzt ausschließlich für abgeschlossene Mengenausgaben einen belegten Korrekturvermerk nach Adminprüfung, Vorschau und ausdrücklicher Bestätigung. Originalherkunft, damalige Rücknahme und Mengen werden dabei nicht geändert. Voraussetzungen, Pflichtoptionen, Verlauf und Grenzen: [Umbuchungen und historische Korrekturvermerke](docs-extended/LOCATIONS.md#kleiderkammer-umbuchungen-und-historische-korrekturvermerke-p4).
 - **Herkunftsbestand bei Mengenausgaben:** Bei installierter optionaler Herkunftsspalte speichert die reguläre Ausgabe den tatsächlich belasteten Bestand. Rücknahmen füllen genau diesen Bestand auf, auch nach Katalogänderungen oder Abschalten von Locations. Alte Ausgaben ohne Herkunftsverweis werden keinem Lager geraten zugeordnet: Mehrere passende Bestände führen zum atomaren Abbruch. Es gibt keinen automatischen Backfill. Details: [herkunftsgebundene Mengenausgaben](docs-extended/LOCATIONS.md#kleiderkammer-herkunftsgebundene-mengenausgaben-p4).
 - **Optionaler Standortschutz für Mengenbestand:** `LOCATIONS_CLOTHING_STOCK_ENABLED=true` verlangt ausdrücklich vergebene Bestandsrechte je Standort. Die reine Rolle „Mengenbestand“ erlaubt Bestandsansicht und Stückzahlkorrektur, aber keine persönlichen Größen, Ausgabehistorien oder sonstige Kleiderkammer-Verwaltung. Mengenausgaben brauchen zusätzlich die persönliche Verwaltungsberechtigung nach dem jeweils aktivierten Personenadapter. Unzugeordnete Bestände, historische Rücknahmen ohne Herkunft und pauschale Datenübertragungen bleiben globalen Admins vorbehalten; diese behalten sämtliche Rechte, dürfen aber keine mehrdeutigen Lagerziele umgehen. Standardmäßig aus, keine vollständige Mehrstandort-Freigabe. Einrichtung und Grenzen: [Mengenbestandsadapter](docs-extended/LOCATIONS.md#kleiderkammer-optionaler-mengenbestandsadapter).
-- **Gemeinsame Datensätze:** Der allgemeine Standortscope lässt Datensätze ohne Standort (`NULL`) weiterhin gemeinsam sichtbar. Fachliche Regeln können dies enger begrenzen: Anwesenheitslisten und -vorlagen ohne Standort bleiben bei aktiver Locations-Erweiterung globalen Admins zur Prüfung vorbehalten. Für vertrauliche Daten einen geprüften Standort verwenden; NULL ist keine allgemeine Freigabe.
+- **Gemeinsame Datensätze:** Der allgemeine Standortscope lässt Datensätze ohne Standort (`NULL`) weiterhin gemeinsam sichtbar. Fachliche Regeln können dies enger begrenzen: Anwesenheitslisten und -vorlagen ohne Standort bleiben bei aktivem Modul Locations globalen Admins zur Prüfung vorbehalten. Für vertrauliche Daten einen geprüften Standort verwenden; NULL ist keine allgemeine Freigabe.
 - **Grenzen:** Die Abgrenzung gilt für die konfigurierten Modelle, darunter Mitglieder, Gruppen, Fahrzeuge, Ausrüstung, Kleiderkammerartikel, Einsatzberichte, Mängel und Kalendertermine. Direkte `DB::table()`-Abfragen umgehen den Eloquent-Scope; eindeutige Kennungen bleiben global. Nicht jedes Core-Formular bietet eine Standortauswahl. Deshalb ist Locations kein Ersatz für eine vollständige Mandantentrennung oder zusätzliche Datenschutzprüfung.
 
 Die Liste der begrenzten Modelle und weitere Hinweise zu Migration und Weiterentwicklung stehen in der [Locations-Dokumentation](docs-extended/LOCATIONS.md).
 
+## Übergreifende Funktionen
+
+Diese Funktionen begleiten die Module: Sie haben keine eigene Fachmodul-Kachel und werden über ihre jeweiligen Einstellungen konfiguriert.
+
 ### Offline und PWA im Detail
 
-WehrPortal ist installierbar und zeigt bei fehlender Verbindung eine Offline-Seite. Die Offline-Erweiterung ergänzt dies um lokale Entwürfe für ausdrücklich gekennzeichnete Formulare. `OFFLINE_ENABLED=false` deaktiviert die Offline-Statusanzeige und Entwürfe, nicht aber das Manifest, den Root-Service-Worker oder die Offline-Fallback-Seite.
+WehrPortal ist installierbar und zeigt bei fehlender Verbindung eine Offline-Seite. Die Offline-Funktion ergänzt dies um lokale Entwürfe für ausdrücklich gekennzeichnete Formulare. `OFFLINE_ENABLED=false` deaktiviert die Offline-Statusanzeige und Entwürfe, nicht aber das Manifest, den Root-Service-Worker oder die Offline-Fallback-Seite.
 
 - **Offline-Status:** Der Statusbereich zeigt, ob das Gerät verbunden ist und wie viele lokale Entwürfe gespeichert sind. „Jetzt synchronisieren“ aktualisiert den Service Worker und den Entwurfsstatus; die Eingaben werden dabei nicht an den Server gesendet.
 - **Wasserkarte:** Im Formular einer Löschwasserquelle werden ausdrücklich markierte Felder – darunter Art, Nummer, Lage, Koordinaten, Durchfluss, Druck, Nennweite, Inhalt, Saughöhe, Betreiber, Prüfintervall und Kartenstatus – lokal gesichert. Notizen, Dateien und nicht markierte Felder sind nicht Teil des Entwurfs.
@@ -968,7 +994,7 @@ Es gibt keine allgemeine Offline-Synchronisierung, keinen automatischen Versand 
 
 ### OIDC / Single Sign-On im Detail
 
-Die OIDC-Erweiterung ergänzt den bisherigen Login per E-Mail-Link um die Anmeldung an einem externen Identitätsanbieter (z. B. Keycloak). Sie nutzt Authorization Code mit PKCE. Der Anbieter muss öffentlich über HTTPS erreichbar sein. `OIDC_ENABLED=false` entfernt OIDC-Routen und Einstellungen; `OIDC_FORCE_DISABLED=true` schaltet den IdP-Login im Notfall ab und gibt den Link-Login wieder für alle frei.
+Die OIDC-Anmeldung ergänzt den Login per E-Mail-Link um die Anmeldung an einem externen Identitätsanbieter (z. B. Keycloak). Sie nutzt Authorization Code mit PKCE. Der Anbieter muss öffentlich über HTTPS erreichbar sein. `OIDC_ENABLED=false` entfernt OIDC-Routen und Einstellungen; `OIDC_FORCE_DISABLED=true` schaltet den IdP-Login im Notfall ab und gibt den Link-Login wieder für alle frei.
 
 1. **Identitätsanbieter vorbereiten:** In Keycloak einen OpenID-Connect-Client anlegen, Client Authentication einschalten und nur den Standard Flow aktivieren. In WehrPortal unter **Admin → Single Sign-On (OIDC)** die exakte Redirect-URI ablesen und beim Client eintragen (zum Beispiel `https://wehrportal.example.com/auth/oidc/callback`, ohne Wildcards). Client-ID und Client-Secret bereithalten.
 2. **Benutzer im IdP vorbereiten:** Die Scopes `openid email profile` verwenden und sicherstellen, dass Benutzer eine bestätigte E-Mail (`email_verified`) haben. Der IdP muss Discovery-, Schlüssel- und Token-Endpunkte über eine öffentliche HTTPS-Adresse bereitstellen.
@@ -989,6 +1015,30 @@ Nicht umgesetzt sind RP-initiated Logout und die Zuordnung von IdP-Gruppen oder 
 
 ## Betrieb und Entwicklung
 
+### Docker-Images und Releases
+
+Fertige Images werden als [GitHub Package `wehrportal`](https://github.com/TimUx/WehrPortal/pkgs/container/wehrportal) in der **GitHub Container Registry** veröffentlicht:
+
+- **Release-Version:** `ghcr.io/timux/wehrportal:v0.9.5.5` (Beispiel; nur tatsächlich veröffentlichte Tags verwenden).
+- **Letzter stabiler Release:** `ghcr.io/timux/wehrportal:latest`. Für Produktion einen festen Versions-Tag bevorzugen.
+- **Auslöser:** Ein Versions-Tag wie `v0.9.5.5` oder ein in GitHub veröffentlichter Release startet den Release-Workflow. Der Tag muss zur Version in `config/app.php` passen. Nach Tests, Sicherheitsprüfungen und Image-Scan wird das Image veröffentlicht. Beim Tag-Push legt der Workflow anschließend den GitHub Release an; bei einem bereits veröffentlichten Release bleiben dessen Titel, Hinweise und Vorabrelease-Status erhalten. Vorabreleases aktualisieren `latest` nicht.
+- **Keine Images bei normalen Commits:** Pushes und Pull Requests nach `main` prüfen den Code, veröffentlichen aber kein Image. Der bisherige Schalter `PUBLISH_IMAGES` ist nicht mehr nötig. Es gibt weiterhin kein automatisches Produktionsdeployment.
+
+Die normale `docker-compose.yml` nutzt für App und Worker das Registry-Image. In `.env` legt `WEHRPORTAL_VERSION` die Version fest; ohne Angabe wird `v0.9.5.5` verwendet. Nach Einrichtung von Anwendungsschlüssel, Datenbankpasswort und Mailversand:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+Ein lokaler Build ist nur mit der zusätzlichen `docker-compose.build.yml` aktiv:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml up --build -d
+```
+
+Nach der ersten Veröffentlichung das Package in GitHub auf **Public** stellen, damit es ohne Registry-Anmeldung geladen werden kann. Private Packages benötigen ein Login mit `read:packages`. Der Workflow verwendet `GITHUB_TOKEN` mit `packages: write`; ein zusätzliches Registry-Secret ist nicht erforderlich. [Compose-Einrichtung, persistente Daten und Updates](handbuch/INSTALLATION.md#mit-docker-compose-starten).
+
 ### Tech-Stack
 
 | Bereich    | Technologie                                          |
@@ -1001,6 +1051,8 @@ Nicht umgesetzt sind RP-initiated Logout und die Zuordnung von IdP-Gruppen oder 
 | Deployment | Docker (serversideup/php), GitHub Actions, Coolify   |
 
 ### Installation
+
+Der **[Installationsguide](handbuch/INSTALLATION.md)** führt durch Voraussetzungen, Produktions- und Entwicklungsbetrieb, Abnahme, Sicherung und Updates. Die folgende Serveranleitung beschreibt den konkreten Weg mit UpCloud und Coolify.
 
 Diese Anleitung bringt WehrPortal auf einen eigenen Server: eine virtuelle Maschine bei **UpCloud**, darauf **Coolify** als Verwaltungsoberfläche, darin eine **PostgreSQL-Datenbank** und die App mit eigener Domain und HTTPS. Programmieren muss dafür niemand; gebraucht werden ein UpCloud-Konto, eine Domain (bzw. Zugriff auf die DNS-Einträge der Wehr-Domain), ein Postfach zum Versenden der Mails und etwa eine Stunde Zeit.
 
@@ -1081,17 +1133,19 @@ Unter der Datenbank steht die **interne Verbindung** (Postgres URL, *internal*).
 
 Die Konfiguration bezieht sich ausschließlich auf WehrPortal.
 
-> **Image-Verfügbarkeit:** `ghcr.io/timux/wehrportal` wird erst veröffentlicht, wenn im Repository `PUBLISH_IMAGES=true` gesetzt wurde und CI beziehungsweise ein passender Release-Tag erfolgreich durchgelaufen ist. Kein Workflow löst ein Deployment aus. Bis zur ersten Veröffentlichung aus `https://github.com/TimUx/WehrPortal.git` selbst bauen (`docker compose build`). Verwende keine Images anderer Repositories als Ersatz.
+> **Image-Verfügbarkeit:** Der Release-Workflow veröffentlicht `ghcr.io/timux/wehrportal` nach erfolgreichen Prüfungen mit dem passenden Versions-Tag. Vor dem Deployment den erfolgreichen Lauf und das vorhandene [Package](https://github.com/TimUx/WehrPortal/pkgs/container/wehrportal) prüfen. Nach der ersten Veröffentlichung das Package für anonyme Downloads auf **Public** stellen. Falls bewusst lokal gebaut werden soll, die zusätzliche `docker-compose.build.yml` verwenden. Kein Workflow löst ein Deployment aus; keine Images anderer Repositories als Ersatz verwenden.
 
 Im selben Projekt **+ New → Docker Image**:
 
 | Feld | Wert |
 |---|---|
 | Image | `ghcr.io/timux/wehrportal` |
-| Tag | eine tatsächlich veröffentlichte feste Version aus den [WehrPortal-Releases](https://github.com/TimUx/WehrPortal/releases), z. B. `v0.9.5.5`, sobald vorhanden. `latest` ist für Test-Instanzen gedacht. |
+| Tag | eine tatsächlich veröffentlichte feste Version aus den [WehrPortal-Releases](https://github.com/TimUx/WehrPortal/releases), z. B. `v0.9.5.5`. `latest` folgt dem letzten stabilen Release, ist aber nicht fest gepinnt. |
 | Ports Exposes | `8080` |
 | Domains | `https://wehrportal.ff-musterstadt.de` (mehrere Adressen mit Komma trennen) |
 | Health Check | Pfad `/up`, Port `8080` |
+
+**Persistenten Speicher einrichten:** In Coolify ein dauerhaftes Volume für `/var/www/html/storage/app` anlegen und für den App-Benutzer schreibbar einbinden. Insbesondere das Modul Dateien legt seine Inhalte dort unter `private/dateien` ab. Datenbank und diesen Dateispeicher immer zusammen sichern; ein Redeploy darf ihn nicht ersetzen.
 
 **Noch nicht deployen** – erst die Umgebungsvariablen eintragen (**Environment Variables**, am bequemsten über **Developer view**):
 
@@ -1151,19 +1205,21 @@ Jetzt **Deploy** klicken. Coolify lädt das Image, die App legt beim ersten Star
 
 Updates kommen ausschließlich aus den [WehrPortal-Releases](https://github.com/TimUx/WehrPortal/releases) beziehungsweise dem eigenständigen `main`-Branch. Nur tatsächlich veröffentlichte Tags und Images verwenden; es gibt keinen automatischen Abgleich mit einem Basis-Repository.
 
-1. In Coolify bei der Datenbank **Backups → Backup Now** – vor jedem Update.
+1. Vor jedem Update einen konsistenten Sicherungsstand von Datenbank und App-Dateispeicher erstellen; Schreibzugriffe einschließlich automatisierter Änderungen währenddessen unterbinden. In Coolify bei der Datenbank **Backups → Backup Now** verwenden und den zugehörigen privaten Dateispeicher ebenfalls sichern. `APP_KEY` und Betriebs-/Umgebungskonfiguration getrennt geschützt aufbewahren.
 2. Bei der App den tatsächlich veröffentlichten WehrPortal-Tag im Format `v<Version>` setzen, **Save**, dann **Redeploy**.
 3. Datenbank-Änderungen laufen beim Start automatisch. Die Version steht im Admin-Bereich oben klein hinter dem Titel.
 
 **Wie oft?** Mindestens **monatlich**, und sofort, wenn ein Release als **Sicherheitsupdate** gekennzeichnet ist. Wer „Watch → Custom → Releases“ beim Repository einschaltet, bekommt jede neue Version per Mail.
 
-Zurück auf die vorige Version geht genauso über den alten Tag. Die Datenbank wird dabei nicht zurückgedreht; macht ein Update Probleme, das Backup aus Schritt 1 einspielen.
+Ein alter Image-Tag dreht die Datenbankmigrationen nicht zurück. Benötigt die vorige Version den alten Datenstand, den passenden Datenbank- und Dateisicherungsstand aus Schritt 1 gemeinsam wiederherstellen und den ursprünglichen `APP_KEY` beibehalten. Details: [Sichern und wiederherstellen](handbuch/INSTALLATION.md#sichern-und-wiederherstellen).
 
 #### 9. Sicherungen im Blick behalten
 
 | Was | Wo | Wie oft |
 |---|---|---|
 | Datenbank | Coolify → S3-Speicher | täglich |
+| App-Dateispeicher, insbesondere `storage/app/private/dateien` | persistentes App-Volume → geschützter externer Sicherungsspeicher, konsistent mit der Datenbank | täglich |
+| `APP_KEY` und Betriebs-/Umgebungskonfiguration | getrennt geschützter Sicherungsspeicher | bei Einrichtung und jeder Änderung |
 | ganzer Server | UpCloud *Simple Backups* | täglich |
 | Coolify-Einstellungen | Coolify → **Settings → Backup** → S3-Speicher | täglich |
 
@@ -1171,12 +1227,13 @@ Einmal im Quartal ausprobieren, ob sich ein Datenbank-Backup wirklich einspielen
 
 ### Konfiguration
 
-Alle Einstellungen laufen über Umgebungsvariablen (in Coolify unter **Environment Variables**). Die wichtigsten:
+Die technischen Basiseinstellungen laufen über Umgebungsvariablen (in Coolify unter **Environment Variables**). Wehrname, Logo und viele Moduleinstellungen werden dagegen in der Admin-Oberfläche gepflegt. Die wichtigsten Umgebungsvariablen:
 
 | Variable                 | Beschreibung                                            |
 |--------------------------|---------------------------------------------------------|
 | `APP_URL`                | Öffentliche URL. Alle Links in Mails (Login, Einladung) werden daraus gebaut, nie aus dem Host der Anfrage. Mit `https://` sind die Session-Cookies automatisch `Secure`. |
 | `DB_*`                   | Zugangsdaten für PostgreSQL                             |
+| `WEHRPORTAL_VERSION`      | Von Docker Compose verwendeter Release-Tag aus GHCR; Standard `v0.9.5.5`. App und Worker verwenden dieselbe Version. |
 | `MAIL_*`                 | SMTP-Server für alle Mails. Für Port 465 gilt `MAIL_SCHEME=smtps`. |
 | `ADMIN_EMAILS`           | Kommagetrennte Adressen, die beim Container-Start als Admin angelegt bzw. aktiviert werden |
 | `DISPLAY_TOKEN`          | Geheimer Schlüssel für den Wachen-Monitor ohne Login (`/monitor/<Schlüssel>`). Leer bedeutet nur für Admins. |
@@ -1192,9 +1249,9 @@ Alle Mails werden sofort verschickt, ein Queue-Worker ist nicht nötig. Der Lara
 Wie WehrPortal gegen Lücken abgesichert wird und wie man eine meldet, steht in [SECURITY.md](SECURITY.md). Kurz:
 
 - **Updates:** Dependabot schlägt jede Woche Updates aller Abhängigkeiten vor (PHP, JavaScript, Docker-Basis-Image, GitHub-Actions); Sicherheitsupdates sofort. Jede Änderung läuft durch alle Tests, bevor ein Image entsteht.
-- **Prüfungen** (Workflow „WehrPortal CI“): auf Pushes und Pull Requests nach `main` laufen Tests (PostgreSQL 18), `composer audit`, `npm audit`, Larastan (Level 5), Gitleaks sowie eigene Dateien-Prüfschritte. Nur mit `PUBLISH_IMAGES=true` wird bei Push nach `main` ein Image gebaut und vor Veröffentlichung auf kritische Schwachstellen mit verfügbarer Korrektur gescannt; Pull Requests veröffentlichen kein Image. Kein Workflow löst ein Deployment aus.
-- **Wöchentlich** (Workflow „WehrPortal Security“): Composer- und npm-Abhängigkeitsaudits sowie nach Aktivierung der Image-Publikation ein Scan von `ghcr.io/timux/wehrportal:latest` auf kritische und hohe Schwachstellen. Funde stehen im Security-Tab des Repositorys.
-- **CI:** „WehrPortal CI“ führt die vollständige Pest-Suite einmal parallel aus, kompiliert Blade, baut die Frontend-Assets und prüft Composer/npm, Larastan, den ergänzenden Dateien-Check und Gitleaks. Release-Tags durchlaufen dieselben Prüfungen; Images werden vor der Veröffentlichung mit Trivy geprüft. `PUBLISH_IMAGES=true` bleibt für jede Image-Veröffentlichung erforderlich. Es gibt keinen produktiven Deployment-Webhook. Der zusätzliche optionale KI-Review entfällt zugunsten dieser reproduzierbaren Prüfungen. Wöchentliche Dependency-/Image-Scans entdecken später bekannt gewordene Lücken; Screenshots bleiben manuell ausführbar.
+- **Prüfungen** (Workflow „WehrPortal CI“): auf Pushes und Pull Requests nach `main` laufen Tests (PostgreSQL 18), `composer audit`, `npm audit`, Larastan (Level 5), Gitleaks sowie eigene Dateien-Prüfschritte. Diese Läufe veröffentlichen keine Images; dafür ist der Release-Workflow zuständig. Kein Workflow löst ein Deployment aus.
+- **Wöchentlich** (Workflow „WehrPortal Security“): Composer- und npm-Abhängigkeitsaudits sowie ein Scan des veröffentlichten `ghcr.io/timux/wehrportal:latest` auf kritische und hohe Schwachstellen. Vor dem ersten Image kann dieser Scan noch nicht erfolgreich sein. Funde stehen im Security-Tab des Repositorys.
+- **Releases:** Versions-Tags und veröffentlichte GitHub Releases durchlaufen dieselben CI-Prüfungen. Erst danach wird das Image gebaut, mit Trivy auf kritische Schwachstellen mit verfügbarer Korrektur geprüft und nach GHCR übertragen. Es gibt keinen produktiven Deployment-Webhook. Wöchentliche Dependency-/Image-Scans entdecken später bekannt gewordene Lücken; Screenshots bleiben manuell ausführbar.
 - **Dependabot:** Wöchentliche, gruppierte Updates für Composer, npm (App und Playwright unter `tests/e2e`), Docker (Produktion und Devcontainer) und GitHub Actions mit begrenzter Zahl offener PRs. Größere Stack-Upgrades bei Composer/npm der App werden bewusst geplant. Im Repository `TimUx/WehrPortal` sind Sicherheitsmeldungen und automatische Sicherheitsupdate-PRs zusätzlich aktiviert. Bei einer eigenen Repository-Kopie separat in GitHub aktivieren; die Konfigurationsdatei allein schaltet diesen Dienst nicht ein.
 - **In der App:** Security-Header auf jeder Antwort (`X-Content-Type-Options`, `X-Frame-Options` – außer dem öffentlichen Kalender zum Einbetten –, `Referrer-Policy`, `Permissions-Policy`, HSTS unter HTTPS und eine Content-Security-Policy, vorerst im Beobachtungsmodus „Report-Only“). Hochgeladene Dateien werden mit festem Dateityp ausgeliefert, nur PDFs und Fotos öffnen im Browser, alles andere wird heruntergeladen. CSV-Exporte entschärfen Zellen, die in Excel als Formel laufen würden. Externe Kalender lassen sich nur von öffentlichen Adressen abrufen. Links in Mails nehmen ihre Adresse immer aus `APP_URL`. Session-Cookies sind unter HTTPS automatisch `Secure`.
 - **Einladungslinks:** Den Login-Link als QR-Code oder zum Kopieren zeigt die Personalverwaltung nur für Kameraden, die sich noch nie angemeldet haben (Admins für jeden); alle anderen bekommen die Einladung per Mail an ihre eigene Adresse. Mails mit Login- oder Aktionslinks werden im Mail-Protokoll ohne Inhalt gespeichert.
