@@ -17,7 +17,7 @@ Dieser Guide richtet sich an Betreiber einer **neuen WehrPortal-Instanz**. Es gi
 
 ## Voraussetzungen
 
-- **Server und HTTPS:** Für das dokumentierte Setup mit Coolify mindestens 2 CPU-Kerne, 4 GB RAM und 50 GB Speicher vorsehen. Eine eigene Domain und Zugriff auf deren DNS-Einträge werden benötigt.
+- **Server und HTTPS:** Für den Betrieb mit Docker Compose einen Linux-VPS bei einem Anbieter eigener Wahl mit mindestens 2 CPU-Kernen, 4 GB RAM und 50 GB Speicher vorsehen. Benötigt werden SSH-Zugang mit Administratorrechten, Docker Engine mit Compose-Plugin, eine eigene Domain mit Zugriff auf deren DNS-Einträge und ein HTTPS-Reverse-Proxy.
 - **PostgreSQL:** Auch für Entwicklung und Tests verpflichtend; SQLite und MySQL werden nicht unterstützt. CI verwendet PostgreSQL 18, die mitgelieferte lokale Compose-Datei PostgreSQL 16. Die Datenbank muss das Anlegen von `btree_gist` erlauben; die Migrationen benötigen diese Erweiterung zum Schutz vor Doppelbuchungen.
 - **Mailversand:** Ein erreichbarer SMTP-Server mit Zugangsdaten und passender Absenderadresse. Ohne Mailversand funktioniert die reguläre Anmeldung per E-Mail-Link nicht.
 - **Geheimnisse:** Ein dauerhafter `APP_KEY`, Datenbank- und SMTP-Zugangsdaten sowie mindestens eine eigene Admin-Adresse. Diese Angaben nicht in Git speichern.
@@ -27,12 +27,12 @@ Für eine Installation ohne fertiges Image oder für Entwicklung werden zusätzl
 
 ## Produktiv installieren
 
-Die vollständige Klick-für-Klick-Anleitung für **UpCloud → Coolify → PostgreSQL → WehrPortal** steht unter [Installation in der README](../README.md#installation). Ein anderer Anbieter ist möglich; entscheidend sind dieselben Laufzeit-, Speicher- und Sicherheitsanforderungen.
+Die vollständige Schritt-für-Schritt-Anleitung für **VPS → Docker Compose → HTTPS → WehrPortal** steht unter [Installation in der README](../README.md#installation). Sie ist unabhängig vom Hosting-Anbieter und benötigt keine Verwaltungsplattform.
 
-1. **Server vorbereiten:** Domain auf den Server zeigen lassen, HTTPS einrichten und nur notwendige Ports öffnen. PostgreSQL nicht öffentlich freigeben. Coolify selbst mit Zwei-Faktor-Anmeldung absichern.
-2. **Datenbank anlegen:** Eine eigene PostgreSQL-Datenbank mit eigenem Benutzer und starkem Passwort erstellen. Interne Verbindungsdaten notieren und regelmäßige Sicherungen einrichten.
+1. **Server vorbereiten:** Docker Engine und Compose-Plugin installieren, Domain auf den Server zeigen lassen, HTTPS-Reverse-Proxy einrichten und nur notwendige Ports öffnen. PostgreSQL und Redis nicht öffentlich freigeben.
+2. **Datenbank vorbereiten:** Compose stellt PostgreSQL intern bereit und initialisiert die Datenbank beim ersten Start. Ein starkes `DB_PASSWORD` setzen und regelmäßige Sicherungen einrichten. Bei einer bewusst extern betriebenen Datenbank die Verbindungswerte in der Compose-Datei für App und Worker entsprechend anpassen.
 3. **Version wählen:** Nur tatsächlich veröffentlichte Tags aus den [WehrPortal-Releases](https://github.com/TimUx/WehrPortal/releases) verwenden. Der Release-Workflow veröffentlicht nach erfolgreichen Tests und Image-Scan `ghcr.io/timux/wehrportal:<Release-Tag>`, zum Beispiel `v0.9.5.5`. `latest` folgt stabilen Releases, nicht dem Entwicklungsstand auf `main`. Vor dem Deployment den erfolgreichen Workflow und das vorhandene Package prüfen. Keine Images anderer Projekte als Ersatz verwenden.
-4. **App konfigurieren:** Die [Umgebungsvariablen der Serveranleitung](../README.md#6-wehrportal-anlegen) übernehmen und alle Platzhalter ersetzen. Besonders wichtig sind `APP_ENV=production`, `APP_DEBUG=false`, die öffentliche HTTPS-Adresse als `APP_URL`, `APP_KEY`, `DB_*`, `MAIL_*` und `ADMIN_EMAILS`. Für SMTP auf Port 465 gilt `MAIL_SCHEME=smtps`, auf Port 587 `MAIL_SCHEME=smtp`.
+4. **App konfigurieren:** Die [Umgebungsvariablen der Serveranleitung](../README.md#4-wehrportal-konfigurieren) übernehmen und alle Platzhalter ersetzen. Besonders wichtig sind die öffentliche HTTPS-Adresse als `APP_URL`, `APP_KEY`, `DB_PASSWORD`, `MAIL_*` und `ADMIN_EMAILS`. Compose setzt `APP_ENV=production`, `APP_DEBUG=false` und die interne Datenbankverbindung selbst. Für SMTP auf Port 465 gilt `MAIL_SCHEME=smtps`, auf Port 587 `MAIL_SCHEME=smtp`.
 5. **Speicher einbinden:** Im Produktionscontainer `/var/www/html/storage/app` dauerhaft und für den App-Benutzer schreibbar einbinden. Dort liegt unter anderem `private/dateien`. Ein Container ohne persistentes Volume ist für diese Dateiablage ungeeignet.
 6. **Starten:** Port `8080` an den Reverse-Proxy anbinden und `/up` als Health-Check verwenden. Mit `AUTORUN_ENABLED=true` laufen Migrationen beim Start. Der mitgelieferte Scheduler erledigt Erinnerungen und Aufräumarbeiten; für den synchronen Mailversand ist kein Queue-Worker erforderlich.
 7. **Ersten Admin anmelden:** Die Adresse aus `ADMIN_EMAILS` auf `/anmelden` eingeben, die Mail öffnen und die Anmeldung bestätigen. Danach mit dem [Admin-Guide](ADMIN.md#ersteinrichtung-in-sinnvoller-reihenfolge) fortfahren.
@@ -54,7 +54,8 @@ Die mitgelieferte `docker-compose.yml` lädt das fertige Release-Image aus **Git
 1. `docker-compose.yml` und `.env.example` aus dem gewünschten Release in ein eigenes Betriebsverzeichnis übernehmen; `.env.example` dort als `.env` speichern.
 2. In `.env` `WEHRPORTAL_VERSION` auf einen tatsächlich veröffentlichten Tag setzen. Einen einmaligen `APP_KEY` mit dem oben gezeigten Befehl sowie ein starkes `DB_PASSWORD` eintragen. Compose verweigert den Start ohne diese beiden Werte.
 3. `ADMIN_EMAILS`, die öffentliche `APP_URL` und die `MAIL_*`-Werte für euren SMTP-Server eintragen. Compose liest diese Werte aus `.env` und übergibt sie den Containern. Der Mailer ist ohne Konfiguration `log`, es werden dann keine Mails versendet.
-4. Images laden und die Dienste starten:
+4. Bei einem Reverse-Proxy direkt auf dem VPS im Dienst `app` die Portfreigabe `"8080:8080"` durch `"127.0.0.1:8080:8080"` ersetzen. Andernfalls veröffentlicht Docker die App auf allen Netzwerkschnittstellen. Für automatischen Wiederanlauf bei allen vier Diensten jeweils `restart: unless-stopped` auf derselben Ebene wie `image:` ergänzen.
+5. Images laden und die Dienste starten:
 
    ```bash
    docker compose pull
@@ -63,7 +64,7 @@ Die mitgelieferte `docker-compose.yml` lädt das fertige Release-Image aus **Git
    docker compose logs --tail=100 app
    ```
 
-5. `http://localhost:8080/up` am Server prüfen, davor einen HTTPS-Reverse-Proxy für die öffentliche Adresse einrichten und die erste Anmeldung testen.
+6. `http://127.0.0.1:8080/up` am Server prüfen, davor einen HTTPS-Reverse-Proxy für die öffentliche Adresse einrichten und die erste Anmeldung testen. Ein vollständiges Beispiel mit Caddy als Systemdienst steht unter [HTTPS-Reverse-Proxy einrichten](../README.md#6-https-reverse-proxy-einrichten).
 
 Die benannten Volumes speichern Datenbank, Redis und App-Dateien dauerhaft. **Nicht mit `docker compose down -v` löschen.** Ein geändertes `DB_PASSWORD` ändert das Passwort einer bereits initialisierten PostgreSQL-Datenbank nicht automatisch; bestehende Zugangsdaten koordiniert in Datenbank und Konfiguration ändern.
 
@@ -138,7 +139,7 @@ PDF-Exporte sind nützlich, ersetzen aber kein vollständiges Backup.
 
 1. Release-Hinweise und mögliche Betriebsänderungen lesen; Zielversion und vorhandene Wiederherstellungsmöglichkeit prüfen.
 2. Zusammengehörige Datenbank- und Dateisicherung erstellen und den bisherigen Image-Tag notieren.
-3. In Coolify den festen neuen Release-Tag setzen und erneut deployen. Mit Compose `WEHRPORTAL_VERSION` anpassen und `docker compose pull && docker compose up -d` ausführen. Bei ausdrücklich selbst gebautem Image den passenden Quellstand bauen. `APP_KEY` und persistente Volumes beibehalten.
+3. `WEHRPORTAL_VERSION` in `.env` anpassen und `docker compose pull && docker compose up -d` ausführen. Änderungen an der Compose-Datei des Releases mit der eigenen Konfiguration abgleichen; Loopback-Portbindung und Neustartregeln beibehalten. Bei ausdrücklich selbst gebautem Image den passenden Quellstand bauen. `APP_KEY` und persistente Volumes beibehalten.
 4. Start- und Migrationslogs auf Fehler prüfen. Danach Health-Check, Anmeldung, Mailversand und die von euch verwendeten Module kontrollieren.
 
 Ein Push nach `main` deployt keine produktive Instanz. Datenbankmigrationen laufen beim Containerstart; ein Wechsel zum alten Image macht diese Änderungen **nicht** rückgängig. Wenn ein Rollback die alte Datenstruktur benötigt, den dazu passenden Datenbank- und Dateistand wiederherstellen. Nicht blind nur den Image-Tag zurücksetzen.
