@@ -1,8 +1,8 @@
-# Erweiterungen von openwehr-extended
+# Erweiterungen von WehrPortal
 
-[Zur Hauptdokumentation](../README.md) · [Fork-Leitfaden](../FORK.md)
+[Zur Hauptdokumentation](../README.md) · [Migration und Betrieb](../MIGRATION.md)
 
-Die Erweiterungen ergänzen die 25 Module des Upstreams. Sie werden über den Erweiterungs-Provider geladen; ob ein Modul für Kameraden verfügbar ist, wird davon getrennt unter **Admin → Module** gesteuert. Die Umgebungsvariablen in der Tabelle schalten die jeweilige Erweiterung selbst ab, sofern nicht anders angegeben.
+Die Erweiterungen ergänzen die 25 Fachmodule. Sie werden über den Erweiterungs-Provider geladen; ob ein Modul für Kameraden verfügbar ist, wird davon getrennt unter **Admin → Module** gesteuert. Die Umgebungsvariablen in der Tabelle schalten die jeweilige Erweiterung selbst ab, sofern nicht anders angegeben.
 
 ## Inhalt
 
@@ -36,7 +36,7 @@ System-Admins legen Vereine unter **Admin → Vereine** an, ordnen jedem Verein 
 
 ![Screenshot: Hydrantenkontrolle – Jahreskontrollen](screenshots/hydrantenkontrolle/jahreskontrollen.png)
 
-Die Hydrantenkontrolle ist ein eigenes Fork-Modul für die jährliche Prüfung von Unterflurhydranten. Sie führt einen eigenen Bestand und ist unabhängig vom Modul **Wasserkarte & Hydranten**.
+Die Hydrantenkontrolle ist ein eigenes Modul für die jährliche Prüfung von Unterflurhydranten. Sie führt einen eigenen Bestand und ist unabhängig vom Modul **Wasserkarte & Hydranten**.
 
 ### Einrichtung und Rechte
 
@@ -52,7 +52,7 @@ Die Rolle **Hydrantenwart** sieht und bearbeitet nur Hydranten, deren Ort mit de
 
 Bereits vor dieser Erweiterung erfasste Hydranten haben zunächst keinen Ort. Ein übergreifender Bearbeiter muss ihnen einmalig den zutreffenden Ort zuweisen, bevor örtliche Hydrantenwarte sie sehen können.
 
-Bei aktivem **Locations** vor dem Erfassen den gewünschten Standort auswählen. Neue Hydranten und neue Jahreskontrollen gehören zum aktuellen Standort; **Öffnen / ergänzen** nimmt nur dessen aktive Hydranten am eigenen Ort auf. Sichtbare Jahre werden mit Standort angezeigt. Standortlose Datensätze bleiben nach dem Fork-Muster gemeinsam sichtbar; dies ist keine vollständige Mandantentrennung.
+Bei aktivem **Locations** vor dem Erfassen den gewünschten Standort auswählen. Neue Hydranten und neue Jahreskontrollen gehören zum aktuellen Standort; **Öffnen / ergänzen** nimmt nur dessen aktive Hydranten am eigenen Ort auf. Sichtbare Jahre werden mit Standort angezeigt. Standortlose Datensätze bleiben nach dem bisherigen Muster gemeinsam sichtbar; dies ist keine vollständige Mandantentrennung.
 
 ### Hydrantenbestand erfassen
 
@@ -155,4 +155,4 @@ Der PDF-Export verwendet die bereits vorhandene Dompdf-Bibliothek und benötigt 
 - Offline-Entwürfe bleiben lokal im Browser, laufen ab und müssen von der Person geprüft und regulär abgesendet werden. Es gibt keine automatische Formularsynchronisierung; siehe [Offline/PWA](OFFLINE.md).
 - Die Dateien-Roadmap trennt umgesetzte Meilensteine von offenem Ausbau; geplante Punkte sind keine verfügbaren Funktionen: [Dateien-Roadmap](DATEIEN-ROADMAP.md).
 - Eine Testinstallation mit Beispieldaten, Browser-Smoke-Test und aktuelle Screenshots erzeugt der Workflow **E2E Screenshots**; siehe [E2E-Test und Screenshots](SCREENSHOTS.md).
-- Für Fork-Updates, Image-Veröffentlichungen und die dokumentierten Eingriffe in Upstream-Dateien siehe den [Fork-Leitfaden](../FORK.md).
+- Für Updates, Image-Veröffentlichungen, Herkunft und die Übernahme bestehender Installationen siehe [Migration und Betrieb](../MIGRATION.md).

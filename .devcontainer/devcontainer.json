@@ -1,5 +1,5 @@
 {
-    "name": "openwehr",
+    "name": "WehrPortal",
     "dockerComposeFile": "docker-compose.yml",
     "service": "app",
     "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
@@ -11,7 +11,7 @@
     },
     "forwardPorts": [8000, 5173],
     "portsAttributes": {
-        "8000": { "label": "openwehr (php artisan serve)", "onAutoForward": "notify" },
+        "8000": { "label": "WehrPortal (php artisan serve)", "onAutoForward": "notify" },
         "5173": { "label": "Vite", "onAutoForward": "silent" }
     },
     "postCreateCommand": "bash .devcontainer/post-create.sh",

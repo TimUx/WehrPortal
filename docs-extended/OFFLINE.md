@@ -1,8 +1,8 @@
 # Offline und PWA
 
-[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Fork-Leitfaden](../FORK.md)
+[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Migration und Betrieb](../MIGRATION.md)
 
-openwehr hat bereits ein PWA-Manifest, eine Offline-Fallback-Seite und Push-Benachrichtigungen. Der Root-Service-Worker wird über `/sw.js` mit `Service-Worker-Allowed: /` ausgeliefert. Er zeigt bei fehlender Verbindung die Fallback-Seite und cached nur die Offline-Seite sowie öffentliche, versionierte statische Assets. Er cached keine Navigationen, angemeldeten Seiten, Login-, Admin- oder Livewire-Anfragen. Objektpläne sind die bewusst getrennte Ausnahme: ihr eigener Service Worker speichert Inhalte im Bereich `/objektplaene`.
+WehrPortal hat bereits ein PWA-Manifest, eine Offline-Fallback-Seite und Push-Benachrichtigungen. Der Root-Service-Worker wird über `/sw.js` mit `Service-Worker-Allowed: /` ausgeliefert. Er zeigt bei fehlender Verbindung die Fallback-Seite und cached nur die Offline-Seite sowie öffentliche, versionierte statische Assets. Er cached keine Navigationen, angemeldeten Seiten, Login-, Admin- oder Livewire-Anfragen. Objektpläne sind die bewusst getrennte Ausnahme: ihr eigener Service Worker speichert Inhalte im Bereich `/objektplaene`.
 
 ## Inhalt
 

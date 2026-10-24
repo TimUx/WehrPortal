@@ -1,10 +1,10 @@
 # Dateien
 
-[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Roadmap](DATEIEN-ROADMAP.md) · [Fork-Leitfaden](../FORK.md)
+[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Roadmap](DATEIEN-ROADMAP.md) · [Migration und Betrieb](../MIGRATION.md)
 
-Die Fork-Extension `extensions/Dateien/` ergänzt eine interne Dateiablage. Sie wird automatisch geladen, ist als Modul **standardmäßig ausgeschaltet** und benötigt keine Änderungen am Upstream.
+Die Erweiterung `extensions/Dateien/` ergänzt eine interne Dateiablage. Sie wird automatisch geladen und ist als Modul **standardmäßig ausgeschaltet**.
 
-Die Erweiterung hat keinen eigenen `DATEIEN_ENABLED`-Schalter: Sie wird geladen, wenn der Fork-Erweiterungs-Provider aktiv ist. Die Freischaltung des Moduls unter **Admin → Module** steuert den Kameradenzugang; sie ersetzt nicht die unten beschriebenen Rechte pro Ablage und Eintrag.
+Die Erweiterung hat keinen eigenen `DATEIEN_ENABLED`-Schalter: Sie wird geladen, wenn der Erweiterungs-Provider aktiv ist. Die Freischaltung des Moduls unter **Admin → Module** steuert den Kameradenzugang; sie ersetzt nicht die unten beschriebenen Rechte pro Ablage und Eintrag.
 
 ![Screenshot: Dateien – Ablagen](screenshots/dateien/bereiche.png)
 

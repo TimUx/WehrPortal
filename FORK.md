@@ -1,4 +1,11 @@
-# Fork-Leitfaden (openwehr-extended)
+# Historischer Fork-Leitfaden (openwehr-extended)
+
+> **Archiv, nicht mehr gültige Betriebsanweisung:** WehrPortal ist seit der
+> Repository-Migration ein eigenständiges Projekt. Der frühere Leitfaden bleibt
+> als Herkunfts- und Architekturaufzeichnung erhalten. Insbesondere
+> Upstream-Merges, Fork-Workflows, Release-Suffixe und die Beschränkung von
+> Core-Änderungen gelten nicht mehr. Aktuell: [Migration und Betrieb](MIGRATION.md)
+> und [README](README.md). Die nachfolgenden Befehle nicht für Updates verwenden.
 
 [Zur Hauptdokumentation](README.md) · [Erweiterungsindex](docs-extended/README.md)
 

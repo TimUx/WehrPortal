@@ -1,9 +1,9 @@
 name: E2E Screenshots
 
-# Fork: a full test installation with example data (Database\Seeders\ScreenshotSeeder), browser
+# A full test installation with example data (Database\Seeders\ScreenshotSeeder), browser
 # login via magic link and screenshots of every module (tests/e2e, Playwright), uploaded as the
 # artifact `screenshots`. Read-only: doubles as a smoke test before releases
-# (`uses: ./.github/workflows/screenshots.yml`); docs-screenshots.yml calls it on pushes to `extended`
+# (`uses: ./.github/workflows/screenshots.yml`); docs-screenshots.yml calls it manually on `main`
 # and commits the pictures to docs-extended/screenshots/. See docs-extended/SCREENSHOTS.md.
 on:
   workflow_dispatch:
@@ -76,7 +76,7 @@ jobs:
       - name: Start Application
         run: |
           PHP_CLI_SERVER_WORKERS=4 nohup php artisan serve --host=127.0.0.1 --port=8000 > storage/logs/serve.log 2>&1 &
-          for i in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             if curl -fsS -o /dev/null "$E2E_BASE_URL/anmelden"; then
               echo "App is up"
               exit 0

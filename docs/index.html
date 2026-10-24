@@ -3,33 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>openwehr – die Web-App für Freiwillige Feuerwehren</title>
-  <meta name="description" content="openwehr ist eine kostenlose Open-Source-Web-App für Freiwillige Feuerwehren: Einsatzbericht, Atemschutzüberwachung, Fahrzeugbuchung, Kleiderkammer, Kalender und mehr – für das Handy gemacht und auf dem eigenen Server.">
+  <meta name="robots" content="noindex, nofollow">
+  <title>WehrPortal – die Web-App für Freiwillige Feuerwehren</title>
+  <meta name="description" content="WehrPortal ist eine kostenlose Open-Source-Web-App für Freiwillige Feuerwehren: Einsatzbericht, Atemschutzüberwachung, Fahrzeugbuchung, Kleiderkammer, Kalender und mehr – für das Handy gemacht und auf dem eigenen Server.">
   <meta name="theme-color" content="#1B2645">
-  <meta property="og:title" content="openwehr – die Web-App für Freiwillige Feuerwehren">
+  <meta property="og:title" content="WehrPortal – die Web-App für Freiwillige Feuerwehren">
   <meta property="og:description" content="Ein gemeinsamer Kern und 23 Module, die jede Wehr einzeln einschaltet. Open Source, kostenlos, auf dem eigenen Server.">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://www.openwehr.de/">
   <meta property="og:locale" content="de_DE">
-  <meta property="og:site_name" content="openwehr">
-  <meta property="og:image" content="https://www.openwehr.de/og.png">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="openwehr – die Web-App für Freiwillige Feuerwehren, mit Handy-Ansicht der Startseite">
-  <meta name="twitter:card" content="summary_large_image">
-  <link rel="canonical" href="https://www.openwehr.de/">
+  <meta property="og:site_name" content="WehrPortal">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "name": "openwehr",
+    "name": "WehrPortal",
     "description": "Kostenlose Open-Source-Web-App für Freiwillige Feuerwehren: Einsatzbericht, Atemschutzüberwachung, Fahrzeugbuchung, Kleiderkammer und mehr.",
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web, Docker",
-    "url": "https://www.openwehr.de/",
-    "image": "https://www.openwehr.de/og.png",
+    "url": "https://github.com/TimUx/WehrPortal",
     "license": "https://www.gnu.org/licenses/agpl-3.0.html",
-    "codeRepository": "https://github.com/roberteinsle/openwehr",
+    "codeRepository": "https://github.com/TimUx/WehrPortal",
     "inLanguage": "de",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
     "author": { "@type": "Person", "name": "Robert Einsle" }
@@ -41,20 +34,27 @@
 <body>
   <header class="site-header">
     <div class="wrap header-inner">
-      <a class="brand" href="#top" aria-label="openwehr – zum Seitenanfang">
+      <a class="brand" href="#top" aria-label="WehrPortal – zum Seitenanfang">
         <img src="logo.svg" alt="" width="28" height="33">
-        <span>openwehr</span>
+        <span>WehrPortal</span>
       </a>
       <nav class="nav" aria-label="Seitennavigation">
         <a href="#module">Module</a>
         <a href="#einsatz">Im Einsatz</a>
         <a href="#installation">Installation</a>
-        <a class="nav-github" href="https://github.com/roberteinsle/openwehr">GitHub</a>
+        <a class="nav-github" href="https://github.com/TimUx/WehrPortal">GitHub</a>
       </nav>
     </div>
   </header>
 
   <main id="top">
+    <aside class="wrap">
+      <p>Projektseiten-Vorlage, noch nicht zur Veröffentlichung freigegeben.
+        Vor einem eigenen Webauftritt Betreiberangaben und Datenschutz ergänzen.
+        Herkunft und ursprüngliche Urheberschaft:
+        <a href="https://github.com/TimUx/WehrPortal/blob/main/MIGRATION.md">Migrations- und Lizenzhinweise</a>.
+      </p>
+    </aside>
     <section class="hero">
       <div class="wrap hero-inner">
         <div class="hero-text">
@@ -63,7 +63,7 @@
           <p class="lead">Ein gemeinsamer Kern und 23 Module, die jede Wehr einzeln einschaltet – vom Einsatzbericht über die Atemschutzüberwachung bis zur Kleiderkammer. Für das Handy gemacht, Anmeldung ohne Passwort, Oberfläche komplett auf Deutsch.</p>
           <div class="actions">
             <a class="button primary" href="#installation">Installieren</a>
-            <a class="button secondary" href="https://github.com/roberteinsle/openwehr">Quellcode auf GitHub</a>
+            <a class="button secondary" href="https://github.com/TimUx/WehrPortal">Quellcode auf GitHub</a>
           </div>
           <ul class="facts">
             <li><strong>20</strong> Module</li>
@@ -102,7 +102,7 @@
     <section class="section" id="warum">
       <div class="wrap">
         <h2>Gemacht für den Feuerwehralltag</h2>
-        <p class="section-lead">Keine Zettelwirtschaft, keine Excel-Listen in fünf Versionen, keine teure Branchensoftware: openwehr bündelt, was eine Wehr im Alltag und im Einsatz braucht.</p>
+        <p class="section-lead">Keine Zettelwirtschaft, keine Excel-Listen in fünf Versionen, keine teure Branchensoftware: WehrPortal bündelt, was eine Wehr im Alltag und im Einsatz braucht.</p>
         <div class="features">
           <article class="feature">
             <h3>Für das Handy gemacht</h3>
@@ -126,11 +126,11 @@
           </article>
           <article class="feature">
             <h3>Sicherheit mit System</h3>
-            <p>Wöchentliche Updates aller Abhängigkeiten, bei jeder Änderung rund 900 Tests, Schwachstellen-Audits, statische Analyse und ein Scan des Images, dazu ein KI-Sicherheitsreview. Lücken lassen sich vertraulich melden (<a href="https://github.com/roberteinsle/openwehr/blob/main/SECURITY.md">SECURITY.md</a>).</p>
+            <p>Wöchentliche Updates aller Abhängigkeiten, bei jeder Änderung rund 900 Tests, Schwachstellen-Audits, statische Analyse und ein Scan des Images, dazu ein KI-Sicherheitsreview. Lücken lassen sich vertraulich melden (<a href="https://github.com/TimUx/WehrPortal/blob/main/SECURITY.md">SECURITY.md</a>).</p>
           </article>
           <article class="feature">
             <h3>Eure Daten, euer Server</h3>
-            <p>openwehr läuft auf einem eigenen Server der Wehr. Gesundheitsdaten im Verbandbuch werden verschlüsselt gespeichert, alle Änderungen protokolliert.</p>
+            <p>WehrPortal läuft auf einem eigenen Server der Wehr. Gesundheitsdaten im Verbandbuch werden verschlüsselt gespeichert, alle Änderungen protokolliert.</p>
           </article>
         </div>
       </div>
@@ -324,14 +324,14 @@
     <section class="section tinted" id="installation">
       <div class="wrap">
         <h2>Installation</h2>
-        <p class="section-lead">openwehr läuft als Docker-Image mit PostgreSQL. Die Schritt-für-Schritt-Anleitung im README führt ohne Vorwissen durch die Einrichtung.</p>
+        <p class="section-lead">WehrPortal läuft als Docker-Image mit PostgreSQL. Die Schritt-für-Schritt-Anleitung im README führt ohne Vorwissen durch die Einrichtung.</p>
         <ol class="install">
           <li><span class="num">1</span><div><h3>Server</h3><p>Eine kleine virtuelle Maschine, z. B. bei einem europäischen Cloud-Anbieter, mit Coolify als Verwaltungsoberfläche.</p></div></li>
-          <li><span class="num">2</span><div><h3>Datenbank und App</h3><p>PostgreSQL anlegen, das Image <code>ghcr.io/roberteinsle/openwehr</code> starten. Die Datenbank wird beim Start automatisch eingerichtet.</p></div></li>
+          <li><span class="num">2</span><div><h3>Datenbank und App</h3><p>PostgreSQL anlegen, das Image <code>ghcr.io/timux/wehrportal</code> starten. Die Datenbank wird beim Start automatisch eingerichtet.</p></div></li>
           <li><span class="num">3</span><div><h3>Loslegen</h3><p>Als Admin anmelden, Fahrzeuge, Abteilungen und Funktionen anlegen und die gewünschten Module einschalten.</p></div></li>
         </ol>
         <div class="actions center">
-          <a class="button primary" href="https://github.com/roberteinsle/openwehr#installation">Zur Installationsanleitung</a>
+          <a class="button primary" href="https://github.com/TimUx/WehrPortal#installation">Zur Installationsanleitung</a>
         </div>
       </div>
     </section>
@@ -340,9 +340,9 @@
       <div class="wrap split">
         <div>
           <h2>Open Source</h2>
-          <p class="section-lead">openwehr steht unter der GNU AGPL-3.0. Jede Wehr darf die App kostenlos nutzen, anpassen und weitergeben – Verbesserungen bleiben für alle offen.</p>
+          <p class="section-lead">WehrPortal steht unter der GNU AGPL-3.0. Jede Wehr darf die App kostenlos nutzen, anpassen und weitergeben – Verbesserungen bleiben für alle offen.</p>
           <div class="actions">
-            <a class="button secondary" href="https://github.com/roberteinsle/openwehr/issues">Idee oder Fehler melden</a>
+            <a class="button secondary" href="https://github.com/TimUx/WehrPortal/issues">Idee oder Fehler melden</a>
           </div>
         </div>
         <dl class="tech">
@@ -359,11 +359,11 @@
 
   <footer class="site-footer">
     <div class="wrap footer-inner">
-      <span><img src="logo.svg" alt="" width="18" height="21"> openwehr · Open Source unter AGPL-3.0</span>
+      <span><img src="logo.svg" alt="" width="18" height="21"> WehrPortal · Open Source unter AGPL-3.0</span>
       <nav aria-label="Fußnavigation">
-        <a href="https://github.com/roberteinsle/openwehr">GitHub</a>
-        <a href="https://github.com/roberteinsle/openwehr/blob/main/LICENSE">Lizenz</a>
-        <a href="https://github.com/roberteinsle/openwehr/releases">Versionen</a>
+        <a href="https://github.com/TimUx/WehrPortal">GitHub</a>
+        <a href="https://github.com/TimUx/WehrPortal/blob/main/LICENSE">Lizenz</a>
+        <a href="https://github.com/TimUx/WehrPortal/releases">Versionen</a>
         <a href="impressum.html">Impressum</a>
         <a href="datenschutz.html">Datenschutz</a>
       </nav>

@@ -1,6 +1,6 @@
 # E2E-Test und Screenshots
 
-[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Fork-Leitfaden](../FORK.md)
+[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Migration und Betrieb](../MIGRATION.md)
 
 Der Workflow `.github/workflows/screenshots.yml` baut eine vollständige Testinstallation mit Beispieldaten auf, meldet sich im Browser an und fotografiert jedes Modul. Die Bilder liegen in `docs-extended/screenshots/` und sind in die Dokumentation eingebunden (README bei jedem Modul, [Galerie](#galerie)); `.github/workflows/docs-screenshots.yml` hält sie aktuell. Der Lauf dient zugleich als Smoke-Test vor Releases: Lädt eine Seite nicht, endet sie mit Fehler oder führt sie zurück zur Anmeldung, schlägt der Lauf fehl.
 
@@ -48,7 +48,7 @@ Alle Bilder der letzten Erzeugung (Ordner `docs-extended/screenshots/`, Klick ö
 4. `php artisan serve` auf `127.0.0.1:8000`.
 5. Playwright (`tests/e2e`, eigenes `package.json`, nur Chromium): Anmeldung über den echten Magic-Link-Ablauf – E-Mail auf `/anmelden` eingeben, den Link aus der geloggten Mail (`storage/logs/laravel.log`) lesen, bestätigen. Die Sitzung gilt für alle weiteren Seiten; ein erneuter Lauf gegen dieselbe Datenbank verwendet sie weiter, solange sie gültig ist.
 6. Pro Seite: HTTP-Status unter 400, keine Umleitung zu `/anmelden`, erwarteter Inhalt sichtbar, dann Screenshot nach `docs-extended/screenshots/<modul>/<seite>.png` (in CI in ein Artefakt).
-7. Auf `extended`: geänderte Bilder werden zurück ins Repository committet (siehe unten).
+7. Bei einem manuellen „Docs Screenshots“-Lauf auf `main`: geänderte Bilder werden zurück ins Repository committet (siehe unten).
 
 ## Seiten und Beispieldaten
 
@@ -69,7 +69,7 @@ Die Seitenliste steht in `tests/e2e/fixtures/pages.ts` (Modul, Name, Pfad, erwar
 | Wasserkarte, Objektpläne | `wasserkarte/karte`, `objektplaene/objekte` |
 | Personalverwaltung, Schlüssel | `personalverwaltung/kameraden`, `schluessel/schluessel` |
 | Gefahrenmatrix, Gefahrstoffe | `gefahrenmatrix/matrix`, `gefahrstoffe/datenbank` |
-| Fork-Erweiterungen | `anwesenheit/listen`, `hydrantenkontrolle/jahreskontrollen`, `hydrantenkontrolle/hydranten`, `dateien/bereiche`, `locations/standorte` (`/admin/standorte`), `vereinsverwaltung/beitritt` (`/vereinsbeitritt`), `vereinsverwaltung/antraege` (`/verein`) |
+| Erweiterungen | `anwesenheit/listen`, `hydrantenkontrolle/jahreskontrollen`, `hydrantenkontrolle/hydranten`, `dateien/bereiche`, `locations/standorte` (`/admin/standorte`), `vereinsverwaltung/beitritt` (`/vereinsbeitritt`), `vereinsverwaltung/antraege` (`/verein`) |
 
 `ScreenshotSeeder` ruft die Demo-Seeder (Fahrzeuge, Abteilungen, Admin `admin@example.com`, Kameraden, Kleiderkammer) auf, schaltet **alle** registrierten Module und Erweiterungen ein (`ScreenshotSeeder::modules()`, mit automatischer Freischaltung) und legt pro Modul ein paar Datensätze an (Buchungen, Mitteilungen, Termine, Mängel, Einsatzberichte, Hydranten mit laufender Jahreskontrolle, offener Vereinsantrag, zweiter Standort …). Er ist wiederholbar (`firstOrCreate`/`updateOrCreate`). Nur erfundene Personen; nie auf einer echten Datenbank ausführen – `migrate:fresh` löscht alles.
 
@@ -77,7 +77,7 @@ Nicht fotografiert: `/personalakte/nachweise` (der QR-Code hängt vom zufällige
 
 ## In GitHub Actions
 
-- **Auslöser:** manuell (**Actions → E2E Screenshots → Run workflow**), bei jedem Push auf `extended` und als wiederverwendbarer Workflow (`workflow_call`), z. B. als Release-Gate:
+- **Auslöser:** manuell (**Actions → E2E Screenshots → Run workflow**) und als wiederverwendbarer Workflow (`workflow_call`), z. B. als Release-Gate:
 
   ```yaml
   jobs:
@@ -89,7 +89,7 @@ Nicht fotografiert: `/personalakte/nachweise` (der QR-Code hängt vom zufällige
   ```
 
 - **Artefakte:** `screenshots` (immer, 30 Tage) mit allen Bildern; bei Fehlern zusätzlich `e2e-report` (Playwright-Report, Traces, Fehlerbilder, `storage/logs/` der Wegwerf-Installation, 7 Tage).
-- **Dokumentation aktuell halten:** `docs-screenshots.yml` läuft bei jedem Push auf `extended` (außer reinen Doku-/Markdown-Änderungen) und manuell. Er ruft `screenshots.yml` auf, ersetzt `docs-extended/screenshots/` durch das Artefakt und committet nur, wenn sich ein Bild geändert hat („Update documentation screenshots“, als `github-actions[bot]`). Weil der Lauf deterministisch ist, passiert das nur bei geänderter Oberfläche oder geänderten Beispieldaten. Pushes mit `GITHUB_TOKEN` lösen keine weiteren Läufe aus. Ist `extended` gegen direkte Pushes geschützt, muss `github-actions[bot]` die Regel umgehen dürfen – sonst schlägt nur dieser Schritt fehl.
+- **Dokumentation aktuell halten:** `docs-screenshots.yml` wird bewusst nur manuell auf `main` gestartet. Er ruft `screenshots.yml` auf, ersetzt `docs-extended/screenshots/` durch das Artefakt und committet nur, wenn sich ein Bild geändert hat („Update documentation screenshots“, als `github-actions[bot]`). Weil der Lauf deterministisch ist, passiert das nur bei geänderter Oberfläche oder geänderten Beispieldaten. Pushes mit `GITHUB_TOKEN` lösen keine weiteren Läufe aus. Ist `main` gegen direkte Pushes geschützt, muss der Bot-Commit regulär per Pull Request übernommen werden oder eine ausdrücklich konfigurierte Ausnahme nutzen – sonst schlägt dieser Schritt fehl. Die vorhandenen Bilder sind übernommen und zeigen gegebenenfalls noch den früheren Produktnamen.
 - Die Bilder und die Erweiterung `extensions/E2e` kommen nicht ins Docker-Image (`.dockerignore`).
 - `screenshots.yml` selbst braucht nur Leserechte und ist damit als Release-Gate (`workflow_call`) nutzbar. Keine Secrets nötig.
 

@@ -1,4 +1,4 @@
-# Fork-specific development environment; no upstream workflow is modified.
+# WehrPortal development environment.
 name: Copilot Setup Steps
 
 on:

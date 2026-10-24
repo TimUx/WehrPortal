@@ -109,7 +109,7 @@ self.addEventListener('push', (event) => {
     } catch (e) {
         data = { body: event.data ? event.data.text() : '' };
     }
-    event.waitUntil(self.registration.showNotification(data.title || 'openwehr', {
+    event.waitUntil(self.registration.showNotification(data.title || 'WehrPortal', {
         body: data.body || '',
         icon: '/images/icon-192.png',
         badge: '/images/icon-192.png',

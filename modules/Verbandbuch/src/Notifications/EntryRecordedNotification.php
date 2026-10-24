@@ -23,7 +23,7 @@ class EntryRecordedNotification extends Notification
             ->greeting('Hallo '.$notifiable->name.',')
             ->line($entry->recorded_by_name.' hat einen Eintrag ins Verbandbuch geschrieben: '.$entry->kindLabel().' am '
                 .$entry->occurred_at->setTimezone('Europe/Berlin')->format('d.m.Y').' ('.$entry->occasionLabel().').')
-            ->line('Die Einzelheiten stehen aus Datenschutzgründen nur in openwehr.');
+            ->line('Die Einzelheiten stehen aus Datenschutzgründen nur in WehrPortal.');
 
         if ($entry->needsReport()) {
             $mail->line('Die verletzte Person war beim Arzt. Bitte prüfen, ob eine **Unfallanzeige an die Unfallkasse** nötig ist.');

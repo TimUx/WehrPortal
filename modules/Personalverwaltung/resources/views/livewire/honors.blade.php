@@ -54,7 +54,7 @@
 
     <section class="{{ $card }}">
         <h2 class="text-sm font-semibold text-gray-900">Ehrungsarten</h2>
-        <p class="text-xs text-gray-500">Mit Dienstjahren (z. B. 10, 25, 40) schlägt openwehr die Ehrung vor, sobald ein Kamerad sie erreicht. Ohne Dienstjahre (z. B. Leistungsabzeichen) wird sie nur von Hand eingetragen.</p>
+        <p class="text-xs text-gray-500">Mit Dienstjahren (z. B. 10, 25, 40) schlägt WehrPortal die Ehrung vor, sobald ein Kamerad sie erreicht. Ohne Dienstjahre (z. B. Leistungsabzeichen) wird sie nur von Hand eingetragen.</p>
         <ul class="divide-y divide-gray-100 text-sm">
             @foreach($types as $t)
                 <li class="flex flex-wrap items-center justify-between gap-2 py-1.5" wire:key="t-{{ $t->id }}">

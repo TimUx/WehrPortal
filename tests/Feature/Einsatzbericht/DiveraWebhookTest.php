@@ -182,7 +182,7 @@ test('a test alarm from the app runs the same way as a DIVERA request and makes 
 
     $report = Report::sole();
     expect($report)->source->toBe('divera')->keyword->toBe('TH 1 – Test')->address->toBe('Am Teich 3, Musterstadt')->latitude->toBe(51.17)
-        ->and($report->alarm_message)->toBe('Test-Alarm aus openwehr, bitte ignorieren')
+        ->and($report->alarm_message)->toBe('Test-Alarm aus WehrPortal, bitte ignorieren')
         ->and(json_decode(DiveraRequest::sole()->body, true))->toMatchArray(['title' => 'TH 1 – Test', 'address' => 'Am Teich 3, Musterstadt']);
 
     // Each test alarm is its own alarm, no re-alarm

@@ -33,6 +33,6 @@
             @endforelse
         </tbody>
     </table>
-    <p class="muted">Erstellt am {{ now('Europe/Berlin')->format('d.m.Y') }} aus openwehr.</p>
+    <p class="muted">Erstellt am {{ now('Europe/Berlin')->format('d.m.Y') }} aus WehrPortal.</p>
 </body>
 </html>

@@ -1,5 +1,5 @@
 {
-    "name": "openwehr-e2e",
+    "name": "wehrportal-e2e",
     "private": true,
     "description": "E2E smoke tests and documentation screenshots (Playwright), see docs-extended/SCREENSHOTS.md",
     "scripts": {

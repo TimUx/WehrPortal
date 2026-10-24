@@ -1,6 +1,6 @@
 # Sicherheit
 
-openwehr verarbeitet Daten von Feuerwehrangehörigen, zum Teil Gesundheitsdaten. Sicherheitslücken bitte **nicht** als öffentliches Issue melden.
+WehrPortal verarbeitet Daten von Feuerwehrangehörigen, zum Teil Gesundheitsdaten. Sicherheitslücken bitte **nicht** als öffentliches Issue melden.
 
 ## Eine Lücke melden
 
@@ -22,7 +22,7 @@ Bitte keine echten Daten einer Wehr in die Meldung schreiben und keine fremden I
 
 Sicherheitskorrekturen gibt es für das jeweils **neueste Release**. Betreiber sollten mindestens monatlich aktualisieren (README → Installation → „Updates einspielen“).
 
-## Wie openwehr abgesichert wird
+## Wie WehrPortal abgesichert wird
 
 - **Abhängigkeiten:** Dependabot schlägt jede Woche Updates für PHP-, JavaScript- und Docker-Abhängigkeiten sowie die GitHub-Actions vor; Sicherheitsupdates sofort.
 - **Bei jeder Änderung** (Push und Pull Request): rund 900 automatische Tests (auch Rechte je Rolle), `composer audit` und `npm audit` gegen bekannte Schwachstellen, statische Analyse (Larastan), Suche nach versehentlich eingecheckten Geheimnissen (Gitleaks) und ein Scan des Docker-Images (Trivy) vor der Veröffentlichung.

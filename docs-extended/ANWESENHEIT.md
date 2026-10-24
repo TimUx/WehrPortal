@@ -1,6 +1,6 @@
 # Anwesenheitslisten (Erweiterung `extensions/Anwesenheit`)
 
-[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Fork-Leitfaden](../FORK.md)
+[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Migration und Betrieb](../MIGRATION.md)
 
 Eigenständiges Modul für Übungen, Dienste und Besprechungen. Eine Liste braucht **keinen** Kalendertermin; Vorlagen und Kalendertermine sind nur eine optionale Vorbelegung (Titel, Art, Ort, Zeiten), danach ist die Liste ein eigener Datensatz.
 

@@ -63,7 +63,8 @@ test('the export reads back the same events', function () {
     $ics = app(IcsExporter::class)->render(collect([$event, $whole]));
     $back = collect(app(IcsParser::class)->parse($ics, now()->subYear(), now()->addYear()))->sortBy('starts_at')->values();
 
-    expect($ics)->toContain("BEGIN:VCALENDAR\r\n")
+    expect($ics)->toContain("BEGIN:VCALENDAR\r\n", "PRODID:-//WehrPortal//Kalender//DE\r\n")
+        ->toContain('UID:event-'.$event->id.'@'.parse_url(config('app.url'), PHP_URL_HOST))
         ->and(collect(explode("\r\n", $ics))->every(fn ($l) => strlen($l) <= 75))->toBeTrue()
         ->and($back[0]['title'])->toBe('Übungsdienst')
         ->and($back[0]['location'])->toBe('Gerätehaus; Halle 2')

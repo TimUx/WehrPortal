@@ -24,7 +24,7 @@ class InvitationNotification extends Notification
         return (new MailMessage)
             ->subject('Willkommen bei '.$org->shortName().' – deine Einladung')
             ->greeting('Hallo '.$notifiable->name.',')
-            ->line($this->from.' lädt dich zu openwehr ein – Termine, Mitteilungen, deine Personalakte und mehr, auf dem Handy und ohne Passwort.')
+            ->line($this->from.' lädt dich zu WehrPortal ein – Termine, Mitteilungen, deine Personalakte und mehr, auf dem Handy und ohne Passwort.')
             ->action('Jetzt anmelden', $this->url)
             ->line('Der Link gilt bis '.$this->expiresAt->copy()->setTimezone('Europe/Berlin')->format('d.m.Y H:i').' Uhr und nur einmal. Danach meldest du dich jederzeit mit deiner E-Mail-Adresse an.')
             ->salutation($org->salutation());

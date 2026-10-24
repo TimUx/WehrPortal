@@ -26,7 +26,7 @@ class RequestReceivedNotification extends Notification
             $mail->line('Bemerkung: '.$this->record->notes);
         }
 
-        return $mail->line('Bitte den Kameraden in fox112 anmelden und nach der Bestätigung die Termine in openwehr eintragen.')
+        return $mail->line('Bitte den Kameraden in fox112 anmelden und nach der Bestätigung die Termine in WehrPortal eintragen.')
             ->action('Lehrgangsanmeldungen', route('lehrgaenge.registrations'))
             ->salutation(app(OrganizationSettings::class)->salutation());
     }

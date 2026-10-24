@@ -26,7 +26,7 @@ class CourseReminderNotification extends Notification
             $mail->line('• '.$session->label());
         }
 
-        return $mail->line('Kannst du nicht teilnehmen, sag den Lehrgang bitte sofort in openwehr ab.')
+        return $mail->line('Kannst du nicht teilnehmen, sag den Lehrgang bitte sofort in WehrPortal ab.')
             ->action('Meine Lehrgänge', route('lehrgaenge.index'))
             ->salutation(app(OrganizationSettings::class)->salutation());
     }

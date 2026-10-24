@@ -1,6 +1,6 @@
 # Copilot-Entwicklungsumgebung
 
-Die Fork-Datei `.github/workflows/copilot-setup-steps.yml` stellt PHP 8.4 mit
+Die Datei `.github/workflows/copilot-setup-steps.yml` stellt PHP 8.4 mit
 `pdo_pgsql`, `intl`, `gd`, `exif` und den Composer-Lockfile-Erweiterungen bereit
 (`composer.json` fordert selbst keine `ext-*`). Sie installiert Composer-v2-
 Abhängigkeiten einschließlich Pest, Larastan und Pint, erzeugt `.env` und einen
@@ -51,9 +51,8 @@ endet mit `chown` (verhindert root-eigene Build-Dateien), nicht mit dem Testerge
 
 ## Aktivierung und Grenzen
 
-Copilot lädt die Datei nur aus dem Standard-Branch. Dieser ist derzeit `main`;
-ein Merge nach `extended` allein aktiviert sie nicht: zusätzlich nach `main`
-übernehmen. Danach unter Actions → **Copilot Setup Steps** → **Run workflow**
+Copilot lädt die Datei aus dem Standardbranch `main`.
+Danach unter Actions → **Copilot Setup Steps** → **Run workflow**
 manuell prüfen; PRs prüfen sie nur bei Änderungen an der Workflow-Datei.
 Kein Playwright/Browser, SMTP-Dienst, Produktionszugang oder Deployment.
 Bestehende Test-, Analyse- oder Stilbefunde werden nicht automatisch repariert.

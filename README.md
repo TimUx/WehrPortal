@@ -1,4 +1,4 @@
-# openwehr
+# WehrPortal
 
 [![Lizenz: AGPL-3.0](https://img.shields.io/badge/Lizenz-AGPL--3.0-3da639)](LICENSE)
 [![PHP-Anforderung: ^8.2](https://img.shields.io/badge/PHP-%5E8.2-777bb4)](composer.json)
@@ -8,18 +8,18 @@
 [![Livewire: 4](https://img.shields.io/badge/Livewire-4-fb70a9)](composer.json)
 [![Filament: 5](https://img.shields.io/badge/Filament-5-fbbf24)](composer.json)
 [![Tailwind CSS: 4](https://img.shields.io/badge/Tailwind_CSS-4-06b6d4)](package.json)
-[![PostgreSQL: CI 18](https://img.shields.io/badge/PostgreSQL-CI%2018-4169e1)](.github/workflows/fork-deploy.yml)
+[![PostgreSQL: CI 18](https://img.shields.io/badge/PostgreSQL-CI%2018-4169e1)](.github/workflows/deploy.yml)
 [![Docker](https://img.shields.io/badge/Docker-Image-2496ed)](Dockerfile)
 
-openwehr ist eine Web-App für Freiwillige Feuerwehren: ein gemeinsamer Kern (Anmeldung, Kameraden, Startseite, Benachrichtigungen, Admin-Bereich) und Module, die jede Wehr einzeln einschaltet. Die Bedienung ist für das Handy gemacht, die Anmeldung läuft ohne Passwort über einen Link per E-Mail. Oberfläche und E-Mails sind deutsch.
+WehrPortal ist eine Web-App für Freiwillige Feuerwehren: ein gemeinsamer Kern (Anmeldung, Kameraden, Startseite, Benachrichtigungen, Admin-Bereich) und Module, die jede Wehr einzeln einschaltet. Die Bedienung ist für das Handy gemacht, die Anmeldung läuft ohne Passwort über einen Link per E-Mail. Oberfläche und E-Mails sind deutsch.
 
-Dieses Repository enthält **openwehr-extended**, einen Fork von [roberteinsle/openwehr](https://github.com/roberteinsle/openwehr). Die Erweiterungen liegen überwiegend unter `extensions/`; die ausführlichen Fork- und Update-Regeln stehen im [Fork-Leitfaden](FORK.md). Die folgenden Installationsbeispiele nennen an den betreffenden Stellen ausdrücklich, ob sie für Upstream oder den Fork gelten.
+**[TimUx/WehrPortal](https://github.com/TimUx/WehrPortal)** ist ein eigenständiges Projekt auf Basis des früheren `extended`-Branches von openwehr-extended. Es benötigt weder dessen Repository noch Images oder Updates des ursprünglichen openwehr-Projekts. Die Git-Historie und die AGPL-3.0 bleiben erhalten. Herkunft, Urheberhinweise und die sichere Übernahme bestehender Installationen stehen unter [Migration und Betrieb](MIGRATION.md).
 
 ## Inhaltsverzeichnis
 
 - [Schnellzugriff](#schnellzugriff)
 - [Module im Überblick](#module-im-überblick)
-  - [Erweiterungen von openwehr-extended](#erweiterungen-von-openwehr-extended)
+  - [Erweiterungen von WehrPortal](#erweiterungen-von-wehrportal)
   - [Gefahrenmatrix](#gefahrenmatrix)
   - [Gefahrstoffdatenbank](#gefahrstoffdatenbank)
 - [Kernfunktionen](#kernfunktionen)
@@ -76,7 +76,7 @@ Dieses Repository enthält **openwehr-extended**, einen Fork von [roberteinsle/o
   - [Sicherheit](#sicherheit)
   - [Lizenz](#lizenz)
 - [Erweiterungsdokumentation](docs-extended/README.md)
-- [Fork-Leitfaden](FORK.md)
+- [Migration und Betrieb](MIGRATION.md)
 
 ## Schnellzugriff
 
@@ -85,9 +85,9 @@ Dieses Repository enthält **openwehr-extended**, einen Fork von [roberteinsle/o
 | als Kamerad die App nutzen möchtest | [Startseite, Personalakte und Navigation](#startseite-und-navigation) |
 | Fahrzeuge buchen oder Entscheidungen treffen möchtest | [Fahrzeugbuchung](#fahrzeugbuchung) |
 | ein bestimmtes Modul suchst | [Modulübersicht](#module-im-überblick) oder [Moduldetails](#module-im-detail) |
-| die Installation oder Updates vorbereitest | [Installation](#installation) und [Fork-Leitfaden](FORK.md) |
+| die Installation oder Updates vorbereitest | [Installation](#installation) und [Migration und Betrieb](MIGRATION.md) |
 | eine Erweiterung einrichtest | [Erweiterungsdokumentation](docs-extended/README.md) |
-| am Fork mitarbeitest oder Upstream-Änderungen übernimmst | [Fork-Leitfaden](FORK.md) |
+| an WehrPortal mitarbeitest oder eine bestehende Installation übernimmst | [Migration und Betrieb](MIGRATION.md) |
 | sehen möchtest, wie es aussieht | [Screenshots aller Module](docs-extended/SCREENSHOTS.md#galerie) – zusätzlich steht bei jedem Modul unten sein Screenshot |
 
 ## Module im Überblick
@@ -120,13 +120,13 @@ Dieses Repository enthält **openwehr-extended**, einen Fork von [roberteinsle/o
 | [Personalverwaltung](#personalverwaltung) | Eigener Bereich für Personalverwalter (kein Admin nötig): Anschrift, Geburtsdatum, Mobilnummer zuschaltbar mit Selbstpflege, Diensthistorie, die sich selbst schreibt, mit Ereignissen und Nachweisen, anrechenbare Dienstzeit, Ehrungen nach Dienstjahren, Dienstausweis (auch digital), Änderungswünsche der Kameraden, Dienstbeteiligung; Zugriff je Abteilung | Personalverwalter |
 | [Schlüsselverwaltung](#schlüsselverwaltung) | Schlüssel, Transponder und Karten mit dem, was sie schließen (Ort, Fahrzeug, Objekt), Ausgabe mit unterschriebener Schlüsselquittung, Rückgabefristen, Verlust, QR-Etikett | Schlüsselwart |
 
-Die Screenshots in dieser Dokumentation stammen aus einer Testinstallation mit erfundenen Beispieldaten (Stand der Daten: 14.10.2026) und werden nach jedem Push mit Code-Änderungen auf `extended` automatisch neu erzeugt ([Ablauf](docs-extended/SCREENSHOTS.md)).
+Die Screenshots in dieser Dokumentation stammen aus einer Testinstallation mit erfundenen Beispieldaten (Stand der Daten: 14.10.2026). Ältere Bilder können noch den bisherigen Produktnamen zeigen; neue Bilder werden manuell auf `main` erzeugt ([Ablauf](docs-extended/SCREENSHOTS.md)).
 
 Jedes Modul ist nach der Installation **ausgeschaltet**. Ein Admin schaltet es unter Admin → Module ein und gibt es einzelnen Kameraden oder allen frei; die Rollen vergibt er dort ebenfalls. Admins dürfen in jedem Modul alles. Die Details zu Kern und Modulen stehen unten, die Einrichtung unter [Installation](#installation).
 
-### Erweiterungen von openwehr-extended
+### Erweiterungen von WehrPortal
 
-Die folgenden Erweiterungen sind zusätzlich zu den 25 Modulen des Upstreams vorhanden. Erweiterungen mit einem `*_ENABLED`-Schalter lassen sich unabhängig von der Freischaltung eines Moduls laden oder abschalten; ein ausgeschaltetes Modul erscheint nicht für Kameraden.
+Die folgenden Erweiterungen ergänzen die 25 Fachmodule. Erweiterungen mit einem `*_ENABLED`-Schalter lassen sich unabhängig von der Freischaltung eines Moduls laden oder abschalten; ein ausgeschaltetes Modul erscheint nicht für Kameraden.
 
 | Erweiterung | Funktionen und Zugriff | Aktivierung, Abhängigkeiten und Grenzen |
 |---|---|---|
@@ -179,7 +179,7 @@ Die Gefahrenmatrix arbeitet mit lokaler Bedienung ohne Speicherung. In der Gefah
 - **Mitteilungen:** kommen aus dem Modul Mitteilungen (siehe unten) und stehen ganz oben – aber nur, wenn es aktuelle gibt. Sie stehen in **Orange** (`fw-orange`, wichtige in Dunkelrot) mit der Überschrift „Mitteilung“ bzw. „Wichtige Mitteilung“, damit man sie nicht mit den anderen Karten verwechselt.
 - **Karten der Module:** Module können über die `DashboardRegistry` eine Karte auf die Startseite legen; sie erscheint nur, solange das Modul aktiv ist und der Kamerad es nutzen darf.
 - **Link-Vorschau:** Wird ein Link der App (z. B. `/fahrzeugbuchung`) in WhatsApp, Signal, Telegram & Co. geteilt, zeigt die Vorschau den Modulnamen mit Wehr (z. B. „Fahrzeugbuchung – FF Musterstadt“), die Modulbeschreibung und das Logo statt „Anmelden“; Links außerhalb der Module zeigen den Namen der Wehr. Vorschau-Abrufer ohne Login bekommen dafür eine kleine Seite mit diesen Angaben (ohne Inhalte); Menschen ohne Login landen wie bisher bei der Anmeldung, die dieselben Angaben trägt. Messenger merken sich eine Vorschau eine Weile – ein schon einmal geteilter Link zeigt die neue Vorschau eventuell erst später.
-- **Als App auf dem Handy (PWA):** openwehr lässt sich ohne App-Store auf den Startbildschirm legen (Android/Chrome: „App installieren“, iPhone/Safari: „Teilen“ → „Zum Home-Bildschirm“) und öffnet sich dann wie eine App, mit eigenem Symbol und ohne Browserleiste (`/manifest.webmanifest`, Name = Kurzname der Wehr). Ein Service Worker (`/sw.js`) zeigt ohne Netz die Seite „Keine Verbindung“ statt einer Fehlermeldung; Seiten werden nie aus einem Zwischenspeicher gezeigt, die Daten sind also immer aktuell. Der Offline-Status zeigt die Verbindung und lokale Entwürfe; das Formular für Wasserquellen kann markierte Felder sichern und wiederherstellen (Koordinaten können dafür offline manuell eingegeben werden), wird aber nie automatisch abgesendet. Objektpläne haben weiter ihren eigenen Offline-Speicher.
+- **Als App auf dem Handy (PWA):** WehrPortal lässt sich ohne App-Store auf den Startbildschirm legen (Android/Chrome: „App installieren“, iPhone/Safari: „Teilen“ → „Zum Home-Bildschirm“) und öffnet sich dann wie eine App, mit eigenem Symbol und ohne Browserleiste (`/manifest.webmanifest`, Name = Kurzname der Wehr). Ein Service Worker (`/sw.js`) zeigt ohne Netz die Seite „Keine Verbindung“ statt einer Fehlermeldung; Seiten werden nie aus einem Zwischenspeicher gezeigt, die Daten sind also immer aktuell. Der Offline-Status zeigt die Verbindung und lokale Entwürfe; das Formular für Wasserquellen kann markierte Felder sichern und wiederherstellen (Koordinaten können dafür offline manuell eingegeben werden), wird aber nie automatisch abgesendet. Objektpläne haben weiter ihren eigenen Offline-Speicher.
 - **Push-Benachrichtigungen:** Unter **Profil → Push-Benachrichtigungen** schaltet jeder Kamerad Push für das aktuelle Gerät ein (der Browser fragt nach der Erlaubnis). Dann kommt **alles, was unter der Glocke erscheint**, zusätzlich als Nachricht aufs Handy – auch bei geschlossener App; ein Tipp öffnet die passende Seite. Die Liste zeigt die Geräte (z. B. „Chrome auf Android“) zum Entfernen und „Test-Nachricht schicken“. Auf dem iPhone geht Push nur in der auf dem Home-Bildschirm installierten App (iOS 16.4 oder neuer); der Hinweis steht im Profil. Geräte, die der Push-Dienst nicht mehr kennt, werden automatisch entfernt. Die Schlüssel (VAPID) erzeugt die App beim ersten Mal selbst und speichert den privaten verschlüsselt – einzurichten ist nichts. Es werden keine Inhalte außer Titel, erster Zeile und Link verschickt.
 - **Ansprechpartner** (`/ansprechpartner`, im 3×3-Menü, sobald welche eingetragen sind): die wichtigen Kontakte der Wehr – Aufgabe (z. B. Wehrführer, Jugendwartin), Name, Hinweis, E-Mail und Telefon als großer Knopf zum direkten Anrufen, gruppiert nach Abteilung. Admins pflegen sie unter Admin → Kameraden → **Ansprechpartner** (Reihenfolge per Drag & Drop). Die Telefonnummern sind die, die dort eingetragen werden, nicht die privaten Nummern aus den Mitgliedsdaten.
 - **Erziehungsberechtigte** (z. B. für die Jugendfeuerwehr, auch für Kinder ohne eigenen Login – siehe „Mitglieder ohne Login“): Je Kamerad lassen sich bis zu vier Erziehungsberechtigte mit Name, E-Mail und Telefon eintragen – unter Admin → Kameraden (Abschnitt „Erziehungsberechtigte“) oder von Personalverwaltern in der Personalakte. Sie haben **kein eigenes Konto**: Sie bekommen eine Kopie jeder Kalender-Mail des Kindes (neuer, geänderter, abgesagter Termin, Erinnerung an die Rückmeldung) mit dem Knopf **„Rückmeldung für …“**. Der Link ist signiert und gilt bis zum Beginn des Termins; die Seite zeigt den Termin und die bisherige Rückmeldung, Zusage/Vielleicht/Absage mit Bemerkung wird erst mit dem Knopf gespeichert (nicht schon beim Öffnen des Links). Die Rückmeldung steht beim Kind mit „(Rückmeldung von …)“. Im Log sind E-Mail und Telefon verborgen.
@@ -300,7 +300,7 @@ Es gibt **einen** Admin-Bereich für alle. Was man darin sieht, hängt von der R
 - **Buchungen:** alle Buchungen mit Status (bestätigt, wartet auf Entscheidung, abgelehnt), Stornieren, Bearbeiten und „Zurückgeben“ für laufende Buchungen. Stornieren, Ändern und Löschen lösen dieselben Automatismen aus wie in der App.
 - **Feedback:** siehe oben.
 - **E-Mail-Texte:** Betreff, Anrede, Text, Button-Beschriftung und Grußformel der Erinnerungsmail vor Buchungsende lassen sich bearbeiten. Platzhalter wie `{name}`, `{fahrzeug}` oder `{ende_uhrzeit}` werden beim Versand ersetzt. „Standard wiederherstellen“ setzt den Text auf die ursprüngliche Fassung zurück.
-- **Keine Suchmaschinen, keine KI:** Eine openwehr-Instanz ist das interne Werkzeug einer Wehr. `robots.txt` sperrt alle Crawler, auch die KI-Crawler (z. B. GPTBot, ClaudeBot, PerplexityBot, Google-Extended, CCBot) einzeln genannt; jede Antwort der App – Seiten, Admin-Bereich, PDFs, Pläne, Fotos, Kalender-Feeds und der öffentliche Kalender – trägt zusätzlich den Header `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noimageindex, …`. Der öffentliche Kalender lässt sich weiter per `<iframe>` einbinden, erscheint aber nicht selbst in Suchergebnissen. Vorschauen beim Teilen in Messengern funktionieren weiter.
+- **Keine Suchmaschinen, keine KI:** Eine WehrPortal-Instanz ist das interne Werkzeug einer Wehr. `robots.txt` sperrt alle Crawler, auch die KI-Crawler (z. B. GPTBot, ClaudeBot, PerplexityBot, Google-Extended, CCBot) einzeln genannt; jede Antwort der App – Seiten, Admin-Bereich, PDFs, Pläne, Fotos, Kalender-Feeds und der öffentliche Kalender – trägt zusätzlich den Header `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noimageindex, …`. Der öffentliche Kalender lässt sich weiter per `<iframe>` einbinden, erscheint aber nicht selbst in Suchergebnissen. Vorschauen beim Teilen in Messengern funktionieren weiter.
 - **Deutsche Adressen:** Alle Adressen der App und des Admin-Bereichs sind deutsch, z. B. `/personalakte` (Profil), `/anmelden`, `/fahrzeugbuchung` (Kalender), `/fahrzeugbuchung/meine-buchungen`, `/fahrzeugbuchung/entscheidungen`, `/admin/kameraden`, `/admin/kameraden/{id}/bearbeiten`, `/admin/kameraden/neu`, `/admin/abteilungen`, `/admin/funktionen`, `/admin/module`, `/admin/einstellungen`, `/admin/feedback`, `/admin/logs`, in der Kleiderkammer `/admin/kleiderkammer/einzelteile`, `…/massenbestand`, `…/scanner`, `…/bestandsbericht`, `…/kameraden`, `…/maengelmanagement`, `…/datentransfer`, `…/kategorien`, `…/artikeltypen`. Die alten englischen Adressen (`/admin/users`, `/fahrzeugbuchung/calendar`, `/profile`, `/admin/e-mail-log`, `/admin/manage-modules`, `/admin/modules` …) leiten dauerhaft (301) auf die neuen weiter, samt Unterseiten (`…/create` → `…/neu`, `…/{id}/edit` → `…/{id}/bearbeiten`) und Parametern; Lesezeichen und Links in schon verschickten Mails funktionieren also weiter. Der Rückgabe-Link aus Erinnerungsmails von vor der Umstellung bleibt unter der alten Adresse gültig.
 - **Menü:** „Abteilungen“ und „Funktionen“ stehen als Untermenü unter „Kameraden“. Die Meldungen der Kameraden zu ihrer Ausrüstung (Mängel und Wäsche-Anforderungen) heißen in der Kleiderkammer „Mängel & Wäsche“.
 - **Navigation:** Unter den Menüpunkten steht der Link zum Wachen-Monitor (öffnet in einem neuen Fenster); die App-Version steht klein hinter dem Titel oben links („… Admin V.0.9.5.3“).
@@ -538,7 +538,7 @@ Mit `EINSATZBERICHT_PLUS_ENABLED` (Standard: an) erscheint im Berichtseditor ein
 - **Externes Fahrzeug:** Ein Fahrzeug, das nicht in der gemeinsamen Fahrzeugliste steht, kann als Freitext angegeben werden; reguläre Fahrzeuge werden weiterhin wie bisher aus der Liste ausgewählt.
 - **Sollbesatzung:** Ist das Modul Fahrzeuge aktiv und im Fahrzeugprofil eine Sollbesatzung hinterlegt, weist der Bericht auf Unter- oder Überbesetzung hin. Das ist ein Hinweis, keine Pflicht und keine Sperre. Ohne Sollbesatzung erscheint kein Hinweis.
 
-Die Zusatzangaben sind derzeit nicht im Berichtsdruck oder in Statistiken enthalten. Die Erweiterung nutzt eigene Tabellen und ändert keine Upstream-Tabellen. Weitere technische Hintergründe und Grenzen: [EinsatzberichtPlus](docs-extended/EINSATZBERICHT.md).
+Die Zusatzangaben sind derzeit nicht im Berichtsdruck oder in Statistiken enthalten. Die Erweiterung nutzt eigene Tabellen und ändert keine Core-Tabellen. Weitere technische Hintergründe und Grenzen: [EinsatzberichtPlus](docs-extended/EINSATZBERICHT.md).
 
 ### Kalender & Termine
 
@@ -633,11 +633,11 @@ Verbandbuch nach DGUV rechtssicher digital führen – Verletzungen und Vorfäll
 - **Eintrag erfassen** (`/verbandbuch/neu`): Art (**Verletzung / Erste Hilfe**, **Unfall** oder **Vorfall ohne Verletzung**, z. B. ein Beinaheunfall), Zeitpunkt, wobei (Einsatz, Übungsdienst, sonstiger Dienst, Jugendfeuerwehr, Veranstaltung, Sonstiges) und Ort; die verletzte Person (Kamerad aus der Liste oder **„Person ohne Profil – Namen eintragen“** mit Freitext-Namen für alle, die kein eigenes Profil in der App haben, z. B. ein Kind der Jugendfeuerwehr, ein Mitglied des Musikzugs oder ein Gast; ebenso beim Ersthelfer), Hergang und Zeugen; Art und Umfang der Verletzung, Erste-Hilfe-Maßnahmen, wer sie wann geleistet hat (vorbelegt: man selbst; leer = Zeitpunkt des Ereignisses) und ob ein Arzt aufgesucht wurde. Pflicht sind bei Verletzung und Unfall die Person und die Verletzung, bei Verletzung auch die Maßnahmen; ein Vorfall braucht nur Hergang, Zeit und Ort. Der Zeitpunkt darf nicht in der Zukunft und nicht mehr als zehn Jahre zurück liegen.
 - **Unterschrift:** Wer den Eintrag schreibt, unterschreibt mit Finger, Stift oder Maus auf dem Bildschirm; die verletzte Person kann daneben selbst unterschreiben (optional). Leere oder zu kurze Unterschriften werden abgelehnt. Gespeichert wird die Unterschrift als PNG mit Name und Zeitpunkt. Jeder Eintrag bekommt eine laufende **Nummer** je Jahr (`2027-003`).
 - **Revisionssicher:** Nach dem Speichern ist der Eintrag gesperrt – auch in der Datenbank (Trigger), nicht nur in der App. Ergänzungen und Korrekturen gehen nur als **Nachtrag** (verletzte Person, Ersthelfer, Erfasser und Verantwortliche); Nachträge lassen sich ebenfalls nicht ändern. Über Inhalt, Unterschriften und Nachträge wird eine SHA-256-Prüfsumme gebildet (Nachträge als Kette); die Seite zeigt „Geprüft: … unverändert“ oder eine Warnung. Falsche oder doppelte Einträge werden **storniert** (mit Grund), nicht gelöscht.
-- **Benachrichtigungen:** Sicherheitsbeauftragte und Wehrführung (ohne Rolleninhaber die Admins) bekommen bei jedem neuen Eintrag eine Mail und den Eintrag in der Glocke, die verletzte Person ebenfalls, wenn sie Kamerad ist und den Eintrag nicht selbst geschrieben hat. Die Mails nennen nur Art, Datum und Nummer – **keine Gesundheitsdaten**; die Einzelheiten stehen nur in openwehr.
+- **Benachrichtigungen:** Sicherheitsbeauftragte und Wehrführung (ohne Rolleninhaber die Admins) bekommen bei jedem neuen Eintrag eine Mail und den Eintrag in der Glocke, die verletzte Person ebenfalls, wenn sie Kamerad ist und den Eintrag nicht selbst geschrieben hat. Die Mails nennen nur Art, Datum und Nummer – **keine Gesundheitsdaten**; die Einzelheiten stehen nur in WehrPortal.
 - **Unfallanzeige:** Bei einem Unfall mit Arztbesuch zeigen Startseite („x Unfälle mit Arztbesuch ohne vermerkte Unfallanzeige“), Liste und Eintrag „Unfallanzeige offen“, bis der Sicherheitsbeauftragte vermerkt, wann die Anzeige an die Unfallkasse ging (mit Hinweis, z. B. Aktenzeichen). Die Anzeige selbst geht weiter über die Unfallkasse.
 - **Verbandbuch** (`/verbandbuch`, Verantwortliche): alle Einträge mit Filtern (Jahr, Art, „Unfallanzeige offen“, Storniert) und Suche nach Name und Ort. **Drucken / PDF** für einen Eintrag (`/verbandbuch/{id}/druck`) oder das ganze Jahr (`/verbandbuch/jahr/{jahr}/druck`), mit Unterschriften, Nachträgen und Prüfsumme. Kameraden ohne Rolle sehen hier „Meine Einträge“; in der **Personalakte → Verbandbuch** stehen die Einträge, in denen man selbst verletzt wurde.
 - **Datenschutz:** Hergang, Verletzung, Zeugen, Erste-Hilfe-Maßnahmen und Nachträge sind in der Datenbank mit dem `APP_KEY` verschlüsselt (wer den Schlüssel wechselt, muss den alten in `APP_PREVIOUS_KEYS` behalten). Die Einträge stehen nicht im allgemeinen Admin-Log; stattdessen hat jeder Eintrag ein eigenes **Zugriffsprotokoll** (angelegt, angesehen, gedruckt, Nachtrag, Unfallanzeige, storniert), das die Verantwortlichen unter dem Eintrag sehen. Kameraden, die in Einträgen stehen, lassen sich nicht löschen (Status „Ausgetreten“ setzen).
-- **Löschfrist:** Die DGUV Vorschrift 1 § 24 Abs. 6 verlangt fünf Jahre; openwehr bewahrt die Dokumentation **zehn Jahre** auf. Jeder Eintrag wird am Ende des zehnten Jahres nach dem Jahr, in dem er geschrieben wurde, mit Unterschriften, Nachträgen und Protokoll automatisch gelöscht (täglich, `model:prune`). Vorher lässt er sich nicht löschen, auch nicht direkt in der Datenbank; die Frist lässt sich verlängern, aber nie verkürzen. Einträge, die schon vor V.0.9.5.4 geschrieben wurden, haben beim Update ebenfalls zehn Jahre bekommen. Mit „Länger aufbewahren“ bleibt ein Eintrag über die Frist hinaus erhalten (z. B. solange die Unfallkasse noch Fragen hat), bis die Verantwortlichen das wieder aufheben.
+- **Löschfrist:** Die DGUV Vorschrift 1 § 24 Abs. 6 verlangt fünf Jahre; WehrPortal bewahrt die Dokumentation **zehn Jahre** auf. Jeder Eintrag wird am Ende des zehnten Jahres nach dem Jahr, in dem er geschrieben wurde, mit Unterschriften, Nachträgen und Protokoll automatisch gelöscht (täglich, `model:prune`). Vorher lässt er sich nicht löschen, auch nicht direkt in der Datenbank; die Frist lässt sich verlängern, aber nie verkürzen. Einträge, die schon vor V.0.9.5.4 geschrieben wurden, haben beim Update ebenfalls zehn Jahre bekommen. Mit „Länger aufbewahren“ bleibt ein Eintrag über die Frist hinaus erhalten (z. B. solange die Unfallkasse noch Fragen hat), bis die Verantwortlichen das wieder aufheben.
 
 ### Expositionen (Gefahrstoffe)
 
@@ -836,7 +836,7 @@ Wer welchen Schlüssel der Wehr hat – statt Liste im Schlüsselkasten. Das Mod
 
 ## Erweiterungen im Detail
 
-Die folgenden Anleitungen ergänzen die [Kurzüberblick-Tabelle](#erweiterungen-von-openwehr-extended). Die Erweiterungen werden technisch geladen, ihre Module beziehungsweise Funktionen haben aber eigene Freischaltungen und Rechte. Verlinkte Detaildokumente beschreiben zusätzliche Betriebs- und Implementierungsgrenzen.
+Die folgenden Anleitungen ergänzen die [Kurzüberblick-Tabelle](#erweiterungen-von-wehrportal). Die Erweiterungen werden technisch geladen, ihre Module beziehungsweise Funktionen haben aber eigene Freischaltungen und Rechte. Verlinkte Detaildokumente beschreiben zusätzliche Betriebs- und Implementierungsgrenzen.
 
 ### Hydrantenkontrolle
 
@@ -844,7 +844,7 @@ Die folgenden Anleitungen ergänzen die [Kurzüberblick-Tabelle](#erweiterungen-
 
 ![Screenshot: Hydrantenkontrolle – Hydranten](docs-extended/screenshots/hydrantenkontrolle/hydranten.png)
 
-Die Fork-Erweiterung **Hydrantenkontrolle** wird unter **Admin → Module** aktiviert. Dort Modulzugang und Rolle `hydrantenwart` oder `uebergreifend` vergeben; aktive Admins benötigen keine zusätzliche Rolle. `HYDRANTENKONTROLLE_ENABLED=false` lädt die Erweiterung nicht. Die Modulleiste bietet **Jahreskontrollen** und **Hydranten**. `hydrantenwart` sieht nur Hydranten des im Kameradenprofil hinterlegten Orts; `uebergreifend` ist für Kommune, Brandschutzamt/GBI, SPI und andere Stellen mit Sicht auf alle Orte.
+Die Erweiterung **Hydrantenkontrolle** wird unter **Admin → Module** aktiviert. Dort Modulzugang und Rolle `hydrantenwart` oder `uebergreifend` vergeben; aktive Admins benötigen keine zusätzliche Rolle. `HYDRANTENKONTROLLE_ENABLED=false` lädt die Erweiterung nicht. Die Modulleiste bietet **Jahreskontrollen** und **Hydranten**. `hydrantenwart` sieht nur Hydranten des im Kameradenprofil hinterlegten Orts; `uebergreifend` ist für Kommune, Brandschutzamt/GBI, SPI und andere Stellen mit Sicht auf alle Orte.
 
 - **Stammdaten:** Pflicht-Ort, Nummer, Straße, optionale Hausnummer, Lagebeschreibung und Koordinaten. Beim `hydrantenwart` wird der Ort aus dem Kameradenprofil übernommen und kann nicht geändert werden; für `uebergreifend` ist er frei eintragbar. Straße oder Lagebeschreibung oder ein vollständiges Koordinatenpaar ist Pflicht. Archivieren statt Löschen erhält bestehende Jahresdaten.
 - **Jahreskontrolle:** Erst Stammdaten erfassen, dann das Jahr über **Öffnen / ergänzen** anlegen. Alle aktiven Hydranten des aktuellen Standorts werden als ungeprüft aufgenommen. Das erneute Öffnen ergänzt nur fehlende aktive Hydranten; vorhandene Kontrollwerte und eingefrorene Stammdaten bleiben erhalten. Über die Jahreslinks kann die Bearbeitung an späteren Tagen fortgesetzt werden.
@@ -942,13 +942,13 @@ Die Locations-Erweiterung ergänzt ausgewählte Datensätze um einen Standort. S
 - **Herkunftsbestand bei Mengenausgaben:** Bei installierter optionaler Herkunftsspalte speichert die reguläre Ausgabe den tatsächlich belasteten Bestand. Rücknahmen füllen genau diesen Bestand auf, auch nach Katalogänderungen oder Abschalten von Locations. Alte Ausgaben ohne Herkunftsverweis werden keinem Lager geraten zugeordnet: Mehrere passende Bestände führen zum atomaren Abbruch. Es gibt keinen automatischen Backfill. Details: [herkunftsgebundene Mengenausgaben](docs-extended/LOCATIONS.md#kleiderkammer-herkunftsgebundene-mengenausgaben-p4).
 - **Optionaler Standortschutz für Mengenbestand:** `LOCATIONS_CLOTHING_STOCK_ENABLED=true` verlangt ausdrücklich vergebene Bestandsrechte je Standort. Die reine Rolle „Mengenbestand“ erlaubt Bestandsansicht und Stückzahlkorrektur, aber keine persönlichen Größen, Ausgabehistorien oder sonstige Kleiderkammer-Verwaltung. Mengenausgaben brauchen zusätzlich die persönliche Verwaltungsberechtigung nach dem jeweils aktivierten Personenadapter. Unzugeordnete Bestände, historische Rücknahmen ohne Herkunft und pauschale Datenübertragungen bleiben globalen Admins vorbehalten; diese behalten sämtliche Rechte, dürfen aber keine mehrdeutigen Lagerziele umgehen. Standardmäßig aus, keine vollständige Mehrstandort-Freigabe. Einrichtung und Grenzen: [Mengenbestandsadapter](docs-extended/LOCATIONS.md#kleiderkammer-optionaler-mengenbestandsadapter).
 - **Gemeinsame Datensätze:** Der allgemeine Standortscope lässt Datensätze ohne Standort (`NULL`) weiterhin gemeinsam sichtbar. Fachliche Regeln können dies enger begrenzen: Anwesenheitslisten und -vorlagen ohne Standort bleiben bei aktiver Locations-Erweiterung globalen Admins zur Prüfung vorbehalten. Für vertrauliche Daten einen geprüften Standort verwenden; NULL ist keine allgemeine Freigabe.
-- **Grenzen:** Die Abgrenzung gilt für die konfigurierten Modelle, darunter Mitglieder, Gruppen, Fahrzeuge, Ausrüstung, Kleiderkammerartikel, Einsatzberichte, Mängel und Kalendertermine. Direkte `DB::table()`-Abfragen umgehen den Eloquent-Scope; eindeutige Kennungen bleiben global. Nicht jedes Upstream-Formular bietet eine Standortauswahl. Deshalb ist Locations kein Ersatz für eine vollständige Mandantentrennung oder zusätzliche Datenschutzprüfung.
+- **Grenzen:** Die Abgrenzung gilt für die konfigurierten Modelle, darunter Mitglieder, Gruppen, Fahrzeuge, Ausrüstung, Kleiderkammerartikel, Einsatzberichte, Mängel und Kalendertermine. Direkte `DB::table()`-Abfragen umgehen den Eloquent-Scope; eindeutige Kennungen bleiben global. Nicht jedes Core-Formular bietet eine Standortauswahl. Deshalb ist Locations kein Ersatz für eine vollständige Mandantentrennung oder zusätzliche Datenschutzprüfung.
 
-Die Liste der begrenzten Modelle und weitere Hinweise zu Migration und Upstream-Synchronisierung stehen in der [Locations-Dokumentation](docs-extended/LOCATIONS.md).
+Die Liste der begrenzten Modelle und weitere Hinweise zu Migration und Weiterentwicklung stehen in der [Locations-Dokumentation](docs-extended/LOCATIONS.md).
 
 ### Offline und PWA im Detail
 
-openwehr ist installierbar und zeigt bei fehlender Verbindung eine Offline-Seite. Die Offline-Erweiterung ergänzt dies um lokale Entwürfe für ausdrücklich gekennzeichnete Formulare. `OFFLINE_ENABLED=false` deaktiviert die Offline-Statusanzeige und Entwürfe, nicht aber das Manifest, den Root-Service-Worker oder die Offline-Fallback-Seite.
+WehrPortal ist installierbar und zeigt bei fehlender Verbindung eine Offline-Seite. Die Offline-Erweiterung ergänzt dies um lokale Entwürfe für ausdrücklich gekennzeichnete Formulare. `OFFLINE_ENABLED=false` deaktiviert die Offline-Statusanzeige und Entwürfe, nicht aber das Manifest, den Root-Service-Worker oder die Offline-Fallback-Seite.
 
 - **Offline-Status:** Der Statusbereich zeigt, ob das Gerät verbunden ist und wie viele lokale Entwürfe gespeichert sind. „Jetzt synchronisieren“ aktualisiert den Service Worker und den Entwurfsstatus; die Eingaben werden dabei nicht an den Server gesendet.
 - **Wasserkarte:** Im Formular einer Löschwasserquelle werden ausdrücklich markierte Felder – darunter Art, Nummer, Lage, Koordinaten, Durchfluss, Druck, Nennweite, Inhalt, Saughöhe, Betreiber, Prüfintervall und Kartenstatus – lokal gesichert. Notizen, Dateien und nicht markierte Felder sind nicht Teil des Entwurfs.
@@ -963,11 +963,11 @@ Es gibt keine allgemeine Offline-Synchronisierung, keinen automatischen Versand 
 
 Die OIDC-Erweiterung ergänzt den bisherigen Login per E-Mail-Link um die Anmeldung an einem externen Identitätsanbieter (z. B. Keycloak). Sie nutzt Authorization Code mit PKCE. Der Anbieter muss öffentlich über HTTPS erreichbar sein. `OIDC_ENABLED=false` entfernt OIDC-Routen und Einstellungen; `OIDC_FORCE_DISABLED=true` schaltet den IdP-Login im Notfall ab und gibt den Link-Login wieder für alle frei.
 
-1. **Identitätsanbieter vorbereiten:** In Keycloak einen OpenID-Connect-Client anlegen, Client Authentication einschalten und nur den Standard Flow aktivieren. In openwehr unter **Admin → Single Sign-On (OIDC)** die exakte Redirect-URI ablesen und beim Client eintragen (zum Beispiel `https://openwehr.example.com/auth/oidc/callback`, ohne Wildcards). Client-ID und Client-Secret bereithalten.
+1. **Identitätsanbieter vorbereiten:** In Keycloak einen OpenID-Connect-Client anlegen, Client Authentication einschalten und nur den Standard Flow aktivieren. In WehrPortal unter **Admin → Single Sign-On (OIDC)** die exakte Redirect-URI ablesen und beim Client eintragen (zum Beispiel `https://wehrportal.example.com/auth/oidc/callback`, ohne Wildcards). Client-ID und Client-Secret bereithalten.
 2. **Benutzer im IdP vorbereiten:** Die Scopes `openid email profile` verwenden und sicherstellen, dass Benutzer eine bestätigte E-Mail (`email_verified`) haben. Der IdP muss Discovery-, Schlüssel- und Token-Endpunkte über eine öffentliche HTTPS-Adresse bereitstellen.
-3. **Verbindung in openwehr konfigurieren:** Unter **Admin → Single Sign-On (OIDC)** Issuer-URL, Client-ID, Client-Secret, Scopes und gewünschten Button-Text eintragen. Mit „Verbindung testen“ Konfiguration und Schlüsselabruf prüfen; danach „Single Sign-On aktiv“ einschalten. Das Secret wird mit `APP_KEY` verschlüsselt gespeichert, nicht wieder angezeigt und beim Leer-Lassen beibehalten.
-4. **Ersten Login testen:** Standardmäßig wird ein bereits vorhandenes, aktives openwehr-Konto nur mit einer bestätigten, übereinstimmenden E-Mail verknüpft. Inaktive Konten werden abgelehnt. Optional kann die automatische Kontoanlage (JIT) eingeschaltet werden; neu angelegte Konten erhalten dadurch weder Adminrechte noch Modulzugänge und müssen anschließend regulär freigeschaltet werden.
-5. **Weitere Logins:** Nach der ersten Verknüpfung identifiziert die Kombination aus Issuer und `sub` das Konto. Eine bestehende Verknüpfung wird nicht allein wegen einer später übereinstimmenden E-Mail auf eine andere IdP-Identität übertragen. Gruppen- und Rollen-Claims werden nicht ausgewertet; Adminrechte und Modulzugänge bleiben von der Personalverwaltung in openwehr abhängig.
+3. **Verbindung in WehrPortal konfigurieren:** Unter **Admin → Single Sign-On (OIDC)** Issuer-URL, Client-ID, Client-Secret, Scopes und gewünschten Button-Text eintragen. Mit „Verbindung testen“ Konfiguration und Schlüsselabruf prüfen; danach „Single Sign-On aktiv“ einschalten. Das Secret wird mit `APP_KEY` verschlüsselt gespeichert, nicht wieder angezeigt und beim Leer-Lassen beibehalten.
+4. **Ersten Login testen:** Standardmäßig wird ein bereits vorhandenes, aktives WehrPortal-Konto nur mit einer bestätigten, übereinstimmenden E-Mail verknüpft. Inaktive Konten werden abgelehnt. Optional kann die automatische Kontoanlage (JIT) eingeschaltet werden; neu angelegte Konten erhalten dadurch weder Adminrechte noch Modulzugänge und müssen anschließend regulär freigeschaltet werden.
+5. **Weitere Logins:** Nach der ersten Verknüpfung identifiziert die Kombination aus Issuer und `sub` das Konto. Eine bestehende Verknüpfung wird nicht allein wegen einer später übereinstimmenden E-Mail auf eine andere IdP-Identität übertragen. Gruppen- und Rollen-Claims werden nicht ausgewertet; Adminrechte und Modulzugänge bleiben von der Personalverwaltung in WehrPortal abhängig.
 - **Nur Single Sign-On:** Diese Einstellung blendet den Link-Login für normale Nutzer aus. Lokale System-Admins behalten ihn und melden sich unter `/anmelden/lokal` an. Mindestens ein aktiver lokaler Admin muss bestehen bleiben; der letzte lässt sich nicht entfernen oder deaktivieren, solange „Nur Single Sign-On“ aktiv ist. Vor dem Einschalten einen funktionierenden lokalen Notfallzugang testen.
 - **Notfall-Wiederherstellung:** Bei Serverzugriff kann der IdP-Login deaktiviert und ein lokaler Admin eingerichtet werden:
 
@@ -978,7 +978,7 @@ Die OIDC-Erweiterung ergänzt den bisherigen Login per E-Mail-Link um die Anmeld
 
   Alternativ `OIDC_FORCE_DISABLED=true` setzen und den Container neu starten. Die Wiederherstellung des Link-Logins ist damit auch möglich, wenn die Admin-Oberfläche nicht erreichbar ist.
 
-Nicht umgesetzt sind RP-initiated Logout und die Zuordnung von IdP-Gruppen oder -Rollen zu openwehr-Rechten. Eine ausführlichere Keycloak-Anleitung, Claim-Prüfungen und Fehlersuche enthält die [OIDC-Dokumentation](docs-extended/OIDC.md).
+Nicht umgesetzt sind RP-initiated Logout und die Zuordnung von IdP-Gruppen oder -Rollen zu WehrPortal-Rechten. Eine ausführlichere Keycloak-Anleitung, Claim-Prüfungen und Fehlersuche enthält die [OIDC-Dokumentation](docs-extended/OIDC.md).
 
 ## Betrieb und Entwicklung
 
@@ -995,18 +995,15 @@ Nicht umgesetzt sind RP-initiated Logout und die Zuordnung von IdP-Gruppen oder 
 
 ### Installation
 
-Diese Anleitung bringt openwehr auf einen eigenen Server: eine virtuelle Maschine bei **UpCloud**, darauf **Coolify** als Verwaltungsoberfläche, darin eine **PostgreSQL-Datenbank** und die App mit eigener Domain und HTTPS. Programmieren muss dafür niemand; gebraucht werden ein UpCloud-Konto, eine Domain (bzw. Zugriff auf die DNS-Einträge der Wehr-Domain), ein Postfach zum Versenden der Mails und etwa eine Stunde Zeit.
+Diese Anleitung bringt WehrPortal auf einen eigenen Server: eine virtuelle Maschine bei **UpCloud**, darauf **Coolify** als Verwaltungsoberfläche, darin eine **PostgreSQL-Datenbank** und die App mit eigener Domain und HTTPS. Programmieren muss dafür niemand; gebraucht werden ein UpCloud-Konto, eine Domain (bzw. Zugriff auf die DNS-Einträge der Wehr-Domain), ein Postfach zum Versenden der Mails und etwa eine Stunde Zeit.
 
-Die Beispiele verwenden die Wehr „FF Musterstadt“ mit der Domain `ff-musterstadt.de`. Die App soll unter `openwehr.ff-musterstadt.de` laufen, Coolify unter `coolify.ff-musterstadt.de`.
+Die Beispiele verwenden die Wehr „FF Musterstadt“ mit der Domain `ff-musterstadt.de`. Die App soll unter `wehrportal.ff-musterstadt.de` laufen, Coolify unter `coolify.ff-musterstadt.de`.
 
 #### 1. UpCloud-Konto anlegen
 
 UpCloud ist ein europäischer Cloud-Anbieter mit Rechenzentrum in Frankfurt; abgerechnet wird stundengenau.
 
-**Konto über den Empfehlungslink anlegen:** <https://signup.upcloud.com/?promo=R5F4K3> (Empfehlungscode **`R5F4K3`**)
-
-- **Du** bekommst bei der Anmeldung über den Link oder Code **25 € Startguthaben**.
-- **Wir** bekommen für jedes neue Konto, das über den Code angelegt wird und mindestens zwei erfolgreiche Einmalzahlungen leistet, 28 Tage nach der ersten Zahlung **50 € Guthaben**. Damit wird der Betrieb von openwehr für die örtliche Freiwillige Feuerwehr unterstützt – danke!
+Ein Konto direkt unter <https://upcloud.com/> anlegen. WehrPortal verwendet keinen Empfehlungslink des früheren Projekts.
 
 Nach der Anmeldung im UpCloud-Hub die Zahlungsdaten hinterlegen und unter **Account → SSH keys** deinen öffentlichen SSH-Schlüssel eintragen. Wer noch keinen hat, erzeugt ihn auf dem eigenen Rechner mit `ssh-keygen -t ed25519` und kopiert den Inhalt von `~/.ssh/id_ed25519.pub`.
 
@@ -1017,11 +1014,11 @@ Im UpCloud-Hub **Servers → Deploy server**:
 | Einstellung | Wert |
 |---|---|
 | Standort | **DE-FRA1 (Frankfurt)** – die Daten bleiben in Deutschland |
-| Plan | mindestens **2 CPU-Kerne und 4 GB RAM**. Das reicht für Coolify, die Datenbank und openwehr; gebaut wird auf dem Server nichts, das fertige Image kommt von GitHub. |
+| Plan | mindestens **2 CPU-Kerne und 4 GB RAM**. Das reicht für Coolify, die Datenbank und WehrPortal; gebaut wird auf dem Server nichts, das fertige Image kommt von GitHub. |
 | Speicher | 50 GB oder mehr (Belege und Fotos liegen in der Datenbank) |
 | Betriebssystem | **Ubuntu Server 24.04 LTS** |
 | Anmeldung | den SSH-Schlüssel aus Schritt 1, **kein** Passwort |
-| Hostname | z. B. `openwehr` |
+| Hostname | z. B. `wehrportal` |
 | Backups | tägliche Sicherung des ganzen Servers einschalten (*Simple Backups*) |
 
 Nach ein bis zwei Minuten läuft der Server. Seine **öffentliche IPv4- und IPv6-Adresse** steht in der Serverübersicht.
@@ -1034,10 +1031,10 @@ Beim Anbieter der Domain (oder bei dem, der die Domain der Wehr verwaltet) zwei 
 
 | Name | Typ | Ziel |
 |---|---|---|
-| `openwehr.ff-musterstadt.de` | A (und AAAA) | IPv4 (und IPv6) des Servers |
+| `wehrportal.ff-musterstadt.de` | A (und AAAA) | IPv4 (und IPv6) des Servers |
 | `coolify.ff-musterstadt.de` | A (und AAAA) | IPv4 (und IPv6) des Servers |
 
-Alternativ ein Platzhalter-Eintrag `*.ff-musterstadt.de`, dann sind alle Unterdomains sofort erreichbar. Bis die Einträge überall bekannt sind, kann es einige Minuten dauern; prüfen lässt sich das mit `ping openwehr.ff-musterstadt.de`.
+Alternativ ein Platzhalter-Eintrag `*.ff-musterstadt.de`, dann sind alle Unterdomains sofort erreichbar. Bis die Einträge überall bekannt sind, kann es einige Minuten dauern; prüfen lässt sich das mit `ping wehrportal.ff-musterstadt.de`.
 
 #### 4. Coolify installieren
 
@@ -1069,24 +1066,24 @@ und im Browser `http://localhost:8000` aufrufen. **Sofort** das Admin-Konto anle
 - **Keinen öffentlichen Port** freigeben – die App erreicht die Datenbank intern
 - **Start** klicken
 
-Unter der Datenbank steht die **interne Verbindung** (Postgres URL, *internal*). Daraus werden für die App gebraucht: der **Hostname** (eine lange Zeichenkette), Benutzer und Passwort. Die Erweiterung `btree_gist`, die openwehr braucht, legt die App beim ersten Start selbst an.
+Unter der Datenbank steht die **interne Verbindung** (Postgres URL, *internal*). Daraus werden für die App gebraucht: der **Hostname** (eine lange Zeichenkette), Benutzer und Passwort. Die Erweiterung `btree_gist`, die WehrPortal braucht, legt die App beim ersten Start selbst an.
 
 **Backups der Datenbank** (dringend empfohlen): Bei der Datenbank → **Backups** einen täglichen Zeitplan anlegen, z. B. `0 3 * * *`. Sicherer als auf dem Server selbst liegen die Sicherungen in einem S3-Speicher, z. B. **UpCloud Managed Object Storage**: Bucket anlegen, in Coolify unter **Settings → S3 Storages** eintragen (Endpoint, Bucket, Access Key, Secret Key, mit **Validate** prüfen) und beim Backup als Ziel wählen. Aufbewahrung z. B. 30 Tage.
 
-#### 6. openwehr anlegen
+#### 6. WehrPortal anlegen
 
-Die Konfiguration in diesem Schritt gilt für beide Varianten; nur Image und Tag unterscheiden sich. Das anschließende Formularbeispiel bezieht sich ausdrücklich auf den Upstream.
+Die Konfiguration bezieht sich ausschließlich auf WehrPortal.
 
-> **Upstream-Beispiel:** Das folgende Image `ghcr.io/roberteinsle/openwehr` und der beispielhafte Tag `v0.8.1` gehören zum Upstream-Projekt, nicht zu openwehr-extended. Beim Fork baut `fork-deploy.yml` Images nur bei Pushes auf `main` und veröffentlicht sie unter `ghcr.io/<owner>/<repo>` als `latest` (nur Default-Branch) und `sha-<commit>`. Pull Requests nach `main` oder `extended` führen Prüfungen aus, veröffentlichen aber kein Image. `fork-release.yml` veröffentlicht bei einem Tag `v<Version>-x<n>` das Fork-Image mit diesem Tag und `latest`; der Tag muss zur Versionsangabe in `config/app.php` passen. Verwende nur einen Tag, der tatsächlich in den Fork-Releases bzw. den Container Packages veröffentlicht wurde. Ein Push auf `extended` allein erstellt kein Image. Einzelheiten: [Fork-Leitfaden](FORK.md).
+> **Image-Verfügbarkeit:** `ghcr.io/timux/wehrportal` wird erst veröffentlicht, wenn im neuen Repository `PUBLISH_IMAGES=true` gesetzt wurde und CI beziehungsweise ein passender Release-Tag erfolgreich durchgelaufen ist. Die Migration allein erzeugt kein Image und löst kein Deployment aus. Bis zur ersten Veröffentlichung aus `https://github.com/TimUx/WehrPortal.git` selbst bauen (`docker compose build`). Verwende keine Images der früheren Repositories als Ersatz. Einzelheiten: [Migration und Betrieb](MIGRATION.md).
 
 Im selben Projekt **+ New → Docker Image**:
 
 | Feld | Wert |
 |---|---|
-| Image | `ghcr.io/roberteinsle/openwehr` |
-| Tag | eine feste Version aus den [Releases](https://github.com/roberteinsle/openwehr/releases), z. B. `v0.8.1`. (`latest` ist immer der neueste Stand von `main` und eher für Test-Instanzen gedacht.) |
+| Image | `ghcr.io/timux/wehrportal` |
+| Tag | eine tatsächlich veröffentlichte feste Version aus den [WehrPortal-Releases](https://github.com/TimUx/WehrPortal/releases), z. B. `v0.9.5.5`, sobald vorhanden. `latest` ist für Test-Instanzen gedacht. |
 | Ports Exposes | `8080` |
-| Domains | `https://openwehr.ff-musterstadt.de` (mehrere Adressen mit Komma trennen) |
+| Domains | `https://wehrportal.ff-musterstadt.de` (mehrere Adressen mit Komma trennen) |
 | Health Check | Pfad `/up`, Port `8080` |
 
 **Noch nicht deployen** – erst die Umgebungsvariablen eintragen (**Environment Variables**, am bequemsten über **Developer view**):
@@ -1096,7 +1093,7 @@ APP_NAME="FF Musterstadt"
 APP_ENV=production
 APP_DEBUG=false
 APP_KEY=base64:...
-APP_URL=https://openwehr.ff-musterstadt.de
+APP_URL=https://wehrportal.ff-musterstadt.de
 APP_TIMEZONE=Europe/Berlin
 APP_LOCALE=de
 APP_FALLBACK_LOCALE=de
@@ -1117,9 +1114,9 @@ MAIL_MAILER=smtp
 MAIL_SCHEME=smtps
 MAIL_HOST=smtp.example.com
 MAIL_PORT=465
-MAIL_USERNAME=openwehr@ff-musterstadt.de
+MAIL_USERNAME=wehrportal@ff-musterstadt.de
 MAIL_PASSWORD=<Passwort des Postfachs>
-MAIL_FROM_ADDRESS="openwehr@ff-musterstadt.de"
+MAIL_FROM_ADDRESS="wehrportal@ff-musterstadt.de"
 MAIL_FROM_NAME="FF Musterstadt"
 
 ADMIN_EMAILS=wehrfuehrer@ff-musterstadt.de
@@ -1132,11 +1129,11 @@ MAGIC_LINK_TTL_MINUTES=15
 - **E-Mail:** Ohne funktionierenden Mailversand kann sich niemand anmelden – die Login-Links kommen per Mail. Am einfachsten ist ein eigenes Postfach der Wehr beim Domain-Anbieter. Für Port 587 gilt `MAIL_SCHEME=smtp`, für Port 465 `smtps`. Zum Ausprobieren ohne Versand: `MAIL_MAILER=log` (die Mails stehen dann im Log der App).
 - **`ADMIN_EMAILS`:** eine oder mehrere Adressen (mit Komma getrennt), die bei jedem Start als aktive Admins angelegt werden.
 
-Jetzt **Deploy** klicken. Coolify lädt das Image, die App legt beim ersten Start alle Tabellen an und holt das HTTPS-Zertifikat. Wenn der Status auf *Running (healthy)* steht, ist openwehr unter `https://openwehr.ff-musterstadt.de` erreichbar.
+Jetzt **Deploy** klicken. Coolify lädt das Image, die App legt beim ersten Start alle Tabellen an und holt das HTTPS-Zertifikat. Wenn der Status auf *Running (healthy)* steht, ist WehrPortal unter `https://wehrportal.ff-musterstadt.de` erreichbar.
 
-#### 7. Erste Schritte in openwehr
+#### 7. Erste Schritte in WehrPortal
 
-1. `https://openwehr.ff-musterstadt.de/anmelden` öffnen, die Adresse aus `ADMIN_EMAILS` eingeben und den Link aus der Mail öffnen.
+1. `https://wehrportal.ff-musterstadt.de/anmelden` öffnen, die Adresse aus `ADMIN_EMAILS` eingeben und den Link aus der Mail öffnen.
 2. Oben rechts **Admin** → **Einstellungen**: Name und Kurzname der Wehr, Mail-Signatur und **Logo** hochladen.
 3. **Kameraden** anlegen (oder per Import), dazu **Abteilungen** und **Funktionen**. Wer die Funktion „Vorstand“ (oder eine Unterfunktion davon) hat, gehört zum Vorstand.
 4. **Module:** die gewünschten Module einschalten und über „x Kameraden“ freigeben oder „Neue Kameraden automatisch freischalten“ aktivieren. Rollen (z. B. Entscheider, Kassenwart) dort vergeben.
@@ -1145,10 +1142,10 @@ Jetzt **Deploy** klicken. Coolify lädt das Image, die App legt beim ersten Star
 
 #### 8. Updates einspielen
 
-Die [Upstream-Releases](https://github.com/roberteinsle/openwehr/releases) gehören zum Original. Fork-Releases erscheinen separat und verwenden Tags mit `-x<n>`; für Updates dieses Forks muss ein tatsächlich veröffentlichter Fork-Tag und das dazugehörige Fork-Image verwendet werden. Prüfe dafür die Releases- und Container-Packages-Seiten dieses Fork-Repositories. Das `latest`-Image des Forks ist nicht mit dem Upstream-Image identisch. Siehe [Fork-Leitfaden](FORK.md).
+Updates kommen ausschließlich aus den [WehrPortal-Releases](https://github.com/TimUx/WehrPortal/releases) beziehungsweise dem eigenständigen `main`-Branch. Nur tatsächlich veröffentlichte Tags und Images verwenden; es gibt keinen automatischen Abgleich mit einem Basis-Repository. Bei einer bisherigen Installation zuerst [Migration und Betrieb](MIGRATION.md) lesen.
 
 1. In Coolify bei der Datenbank **Backups → Backup Now** – vor jedem Update.
-2. Bei der App den tatsächlich veröffentlichten Fork-Tag im Format `v<Version>-x<n>` setzen, **Save**, dann **Redeploy**.
+2. Bei der App den tatsächlich veröffentlichten WehrPortal-Tag im Format `v<Version>` setzen, **Save**, dann **Redeploy**.
 3. Datenbank-Änderungen laufen beim Start automatisch. Die Version steht im Admin-Bereich oben klein hinter dem Titel.
 
 **Wie oft?** Mindestens **monatlich**, und sofort, wenn ein Release als **Sicherheitsupdate** gekennzeichnet ist. Wer „Watch → Custom → Releases“ beim Repository einschaltet, bekommt jede neue Version per Mail.
@@ -1178,22 +1175,22 @@ Alle Einstellungen laufen über Umgebungsvariablen (in Coolify unter **Environme
 | `DISPLAY_TOKEN`          | Geheimer Schlüssel für den Wachen-Monitor ohne Login (`/monitor/<Schlüssel>`). Leer bedeutet nur für Admins. |
 | `MAGIC_LINK_TTL_MINUTES` | Gültigkeit eines Login-Links in Minuten (Standard: 15)  |
 | `SESSION_LIFETIME`       | Session-Dauer in Minuten (Standard: 90 Tage)            |
-| `LOCATIONS_SCOPED_ROLE_MODULES` | Fork: standardmäßig leer. `anwesenheit` und/oder `mitteilungen` aktivieren nach expliziter Rollenvergabe die jeweiligen Standortrollenadapter (kommagetrennt). Kein pauschaler Schalter für vollständige Mandantentrennung. |
+| `LOCATIONS_SCOPED_ROLE_MODULES` | Standardmäßig leer. `anwesenheit` und/oder `mitteilungen` aktivieren nach expliziter Rollenvergabe die jeweiligen Standortrollenadapter (kommagetrennt). Kein pauschaler Schalter für vollständige Mandantentrennung. |
 | `LOG_CHANNEL`            | Im Docker-Image `stderr`, damit Fehler in den Container-Logs erscheinen |
 
 Alle Mails werden sofort verschickt, ein Queue-Worker ist nicht nötig. Der Laravel-Scheduler läuft im Docker-Image als eigener Dienst neben nginx und PHP-FPM mit, ein separater Container oder Cronjob ist nicht nötig. Er verschickt jede Minute fällige Erinnerungsmails und räumt täglich abgelaufene Login-Tokens auf.
 
 ### Sicherheit
 
-Wie openwehr gegen Lücken abgesichert wird und wie man eine meldet, steht in [SECURITY.md](SECURITY.md). Kurz:
+Wie WehrPortal gegen Lücken abgesichert wird und wie man eine meldet, steht in [SECURITY.md](SECURITY.md). Kurz:
 
 - **Updates:** Dependabot schlägt jede Woche Updates aller Abhängigkeiten vor (PHP, JavaScript, Docker-Basis-Image, GitHub-Actions); Sicherheitsupdates sofort. Jede Änderung läuft durch alle Tests, bevor ein Image entsteht.
-- **Prüfungen** (Workflow „Fork Build & Deploy“): auf Pushes nach `main` und Pull Requests nach `main` oder `extended` laufen Tests (PostgreSQL 18), `composer audit`, `npm audit`, Larastan (Level 5), Gitleaks sowie eigene Dateien-Prüfschritte. Das Image wird nur bei Push nach `main` gebaut und vor Veröffentlichung auf kritische Schwachstellen mit verfügbarer Korrektur gescannt; Pull Requests veröffentlichen kein Image.
-- **Wöchentlich** (Workflow „Fork Security“): Composer- und npm-Abhängigkeitsaudits sowie ein Scan des veröffentlichten Fork-Images `ghcr.io/<owner>/<repo>:latest` auf kritische und hohe Schwachstellen. Funde stehen im Security-Tab des Repositorys.
+- **Prüfungen** (Workflow „WehrPortal CI“): auf Pushes und Pull Requests nach `main` laufen Tests (PostgreSQL 18), `composer audit`, `npm audit`, Larastan (Level 5), Gitleaks sowie eigene Dateien-Prüfschritte. Nur mit `PUBLISH_IMAGES=true` wird bei Push nach `main` ein Image gebaut und vor Veröffentlichung auf kritische Schwachstellen mit verfügbarer Korrektur gescannt; Pull Requests veröffentlichen kein Image. Kein Workflow löst ein Deployment aus.
+- **Wöchentlich** (Workflow „WehrPortal Security“): Composer- und npm-Abhängigkeitsaudits sowie nach Aktivierung der Image-Publikation ein Scan von `ghcr.io/timux/wehrportal:latest` auf kritische und hohe Schwachstellen. Funde stehen im Security-Tab des Repositorys.
 - **KI-Sicherheitsreview:** Pull Requests prüft die GitHub-Action „Claude Code Security Review“ (Workflow „Claude Security Review“; braucht das Repository-Secret `ANTHROPIC_API_KEY`, sonst wird sie übersprungen). Lokal geht dasselbe mit `/security-review` in Claude Code.
 - **In der App:** Security-Header auf jeder Antwort (`X-Content-Type-Options`, `X-Frame-Options` – außer dem öffentlichen Kalender zum Einbetten –, `Referrer-Policy`, `Permissions-Policy`, HSTS unter HTTPS und eine Content-Security-Policy, vorerst im Beobachtungsmodus „Report-Only“). Hochgeladene Dateien werden mit festem Dateityp ausgeliefert, nur PDFs und Fotos öffnen im Browser, alles andere wird heruntergeladen. CSV-Exporte entschärfen Zellen, die in Excel als Formel laufen würden. Externe Kalender lassen sich nur von öffentlichen Adressen abrufen. Links in Mails nehmen ihre Adresse immer aus `APP_URL`. Session-Cookies sind unter HTTPS automatisch `Secure`.
 - **Einladungslinks:** Den Login-Link als QR-Code oder zum Kopieren zeigt die Personalverwaltung nur für Kameraden, die sich noch nie angemeldet haben (Admins für jeden); alle anderen bekommen die Einladung per Mail an ihre eigene Adresse. Mails mit Login- oder Aktionslinks werden im Mail-Protokoll ohne Inhalt gespeichert.
 
 ### Lizenz
 
-openwehr ist freie Software unter der [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0). Jede Wehr darf openwehr kostenlos nutzen, anpassen und weitergeben. Wer eine veränderte Version betreibt und anderen über das Netz zur Verfügung stellt, muss deren Quelltext ebenfalls unter der AGPL-3.0 offenlegen.
+WehrPortal ist freie Software unter der [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-only). Jede Wehr darf WehrPortal kostenlos nutzen, anpassen und weitergeben. Wer eine veränderte Version betreibt und anderen über das Netz zur Verfügung stellt, muss deren Quelltext ebenfalls unter der AGPL-3.0 offenlegen. Die ursprüngliche Anwendung openwehr von Robert Einsle und weiteren Beitragenden sowie die Erweiterungen aus openwehr-extended bleiben als Herkunft anerkannt; siehe [Urheberhinweise](MIGRATION.md#herkunft-und-lizenz) und die unveränderte Git-Historie.

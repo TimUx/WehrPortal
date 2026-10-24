@@ -1,9 +1,9 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "roberteinsle/openwehr",
+    "name": "timux/wehrportal",
     "type": "project",
-    "description": "openwehr – modular web app for volunteer fire brigades.",
-    "keywords": ["openwehr", "feuerwehr", "fire-brigade", "vehicle-booking", "laravel"],
+    "description": "WehrPortal – modular web app for volunteer fire brigades.",
+    "keywords": ["wehrportal", "feuerwehr", "fire-brigade", "vehicle-booking", "laravel"],
     "license": "AGPL-3.0-only",
     "require": {
         "php": "^8.2",

@@ -1,17 +1,11 @@
 name: Docs Screenshots
 
-# Fork: keeps the screenshots in the documentation (docs-extended/screenshots/, embedded in README.md
+# Keeps the screenshots in the documentation (docs-extended/screenshots/, embedded in README.md
 # and docs-extended) current. Runs the E2E screenshot workflow and commits the pictures back to
-# `extended` when they changed. The run is deterministic (frozen clock, fixed data), so a commit only
+# `main` when they changed. The run is deterministic (frozen clock, fixed data), so a commit only
 # happens when the UI or the example data changed. Pushes with GITHUB_TOKEN start no new workflow runs.
 on:
   workflow_dispatch:
-  push:
-    branches: [extended]
-    paths-ignore:
-      - 'docs/**'
-      - 'docs-extended/screenshots/**'
-      - '**/*.md'
 
 concurrency:
   group: docs-screenshots-${{ github.ref }}
@@ -28,7 +22,7 @@ jobs:
   commit:
     name: Commit Screenshots
     needs: e2e
-    if: github.ref == 'refs/heads/extended'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -56,5 +50,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "Update documentation screenshots"
-          git pull --rebase origin extended
-          git push origin HEAD:extended
+          git pull --rebase origin main
+          git push origin HEAD:main

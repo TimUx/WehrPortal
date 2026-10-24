@@ -35,7 +35,7 @@
                 <div><dt>Gehört nach</dt><dd>{{ $equipment->placeLabel() }}</dd></div>
             </dl>
         </div>
-        <p class="muted" style="margin-top:1rem">Mehr Details, Schaden melden oder ausleihen: <a href="{{ route('ausruestung.show', $equipment) }}">in openwehr anmelden</a>.</p>
+        <p class="muted" style="margin-top:1rem">Mehr Details, Schaden melden oder ausleihen: <a href="{{ route('ausruestung.show', $equipment) }}">in WehrPortal anmelden</a>.</p>
     </main>
 </body>
 </html>

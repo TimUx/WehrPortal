@@ -199,7 +199,7 @@ class CatalogImporter
 
     private function fetch(string $url): string
     {
-        $response = Http::timeout(20)->withUserAgent('openwehr (Lehrgangskatalog)')->get($url);
+        $response = Http::timeout(20)->withUserAgent('WehrPortal (Lehrgangskatalog)')->get($url);
 
         if (! $response->successful()) {
             throw new RuntimeException('Die Seite '.$url.' antwortet mit HTTP '.$response->status().'.');

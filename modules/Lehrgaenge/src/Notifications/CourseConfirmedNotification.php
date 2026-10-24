@@ -29,7 +29,7 @@ class CourseConfirmedNotification extends Notification
             $mail->line('• '.$session->label());
         }
 
-        return $mail->line('Kannst du doch nicht teilnehmen, sag den Lehrgang bitte so früh wie möglich in openwehr ab.')
+        return $mail->line('Kannst du doch nicht teilnehmen, sag den Lehrgang bitte so früh wie möglich in WehrPortal ab.')
             ->action('Meine Lehrgänge', route('lehrgaenge.index'))
             ->salutation(app(OrganizationSettings::class)->salutation());
     }

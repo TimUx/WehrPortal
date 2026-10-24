@@ -5,12 +5,11 @@ namespace Extensions;
 use Illuminate\Support\ServiceProvider;
 
 /**
- * Loads the fork's own extensions without touching upstream files.
+ * Loads the application's additional modules.
  *
  * Every folder extensions/<Name>/ that contains <Name>ServiceProvider.php (class
  * Extensions\<Name>\<Name>ServiceProvider) is registered automatically. This provider itself is
- * registered through composer.json (extra.laravel.providers), so bootstrap/providers.php stays
- * identical to upstream.
+ * registered in bootstrap/providers.php.
  */
 class ExtensionsServiceProvider extends ServiceProvider
 {

@@ -48,7 +48,7 @@ class OsmImporter
             .');out body 3000;';
 
         try {
-            $response = Http::timeout(40)->withUserAgent('openwehr (Wasserkarte; Feuerwehr-Software)')->asForm()
+            $response = Http::timeout(40)->withUserAgent('WehrPortal (Wasserkarte; Feuerwehr-Software)')->asForm()
                 ->post(self::ENDPOINT, ['data' => $query]);
         } catch (Throwable $e) {
             report($e);

@@ -27,5 +27,5 @@
         </ul>
         <button type="button" wire:click="test" class="text-xs text-fw-navy underline">Test-Nachricht schicken</button>
     @endif
-    <p class="text-xs text-gray-500">Tipp: openwehr lässt sich wie eine App auf den Startbildschirm legen – im Browser-Menü „App installieren“ bzw. „Zum Home-Bildschirm“.</p>
+    <p class="text-xs text-gray-500">Tipp: WehrPortal lässt sich wie eine App auf den Startbildschirm legen – im Browser-Menü „App installieren“ bzw. „Zum Home-Bildschirm“.</p>
 </div>

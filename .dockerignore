@@ -13,7 +13,7 @@ storage/framework/sessions/*
 storage/framework/views/*
 tests
 
-# Fork (openwehr-extended): nothing in the image that the app doesn't need at runtime or for the build
+# Nothing in the image that the app doesn't need at runtime or for the build
 # Documentation and project page (incl. the screenshots in docs-extended/screenshots/)
 docs
 docs-extended

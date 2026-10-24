@@ -10,7 +10,7 @@
     <link rel="apple-touch-icon" href="/images/icon-192.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
-    <title>{{ $title ? $title.' – '.($orgName ?? 'openwehr') : ($orgName ?? 'openwehr') }}</title>
+    <title>{{ $title ? $title.' – '.($orgName ?? 'WehrPortal') : ($orgName ?? 'WehrPortal') }}</title>
     @include('partials.og-tags', ['preview' => app(\App\Support\LinkPreview::class)->forRequest(request())])
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
@@ -28,8 +28,8 @@
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between h-11 sm:h-14">
                     <a href="{{ route('home') }}" class="flex items-center gap-2.5">
-                        <img src="{{ $orgLogoUrl ?? asset('images/openwehr-logo.svg') }}" alt="{{ $orgName ?? 'openwehr' }}" class="h-6 sm:h-8 w-auto brightness-0 invert">
-                        <span class="font-semibold text-sm">{{ $orgName ?? 'openwehr' }}</span>
+                        <img src="{{ $orgLogoUrl ?? asset('images/openwehr-logo.svg') }}" alt="{{ $orgName ?? 'WehrPortal' }}" class="h-6 sm:h-8 w-auto brightness-0 invert">
+                        <span class="font-semibold text-sm">{{ $orgName ?? 'WehrPortal' }}</span>
                     </a>
                     @auth
                     <div class="flex items-center gap-4 sm:gap-6">

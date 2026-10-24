@@ -17,7 +17,7 @@ class IcsExporter
         $lines = [
             'BEGIN:VCALENDAR',
             'VERSION:2.0',
-            'PRODID:-//openwehr//Kalender//DE',
+            'PRODID:-//WehrPortal//Kalender//DE',
             'CALSCALE:GREGORIAN',
             'METHOD:PUBLISH',
             'X-WR-CALNAME:'.$this->escape(app(OrganizationSettings::class)->shortName()),

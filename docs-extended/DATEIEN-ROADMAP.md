@@ -1,6 +1,6 @@
 # Dateien – Roadmap nach Meilenstein 1
 
-[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Dateien-Funktionsbeschreibung](DATEIEN.md) · [Fork-Leitfaden](../FORK.md)
+[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Dateien-Funktionsbeschreibung](DATEIEN.md) · [Migration und Betrieb](../MIGRATION.md)
 
 Planungsstand der Extension `extensions/Dateien/`, ausgehend von Meilenstein 1 (Dateiablage, Gruppenrechte, Versionierung). Meilensteine 2 bis 5 sind umgesetzt, Meilenstein 6 teilweise umgesetzt; Meilenstein 7 enthält spätere Ausbauideen. Die aktuelle Bedienung steht in [`DATEIEN.md`](DATEIEN.md). Dieses Dokument enthält keinen Code; neue Arbeit wird weiterhin separat umgesetzt.
 
@@ -39,7 +39,7 @@ Die folgende Bestandsaufnahme beschreibt den Stand **nach M1 und vor den später
 5. Öffentliche Datei-URLs sind laut Konzept ausgeschlossen – nur als ausdrückliche, abschaltbare Ausnahme denkbar.
 
 **Leitplanken für alle Meilensteine:**
-- Keine Änderungen an Upstream-Dateien (`FORK.md`). Eigene CSP-Header setzt die Antwort selbst; `SecurityHeaders` übernimmt einen vorhandenen Header.
+- Core und Erweiterung werden gemeinsam in WehrPortal gepflegt; die frühere Fork-Beschränkung gilt nicht mehr. Eigene CSP-Header setzt die Antwort selbst; `SecurityHeaders` übernimmt einen vorhandenen Header.
 - Rechte immer im Service prüfen (`FileAccess`), nicht nur in der Oberfläche.
 - Migrationen laufen auf frischer und bestehender Datenbank; Trigger-Funktionen mit `CREATE OR REPLACE`.
 - Geplante Befehle mit `appendOutputTo`.
@@ -69,7 +69,7 @@ Reihenfolge: M2 → M3 → M4 → produktiver Go-live → M5 / M6 nach Bedarf �
 2. **Uploads:** mehrere Dateien und Drag & Drop; optional Upload in Teilstücken (Limit über 50 MiB konfigurierbar); Kontingent vor und nach dem Upload prüfen (parallele Uploads); Fortschritt und Abbruch.
 3. **Einstellungen in der Admin-Seite:** Uploadlimit, erlaubte Endungen (Teilmenge der `FileResponse`-Allowlist), Papierkorb-Aufbewahrung, Warnschwelle für Kontingente.
 4. **Speicherabgleich:** Befehl `dateien:reconcile` (geplant, mit Report: verwaiste Schlüssel, fehlende Dateien, falsche Prüfsummen). Standardmäßig nur berichten, Löschen nach Bestätigung durch einen Admin. Löschliste automatisch abarbeiten (Retry mit Backoff).
-5. **Backup/Restore:** dokumentiertes Verfahren für Datenbank **und** `storage/app/private/dateien`; Prüfbefehl für die Konsistenz nach einem Restore; persistentes Volume im Coolify-/Docker-Setup und in `fork-deploy.yml` dokumentieren.
+5. **Backup/Restore:** dokumentiertes Verfahren für Datenbank **und** `storage/app/private/dateien`; Prüfbefehl für die Konsistenz nach einem Restore; persistentes Volume im Coolify-/Docker-Setup und in `MIGRATION.md` dokumentieren.
 6. **Audit:** Admin-Ansicht mit Filter (Ablage, Benutzer, Aktion, Zeitraum), CSV-Export über `App\Support\Csv::put()`; feste Aufbewahrung mit eigenem Prune-Pfad (Append-only-Trigger, analog Verbandbuch).
 7. **Mitglieder-Lebenszyklus:** `MemberRemoval` mit Dateiversionen testen (`x_files_versions.created_by` ist `restrictOnDelete` und wird übertragen; Rechte fallen per Kaskade weg; `actor_id` im Audit bleibt). Verhalten für `left`/`inactive` festlegen und dokumentieren.
 8. **Benachrichtigungen:** „Mit dir geteilt“ als `InApp`-Notification (Glocke + Push); Aktions-URL führt direkt zum Eintrag; keine Dateiinhalte.
@@ -193,7 +193,7 @@ Verschieben zwischen Ablagen ist weiterhin **nicht umgesetzt**; beim späteren A
 
 ## Übergreifend pro Meilenstein
 
-- **Doku:** `docs-extended/DATEIEN.md` fortschreiben; Upstream-Eingriffe in `FORK.md`; Betriebsanleitung Office-Server (Compose-Beispiel, Netzwerk, TLS).
+- **Doku:** `docs-extended/DATEIEN.md` und bei Betriebsänderungen `MIGRATION.md` fortschreiben; Betriebsanleitung Office-Server (Compose-Beispiel, Netzwerk, TLS).
 - **CI:** Pest parallel, Larastan Level 5 ohne neue Baseline-Einträge, `composer audit`, `npm audit`.
 - **Release:** pro Meilenstein ein Release mit Migrationstest auf einer Kopie der Produktivdatenbank; vorher Backup von Datenbank **und** Dateien.
 - **Testdaten:** nur erfundene Personen und Domains (`ff-musterstadt.de`).

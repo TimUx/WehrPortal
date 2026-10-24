@@ -1,12 +1,12 @@
-# openwehr
+# WehrPortal
 
 > Kostenlose Open-Source-Web-App (AGPL-3.0) für Freiwillige Feuerwehren in Deutschland: ein gemeinsamer Kern mit Anmeldung ohne Passwort, Kameraden, Startseite, Benachrichtigungen und Admin-Bereich, dazu 23 Module, die jede Wehr einzeln einschaltet. Für das Handy gemacht, Oberfläche auf Deutsch, Betrieb auf dem eigenen Server (Docker-Image mit PostgreSQL).
 
-- Projektseite: https://www.openwehr.de/
-- Quellcode und ausführliche Dokumentation (README): https://github.com/roberteinsle/openwehr
-- Installationsanleitung: https://github.com/roberteinsle/openwehr#installation
-- Docker-Image: ghcr.io/roberteinsle/openwehr
-- Versionen: https://github.com/roberteinsle/openwehr/releases
+- Projekt: https://github.com/TimUx/WehrPortal
+- Quellcode und ausführliche Dokumentation (README): https://github.com/TimUx/WehrPortal
+- Installationsanleitung: https://github.com/TimUx/WehrPortal#installation
+- Docker-Image: ghcr.io/timux/wehrportal
+- Versionen: https://github.com/TimUx/WehrPortal/releases
 
 ## Module
 
@@ -45,4 +45,4 @@
 ## Technik
 
 Laravel 12 (PHP 8.4), Livewire 4, Filament 5, Tailwind 4, PostgreSQL 18, OpenStreetMap-Karten. Betrieb als Docker-Image, z. B. mit Coolify.
-- Sicherheit: wöchentliche Dependabot-Updates, bei jedem Push Tests, composer/npm audit, Larastan, Gitleaks und Trivy-Image-Scan, KI-Sicherheitsreview für Pull Requests, Meldeweg in SECURITY.md: https://github.com/roberteinsle/openwehr/blob/main/SECURITY.md
+- Sicherheit: wöchentliche Dependabot-Updates, bei jedem Push Tests, composer/npm audit, Larastan, Gitleaks und Trivy-Image-Scan, KI-Sicherheitsreview für Pull Requests, Meldeweg in SECURITY.md: https://github.com/TimUx/WehrPortal/blob/main/SECURITY.md

@@ -34,7 +34,7 @@ class PushSettings extends Component
 
     public function test(PushService $push): void
     {
-        $sent = $push->toUser(auth()->user(), 'Test von openwehr', 'So sehen Push-Benachrichtigungen auf diesem Gerät aus.', route('profile'));
+        $sent = $push->toUser(auth()->user(), 'Test von WehrPortal', 'So sehen Push-Benachrichtigungen auf diesem Gerät aus.', route('profile'));
         $this->flash = $sent ? 'Test an '.$sent.' '.($sent === 1 ? 'Gerät' : 'Geräte').' geschickt.' : 'Kein Gerät hat die Nachricht angenommen.';
     }
 

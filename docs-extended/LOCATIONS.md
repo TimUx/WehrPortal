@@ -1,6 +1,6 @@
 # Mehrere Standorte (Extension `Locations`)
 
-[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Fork-Leitfaden](../FORK.md)
+[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Migration und Betrieb](../MIGRATION.md)
 
 Für Gemeinden mit mehreren Feuerwehrhäusern. Code: `extensions/Locations/`, Abschaltung mit `LOCATIONS_ENABLED=false`.
 
@@ -171,7 +171,7 @@ P1 wird seit der ausdrücklichen Auftraggeberentscheidung vom 22.10.2026 vorerst
 
 Im JSON-Bericht steht deshalb `p1_acceptance.status = administratively_closed`, mit `verification = unverified` und `evidence = no_original_evidence`. Nur die P1-Freigabesperre entfällt; die vier verbleibenden Sperren und `release_ready = false` bleiben bestehen. Auch die Textausgabe unterscheidet den administrativen Abschluss von einer fachlichen Verifikation.
 
-Der Fork-Workflow führt die zugehörigen Regressionen zusätzlich zum Schema-Guard und zur vollständigen Testsuite ausdrücklich aus. Ein grüner Entwicklungsbuild bestätigt diese getesteten Teilverträge, nicht die Betriebsfreigabe einer realen Installation. Der absichtlich blockierte Bereitschaftsbefehl wird deshalb nicht als genereller Deployment-Schalter für jede bestehende Installation verwendet.
+Der CI-Workflow führt die zugehörigen Regressionen zusätzlich zum Schema-Guard und zur vollständigen Testsuite ausdrücklich aus. Ein grüner Entwicklungsbuild bestätigt diese getesteten Teilverträge, nicht die Betriebsfreigabe einer realen Installation. Der absichtlich blockierte Bereitschaftsbefehl wird deshalb nicht als genereller Deployment-Schalter für jede bestehende Installation verwendet.
 
 ## Schutzmanifest und Schema-Guard
 
@@ -183,7 +183,7 @@ Das Schutzmanifest in `extensions/Locations/config/protection.php` (Konfiguratio
 
 `mode` und `null_rule` halten den vorgeschlagenen Zielzustand fest; `current_null_rule` und `parents[].source_null_rule` trennen davon das beobachtete Verhalten beziehungsweise die heutige Schema-Nullbarkeit. Fehlende Standortzuordnungen oder noch nötige Spalten/Migrationen werden als offene Zielarbeit dokumentiert, nicht als Genehmigung standortübergreifenden Zugriffs. Historische, nullable Personenverweise dürfen erhalten bleiben, ohne dadurch eine Freigabe zu bewirken.
 
-`Extensions\Locations\Services\ProtectionManifest` prüft im bestehenden PostgreSQL-Audit-Test die tatsächlichen Tabellen gegen das Manifest. Fehlende Klassifikationen, ungültige Definitionen und fehlerhafte Elternbeziehungen blockieren die Prüfung. Der Fork-Workflow führt die Audit-Tests vor den übrigen Featuretests ausdrücklich aus; dieselben Tests bleiben zusätzlich Bestandteil der vollständigen Regression.
+`Extensions\Locations\Services\ProtectionManifest` prüft im bestehenden PostgreSQL-Audit-Test die tatsächlichen Tabellen gegen das Manifest. Fehlende Klassifikationen, ungültige Definitionen und fehlerhafte Elternbeziehungen blockieren die Prüfung. Der CI-Workflow führt die Audit-Tests vor den übrigen Featuretests ausdrücklich aus; dieselben Tests bleiben zusätzlich Bestandteil der vollständigen Regression.
 
 Optionale Tabellen dürfen nur fehlen, wenn die ausdrücklich benannte Erweiterung abgeschaltet ist; dafür enthält das Manifest eine endliche Tabellenliste, den Konfigurationsschalter und den zugehörigen Provider. Bereits vorhandene Tabellen werden auch nach dem Abschalten weiter geprüft. Entfernte oder umbenannte Migrationstabellen werden getrennt erfasst und dürfen nicht als Ausnahme für heute noch vorhandene Tabellen dienen.
 
@@ -433,8 +433,8 @@ Die gleiche Quellstandortprüfung gilt bei der Auswahl von Benachrichtigungsempf
 
 ## Grenzen / offen
 
-- `DB::table(...)`-Abfragen umgehen den Scope; bei Upstream-Syncs prüfen.
+- `DB::table(...)`-Abfragen umgehen den Scope; bei Änderungen prüfen.
 - Eindeutige Schlüssel sind global (`eb_reports.number`, `ar_equipment.code`).
-- Standortfilter in den übrigen Upstream-Formularen und -Tabellen gibt es nicht; Mitglieder und Abteilungen lassen sich unter Admin → Standorte zuordnen.
+- Standortfilter in den übrigen Core-Formularen und -Tabellen gibt es nicht; Mitglieder und Abteilungen lassen sich unter Admin → Standorte zuordnen.
 - Der Standortkontext erscheint in der App und im Admin-Menü; er steuert die Vorbelegung neuer Datensätze, nicht die gesamte Sicht. Browser-/Offline- und modulübergreifende Abnahmen bleiben offen.
 - Verbandbuch, Mitteilungen und weitere Datenbereiche brauchen jeweils eine eigene Standortprüfung; ein Eintrag in `config/locations.php` allein begrenzt sie nicht. Mitteilungen sind über ihre explizite Standortspalte und `Announcement::for()` begrenzt.

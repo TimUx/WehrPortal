@@ -44,7 +44,7 @@ class SettingsPage extends Page implements ModuleArea
     public string $filters = '';
 
     /** Test alarm, as DIVERA would send it */
-    public array $test = ['keyword' => 'FEU 1 – Test-Alarm', 'message' => 'Test-Alarm aus openwehr, bitte ignorieren', 'address' => '', 'latitude' => '', 'longitude' => '', 'probe' => false, 'via_url' => false];
+    public array $test = ['keyword' => 'FEU 1 – Test-Alarm', 'message' => 'Test-Alarm aus WehrPortal, bitte ignorieren', 'address' => '', 'latitude' => '', 'longitude' => '', 'probe' => false, 'via_url' => false];
 
     public ?string $testResult = null;
 

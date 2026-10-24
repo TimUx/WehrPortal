@@ -1,6 +1,6 @@
 # Single Sign-On (OIDC, z. B. Keycloak)
 
-[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Fork-Leitfaden](../FORK.md)
+[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Migration und Betrieb](../MIGRATION.md)
 
 Erweiterung `extensions/Oidc/`. Anmeldung über einen externen Identity Provider mit OpenID Connect (Authorization Code Flow mit PKCE, `state`, `nonce`). Die Anmeldung per Link-Mail bleibt Standard und funktioniert ohne die Erweiterung unverändert.
 
@@ -8,11 +8,11 @@ Erweiterung `extensions/Oidc/`. Anmeldung über einen externen Identity Provider
 
 - [Aufbau](#aufbau)
 - [Keycloak einrichten](#keycloak-einrichten)
-- [In openwehr einrichten](#in-openwehr-einrichten)
+- [In WehrPortal einrichten](#in-wehrportal-einrichten)
 - [Zuordnung und Claims](#zuordnung-und-claims)
 - [Lokaler System-Admin und Aussperr-Schutz](#lokaler-system-admin-und-aussperr-schutz)
 - [Notfall-Wiederherstellung](#notfall-wiederherstellung-server-zugriff)
-- [Upstream-Merges](#upstream-merges)
+- [Weiterentwicklung und bestehende Clients](#weiterentwicklung-und-bestehende-clients)
 - [Fehlersuche](#fehlersuche)
 
 ## Aufbau
@@ -28,7 +28,7 @@ Abschalten: `OIDC_ENABLED=false` lädt die Erweiterung gar nicht (keine Routen, 
 
 ## Keycloak einrichten
 
-1. Realm wählen (z. B. `musterstadt`), *Clients → Create client*: Client type `OpenID Connect`, Client ID `openwehr`.
+1. Realm wählen (z. B. `musterstadt`), *Clients → Create client*: Client type `OpenID Connect`, Client ID z. B. `wehrportal`. Bestehende Clients bei einer Migration unverändert weiterverwenden.
 2. *Client authentication* **On**, nur *Standard flow* aktiv.
 3. *Valid redirect URIs*: die Redirect-URI aus der Admin-Seite, z. B. `https://app.ff-musterstadt.de/auth/oidc/callback` (exakt, kein Wildcard).
 4. *Credentials*: Client-Secret kopieren.
@@ -36,7 +36,7 @@ Abschalten: `OIDC_ENABLED=false` lädt die Erweiterung gar nicht (keine Routen, 
 
 Der IdP muss über öffentlich erreichbares https (Port 443) laufen: Discovery, Schlüssel und Token-Endpunkt werden über `App\Support\SafeUrl` nur an öffentliche Adressen gesendet (SSRF-Schutz).
 
-## In openwehr einrichten
+## In WehrPortal einrichten
 
 Admin → *Single Sign-On (OIDC)*: Issuer-URL (`https://sso.example.com/realms/musterstadt`), Client-ID, Client-Secret, Scopes, Button-Text. **Verbindung testen** ruft `/.well-known/openid-configuration` und die Schlüssel ab. Danach *Single Sign-On aktiv* einschalten und speichern.
 
@@ -72,13 +72,13 @@ php artisan oidc:make-local-admin hanna@example.com [--grant-admin]
 
 Oder `OIDC_FORCE_DISABLED=true` in der Umgebung setzen (Container neu starten) bzw. `OIDC_ENABLED=false`.
 
-## Upstream-Merges
+## Weiterentwicklung und bestehende Clients
 
-Eigener Code liegt in `extensions/Oidc/`, `app/Services/AuthMethod*.php`, Tests unter `tests/Feature/Extensions/Oidc/`. Berührungspunkte mit Upstream-Dateien stehen in `FORK.md`. Der Core-Hook ist generisch und als Upstream-PR geeignet.
+Der Code liegt in `extensions/Oidc/`, `app/Services/AuthMethod*.php`, Tests unter `tests/Feature/Extensions/Oidc/`. Es gibt keine automatischen Upstream-Merges. Bestehende Client-IDs (auch `openwehr`), Issuer und Redirect-URIs nicht wegen der Produktumbenennung ändern; sie gehören zur bestehenden IdP-Konfiguration. Für neue Clients kann `wehrportal` als frei gewählte Client-ID verwendet werden.
 
 ## Fehlersuche
 
 - Button fehlt: Erweiterung aktiv? Konfiguration vollständig (Issuer, Client-ID, Secret)? `OIDC_FORCE_DISABLED` gesetzt?
 - *nicht erreichbar*: Issuer muss https mit öffentlicher Adresse sein; *Verbindung testen* nennt den Grund-Code.
-- *kein freigegebenes Konto*: E-Mail im IdP bestätigt? Konto in openwehr vorhanden und aktiv? Sonst JIT einschalten.
+- *kein freigegebenes Konto*: E-Mail im IdP bestätigt? Konto in WehrPortal vorhanden und aktiv? Sonst JIT einschalten.
 - Nicht umgesetzt: RP-initiated Logout und Gruppen-Mapping (der Core-Logout bleibt unverändert).

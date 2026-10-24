@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-openwehr (repo `roberteinsle/openwehr`, name always written in lowercase): a web app for volunteer fire brigades: a core plus modules that each Wehr switches on (Laravel 12, Livewire 4, Filament 5 admin, Tailwind 4 + Alpine + FullCalendar 6 via Vite, Pest 3). Licensed under AGPL-3.0. The UI, emails, validation messages and README are German; code, comments and commit messages are English. The README documents every user-facing behaviour in detail. Read it before changing booking or decision logic, and update it when behaviour changes.
+WehrPortal (repo `TimUx/WehrPortal`): an independent web app for volunteer fire brigades: a core plus modules that each Wehr switches on (Laravel 12, Livewire 4, Filament 5 admin, Tailwind 4 + Alpine + FullCalendar 6 via Vite, Pest 3). Licensed under AGPL-3.0-only; original openwehr authorship and Git history are preserved (see `MIGRATION.md`). No upstream sync or fork-only editing rules apply; `FORK.md` is historical. The UI, emails, validation messages and README are German; code, comments and commit messages are English. The README documents every user-facing behaviour in detail. Read it before changing booking or decision logic, and update it when behaviour changes.
 
 ## Commands
 
@@ -34,7 +34,7 @@ docker run --rm --network host -v "$PWD":/app -w /app --user root -e SHOW_WELCOM
 
 The trailing `chown` matters: root-owned files left in `storage/` break `docker build` (permission denied in the build context).
 
-Test data, seeders and commits use invented people only ("Hanna Hydrant", "Bernd Blaulicht", `example.com` addresses), never names or addresses of real members. The repository is public: no names, addresses, domains, servers or settings of a real Wehr or of the maintainer in code, docs, tests or commit messages (example Wehr: "FF Musterstadt", `ff-musterstadt.de`). The only exceptions are the legally required `docs/impressum.html` and `docs/datenschutz.html` and the `author` in the JSON-LD of `docs/index.html` on the project page (GitHub Pages from `main` /docs, www.openwehr.de), by the maintainer's decision.
+Test data, seeders and commits use invented people only ("Hanna Hydrant", "Bernd Blaulicht", `example.com` addresses), never names or addresses of real members. The repository is public: no names, addresses, domains, servers or settings of a real Wehr or of the maintainer in code, docs, tests or commit messages (example Wehr: "FF Musterstadt", `ff-musterstadt.de`). Preserve original authorship and copyright notices. `docs/` is a project-page template; do not publish it with another project's domain or legal identity.
 
 ## Architecture
 
@@ -144,4 +144,4 @@ CI (`deploy.yml`, job "Security Checks", on every push and pull request): `compo
 ## Deployment
 The app version (`config/app.php` → `version`, e.g. `V.0.5.8`) is bumped by hand and shown small behind the admin title in the top bar (`brandLogo` → `resources/views/filament/brand.blade.php`). Each version gets a GitHub release with the tag in lowercase semver form (`v0.5.8`) and the title as written (`V.0.5.8`); versions may have two to four parts (`V.0.9`, `V.0.8.9.1` → tags `v0.9`, `v0.8.9.1`), which `release.yml` accepts.
 
-A push to `main` runs the tests, builds the image and pushes it to `ghcr.io/roberteinsle/openwehr` (tags `latest` and `sha-<commit>`). If `COOLIFY_DEPLOY_ENABLED` is set, a Coolify webhook then redeploys a test instance (`latest`, sample data only). Production instances run a pinned release tag and are updated by hand after a DB backup, never by a push. Migrations run automatically on container start (`AUTORUN_ENABLED=true`), so every migration must also work on a fresh database and on existing installs (`tests/Unit/FreshInstallTest.php`). The installation guide for operators is in the README (UpCloud VM + Coolify).
+A push to `main` runs tests and security checks. Only with repository variable `PUBLISH_IMAGES=true` does CI publish `ghcr.io/timux/wehrportal` (tags `latest` and `sha-<commit>`); release tags must match `config/app.php`. No workflow triggers a deployment webhook. Production instances run a pinned release tag and are updated by hand after a DB/file backup, never by a push. Migrations run automatically on container start (`AUTORUN_ENABLED=true`), so every migration must also work on a fresh database and on existing installs (`tests/Unit/FreshInstallTest.php`). See README and `MIGRATION.md` for installation and compatibility identifiers that intentionally retain the old name.

@@ -22,6 +22,6 @@
         <thead><tr><th>Name</th><th>Unterschrift</th><th>am</th></tr></thead>
         <tbody>@foreach($attendances as $a)<tr><td>{{ $a->user?->name }}</td><td>@if($a->signature)<img src="data:image/png;base64,{{ \Modules\Unterweisungen\src\Models\Attendance::whereKey($a->id)->value('signature') }}" alt="Unterschrift">@else <span class="muted">nicht unterschrieben</span>@endif</td><td>{{ $a->signed_at?->setTimezone('Europe/Berlin')->format('d.m.Y') }}</td></tr>@endforeach</tbody>
     </table>
-    <p class="muted">Die Teilnehmenden bestätigen mit ihrer Unterschrift, an der Unterweisung teilgenommen und den Inhalt verstanden zu haben. Erstellt am {{ now('Europe/Berlin')->format('d.m.Y') }} aus openwehr.</p>
+    <p class="muted">Die Teilnehmenden bestätigen mit ihrer Unterschrift, an der Unterweisung teilgenommen und den Inhalt verstanden zu haben. Erstellt am {{ now('Europe/Berlin')->format('d.m.Y') }} aus WehrPortal.</p>
 </body>
 </html>

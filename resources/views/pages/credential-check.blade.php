@@ -39,7 +39,7 @@
                 {!! $item['html'] !!}
             @endforeach
         @endif
-        <p class="muted">Stand {{ now('Europe/Berlin')->format('d.m.Y, H:i') }} Uhr · aus openwehr</p>
+        <p class="muted">Stand {{ now('Europe/Berlin')->format('d.m.Y, H:i') }} Uhr · aus WehrPortal</p>
     </div>
 </main>
 </body>
