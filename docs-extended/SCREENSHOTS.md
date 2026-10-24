@@ -1,6 +1,6 @@
 # E2E-Test und Screenshots
 
-[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Migration und Betrieb](../MIGRATION.md)
+[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md)
 
 Der Workflow `.github/workflows/screenshots.yml` baut eine vollständige Testinstallation mit Beispieldaten auf, meldet sich im Browser an und fotografiert jedes Modul. Die Bilder liegen in `docs-extended/screenshots/` und sind in die Dokumentation eingebunden (README bei jedem Modul, [Galerie](#galerie)); `.github/workflows/docs-screenshots.yml` hält sie aktuell. Der Lauf dient zugleich als Smoke-Test vor Releases: Lädt eine Seite nicht, endet sie mit Fehler oder führt sie zurück zur Anmeldung, schlägt der Lauf fehl.
 
@@ -43,7 +43,7 @@ Alle Bilder der letzten Erzeugung (Ordner `docs-extended/screenshots/`, Klick ö
 ## Ablauf
 
 1. PostgreSQL 18 (wie in den Tests), PHP 8.4, Composer- und npm-Abhängigkeiten, `npm run build`.
-2. `.env` aus dem Profil `tests/e2e/.env.e2e` (Datenbank `openwehr_e2e`, `APP_URL=http://127.0.0.1:8000`, `MAIL_MAILER=log`, Queue `sync`, eingefrorene Uhr `E2E_FROZEN_NOW`).
+2. `.env` aus dem Profil `tests/e2e/.env.e2e` (Datenbank `wehrportal_e2e`, `APP_URL=http://127.0.0.1:8000`, `MAIL_MAILER=log`, Queue `sync`, eingefrorene Uhr `E2E_FROZEN_NOW`).
 3. `php artisan migrate:fresh --seed --seeder="Database\\Seeders\\ScreenshotSeeder"` – leere Datenbank, alle Migrationen, Beispieldaten für alle Module.
 4. `php artisan serve` auf `127.0.0.1:8000`.
 5. Playwright (`tests/e2e`, eigenes `package.json`, nur Chromium): Anmeldung über den echten Magic-Link-Ablauf – E-Mail auf `/anmelden` eingeben, den Link aus der geloggten Mail (`storage/logs/laravel.log`) lesen, bestätigen. Die Sitzung gilt für alle weiteren Seiten; ein erneuter Lauf gegen dieselbe Datenbank verwendet sie weiter, solange sie gültig ist.
@@ -95,7 +95,7 @@ Nicht fotografiert: `/personalakte/nachweise` (der QR-Code hängt vom zufällige
 
 ## Lokal ausführen
 
-Voraussetzung: PostgreSQL mit Benutzer `openwehr`/`secret` auf `127.0.0.1:5432` (z. B. der Dev-Container oder `docker run -d -e POSTGRES_DB=openwehr_e2e -e POSTGRES_USER=openwehr -e POSTGRES_PASSWORD=secret -p 5432:5432 postgres:18`). Die vorhandene `.env` vorher sichern.
+Voraussetzung: PostgreSQL mit Benutzer `wehrportal`/`secret` auf `127.0.0.1:5432` (z. B. der Dev-Container oder `docker run -d -e POSTGRES_DB=wehrportal_e2e -e POSTGRES_USER=wehrportal -e POSTGRES_PASSWORD=secret -p 5432:5432 postgres:18`). Die vorhandene `.env` vorher sichern.
 
 ```bash
 cp tests/e2e/.env.e2e .env && php artisan key:generate

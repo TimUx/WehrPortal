@@ -26,8 +26,8 @@ jobs:
       postgres:
         image: postgres:18
         env:
-          POSTGRES_DB: openwehr_test
-          POSTGRES_USER: openwehr
+          POSTGRES_DB: wehrportal_test
+          POSTGRES_USER: wehrportal
           POSTGRES_PASSWORD: secret
         ports:
           - 5432:5432
@@ -40,8 +40,8 @@ jobs:
       DB_CONNECTION: pgsql
       DB_HOST: 127.0.0.1
       DB_PORT: 5432
-      DB_DATABASE: openwehr_test
-      DB_USERNAME: openwehr
+      DB_DATABASE: wehrportal_test
+      DB_USERNAME: wehrportal
       DB_PASSWORD: secret
     steps:
       - uses: actions/checkout@v4
@@ -57,10 +57,10 @@ jobs:
       - name: Configure PostgreSQL for Parallel Migrations
         run: |
           container="${{ job.services.postgres.id }}"
-          docker exec "$container" psql -U openwehr -d openwehr_test -c "ALTER SYSTEM SET max_locks_per_transaction = 256"
+          docker exec "$container" psql -U wehrportal -d wehrportal_test -c "ALTER SYSTEM SET max_locks_per_transaction = 256"
           docker restart "$container"
           for _ in {1..30}; do
-            if docker exec "$container" pg_isready -U openwehr -d openwehr_test; then
+            if docker exec "$container" pg_isready -U wehrportal -d wehrportal_test; then
               exit 0
             fi
             sleep 1

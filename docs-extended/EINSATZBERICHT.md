@@ -1,6 +1,6 @@
 # Einsatzbericht: Analyse und Ergänzungen (`extensions/EinsatzberichtPlus`)
 
-[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Migration und Betrieb](../MIGRATION.md)
+[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md)
 
 ## Inhalt
 

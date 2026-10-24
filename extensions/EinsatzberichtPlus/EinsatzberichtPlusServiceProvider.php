@@ -7,9 +7,9 @@ use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 
 /**
- * Additions to the Einsatzbericht that the upstream form lacks: Kostenpflicht, beteiligte Personen,
+ * Additions to the Einsatzbericht that the core form lacks: Kostenpflicht, beteiligte Personen,
  * Verdienstausfall, a free-text external vehicle and Sollbesatzung hints. Own tables and views; the only
- * upstream touchpoint is one @includeIf in the report editor. Without the Einsatzbericht module or with
+ * core integration is one @includeIf in the report editor. Without the Einsatzbericht module or with
  * EINSATZBERICHT_PLUS_ENABLED=false nothing is loaded.
  */
 class EinsatzberichtPlusServiceProvider extends ServiceProvider

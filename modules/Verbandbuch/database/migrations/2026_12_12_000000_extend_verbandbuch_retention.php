@@ -6,8 +6,7 @@ use Illuminate\Support\Facades\DB;
 return new class extends Migration
 {
     /**
-     * Verbandbuch entries are kept 10 years instead of 5. The protection trigger now lets
-     * retain_until grow (never shrink), and the entries kept so far get the 5 more years.
+     * Retention may grow, but signed entries must never become deletable early.
      */
     public function up(): void
     {
@@ -36,9 +35,6 @@ return new class extends Migration
             END $$;
             SQL);
 
-        // Kept so far: end of the year of signing + 5; now + 10
-        DB::statement("UPDATE vb_entries SET retain_until = make_date(EXTRACT(YEAR FROM created_at AT TIME ZONE 'Europe/Berlin')::int + 10, 12, 31)
-            WHERE retain_until < make_date(EXTRACT(YEAR FROM created_at AT TIME ZONE 'Europe/Berlin')::int + 10, 12, 31)");
     }
 
     public function down(): void

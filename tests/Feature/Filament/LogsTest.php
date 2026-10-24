@@ -117,7 +117,6 @@ test('the Logs page is for admins, with search and filters', function () {
     [$byHanna, $byAdmin] = ActivityLog::orderBy('id')->get();
 
     $this->get('/admin/logs')->assertOk()->assertSee('Logs');
-    $this->get('/admin/e-mail-log')->assertRedirect('/admin/logs');
     $this->actingAs($this->hanna)->get('/admin/logs')->assertForbidden();
 
     Livewire::actingAs($this->admin)->test(ListLogs::class)

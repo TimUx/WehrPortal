@@ -22,7 +22,7 @@ class ExternalReport extends Component
 {
     use WithFileUploads;
 
-    public const COOKIE = 'openwehr_extern';
+    public const COOKIE = 'wehrportal_extern';
 
     /** The key of the QR address ("key" is taken by Livewire) */
     #[Locked]

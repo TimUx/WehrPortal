@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('kk_issued_items', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('member_id')->constrained('kk_members')->restrictOnDelete();
+            $table->foreignId('user_id')->constrained('users')->restrictOnDelete();
             // For tracked items (is_tracked = true on item_type)
             $table->foreignId('item_id')->nullable()->constrained('kk_items')->restrictOnDelete();
             // For stock items (is_tracked = false on item_type)

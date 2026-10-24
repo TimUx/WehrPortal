@@ -19,13 +19,13 @@ jobs:
       postgres:
         image: postgres:18
         env:
-          POSTGRES_DB: openwehr_test
-          POSTGRES_USER: openwehr
+          POSTGRES_DB: wehrportal_test
+          POSTGRES_USER: wehrportal
           POSTGRES_PASSWORD: secret
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U openwehr -d openwehr_test"
+          --health-cmd "pg_isready -U wehrportal -d wehrportal_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -48,7 +48,7 @@ jobs:
         run: |
           cp .env.example .env
           sed -i \
-            -e 's/^DB_DATABASE=.*/DB_DATABASE=openwehr_test/' \
+            -e 's/^DB_DATABASE=.*/DB_DATABASE=wehrportal_test/' \
             -e 's/^DB_PASSWORD=.*/DB_PASSWORD=secret/' \
             -e 's/^MAIL_MAILER=.*/MAIL_MAILER=log/' \
             -e 's/^QUEUE_CONNECTION=.*/QUEUE_CONNECTION=sync/' \

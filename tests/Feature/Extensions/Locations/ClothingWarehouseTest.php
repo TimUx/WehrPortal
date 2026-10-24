@@ -14,7 +14,6 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
@@ -341,7 +340,7 @@ it('shows distinguishable same-catalog warehouse choices and binds the submitted
     $this->actingAs($this->admin);
     expect(app(StockAccess::class)->locationLabel($this->north))->toBe('Wache Nord')
         ->and(app(StockAccess::class)->locationLabel($this->south))->toBe('Wache Süd')
-        ->and(app(PersonalAccess::class)->usesSourceSelector())->toBeTrue();
+        ->and(app(PersonalAccess::class)->issueStockQuery($this->admin)->count())->toBe(2);
     Livewire::test(IssuancesRelationManager::class, ['ownerRecord' => $this->member, 'pageClass' => EditMember::class])
         ->mountAction(TestAction::make('issueStock')->table())
         ->assertFormFieldExists('stock_id', fn ($field) => str_contains($field->getOptions()[$this->north->id], 'Wache Nord')
@@ -381,24 +380,4 @@ it('rejects unauthenticated and cross-location explicit sources in protected mod
     $issued = ($this->issue)($this->south->id, $this->admin);
     expect($issued->getAttribute('ext_source_stock_id'))->toBe($this->south->id)
         ->and($this->south->fresh()->quantity)->toBe(18);
-});
-
-it('keeps stock creation and legacy selection functional without optional Locations schema', function () {
-    $this->south->delete();
-    config(['locations.enabled' => false]);
-    $provenance = require base_path('extensions/Locations/database/migrations/2026_12_26_000000_record_clothing_issuance_stock_source.php');
-    $provenance->down();
-    Schema::table('kk_stock', fn ($table) => $table->dropColumn('ext_location_id'));
-    $this->migration->up();
-    $this->migration->down();
-    expect(app(StockAccess::class)->locationFields())->toBe([])
-        ->and(app(PersonalAccess::class)->usesSourceSelector())->toBeFalse();
-    $issued = ($this->issue)();
-    $this->service->return($issued);
-    expect($this->north->fresh()->quantity)->toBe(10);
-    $other = ItemType::create(['name' => 'Gürtel', 'is_tracked' => false]);
-    $this->actingAs($this->admin);
-    Livewire::test(CreateStock::class)->fillForm(['item_type_id' => $other->id, 'quantity' => 5])
-        ->call('create')->assertHasNoFormErrors();
-    expect(Stock::where('item_type_id', $other->id)->sole()->quantity)->toBe(5);
 });

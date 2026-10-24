@@ -19,7 +19,7 @@ function oidcConfigure(array $values = []): OidcSettings
 {
     $settings = app(OidcSettings::class);
     foreach (array_merge([
-        'enabled' => true, 'issuer' => OIDC_ISSUER, 'client_id' => 'openwehr', 'link_by_email' => true, 'jit' => false, 'exclusive' => false,
+        'enabled' => true, 'issuer' => OIDC_ISSUER, 'client_id' => 'wehrportal', 'link_by_email' => true, 'jit' => false, 'exclusive' => false,
     ], $values) as $key => $value) {
         $settings->set($key, $value);
     }
@@ -62,7 +62,7 @@ function oidcIdp(): stdClass
         OIDC_ISSUER.'/protocol/openid-connect/certs' => Http::response(['keys' => [$idp->key->toPublic()->jsonSerialize()]]),
         OIDC_ISSUER.'/protocol/openid-connect/token' => function (Request $request) use ($idp) {
             $claims = array_merge([
-                'iss' => OIDC_ISSUER, 'aud' => 'openwehr', 'sub' => 'subject-1', 'exp' => time() + 300, 'iat' => time(),
+                'iss' => OIDC_ISSUER, 'aud' => 'wehrportal', 'sub' => 'subject-1', 'exp' => time() + 300, 'iat' => time(),
                 'nonce' => $idp->nonce, 'email' => 'hanna@example.com', 'email_verified' => true, 'name' => 'Hanna Hydrant',
             ], $idp->claims);
 

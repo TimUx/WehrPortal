@@ -1,6 +1,6 @@
 <?php
 
-test('app artwork has the required raster sizes and keeps the legacy logo URL usable', function () {
+test('app artwork has the required raster sizes and matching documentation artwork', function () {
     foreach (['icon-192.png' => 192, 'icon-512.png' => 512, 'icon-maskable-512.png' => 512, 'apple-touch-icon.png' => 180] as $file => $size) {
         $image = getimagesize(public_path('images/'.$file));
         expect([$image[0], $image[1], $image['mime']])->toBe([$size, $size, 'image/png']);
@@ -9,8 +9,7 @@ test('app artwork has the required raster sizes and keeps the legacy logo URL us
     $source = file_get_contents(public_path('images/wehrportal-logo.svg'));
     expect($source)->toContain('viewBox="0 0 64 64"', 'aria-label="WehrPortal"')
         ->not->toContain('<image', '<script', 'href=');
-    expect(file_get_contents(public_path('images/openwehr-logo.svg')))->toBe($source)
-        ->and(file_get_contents(base_path('docs/logo.svg')))->toBe($source);
+    expect(file_get_contents(base_path('docs/logo.svg')))->toBe($source);
 
     $header = unpack('vreserved/vtype/vcount', substr(file_get_contents(public_path('favicon.ico')), 0, 6));
     expect($header)->toBe(['reserved' => 0, 'type' => 1, 'count' => 3]);

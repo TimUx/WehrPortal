@@ -114,8 +114,7 @@ class StockResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('warehouse')
                     ->label('Standort')
-                    ->state(fn (Stock $record) => app(StockAccess::class)->locationLabel($record))
-                    ->visible(fn () => app(StockAccess::class)->hasWarehouseSchema()),
+                    ->state(fn (Stock $record) => app(StockAccess::class)->locationLabel($record)),
                 Tables\Columns\TextColumn::make('itemType.name')
                     ->label('Artikeltyp')
                     ->sortable()

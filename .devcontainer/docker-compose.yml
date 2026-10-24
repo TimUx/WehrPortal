@@ -24,14 +24,14 @@ services:
     # pest --parallel drops ~600 relations per process at once (migrate:fresh); the default 64 runs out of shared memory
     command: ["postgres", "-c", "max_locks_per_transaction=256"]
     environment:
-      POSTGRES_DB: openwehr
-      POSTGRES_USER: openwehr
+      POSTGRES_DB: wehrportal
+      POSTGRES_USER: wehrportal
       POSTGRES_PASSWORD: secret
     volumes:
       - pgdata:/var/lib/postgresql
       - ./init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U openwehr -d openwehr"]
+      test: ["CMD-SHELL", "pg_isready -U wehrportal -d wehrportal"]
       interval: 5s
       timeout: 5s
       retries: 10

@@ -8,9 +8,7 @@ use App\Models\User;
 use Filament\Facades\Filament;
 use Filament\Tables\Enums\RecordActionsPosition;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\URL;
 use Livewire\Livewire;
-use Modules\Fahrzeugbuchung\src\Models\Booking;
 use Modules\Kleiderkammer\src\Filament\Resources\EquipmentMessageResource;
 
 test('the app and the admin use German addresses', function () {
@@ -26,8 +24,7 @@ test('the app and the admin use German addresses', function () {
     $english = collect(Route::getRoutes())->map->uri()
         ->reject(fn ($uri) => str_starts_with($uri, 'livewire') || str_starts_with($uri, 'filament/') || str_starts_with($uri, '_') || $uri === 'up')
         ->filter(fn ($uri) => preg_match('#(^|/)(users|groups|functions|bookings|calendar|decisions|profile|avatars|organization|create|edit|login|logout|services|manage-modules|items|members|stocks|devices|defects|equipment|loans|locations|recalls|damages|categories|messages)(/|$)#', $uri))
-        // The old addresses only redirect; the signed return link of old mails stays as it was
-        ->reject(fn ($uri) => str_ends_with($uri, '{rest?}') || $uri === 'login' || $uri === 'fahrzeugbuchung/bookings/{booking}/return')
+        ->reject(fn ($uri) => $uri === 'login')
         // Filament's own logout endpoint (POST only, never in the address bar)
         ->reject(fn ($uri) => str_ends_with($uri, '/logout') && str_starts_with($uri, 'admin'))
         ->values();
@@ -35,15 +32,8 @@ test('the app and the admin use German addresses', function () {
     expect($english->all())->toBe([]);
 });
 
-test('old English addresses redirect to the German ones, sub-pages and query included', function () {
-    $this->get('/admin/users')->assertRedirect('/admin/kameraden')->assertStatus(301);
-    $this->get('/admin/users/5/edit')->assertRedirect('/admin/kameraden/5/bearbeiten');
-    $this->get('/admin/users/create')->assertRedirect('/admin/kameraden/neu');
-    $this->get('/admin/kleiderkammer/items/create?code=WEHRX')->assertRedirect('/admin/kleiderkammer/einzelteile/neu?code=WEHRX');
-    $this->get('/fahrzeugbuchung/calendar')->assertRedirect('/fahrzeugbuchung');
-    $this->get('/profile')->assertRedirect('/personalakte');
-    $this->get('/auth/login/abc123')->assertRedirect('/anmelden/abc123');
-    $this->get('/login')->assertRedirect('/anmelden');
+test('the Laravel login endpoint redirects to the German login form', function () {
+    $this->get(route('login'))->assertRedirect('/anmelden');
 });
 
 test('guests go straight to /anmelden', function () {
@@ -62,21 +52,10 @@ test('"Als Kamerad ansehen" sits at the start of each row and on "Kamerad bearbe
     Livewire::test(EditUser::class, ['record' => $member->getKey()])->assertActionVisible('impersonate');
 });
 
-test('the return link of a reminder sent before the change still works', function () {
-    $booking = Booking::factory()->create();
-    $old = URL::signedRoute('fahrzeugbuchung.bookings.return.legacy', $booking);
-
-    expect($old)->toContain('/fahrzeugbuchung/bookings/'.$booking->id.'/return?signature=');
-    $this->get($old)->assertOk();
-});
-
 test('Abteilungen and Funktionen are a sub-menu of Kameraden; the Kleiderkammer messages are called Mängel & Wäsche', function () {
     expect(GroupResource::getNavigationParentItem())->toBe('Kameraden')
         ->and(MemberFunctionResource::getNavigationParentItem())->toBe('Kameraden')
         ->and(EquipmentMessageResource::getPluralModelLabel())->toBe('Mängel & Wäsche')
         ->and(EquipmentMessageResource::getNavigationLabel())->toBe('Mängel & Wäsche');
 
-    $this->get('/admin/modules')->assertRedirect('/admin/module');
-    $this->get('/admin/kleiderkammer/messages')->assertRedirect('/admin/kleiderkammer/maengelmanagement');
-    $this->get('/admin/organization-settings-page')->assertRedirect('/admin/einstellungen');
 });

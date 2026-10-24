@@ -1,6 +1,6 @@
 # Mehrere Standorte (Extension `Locations`)
 
-[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Migration und Betrieb](../MIGRATION.md)
+[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md)
 
 Für Gemeinden mit mehreren Feuerwehrhäusern. Code: `extensions/Locations/`, Abschaltung mit `LOCATIONS_ENABLED=false`.
 
@@ -71,7 +71,7 @@ Eine Zuweisung ohne Fachrolle ermöglicht nur den Moduleinstieg, keine Verwaltun
 
 Endet die wirksame Standortmitgliedschaft, werden die dortigen Vergaben mit einer systemseitigen Begründung geschlossen. Solange noch eine Mitgliedschaft über Primärstandort oder Pivot besteht, bleibt sie wirksam. Ein späterer Wiedereintritt stellt entzogene Rollen nicht wieder her; dafür ist eine neue ausdrückliche Vergabe erforderlich.
 
-**Bewusster Kompatibilitätsmodus:** Standardmäßig bleibt `locations.scoped_role_modules` leer. Damit ändern vorbereitete Zuweisungen noch keine vorhandenen Modulberechtigungen. Unterstützt werden **Anwesenheit** und **Mitteilungen**. Weitere Module dürfen nicht ohne vollständige Umstellung ihrer Objekt-, Datei-, Such- und Hintergrundprüfungen aktiviert werden; unbekannte Adapter werden nicht stillschweigend akzeptiert. Die getrennten Kleiderkammer-Schalter bleiben davon unabhängig.
+**Optionale Standortrollen:** Standardmäßig bleibt `locations.scoped_role_modules` leer; Modulrollen gelten dann ohne Standortadapter. Unterstützt werden **Anwesenheit** und **Mitteilungen**. Weitere Module dürfen nicht ohne vollständige Umstellung ihrer Objekt-, Datei-, Such- und Hintergrundprüfungen aktiviert werden; unbekannte Adapter werden nicht stillschweigend akzeptiert. Die getrennten Kleiderkammer-Schalter bleiben davon unabhängig.
 
 ### Vorbereitung und Aktivierung
 
@@ -344,13 +344,13 @@ Es gibt keinen Umbuchungs-/Undo-Modus. Falsche Zuordnungen erfordern einen gepr�
 
 ## Kleiderkammer: Herkunftsgebundene Mengenausgaben (P4)
 
-Nach Installation der optionalen Spalte `kk_issued_items.ext_source_stock_id` speichert die reguläre Mengenausgabe über `IssuingService` die ID genau der Bestandszeile, deren Menge vermindert wird. Bereits vorhandene Ausgaben bleiben unverändert mit NULL-Herkunft; die Migration leitet keinen Herkunftsbestand aus Katalogkombination, Mitgliedschaft oder heutigem Lagerort ab. Einzelteilausgaben erhalten keinen Mengenbestandsverweis.
+Die reguläre Mengenausgabe über `IssuingService` speichert in `kk_issued_items.ext_source_stock_id` die ID genau der Bestandszeile, deren Menge vermindert wird. Die Spalte gehört zum Neuinstallationsschema. Einzelteilausgaben erhalten keinen Mengenbestandsverweis.
 
 Eine Rücknahme mit gespeichertem Herkunftsbestand erhöht **genau diese Bestandszeile**, nicht eine neu anhand geänderter Größen-/Gruppenangaben gefundene Zeile. Das gilt auch dann, wenn ein alter Größenbezug später entfällt oder Locations abgeschaltet wird, die Spalte und Daten aber installiert bleiben. Fehlt der referenzierte Bestand, bricht die Rücknahme atomar ab, statt einen Ersatzbestand anzulegen; auch das Rücknahmedatum wird dann nicht gespeichert. Eine zweite Rücknahme bleibt unzulässig.
 
 **Datenintegrität:** Der Herkunftsverweis ist unveränderlich und verweist restriktiv auf den Bestand. Auch NULL-Herkünfte werden nicht nachträglich mit einer geratenen ID gefüllt. Ein referenzierter Bestand darf nicht gelöscht werden; zurückgegebene oder soft-gelöschte Ausgaben verlieren ihren Nachweis nicht. Der Datenbankabgleich bei neuen herkunftsgebundenen Ausgaben prüft die passende Katalogkombination; daraus werden keine zusätzlichen Benutzerrechte abgeleitet. Historische Datenkorrekturen erfordern einen gesondert geprüften Prozess.
 
-**Kompatibilität:** Fehlt die optionale Spalte vollständig, arbeitet die reguläre Ausgabe ohne Herkunftsspeicherung. Rücknahmen historischer NULL-Herkünfte dürfen den Artikeltyp-/Größen-/Gruppen-Fallback nur ohne mehrdeutiges Bestandsziel verwenden; mehrere passende Lager führen zum atomaren Abbruch statt zu einer geratenen Auswahl. Bereits vorhandene Herkunftsdaten werden auch bei abgeschalteter Erweiterung berücksichtigt. Die Herkunfts-ID ist kein frei editierbares Formularfeld. Ein Schema-Rollback darf vorhandene Herkunftsnachweise nicht löschen und wird abgewiesen, solange solche Verweise bestehen.
+**Importierte Ausgaben:** Das eingeschränkte JSON-Transferformat enthält keine standortgebundene Herkunft. Rücknahmen solcher NULL-Herkünfte dürfen die Artikeltyp-/Größen-/Gruppenkombination nur ohne mehrdeutiges Bestandsziel verwenden; mehrere passende Lager führen zum atomaren Abbruch statt zu einer geratenen Auswahl. Herkunftsdaten regulärer Ausgaben werden auch bei abgeschalteter Standortfunktion berücksichtigt. Die Herkunfts-ID ist kein frei editierbares Formularfeld. Ein Schema-Rollback darf Herkunftsnachweise nicht löschen und wird abgewiesen, solange solche Verweise bestehen.
 
 Die Herkunftsbindung allein verhindert keine standortfremden Zugriffe; dafür sind die getrennten Bestands- und Personenadapter erforderlich. Sie gilt für neue Mengenausgaben über den regulären Ausgabedienst; eigene Importe oder direkte Datenbankeinträge ohne Herkunftsverweis werden dadurch nicht automatisch nachgerüstet. Zentrale Bestandsrollen, sichere Migration historischer Herkünfte und vollständige Standort-Autorisierung bleiben offen. Globale Admins behalten Zugriff auf sämtliche Daten.
 
@@ -371,7 +371,7 @@ Der bestehende **Massenbestand** unter `/admin/kleiderkammer/massenbestand` dien
 
 Ohne fachlich zugeordnete Bestandszeilen kann die Liste leer bleiben. Unzugeordnete Bestände (`NULL`) sind im aktivierten Adapter nur globalen Admins zugänglich. Eine alte globale Kleiderwartrolle und die Auswahl im Standortumschalter ersetzen keine Bestandsvergabe am betroffenen Standort. Globale Admins behalten Zugriff auf sämtliche Daten.
 
-### Ausgabe, Rücknahme und Kompatibilität
+### Ausgabe und Rücknahme
 
 Für personenbezogene Mengenausgaben reicht die Bestandsvergabe allein nicht: Es wird zusätzlich die persönliche Kleiderkammer-Verwaltungsberechtigung benötigt. Solange der persönliche Adapter ausgeschaltet ist, bleibt dafür die bisherige Kleiderwartberechtigung maßgeblich. Bei aktiviertem persönlichen Adapter gelten die ausdrücklichen persönlichen Standortvergaben und Zielprüfungen aus dem folgenden Abschnitt. Der Dienst prüft den tatsächlich betroffenen Bestand erneut; versteckte Formulare oder eine manipulierte Bestands-ID dürfen diese Prüfung nicht ersetzen. Neue Ausgaben behalten ihren unveränderlichen Herkunftsverweis.
 

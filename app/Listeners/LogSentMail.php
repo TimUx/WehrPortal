@@ -22,7 +22,7 @@ class LogSentMail
     public const SENSITIVE = [MagicLinkNotification::class, EmailChangeConfirmNotification::class, InvitationNotification::class,
         BookingEndReminderNotification::class, GuardianCopyNotification::class];
 
-    public const RESEND_HEADER = 'X-Openwehr-Resend-Of';
+    public const RESEND_HEADER = 'X-WehrPortal-Resend-Of';
 
     public function handle(MessageSent $event): void
     {

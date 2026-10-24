@@ -161,26 +161,6 @@ it('rejects incomplete or falsely attributed revocation audit metadata', functio
     expect($grant->fresh()->revoked_at)->toBeNull();
 })->with(['missing actor', 'false system actor', 'missing source', 'unknown source', 'missing reason']);
 
-it('upgrades manual history and closes preexisting membershipless grants without false attribution', function () {
-    $migration = require base_path('extensions/Locations/database/migrations/2026_12_09_000000_revoke_location_roles_on_membership_loss.php');
-    $migration->down();
-    $manual = ($this->grant)();
-    DB::table('x_location_module_roles')->where('id', $manual->id)->update([
-        'revoked_by' => $this->admin->id, 'revoked_at' => now(), 'revoke_reason' => 'Vorhandener manueller Entzug',
-    ]);
-    $valid = ($this->grant)();
-    $orphan = ($this->grant)('verwalter', $this->b);
-    DB::table('x_location_user')->where('user_id', $this->member->id)->where('location_id', $this->b->id)->delete();
-    $migration->up();
-    expect($manual->fresh()->revoked_source)->toBe('admin')
-        ->and($manual->fresh()->revoked_by)->toBe($this->admin->id)
-        ->and($valid->fresh()->revoked_at)->toBeNull()
-        ->and($valid->fresh()->revoked_source)->toBeNull()
-        ->and($orphan->fresh()->revoked_source)->toBe('membership')
-        ->and($orphan->fresh()->revoked_by)->toBeNull();
-    expect(fn () => $migration->down())->toThrow(RuntimeException::class);
-});
-
 it('protects historical grants from database mutation and deletion', function (string $operation) {
     $grant = ($this->grant)();
     expect(fn () => DB::transaction(fn () => match ($operation) {

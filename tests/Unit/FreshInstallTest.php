@@ -1,14 +1,13 @@
 <?php
 
 use App\Models\Group;
+use App\Models\User;
+use Illuminate\Support\Facades\Schema;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
+use Modules\Lehrgaenge\src\Models\Course;
 
-// Runs the full migration history like a new production install.
-// Since 1.5 (Wehr-Einstellungen) fresh installs start empty — the base data
-// migration only seeds on existing installs that already have vehicles.
-// Demo data is provided separately by DemoDataSeeder.
 // Not a Feature test: RefreshDatabase's transaction can't wrap migrate:fresh.
-test('a fresh install migrates cleanly with no vehicles or groups', function () {
+test('a fresh WehrPortal install creates the current schema without predecessor data', function () {
     $this->app['env'] = 'production';
 
     try {
@@ -16,7 +15,19 @@ test('a fresh install migrates cleanly with no vehicles or groups', function () 
 
         // Fresh installs start empty — data comes from DemoDataSeeder, not migrations
         expect(Vehicle::count())->toBe(0)
-            ->and(Group::count())->toBe(0);
+            ->and(Group::count())->toBe(0)
+            ->and(User::count())->toBe(0)
+            ->and(Course::count())->toBe(0);
+        foreach (['is_decider', 'can_post_announcements', 'department'] as $column) {
+            expect(Schema::hasColumn('users', $column))->toBeFalse();
+        }
+        foreach (['kk_members', 'group_functions', 'group_function_user', 'lq_offerings', 'lq_certificates', 'lq_course_prerequisites'] as $table) {
+            expect(Schema::hasTable($table))->toBeFalse();
+        }
+        expect(Schema::hasColumn('x_locations', 'crest_data'))->toBeTrue()
+            ->and(Schema::hasColumn('kk_issued_items', 'ext_source_stock_id'))->toBeTrue()
+            ->and(Schema::hasTable('member_functions'))->toBeTrue()
+            ->and(Schema::hasTable('lq_record_sessions'))->toBeTrue();
 
         // Running it again (as on every container start) stays idempotent
         $this->artisan('migrate', ['--force' => true])->assertSuccessful();

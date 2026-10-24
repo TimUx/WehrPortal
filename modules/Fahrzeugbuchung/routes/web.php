@@ -29,9 +29,6 @@ Route::prefix('fahrzeugbuchung')->name('fahrzeugbuchung.')->group(function () {
         Route::get('/buchungen/{booking}/zurueckgeben', [BookingReturnController::class, 'show'])->name('bookings.return');
         Route::post('/buchungen/{booking}/zurueckgeben', [BookingReturnController::class, 'store']);
 
-        // Links in reminder mails sent before the German addresses; the signature covers the old address
-        Route::get('/bookings/{booking}/return', [BookingReturnController::class, 'show'])->name('bookings.return.legacy');
-        Route::post('/bookings/{booking}/return', [BookingReturnController::class, 'store']);
     });
 
     // -----------------------------------------------------------------------

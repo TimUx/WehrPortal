@@ -252,7 +252,7 @@ test('the admin page saves the configuration and encrypts the secret', function 
 
     Livewire::test(OidcSettingsPage::class)
         ->fillForm([
-            'enabled' => true, 'label' => 'Mit Keycloak anmelden', 'issuer' => OIDC_ISSUER.'/', 'client_id' => 'openwehr',
+            'enabled' => true, 'label' => 'Mit Keycloak anmelden', 'issuer' => OIDC_ISSUER.'/', 'client_id' => 'wehrportal',
             'client_secret' => 'typed-secret', 'scopes' => 'openid email', 'link_by_email' => true, 'jit' => false,
             'exclusive' => false, 'local_admins' => [$admin->id],
         ])
@@ -271,7 +271,7 @@ test('IdP-only cannot be saved without an active local admin', function () {
 
     Livewire::test(OidcSettingsPage::class)
         ->fillForm([
-            'enabled' => true, 'issuer' => OIDC_ISSUER, 'client_id' => 'openwehr', 'client_secret' => 'typed-secret',
+            'enabled' => true, 'issuer' => OIDC_ISSUER, 'client_id' => 'wehrportal', 'client_secret' => 'typed-secret',
             'exclusive' => true, 'local_admins' => [],
         ])
         ->call('save')

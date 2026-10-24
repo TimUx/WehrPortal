@@ -11,7 +11,6 @@ return new class extends Migration
         Schema::create('groups', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->boolean('receives_escalations')->default(false);
             $table->unsignedSmallInteger('sort_order')->default(0);
             $table->timestamps();
         });

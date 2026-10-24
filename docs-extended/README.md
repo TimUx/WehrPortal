@@ -1,6 +1,6 @@
 # Erweiterungen von WehrPortal
 
-[Zur Hauptdokumentation](../README.md) · [Migration und Betrieb](../MIGRATION.md)
+[Zur Hauptdokumentation](../README.md)
 
 Die Erweiterungen ergänzen die 25 Fachmodule. Sie werden über den Erweiterungs-Provider geladen; ob ein Modul für Kameraden verfügbar ist, wird davon getrennt unter **Admin → Module** gesteuert. Die Umgebungsvariablen in der Tabelle schalten die jeweilige Erweiterung selbst ab, sofern nicht anders angegeben.
 
@@ -155,4 +155,4 @@ Der PDF-Export verwendet die bereits vorhandene Dompdf-Bibliothek und benötigt 
 - Offline-Entwürfe bleiben lokal im Browser, laufen ab und müssen von der Person geprüft und regulär abgesendet werden. Es gibt keine automatische Formularsynchronisierung; siehe [Offline/PWA](OFFLINE.md).
 - Die Dateien-Roadmap trennt umgesetzte Meilensteine von offenem Ausbau; geplante Punkte sind keine verfügbaren Funktionen: [Dateien-Roadmap](DATEIEN-ROADMAP.md).
 - Eine Testinstallation mit Beispieldaten, Browser-Smoke-Test und aktuelle Screenshots erzeugt der Workflow **E2E Screenshots**; siehe [E2E-Test und Screenshots](SCREENSHOTS.md).
-- Für Updates, Image-Veröffentlichungen, Herkunft und die Übernahme bestehender Installationen siehe [Migration und Betrieb](../MIGRATION.md).
+- Für Installation, Updates und Image-Veröffentlichungen siehe [Betrieb und Entwicklung](../README.md#betrieb-und-entwicklung), für Herkunft und Urheberhinweise [Lizenz](../README.md#lizenz).

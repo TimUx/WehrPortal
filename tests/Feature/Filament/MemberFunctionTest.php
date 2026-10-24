@@ -8,8 +8,6 @@ use App\Models\Group;
 use App\Models\MemberFunction;
 use App\Models\User;
 use Filament\Facades\Filament;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -91,27 +89,6 @@ test('the profile shows Abteilungen and functions', function () {
     $this->actingAs($member)->get(route('profile'))
         ->assertSee('Abteilungen')->assertSee('Jugendfeuerwehr')
         ->assertSee('Funktionen')->assertSee('Jugendwart › Stellvertretung');
-});
-
-test('the migration turns the fixed department into Abteilung memberships', function () {
-    $migration = require base_path('database/migrations/2026_10_13_100000_move_member_department_to_groups.php');
-    $migration->down();
-
-    $existing = Group::create(['name' => 'Jugendfeuerwehr', 'sort_order' => 1]);
-    $youth = User::factory()->create();
-    $active = User::factory()->create();
-    $none = User::factory()->create();
-    DB::table('users')->where('id', $youth->id)->update(['department' => 'youth_brigade']);
-    DB::table('users')->where('id', $active->id)->update(['department' => 'active_service']);
-
-    $migration->up();
-
-    expect(Schema::hasColumn('users', 'department'))->toBeFalse();
-    expect($youth->refresh()->groups->pluck('id')->all())->toBe([$existing->id]);
-    expect($active->refresh()->groups->pluck('name')->all())->toBe(['Aktiver Dienst']);
-    expect($none->refresh()->groups)->toBeEmpty();
-    expect(Group::where('name', 'Jugendfeuerwehr')->count())->toBe(1)
-        ->and(Group::where('name', 'Musikzug')->exists())->toBeFalse();
 });
 
 test('the function search finds sub-functions by the name of their function too', function () {

@@ -61,13 +61,13 @@ test('only own notifications open, always on this address and never leading away
     $this->actingAs($this->member)->get(route('notifications.open', $n->id))->assertNotFound();
 
     // Written by the scheduler under APP_URL, opened under another address: still the right page
-    $n->update(['data' => [...$n->data, 'url' => 'https://openwehr.ff-musterstadt.de/lehrgaenge/anmeldungen?status=offen']]);
+    $n->update(['data' => [...$n->data, 'url' => 'https://wehrportal.ff-musterstadt.de/lehrgaenge/anmeldungen?status=offen']]);
     $this->actingAs($this->leader)->get(route('notifications.open', $n->id))->assertRedirect('/lehrgaenge/anmeldungen?status=offen');
 
     $n->update(['data' => [...$n->data, 'url' => 'https://example.com/phishing']]);
     $this->actingAs($this->leader)->get(route('notifications.open', $n->id))->assertRedirect('/phishing');
 
-    $n->update(['data' => [...$n->data, 'url' => 'https://openwehr.ff-musterstadt.de//example.com/phishing']]);
+    $n->update(['data' => [...$n->data, 'url' => 'https://wehrportal.ff-musterstadt.de//example.com/phishing']]);
     $this->actingAs($this->leader)->get(route('notifications.open', $n->id))->assertRedirect('/example.com/phishing');
 
     $n->update(['data' => [...$n->data, 'url' => null]]);

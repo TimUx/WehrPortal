@@ -1,6 +1,6 @@
 # Single Sign-On (OIDC, z. B. Keycloak)
 
-[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Migration und Betrieb](../MIGRATION.md)
+[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md)
 
 Erweiterung `extensions/Oidc/`. Anmeldung über einen externen Identity Provider mit OpenID Connect (Authorization Code Flow mit PKCE, `state`, `nonce`). Die Anmeldung per Link-Mail bleibt Standard und funktioniert ohne die Erweiterung unverändert.
 
@@ -74,7 +74,7 @@ Oder `OIDC_FORCE_DISABLED=true` in der Umgebung setzen (Container neu starten) b
 
 ## Weiterentwicklung und bestehende Clients
 
-Der Code liegt in `extensions/Oidc/`, `app/Services/AuthMethod*.php`, Tests unter `tests/Feature/Extensions/Oidc/`. Es gibt keine automatischen Upstream-Merges. Bestehende Client-IDs (auch `openwehr`), Issuer und Redirect-URIs nicht wegen der Produktumbenennung ändern; sie gehören zur bestehenden IdP-Konfiguration. Für neue Clients kann `wehrportal` als frei gewählte Client-ID verwendet werden.
+Der Code liegt in `extensions/Oidc/`, `app/Services/AuthMethod*.php`, Tests unter `tests/Feature/Extensions/Oidc/`. Es gibt keine automatischen Upstream-Merges. Beim Identity Provider einen eigenen Client für WehrPortal einrichten, beispielsweise mit Client-ID `wehrportal`, dem gewünschten Issuer und der in den Einstellungen angezeigten Redirect-URI.
 
 ## Fehlersuche
 

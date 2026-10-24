@@ -1,7 +1,7 @@
-const CACHE = 'openwehr-shell-v2';
+const CACHE = 'wehrportal-shell-v1';
 const OFFLINE = '/offline';
 const STATIC_PATHS = ['/build/assets/', '/images/', '/fonts/'];
-const BYPASS_PATHS = ['/livewire/', '/broadcasting/', '/api/', '/anmelden', '/e-mail-bestaetigen', '/login', '/auth/login', '/auth/email', '/admin/logout', '/dateien/', '/freigabe/'];
+const BYPASS_PATHS = ['/livewire/', '/broadcasting/', '/api/', '/anmelden', '/e-mail-bestaetigen', '/login', '/admin/logout', '/dateien/', '/freigabe/'];
 const REFERENCE_PAGES = ['/gefahrenmatrix', '/gefahrstoffe'];
 const REFERENCE_DATA = '/gefahrstoffe/katalog.json';
 
@@ -13,10 +13,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys()
-            .then((keys) => Promise.all(keys.filter((key) => key.startsWith('openwehr-') && key !== CACHE).map((key) => caches.delete(key))))
-            // Refresh the app artwork without discarding reference data or IndexedDB drafts.
-            .then(() => caches.open(CACHE))
-            .then((cache) => cache.keys().then((requests) => Promise.all(requests.filter((request) => new URL(request.url).pathname.startsWith('/images/')).map((request) => cache.delete(request)))))
+            .then((keys) => Promise.all(keys.filter((key) => key.startsWith('wehrportal-') && key !== CACHE).map((key) => caches.delete(key))))
             .then(() => self.clients.claim()),
     );
 });
@@ -83,7 +80,7 @@ self.addEventListener('message', (event) => {
 
     if (event.data?.type === 'CLEAR_OFFLINE_DATA') {
         event.waitUntil(caches.keys()
-            .then((keys) => Promise.all(keys.filter((key) => key.startsWith('openwehr-')).map((key) => caches.delete(key))))
+            .then((keys) => Promise.all(keys.filter((key) => key.startsWith('wehrportal-')).map((key) => caches.delete(key))))
             .then(() => caches.open(CACHE))
             .then((cache) => cache.add(new Request(OFFLINE, { cache: 'reload' })).catch(() => {})));
     }

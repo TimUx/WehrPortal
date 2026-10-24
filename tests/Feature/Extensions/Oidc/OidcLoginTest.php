@@ -20,7 +20,7 @@ test('discovery, PKCE redirect and a successful callback log the user in', funct
     parse_str((string) parse_url($redirect->headers->get('Location'), PHP_URL_QUERY), $query);
 
     expect($query['response_type'])->toBe('code')
-        ->and($query['client_id'])->toBe('openwehr')
+        ->and($query['client_id'])->toBe('wehrportal')
         ->and($query['redirect_uri'])->toBe(route('oidc.callback'))
         ->and($query['scope'])->toBe('openid email profile')
         ->and($query['code_challenge_method'])->toBe('S256');
@@ -84,7 +84,7 @@ test('invalid tokens are rejected', function (array $claims) {
     'wrong issuer' => [['iss' => 'https://evil.example.com/realms/x']],
     'expired' => [['exp' => time() - 3600]],
     'missing subject' => [['sub' => '__unset__']],
-    'several audiences without azp' => [['aud' => ['openwehr', 'other']]],
+    'several audiences without azp' => [['aud' => ['wehrportal', 'other']]],
 ]);
 
 test('a token signed with a foreign key is rejected', function () {

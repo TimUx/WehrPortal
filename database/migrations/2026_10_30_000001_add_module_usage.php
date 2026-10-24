@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * The start page sorts the modules by use (a score that halves every 30 days); a Kamerad can lock
- * the own order instead. Who has sorted by hand already keeps that order (locked).
+ * the own order instead.
  */
 return new class extends Migration
 {
@@ -20,8 +20,6 @@ return new class extends Migration
         });
         Schema::table('users', fn (Blueprint $table) => $table->boolean('modules_locked')->default(false));
 
-        DB::table('users')->whereIn('id', DB::table('user_module_preferences')->where('sort_order', '<', 1000)->select('user_id'))->update(['modules_locked' => true]);
-        DB::table('user_module_preferences')->where('sort_order', '>=', 1000)->update(['sort_order' => null]);
     }
 
     public function down(): void

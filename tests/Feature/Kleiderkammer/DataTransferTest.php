@@ -89,10 +89,10 @@ test('catalog import is idempotent — re-running does not duplicate rows', func
     expect(Size::count())->toBe(1);
 });
 
-test('member import creates users, maps soft-deleted members to left and reports members without e-mail', function () {
+test('member import creates users with their status and reports members without e-mail', function () {
     $report = app(DataTransferService::class)->import(['groups' => ['members' => ['members' => [
-        ['id' => 1, 'name' => 'Hanna Hydrant', 'email' => 'hanna.hydrant@example.com', 'department' => 'active_service', 'role' => 'Gruppenführerin', 'gender' => 'female', 'status' => 'active'],
-        ['id' => 2, 'name' => 'Bernd Blaulicht', 'email' => 'bernd.blaulicht@example.com', 'status' => 'active', 'deleted_at' => '2026-01-01T00:00:00Z'],
+        ['id' => 1, 'name' => 'Hanna Hydrant', 'email' => 'hanna.hydrant@example.com', 'departments' => ['Aktiver Dienst'], 'role' => 'Gruppenführerin', 'gender' => 'female', 'status' => 'active'],
+        ['id' => 2, 'name' => 'Bernd Blaulicht', 'email' => 'bernd.blaulicht@example.com', 'status' => 'left'],
         ['id' => 3, 'name' => 'Klara Lösch', 'email' => null, 'status' => 'active'],
     ]]]]);
 
@@ -123,7 +123,7 @@ test('member import matches existing users by e-mail and keeps their name and lo
     expect($existing->status)->toBe(MemberStatus::Active);
 });
 
-test('import of an old-app export resolves all references through the IDs in the file', function () {
+test('import resolves all references through the IDs in the file', function () {
     // IDs from the old SQLite database, deliberately unrelated to the IDs here.
     $payload = ['version' => 1, 'groups' => [
         'catalog' => [

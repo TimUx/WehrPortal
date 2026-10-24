@@ -2,7 +2,6 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -21,8 +20,6 @@ return new class extends Migration
             $table->timestamp('removed_at')->nullable();
             $table->timestamp('gone_since')->nullable();
         });
-        // What was offered so far (in fox112 or on the Standardliste) stays offered
-        DB::table('lq_courses')->where('listed', true)->update(['is_standard' => true]);
     }
 
     public function down(): void

@@ -9,26 +9,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Deciders are now flagged per user instead of per group
-        Schema::table('users', function (Blueprint $table) {
-            $table->boolean('is_decider')->default(false)->after('is_admin');
-        });
-
-        DB::statement('
-            UPDATE users SET is_decider = true
-            WHERE id IN (
-                SELECT group_user.user_id FROM group_user
-                JOIN groups ON groups.id = group_user.group_id
-                WHERE groups.receives_escalations = true
-            )
-        ');
-
-        DB::table('groups')->where('name', 'Stellv. Wehrführer')->delete();
-
-        Schema::table('groups', function (Blueprint $table) {
-            $table->dropColumn('receives_escalations');
-        });
-
         // confirmed | pending (waiting for a decision) | rejected
         Schema::table('bookings', function (Blueprint $table) {
             $table->string('status', 20)->default('confirmed')->after('notes');
@@ -80,12 +60,5 @@ return new class extends Migration
             $table->dropColumn('status');
         });
 
-        Schema::table('groups', function (Blueprint $table) {
-            $table->boolean('receives_escalations')->default(false);
-        });
-
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('is_decider');
-        });
     }
 };

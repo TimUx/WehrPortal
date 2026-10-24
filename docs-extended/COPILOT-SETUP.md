@@ -7,8 +7,8 @@ Abhängigkeiten einschließlich Pest, Larastan und Pint, erzeugt `.env` und eine
 lokalen Anwendungsschlüssel und migriert PostgreSQL 18 ohne Beispieldaten.
 `route:list` prüft den Anwendungsstart. Nur Leserechte, keine Secrets.
 
-PostgreSQL läuft auf `127.0.0.1:5432` mit Datenbank `openwehr_test`, Benutzer
-`openwehr`, lokalem Testpasswort `secret` und Healthcheck. Die Migration aktiviert
+PostgreSQL läuft auf `127.0.0.1:5432` mit Datenbank `wehrportal_test`, Benutzer
+`wehrportal`, lokalem Testpasswort `secret` und Healthcheck. Die Migration aktiviert
 `btree_gist` auch in den parallelen Testdatenbanken; der lokale DB-Benutzer darf
 sie und weitere Testdatenbanken anlegen. Gegenüber `.env.example` werden Datenbank
 und Passwort angepasst, Mail auf `log` und Queue auf `sync` gesetzt.
@@ -32,9 +32,9 @@ php artisan route:list
 Ohne Dev-Container, nach `CLAUDE.md` (Docker, im Repository-Verzeichnis):
 
 ```bash
-docker run -d --name openwehr-test-pg -e POSTGRES_DB=openwehr_test -e POSTGRES_USER=openwehr -e POSTGRES_PASSWORD=secret -p 127.0.0.1:5432:5432 postgres:18
+docker run -d --name wehrportal-test-pg -e POSTGRES_DB=wehrportal_test -e POSTGRES_USER=wehrportal -e POSTGRES_PASSWORD=secret -p 127.0.0.1:5432:5432 postgres:18
 cp .env.example .env
-sed -i -e 's/^DB_DATABASE=.*/DB_DATABASE=openwehr_test/' -e 's/^DB_PASSWORD=.*/DB_PASSWORD=secret/' -e 's/^MAIL_MAILER=.*/MAIL_MAILER=log/' .env
+sed -i -e 's/^DB_DATABASE=.*/DB_DATABASE=wehrportal_test/' -e 's/^DB_PASSWORD=.*/DB_PASSWORD=secret/' -e 's/^MAIL_MAILER=.*/MAIL_MAILER=log/' .env
 docker run --rm --network host -v "$PWD":/app -w /app --user root -e SHOW_WELCOME_MESSAGE=false serversideup/php:8.4-cli \
   sh -c 'install-php-extensions gd intl exif &&
     composer install --no-interaction --prefer-dist &&
@@ -43,7 +43,7 @@ docker run --rm --network host -v "$PWD":/app -w /app --user root -e SHOW_WELCOM
     ./vendor/bin/phpstan analyse --memory-limit=2G;
     ./vendor/bin/pint --test; php artisan route:list;
     chown -R 1000:1000 storage bootstrap/cache'
-docker rm -f openwehr-test-pg
+docker rm -f wehrportal-test-pg
 ```
 
 Die Einzelbefehle und ihre Exitcodes separat bewerten; der Docker-Sammelbefehl

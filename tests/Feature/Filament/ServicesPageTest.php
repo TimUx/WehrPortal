@@ -21,14 +21,13 @@ beforeEach(function () {
     $this->admin = User::factory()->admin()->create();
 });
 
-test('Dienste are part of Einstellungen, only for admins; the old address leads there', function () {
+test('Dienste are part of Einstellungen and only accessible to admins', function () {
     $this->actingAs(User::factory()->create())->get('/admin/einstellungen')->assertForbidden();
 
     expect(OrganizationSettingsPage::getNavigationLabel())->toBe('Einstellungen');
     $this->actingAs($this->admin)->get(OrganizationSettingsPage::getUrl())->assertOk()
         ->assertSee('Einstellungen')->assertDontSee('Organization Settings Page')
         ->assertSee('Dienste')->assertSee('Google Maps')->assertSee('OpenRouter');
-    $this->get('/admin/services')->assertRedirect('/admin/einstellungen');
 });
 
 test('keys are saved encrypted and the model is stored', function () {

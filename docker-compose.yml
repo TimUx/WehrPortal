@@ -1,5 +1,4 @@
-# Keep the legacy project name so existing persistent volumes remain attached.
-name: openwehr
+name: wehrportal
 
 services:
   app:
@@ -19,17 +18,17 @@ services:
       - DB_CONNECTION=pgsql
       - DB_HOST=pgsql
       - DB_PORT=5432
-      - DB_DATABASE=openwehr
-      - DB_USERNAME=openwehr
+      - DB_DATABASE=wehrportal
+      - DB_USERNAME=wehrportal
       - DB_PASSWORD=secret
       - SESSION_DRIVER=database
-      - SESSION_COOKIE=openwehr-session
+      - SESSION_COOKIE=wehrportal-session
       - SESSION_LIFETIME=129600
       - QUEUE_CONNECTION=redis
       - CACHE_STORE=redis
       - REDIS_HOST=redis
-      - CACHE_PREFIX=openwehr-cache-
-      - REDIS_PREFIX=openwehr-database-
+      - CACHE_PREFIX=wehrportal-cache-
+      - REDIS_PREFIX=wehrportal-database-
       - MAGIC_LINK_TTL_MINUTES=15
       - MAIL_MAILER=log
     depends_on:
@@ -54,16 +53,16 @@ services:
       - DB_CONNECTION=pgsql
       - DB_HOST=pgsql
       - DB_PORT=5432
-      - DB_DATABASE=openwehr
-      - DB_USERNAME=openwehr
+      - DB_DATABASE=wehrportal
+      - DB_USERNAME=wehrportal
       - DB_PASSWORD=secret
       - SESSION_DRIVER=database
-      - SESSION_COOKIE=openwehr-session
+      - SESSION_COOKIE=wehrportal-session
       - QUEUE_CONNECTION=redis
       - CACHE_STORE=redis
       - REDIS_HOST=redis
-      - CACHE_PREFIX=openwehr-cache-
-      - REDIS_PREFIX=openwehr-database-
+      - CACHE_PREFIX=wehrportal-cache-
+      - REDIS_PREFIX=wehrportal-database-
       - MAGIC_LINK_TTL_MINUTES=15
       - MAIL_MAILER=log
     depends_on:
@@ -73,13 +72,13 @@ services:
   pgsql:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: openwehr
-      POSTGRES_USER: openwehr
+      POSTGRES_DB: wehrportal
+      POSTGRES_USER: wehrportal
       POSTGRES_PASSWORD: secret
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U openwehr -d openwehr"]
+      test: ["CMD-SHELL", "pg_isready -U wehrportal -d wehrportal"]
       interval: 5s
       timeout: 5s
       retries: 5

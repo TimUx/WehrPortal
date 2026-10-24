@@ -17,10 +17,10 @@ test('the default app and offline notification branding is WehrPortal', function
     $this->get('/sw.js')
         ->assertOk()
         ->assertSee("data.title || 'WehrPortal'", false)
-        ->assertSee("'openwehr-shell-v2'", false);
+        ->assertSee("'wehrportal-shell-v1'", false);
 });
 
-test('the rename preserves saved organization branding', function () {
+test('saved organization branding overrides the app name', function () {
     config(['app.name' => 'WehrPortal']);
     Setting::set('org_name', 'Freiwillige Feuerwehr Musterstadt');
     Setting::set('org_short_name', 'FF Musterstadt');

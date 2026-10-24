@@ -19,7 +19,6 @@ class UserFactory extends Factory
             'email' => fake()->unique()->safeEmail(),
             'phone' => fake()->optional(0.4)->phoneNumber(),
             'is_admin' => false,
-            'is_decider' => false,
             'is_active' => true,
             'last_login_at' => null,
             'remember_token' => Str::random(10),

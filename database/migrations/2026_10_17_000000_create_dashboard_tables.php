@@ -46,14 +46,10 @@ return new class extends Migration
             $table->primary(['announcement_id', 'user_id']);
         });
 
-        Schema::table('users', function (Blueprint $table) {
-            $table->boolean('can_post_announcements')->default(false)->after('is_admin');
-        });
     }
 
     public function down(): void
     {
-        Schema::table('users', fn (Blueprint $table) => $table->dropColumn('can_post_announcements'));
         Schema::dropIfExists('announcement_dismissals');
         Schema::dropIfExists('announcement_group');
         Schema::dropIfExists('announcements');

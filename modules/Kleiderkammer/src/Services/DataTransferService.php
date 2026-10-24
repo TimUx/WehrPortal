@@ -8,7 +8,6 @@ use App\Models\Group;
 use App\Models\User;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Modules\Kleiderkammer\src\Models\IssuedItem;
 use Modules\Kleiderkammer\src\Models\Item;
 use Modules\Kleiderkammer\src\Models\ItemCategory;
@@ -21,9 +20,8 @@ use Modules\Kleiderkammer\src\Models\Stock;
 
 /**
  * Exports and imports Kleiderkammer data as JSON-serializable arrays.
- * The file keeps three groups ('catalog', 'members', 'inventory') and stays compatible with the
- * old stand-alone Kleiderkammer app; IDs in a file are only used to resolve references within
- * that same file, never against the target database. What goes in or out is chosen by part.
+ * The file has three groups ('catalog', 'members', 'inventory'); IDs only resolve references
+ * within that file, never against the target database. Parts are selected independently.
  */
 class DataTransferService
 {
@@ -81,12 +79,11 @@ class DataTransferService
                 app(StockAccess::class)->lockSelection();
             }
             if (in_array('stock', $parts, true)) {
-                $this->assertLegacyStockTransfer();
+                $this->assertStockTransfer();
             }
             if (in_array('issuances', $parts, true)
-                && Schema::hasColumn('kk_issued_items', 'ext_source_stock_id')
                 && DB::table('kk_issued_items')->whereNotNull('ext_source_stock_id')->exists()) {
-                throw new \DomainException('The legacy transfer format cannot represent stock provenance.');
+                throw new \DomainException('The transfer format cannot represent stock provenance.');
             }
             $has = fn (string ...$wanted) => array_intersect($wanted, $parts) !== [];
             $data = ['version' => 1, 'exported_at' => now()->toIso8601String(), 'groups' => []];
@@ -156,11 +153,11 @@ class DataTransferService
                         app(StockAccess::class)->lockSelection();
                     }
                     if (($inventory['stock'] ?? []) !== []) {
-                        $this->assertLegacyStockTransfer();
+                        $this->assertStockTransfer();
                     }
                     foreach (array_merge($inventory['stock'] ?? [], $inventory['issued_items'] ?? []) as $row) {
                         if (($row['ext_location_id'] ?? null) !== null || ($row['ext_source_stock_id'] ?? null) !== null) {
-                            throw new \DomainException('The legacy transfer format cannot resolve warehouse ownership or stock provenance.');
+                            throw new \DomainException('The transfer format cannot resolve warehouse ownership or stock provenance.');
                         }
                     }
                     $catalog = $this->importCatalog($groups['catalog'] ?? []);
@@ -177,16 +174,15 @@ class DataTransferService
         return $report;
     }
 
-    /** Only unowned, globally unambiguous legacy stock is representable in version 1. */
-    private function assertLegacyStockTransfer(): void
+    /** Only unowned, globally unambiguous stock is representable in version 1. */
+    private function assertStockTransfer(): void
     {
-        if (Schema::hasColumn('kk_stock', 'ext_location_id')
-            && DB::table('kk_stock')->whereNotNull('ext_location_id')->exists()) {
-            throw new \DomainException('The legacy transfer format cannot represent warehouse stock ownership.');
+        if (DB::table('kk_stock')->whereNotNull('ext_location_id')->exists()) {
+            throw new \DomainException('The transfer format cannot represent warehouse stock ownership.');
         }
         if (DB::table('kk_stock')->select(['item_type_id', 'size_id', 'group_id'])
             ->groupBy('item_type_id', 'size_id', 'group_id')->havingRaw('count(*) > 1')->exists()) {
-            throw new \DomainException('The legacy transfer format cannot select ambiguous warehouse stock.');
+            throw new \DomainException('The transfer format cannot select ambiguous warehouse stock.');
         }
     }
 
@@ -405,7 +401,7 @@ class DataTransferService
         return ['types' => $typeMap, 'sizes' => $sizeMap, 'groups' => $groupMap];
     }
 
-    /** @return array<int, int> old member ID → user ID */
+    /** @return array<int, int> file member ID → user ID */
     private function importMembers(array $rows, array &$report): array
     {
         $map = [];
@@ -427,9 +423,7 @@ class DataTransferService
             $user = User::whereRaw('lower(email) = ?', [mb_strtolower($email)])->first();
 
             if ($user === null) {
-                $status = ! empty($row['deleted_at'])
-                    ? MemberStatus::Left
-                    : (MemberStatus::tryFrom((string) ($row['status'] ?? '')) ?? MemberStatus::Active);
+                $status = MemberStatus::tryFrom((string) ($row['status'] ?? '')) ?? MemberStatus::Active;
                 $user = User::create($fields + ['name' => $row['name'], 'email' => $email, 'status' => $status]);
             } else {
                 // Existing accounts keep their name and login status.
@@ -453,18 +447,10 @@ class DataTransferService
         return $map;
     }
 
-    /** Abteilung names of a member row; files of the old app carry one fixed department value instead */
+    /** Abteilung names of a member row. */
     private function departmentNames(array $row): array
     {
-        $legacy = [
-            'active_service' => 'Aktiver Dienst',
-            'youth_brigade' => 'Jugendfeuerwehr',
-            'music_group' => 'Musikzug',
-            'honorary' => 'Ehrenabteilung',
-            'leadership' => 'Wehrführung',
-        ];
-
-        $names = $row['departments'] ?? (isset($legacy[$row['department'] ?? null]) ? [$legacy[$row['department']]] : []);
+        $names = $row['departments'] ?? [];
 
         return array_values(array_filter(array_map('trim', $names), 'strlen'));
     }
@@ -524,7 +510,7 @@ class DataTransferService
             $size = $this->resolveSize($type, $row['size_name'] ?? null, $row['size_id'] ?? null, $catalog, $group);
             $key = json_encode([$type->id, $size?->id, $group?->id]);
             if (isset($stockKeys[$key])) {
-                throw new \DomainException('The legacy import contains duplicate stock positions without warehouse ownership.');
+                throw new \DomainException('The import contains duplicate stock positions without warehouse ownership.');
             }
             $stockKeys[$key] = true;
 
@@ -556,7 +542,7 @@ class DataTransferService
                 'issued_at' => $row['issued_at'],
             ]);
             if (($issued->getAttributes()['ext_source_stock_id'] ?? null) !== null) {
-                throw new \DomainException('The legacy import cannot overwrite a source-bound issuance.');
+                throw new \DomainException('The import cannot overwrite a source-bound issuance.');
             }
             $group = $type ? $this->resolveGroup($type, $row['group_name'] ?? null, $row['group_id'] ?? null, $catalog) : null;
             $issued->fill([

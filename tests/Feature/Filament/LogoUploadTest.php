@@ -78,13 +78,6 @@ test('replacement invalidates the logo URL even within the same second and delet
     $this->get(route('organization.logo'))->assertNotFound();
 });
 
-test('existing SVG logos remain sandboxed until replaced or removed', function () {
-    $org = app(OrganizationSettings::class);
-    $org->saveLogo(base64_encode('<svg xmlns="http://www.w3.org/2000/svg"/>'), 'image/svg+xml');
-    $this->get($org->logoUrl())->assertOk()->assertHeader('Content-Type', 'image/svg+xml')
-        ->assertHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox");
-});
-
 test('only active global admins can open or mutate organization settings', function () {
     $this->get('/admin/einstellungen')->assertRedirect();
     $member = User::factory()->create();

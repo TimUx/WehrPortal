@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\User;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
@@ -59,28 +58,6 @@ it('returns legacy null source records through the unchanged catalog triplet fal
     $this->service->return($issued);
     expect(Stock::where('item_type_id', $this->type->id)->whereNull('size_id')->whereNull('group_id')->value('quantity'))->toBe(2)
         ->and($this->stock->fresh()->quantity)->toBe(12);
-});
-
-it('supports missing provenance schema under strict attributes and never backfills historical issues', function () {
-    $this->migration->down();
-    $wasStrict = Model::preventsAccessingMissingAttributes();
-    Model::preventAccessingMissingAttributes();
-    try {
-        // The unrelated activity-label fallback probes optional model attributes.
-        Model::withoutEvents(function () {
-            $legacy = ($this->issue)();
-            expect(array_key_exists('ext_source_stock_id', $legacy->fresh()->getAttributes()))->toBeFalse();
-            $this->service->return($legacy);
-            $this->migration->up();
-            expect($legacy->fresh()->getAttributes()['ext_source_stock_id'])->toBeNull();
-            $new = ($this->issue)();
-            expect($new->getAttributes()['ext_source_stock_id'])->toBe($this->stock->id);
-            $this->service->return($new);
-            expect($this->stock->fresh()->quantity)->toBe(12);
-        });
-    } finally {
-        Model::preventAccessingMissingAttributes($wasStrict);
-    }
 });
 
 it('returns to the exact original row after source catalogs change even when Locations is disabled', function () {

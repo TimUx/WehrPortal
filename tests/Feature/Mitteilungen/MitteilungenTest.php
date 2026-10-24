@@ -7,9 +7,7 @@ use App\Models\Module;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Modules\Mitteilungen\src\Livewire\Manage;
 use Modules\Mitteilungen\src\Models\Announcement;
@@ -26,24 +24,8 @@ beforeEach(function () {
     $this->redakteur->moduleAccess()->create(['module' => 'mitteilungen', 'role' => 'redakteur']);
 });
 
-test('the module is on after the update and new Kameraden get it automatically', function () {
+test('the module starts enabled with automatic access for new Kameraden', function () {
     expect(Module::find('mitteilungen'))->is_active->toBeTrue()->auto_assign->toBeTrue();
-});
-
-test('the migration gives everyone access and keeps the right to post as Redakteur', function () {
-    $migration = require base_path('modules/Mitteilungen/database/migrations/2026_10_20_000000_make_mitteilungen_a_module.php');
-    $migration->down();
-
-    $poster = User::factory()->create();
-    $reader = User::factory()->create();
-    DB::table('users')->where('id', $poster->id)->update(['can_post_announcements' => true]);
-
-    $migration->up();
-
-    expect(Schema::hasColumn('users', 'can_post_announcements'))->toBeFalse()
-        ->and($poster->refresh()->hasModuleRole('mitteilungen', 'redakteur'))->toBeTrue()
-        ->and($reader->refresh()->moduleAccess()->where('module', 'mitteilungen')->exists())->toBeTrue()
-        ->and($reader->hasModuleRole('mitteilungen', 'redakteur'))->toBeFalse();
 });
 
 test('only admins and Redakteure manage notices', function () {

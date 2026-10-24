@@ -1,6 +1,6 @@
 # Dateien
 
-[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Roadmap](DATEIEN-ROADMAP.md) · [Migration und Betrieb](../MIGRATION.md)
+[Zur Hauptdokumentation](../README.md) · [Erweiterungsindex](README.md) · [Roadmap](DATEIEN-ROADMAP.md)
 
 Die Erweiterung `extensions/Dateien/` ergänzt eine interne Dateiablage. Sie wird automatisch geladen und ist als Modul **standardmäßig ausgeschaltet**.
 

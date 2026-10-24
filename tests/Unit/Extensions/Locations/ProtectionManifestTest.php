@@ -23,7 +23,6 @@ class ProtectionManifestTest extends TestCase
         $this->guard = app(ProtectionManifest::class);
         $this->manifest = config('locations.protection');
         $this->manifest['infrastructure'] = [];
-        $this->manifest['retired_tables'] = [];
         $this->manifest['optional_extensions'] = [];
         $this->manifest['tables'] = array_intersect_key($this->manifest['tables'], array_flip(['places', 'dress_codes']));
         $this->manifest['tables']['dress_codes']['mode'] = 'standortgebunden';
@@ -211,7 +210,6 @@ class ProtectionManifestTest extends TestCase
         $manifest = config('locations.protection');
         $manifest['tables'] = array_intersect_key($manifest['tables'], array_flip(['users', 'x_locations', 'x_oidc_identities']));
         $manifest['infrastructure'] = [];
-        $manifest['retired_tables'] = [];
         $manifest['optional_extensions'] = array_intersect_key($manifest['optional_extensions'], array_flip(['extensions.locations', 'extensions.oidc']));
         $manifest['optional_extensions']['extensions.locations']['tables'] = ['x_locations'];
         config(['locations.enabled' => false, 'oidc.enabled' => true]);
@@ -333,7 +331,6 @@ class ProtectionManifestTest extends TestCase
         $manifest = config('locations.protection');
         $manifest['tables'] = array_intersect_key($manifest['tables'], array_flip(['users', 'x_locations']));
         $manifest['infrastructure'] = [];
-        $manifest['retired_tables'] = [];
         $manifest['optional_extensions'] = ['extensions.locations' => $manifest['optional_extensions']['extensions.locations']];
         $manifest['optional_extensions']['extensions.locations']['tables'] = ['x_locations'];
         config(['locations.enabled' => false]);
@@ -343,17 +340,6 @@ class ProtectionManifestTest extends TestCase
 
         $snapshot['public.x_locations'] = ['columns' => ['id'], 'foreign_keys' => []];
         $this->assertContains('users: missing child parent column ext_location_id.', $this->guard->violations($manifest, $snapshot));
-    }
-
-    public function test_does_not_exempt_present_retired_tables(): void
-    {
-        $this->manifest['retired_tables'] = ['places' => [
-            'module' => 'core',
-            'removed_by' => 'database/migrations/2026_10_13_100001_make_functions_independent_of_groups.php',
-            'reason' => 'Synthetic retirement conflict.',
-        ]];
-
-        $this->assertViolation('Retired table must not be accepted as current: places.');
     }
 
     public function test_optional_stock_provenance_is_not_an_inferred_location_or_required_on_older_schema(): void

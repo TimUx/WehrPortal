@@ -30,7 +30,7 @@ use Modules\Wartung\WartungServiceProvider;
 use Modules\Wasserkarte\WasserkarteServiceProvider;
 
 return [
-    // Fork: loads extensions/* (see FORK.md)
+    // Loads extensions/*.
     ExtensionsServiceProvider::class,
     AppServiceProvider::class,
     AdminPanelProvider::class,

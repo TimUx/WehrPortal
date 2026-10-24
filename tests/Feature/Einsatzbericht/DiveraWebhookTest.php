@@ -145,7 +145,6 @@ test('the Wehrführung switches the webhook, copies the address, sets mapping an
     $leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
     $this->actingAs($leader)->get('/admin/einsatzbericht/einstellungen')->assertForbidden();
     $this->actingAs($chief)->get('/admin/einsatzbericht/einstellungen')->assertOk()->assertSee('DIVERA 24/7 (Webhook)');
-    $this->actingAs($chief)->get('/einsatzbericht/einstellungen')->assertRedirect('/admin/einsatzbericht/einstellungen');
 });
 
 test('the draft shows its DIVERA origin and message', function () {

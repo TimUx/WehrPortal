@@ -28,8 +28,8 @@ set_env APP_ENV local
 set_env APP_DEBUG true
 set_env APP_URL "${app_url}"
 set_env DB_HOST 127.0.0.1
-set_env DB_DATABASE openwehr
-set_env DB_USERNAME openwehr
+set_env DB_DATABASE wehrportal
+set_env DB_USERNAME wehrportal
 set_env DB_PASSWORD secret
 set_env MAIL_MAILER log
 set_env QUEUE_CONNECTION sync
@@ -43,7 +43,7 @@ if ! grep -q "^APP_KEY=base64:" .env; then
     php artisan key:generate --no-interaction
 fi
 
-until pg_isready -h 127.0.0.1 -U openwehr -d openwehr >/dev/null 2>&1; do
+until pg_isready -h 127.0.0.1 -U wehrportal -d wehrportal >/dev/null 2>&1; do
     echo "Waiting for PostgreSQL ..."
     sleep 1
 done

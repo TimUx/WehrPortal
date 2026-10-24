@@ -121,9 +121,9 @@ it('requires an explicit tenant scope decision for each application table', func
     expect($violations)->toBe([], implode("\n", $violations));
 });
 
-it('inventories literal table creations in every core module and extension migration including retired tables', function () {
+it('inventories literal table creations in every core module and extension migration', function () {
     $manifest = config('locations.protection');
-    $inventoried = array_merge(array_keys($manifest['tables']), array_keys($manifest['infrastructure']), array_keys($manifest['retired_tables']));
+    $inventoried = array_merge(array_keys($manifest['tables']), array_keys($manifest['infrastructure']));
     $migrations = array_merge(
         glob(database_path('migrations/*.php')),
         glob(base_path('modules/*/database/migrations/*.php')),

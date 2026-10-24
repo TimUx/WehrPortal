@@ -12,7 +12,6 @@ return new class extends Migration
         Schema::table('x_location_module_roles', fn (Blueprint $table) => $table->string('revoked_source', 20)->nullable());
 
         DB::statement('DROP TRIGGER x_location_module_roles_history ON x_location_module_roles');
-        DB::table('x_location_module_roles')->whereNotNull('revoked_at')->update(['revoked_source' => 'admin']);
         DB::statement('ALTER TABLE x_location_module_roles DROP CONSTRAINT x_location_module_roles_revocation');
         DB::statement(<<<'SQL'
             ALTER TABLE x_location_module_roles ADD CONSTRAINT x_location_module_roles_revocation CHECK (
@@ -63,15 +62,6 @@ return new class extends Migration
                 FOR EACH ROW EXECUTE FUNCTION x_location_membership_loss();
             SQL);
 
-        DB::statement(<<<'SQL'
-            UPDATE x_location_module_roles g
-            SET revoked_at = GREATEST(g.granted_at, clock_timestamp()),
-                revoked_by = NULL, revoked_source = 'membership',
-                revoke_reason = 'Automatischer Entzug: keine effektive Standortmitgliedschaft bei Einführung des Schutzes.'
-            WHERE g.revoked_at IS NULL
-                AND NOT EXISTS (SELECT 1 FROM users u WHERE u.id = g.user_id AND u.ext_location_id = g.location_id)
-                AND NOT EXISTS (SELECT 1 FROM x_location_user m WHERE m.user_id = g.user_id AND m.location_id = g.location_id)
-            SQL);
     }
 
     public function down(): void

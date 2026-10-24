@@ -6,20 +6,14 @@ use App\Models\User;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Modules\Kleiderkammer\src\Models\Stock;
 
 /**
- * Optional target-aware stock adapter. The default preserves upstream authorization.
+ * Optional target-aware stock adapter. The default uses module authorization.
  * Personal management remains independent of any stock-only permission.
  */
 class StockAccess
 {
-    public function hasWarehouseSchema(): bool
-    {
-        return Schema::hasColumn('kk_stock', 'ext_location_id');
-    }
-
     /** Prevent concurrent inserts from turning a unique legacy selection into an arbitrary one. */
     public function lockSelection(): void
     {
@@ -33,9 +27,7 @@ class StockAccess
 
     public function locationLabel(Stock $stock): ?string
     {
-        return $this->hasWarehouseSchema()
-            ? 'Bestandsposition #'.$stock->id
-            : null;
+        return 'Bestandsposition #'.$stock->id;
     }
 
     public function createStock(?User $actor, array $data): Stock

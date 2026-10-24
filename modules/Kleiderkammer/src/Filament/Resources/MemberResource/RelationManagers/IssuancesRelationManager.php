@@ -8,8 +8,6 @@ use Filament\Actions;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -166,8 +164,6 @@ class IssuancesRelationManager extends RelationManager
 
     private function issueStockAction(): Actions\Action
     {
-        $profileSize = fn (?int $typeId) => $typeId ? $this->getOwnerRecord()->kleiderkammerSizes()->where('item_type_id', $typeId)->first() : null;
-
         return Actions\Action::make('issueStock')
             ->label('Aus Bestand ausgeben')
             ->icon('heroicon-o-archive-box')
@@ -175,56 +171,24 @@ class IssuancesRelationManager extends RelationManager
             ->schema([
                 Forms\Components\Select::make('stock_id')
                     ->label('Bestandsposition')
-                    ->visible(fn () => app(PersonalAccess::class)->usesSourceSelector())
-                    ->required(fn () => app(PersonalAccess::class)->usesSourceSelector())
+                    ->required()
                     ->searchable()
                     ->options(fn () => app(PersonalAccess::class)->issueStockQuery(auth()->user())->with(['itemType', 'size', 'group'])
                         ->where('quantity', '>', 0)->get()->mapWithKeys(fn (Stock $stock) => [
                             $stock->id => collect([$stock->itemType?->getAttribute('name'), $stock->group?->getAttribute('name'), $stock->size?->getAttribute('name'), app(StockAccess::class)->locationLabel($stock), $stock->quantity.' auf Lager'])->filter()->implode(' · '),
                         ])),
-                Forms\Components\Select::make('item_type_id')
-                    ->label('Artikeltyp')
-                    ->options(fn () => ItemType::where('is_tracked', false)->orderBy('sort_order')->orderBy('name')->pluck('name', 'id'))
-                    ->required(fn () => ! app(PersonalAccess::class)->usesSourceSelector())
-                    ->visible(fn () => ! app(PersonalAccess::class)->usesSourceSelector())
-                    ->searchable()
-                    ->live()
-                    ->afterStateUpdated(function (?string $state, Set $set) use ($profileSize) {
-                        $profile = $profileSize($state ? (int) $state : null);
-                        $set('group_id', $profile?->group_id);
-                        $set('size_id', $profile?->size_id);
-                    }),
-                Forms\Components\Select::make('group_id')
-                    ->label('Gruppe')
-                    ->options(fn (Get $get) => ItemGroup::where('item_type_id', $get('item_type_id'))->orderBy('sort_order')->pluck('name', 'id'))
-                    ->live()
-                    ->visible(fn (Get $get) => ! app(PersonalAccess::class)->usesSourceSelector() && filled($get('item_type_id')) && ItemGroup::where('item_type_id', $get('item_type_id'))->exists()),
-                Forms\Components\Select::make('size_id')
-                    ->label('Größe')
-                    ->options(fn (Get $get) => Size::where('item_type_id', $get('item_type_id'))
-                        ->forGroup($get('group_id'))
-                        ->orderBy('sort_order')
-                        ->get()
-                        ->mapWithKeys(fn (Size $size) => [$size->id => $size->name.' ('.static::stockOf($get('item_type_id'), $size->id, $get('group_id')).' auf Lager)'])
-                        ->all())
-                    ->helperText(fn (Get $get) => ($profile = $profileSize($get('item_type_id') ? (int) $get('item_type_id') : null))
-                        ? 'Laut Profil: '.$profile->size->name.($profile->group ? ' ('.$profile->group->name.')' : '')
-                        : null)
-                    ->visible(fn (Get $get) => ! app(PersonalAccess::class)->usesSourceSelector() && filled($get('item_type_id')) && Size::where('item_type_id', $get('item_type_id'))->exists()),
                 Forms\Components\TextInput::make('quantity')->label('Anzahl')->numeric()->minValue(1)->default(1)->required(),
                 Forms\Components\Textarea::make('notes')->label('Notizen')->rows(2),
             ])
             ->action(function (array $data, Actions\Action $action) {
                 try {
-                    $stock = app(PersonalAccess::class)->usesSourceSelector()
-                        ? app(PersonalAccess::class)->issueStockQuery(auth()->user())->findOrFail($data['stock_id'])
-                        : null;
+                    $stock = app(PersonalAccess::class)->issueStockQuery(auth()->user())->findOrFail($data['stock_id']);
                     /** @var ItemType $itemType */
-                    $itemType = $stock !== null ? $stock->itemType : ItemType::findOrFail($data['item_type_id']);
+                    $itemType = $stock->itemType;
                     /** @var Size|null $size */
-                    $size = $stock ? $stock->size : (isset($data['size_id']) ? Size::find($data['size_id']) : null);
+                    $size = $stock->size;
                     /** @var ItemGroup|null $group */
-                    $group = $stock ? $stock->group : (isset($data['group_id']) ? ItemGroup::find($data['group_id']) : null);
+                    $group = $stock->group;
                     app(IssuingService::class)->issueStock(
                         $this->getOwnerRecord(),
                         $itemType,
@@ -232,7 +196,7 @@ class IssuancesRelationManager extends RelationManager
                         (int) $data['quantity'],
                         $data['notes'] ?? '',
                         $group,
-                        $stock?->id,
+                        $stock->id,
                     );
                 } catch (\DomainException) {
                     Notification::make()->title('Nicht genug Bestand.')->danger()->send();
@@ -269,10 +233,5 @@ class IssuancesRelationManager extends RelationManager
     private static function itemLabel(Item $item): string
     {
         return collect([$item->code.' – '.$item->itemType?->name, $item->group?->name, $item->size?->name])->filter()->implode(' · ');
-    }
-
-    private static function stockOf(mixed $typeId, int $sizeId, mixed $groupId): int
-    {
-        return (int) app(StockAccess::class)->query(auth()->user())->where('item_type_id', $typeId)->where('size_id', $sizeId)->where('group_id', $groupId ?: null)->sum('quantity');
     }
 }

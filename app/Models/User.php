@@ -43,7 +43,6 @@ class User extends Authenticatable implements FilamentUser
         'calendar_view',
         'avatar_updated_at',
         'is_admin',
-        'is_decider',
         'is_active',
         'status',
         'rank',
@@ -62,7 +61,6 @@ class User extends Authenticatable implements FilamentUser
         return [
             'is_admin' => 'boolean',
             'modules_locked' => 'boolean',
-            'is_decider' => 'boolean',
             'is_active' => 'boolean',
             'last_login_at' => 'datetime',
             'avatar_updated_at' => 'datetime',

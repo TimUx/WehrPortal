@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * Additions to the Einsatzbericht: Kostenpflicht, involved persons (third parties) and Verdienstausfall.
- * Own tables only; the upstream eb_* tables stay untouched. Personal data of third parties is encrypted.
+ * Own tables only; the core eb_* tables stay untouched. Personal data of third parties is encrypted.
  */
 return new class extends Migration
 {

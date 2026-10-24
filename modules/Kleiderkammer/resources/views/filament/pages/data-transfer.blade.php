@@ -20,7 +20,7 @@
         <x-filament::section>
             <x-slot name="heading">Import</x-slot>
             <x-slot name="description">
-                Daten aus einem früheren Export oder aus dem alten Kleiderkammer-System importieren.
+                Daten aus einem WehrPortal-Export importieren.
                 Bestehende Datensätze werden per Upsert aktualisiert – nichts wird gelöscht.
             </x-slot>
 

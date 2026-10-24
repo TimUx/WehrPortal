@@ -1,4 +1,4 @@
-const DB_NAME = 'openwehr-offline-v1';
+const DB_NAME = 'wehrportal-offline-v1';
 const STORE = 'drafts';
 const MAX_AGE = 30 * 24 * 60 * 60 * 1000;
 const root = document.querySelector('[data-offline-pwa]');

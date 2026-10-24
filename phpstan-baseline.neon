@@ -3415,12 +3415,6 @@ parameters:
 			path: modules/Kleiderkammer/src/Filament/Resources/MemberResource/RelationManagers/IssuancesRelationManager.php
 
 		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:kleiderkammerSizes\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: modules/Kleiderkammer/src/Filament/Resources/MemberResource/RelationManagers/IssuancesRelationManager.php
-
-		-
 			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: non\-falsy\-string, Closure\(Modules\\Kleiderkammer\\src\\Models\\EquipmentMessage\)\: non\-falsy\-string given\.$#'
 			identifier: argument.type
 			count: 1
@@ -3442,12 +3436,6 @@ parameters:
 			message: '#^Unsafe call to private method Modules\\Kleiderkammer\\src\\Filament\\Resources\\MemberResource\\RelationManagers\\IssuancesRelationManager\:\:itemLabel\(\) through static\:\:\.$#'
 			identifier: staticClassAccess.privateMethod
 			count: 2
-			path: modules/Kleiderkammer/src/Filament/Resources/MemberResource/RelationManagers/IssuancesRelationManager.php
-
-		-
-			message: '#^Unsafe call to private method Modules\\Kleiderkammer\\src\\Filament\\Resources\\MemberResource\\RelationManagers\\IssuancesRelationManager\:\:stockOf\(\) through static\:\:\.$#'
-			identifier: staticClassAccess.privateMethod
-			count: 1
 			path: modules/Kleiderkammer/src/Filament/Resources/MemberResource/RelationManagers/IssuancesRelationManager.php
 
 		-

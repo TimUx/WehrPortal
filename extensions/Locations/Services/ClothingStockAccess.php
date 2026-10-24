@@ -20,10 +20,6 @@ class ClothingStockAccess extends StockAccess
 
     public function locationFields(): array
     {
-        if (! $this->hasWarehouseSchema() || ! Schema::hasTable('x_locations')) {
-            return [];
-        }
-
         return [
             Select::make('ext_location_id')->label('Standort')
                 ->options(fn () => Location::withoutGlobalScopes()->where('is_active', true)->orderBy('name')->pluck('name', 'id'))
@@ -35,9 +31,6 @@ class ClothingStockAccess extends StockAccess
 
     public function locationLabel(Stock $stock): ?string
     {
-        if (! $this->hasWarehouseSchema() || ! Schema::hasTable('x_locations')) {
-            return parent::locationLabel($stock);
-        }
         $id = $stock->getAttributes()['ext_location_id'] ?? null;
 
         return $id === null ? 'Ohne Standort' : (DB::table('x_locations')->where('id', $id)->value('name') ?? 'Unbekannter Standort');
@@ -52,11 +45,7 @@ class ClothingStockAccess extends StockAccess
         return $this->asActor($actor, fn () => app(ClothingPersonalAccess::class)->asActor($actor, fn () => DB::transaction(function () use ($data, $location) {
             $this->lockSelection();
             $stock = new Stock($data);
-            if ($this->hasWarehouseSchema()) {
-                $stock->forceFill(['ext_location_id' => $location]);
-            } else {
-                abort_if($location !== null, 403);
-            }
+            $stock->forceFill(['ext_location_id' => $location]);
             $this->validateCreationLocation($stock);
             $stock->save();
 

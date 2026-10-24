@@ -56,7 +56,7 @@ class AnwesenheitServiceProvider extends ServiceProvider
             Route::middleware('web')->group(__DIR__.'/routes/web.php');
         }
 
-        // Standort boundaries: the same scope and hooks the Locations extension puts on the upstream models
+        // Standort boundaries: the same scope and hooks the Locations extension puts on the core models
         if (config('locations.enabled')) {
             foreach ([AttendanceList::class, AttendanceTemplate::class] as $class) {
                 $class::addGlobalScope(new LocationScope);

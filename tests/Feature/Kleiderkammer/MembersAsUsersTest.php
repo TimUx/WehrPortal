@@ -8,8 +8,6 @@ use App\Models\Module;
 use App\Models\User;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Modules\Kleiderkammer\src\Filament\Resources\MemberResource\Pages\ListMembers;
 use Modules\Kleiderkammer\src\Models\IssuedItem;
@@ -97,52 +95,6 @@ test('kleiderwart sees members with their equipment count but cannot create or d
         ->assertTableActionDoesNotExist('delete');
 
     $this->actingAs($kleiderwart)->get('/admin/kleiderkammer/kameraden/neu')->assertNotFound();
-});
-
-// ─── migration from kk_members ───────────────────────────────────────────────
-
-test('migration turns kk_members into users and keeps their issuances', function () {
-    $migration = require base_path('modules/Kleiderkammer/database/migrations/2026_10_10_000001_move_kk_members_to_users.php');
-    $migration->down();
-
-    // The migration predates the move of "Abteilung" to the groups; it still fills users.department
-    Schema::table('users', fn ($table) => $table->string('department', 30)->nullable());
-
-    $existing = User::factory()->admin()->create(['email' => 'hanna.hydrant@example.com']);
-    $type = ItemType::create(['name' => 'Einsatzjacke', 'is_tracked' => true]);
-    $jacket = Item::create(['item_type_id' => $type->id, 'code' => 'WEHREJA0001', 'status' => 'issued']);
-    $helmet = Item::create(['item_type_id' => $type->id, 'code' => 'WEHREJA0002', 'status' => 'issued']);
-
-    $member = fn (array $attrs) => DB::table('kk_members')->insertGetId($attrs + ['created_at' => now(), 'updated_at' => now()]);
-    $hanna = $member(['name' => 'Hanna Hydrant', 'email' => 'Hanna.Hydrant@example.com', 'role' => 'Gruppenführerin', 'department' => 'active_service', 'status' => 'inactive']);
-    $bernd = $member(['name' => 'Bernd Blaulicht', 'email' => 'bernd.blaulicht@example.com', 'status' => 'active', 'deleted_at' => now()]);
-    $klara = $member(['name' => 'Klara Lösch', 'email' => null, 'status' => 'active']);
-
-    $issue = fn (int $memberId, int $itemId) => DB::table('kk_issued_items')->insert([
-        'member_id' => $memberId, 'item_id' => $itemId, 'quantity' => 1, 'issued_at' => now(), 'created_at' => now(), 'updated_at' => now(),
-    ]);
-    $issue($hanna, $jacket->id);
-    $issue($klara, $helmet->id);
-
-    ob_start();
-    $migration->up();
-    $output = ob_get_clean();
-
-    $existing->refresh();
-    expect($existing->rank)->toBe('Gruppenführerin');
-    expect($existing->is_active)->toBeTrue(); // existing logins are not locked out
-    expect($existing->kleiderkammerItems()->value('item_id'))->toBe($jacket->id);
-
-    $berndUser = User::where('email', 'bernd.blaulicht@example.com')->first();
-    expect($berndUser->status)->toBe(MemberStatus::Left);
-    expect($berndUser->is_active)->toBeFalse();
-
-    expect(User::where('name', 'Klara Lösch')->exists())->toBeFalse();
-    expect($helmet->fresh()->status->value)->toBe('available');
-    expect($output)->toContain('1 Ausgabe(n)');
-    expect(DB::getSchemaBuilder()->hasTable('kk_members'))->toBeFalse();
-
-    Schema::table('users', fn ($table) => $table->dropColumn('department'));
 });
 
 test('a user with equipment cannot be deleted and the admin is told why', function () {

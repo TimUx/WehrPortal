@@ -89,22 +89,6 @@ class ProtectionManifest
                 $errors[] = "Unclassified table: {$table}.";
             }
         }
-        $retired = $manifest['retired_tables'] ?? null;
-        if (! is_array($retired)) {
-            $errors[] = 'Manifest requires an explicit retired_tables map for removed/renamed migration tables.';
-        } else {
-            foreach ($retired as $table => $retirement) {
-                if (! $this->identifier($table) || ! is_array($retirement)
-                    || ! $this->text($retirement['module'] ?? null)
-                    || ! $this->reference($retirement['removed_by'] ?? null)
-                    || ! $this->text($retirement['reason'] ?? null)) {
-                    $errors[] = 'Malformed retired-table entry.';
-                }
-                if (array_key_exists($table, $tables) || array_key_exists($table, $infrastructure) || isset($schema[$table])) {
-                    $errors[] = "Retired table must not be accepted as current: {$table}.";
-                }
-            }
-        }
         foreach ($tables as $table => $entry) {
             if (! $this->identifier($table) || ! is_array($entry)) {
                 $errors[] = 'Application entries require a finite, unqualified table name and an entry map.';

@@ -9,7 +9,7 @@ use Modules\Kleiderkammer\src\Models\IssuedItem;
 use Modules\Kleiderkammer\src\Models\Item;
 use Modules\Kleiderkammer\src\Models\Stock;
 
-/** Optional personal-data adapter. The default preserves upstream behavior. */
+/** Optional personal-data adapter. The default uses module authorization. */
 class PersonalAccess
 {
     public function enabled(): bool
@@ -62,11 +62,6 @@ class PersonalAccess
     public function asImportActor(?User $actor, Closure $operation): mixed
     {
         return $this->asActor($actor, $operation);
-    }
-
-    public function usesSourceSelector(): bool
-    {
-        return $this->enabled() || app(StockAccess::class)->enabled() || app(StockAccess::class)->hasWarehouseSchema();
     }
 
     /** @return Builder<Stock> */

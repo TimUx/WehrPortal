@@ -112,18 +112,6 @@ return [
         'migrations' => 'Laravel migration ledger.',
         'sessions' => 'Laravel sessions; user_id is optional and not a domain ownership boundary.',
     ],
-    'retired_tables' => [
-        'group_functions' => ['module' => 'core', 'removed_by' => 'database/migrations/2026_10_13_100001_make_functions_independent_of_groups.php', 'reason' => 'Renamed to member_functions.'],
-        'group_function_user' => ['module' => 'core', 'removed_by' => 'database/migrations/2026_10_13_100001_make_functions_independent_of_groups.php', 'reason' => 'Renamed to member_function_user; group_function_id became member_function_id.'],
-        'kk_members' => ['module' => 'kleiderkammer', 'removed_by' => 'modules/Kleiderkammer/database/migrations/2026_10_10_000001_move_kk_members_to_users.php', 'reason' => 'Member data moved to users.'],
-        'lq_offering_mail_optouts' => ['module' => 'lehrgaenge', 'removed_by' => 'modules/Lehrgaenge/database/migrations/2026_10_22_000000_rework_lehrgaenge_registrations.php', 'reason' => 'Old offering mail preferences removed.'],
-        'lq_offerings' => ['module' => 'lehrgaenge', 'removed_by' => 'modules/Lehrgaenge/database/migrations/2026_10_22_000000_rework_lehrgaenge_registrations.php', 'reason' => 'Dated external offerings removed.'],
-        'lq_certificates' => ['module' => 'lehrgaenge', 'removed_by' => 'modules/Lehrgaenge/database/migrations/2026_10_22_000000_rework_lehrgaenge_registrations.php', 'reason' => 'Old qualification certificates removed.'],
-        'lq_promotion_rule_course' => ['module' => 'lehrgaenge', 'removed_by' => 'modules/Lehrgaenge/database/migrations/2026_10_22_000000_rework_lehrgaenge_registrations.php', 'reason' => 'Old course promotion rules removed.'],
-        'lq_promotion_rules' => ['module' => 'lehrgaenge', 'removed_by' => 'modules/Lehrgaenge/database/migrations/2026_10_22_000000_rework_lehrgaenge_registrations.php', 'reason' => 'Old promotion rule catalog removed.'],
-        'lq_course_prerequisites' => ['module' => 'lehrgaenge', 'removed_by' => 'modules/Lehrgaenge/database/migrations/2026_10_22_000000_rework_lehrgaenge_registrations.php', 'reason' => 'Old course prerequisites removed.'],
-        'lq_course_aliases' => ['module' => 'lehrgaenge', 'removed_by' => 'modules/Lehrgaenge/database/migrations/2026_10_22_000000_rework_lehrgaenge_registrations.php', 'reason' => 'Aliases folded into the course catalog and removed.'],
-    ],
     'tables' => [
         'x_leadership_assignments' => $entry('extensions.locations', 'standortgebunden', 'access', 'Explicit single-location leadership capabilities and immutable grant/revocation history; no municipality wildcard', [$parent('location_id', 'x_locations'), $parent('user_id', 'users'), $parent('granted_by', 'users'), $parent('approved_by', 'users', 'retain'), $parent('revoked_by', 'users', 'retain')], $required, ['extensions/Locations/Services/LeadershipAssignments.php', 'extensions/Locations/Console/LeadershipCommand.php', 'extensions/Locations/database/migrations/2026_12_28_000000_create_leadership_assignments.php', 'extensions/Locations/Services/LocationModuleRoles.php'], $optionalLocations, targetGap: 'Bounded P6 foundation only. No existing module policy consumes these capabilities; future restricted projections require explicit approval and separate integration. No full P6 certification.'),
         'x_location_data_assignments' => $assignmentHistory,
@@ -175,7 +163,7 @@ return [
         'ar_events' => $entry('ausruestung', 'standortgebunden', 'financial', 'Equipment lifecycle work and costs', [$parent('equipment_id', 'ar_equipment')], $required, $equipment),
         'ar_stocktakes' => $entry('ausruestung', 'standortgebunden', 'operational', 'Physical inventory requires a Standort owner independent of optional storage-place selection', [$parent('location_id', 'ar_locations', 'shared')], 'NULL storage place means the stocktake has no single storage-place restriction.', ['modules/Ausruestung/src/Services/StocktakeService.php'], targetStatus: 'pending_decision', targetGap: 'Design Standort ownership for inventory across one or several storage places; current NULL/module-wide inventory is not an approved target.'),
 
-        // Kleiderkammer: member links replaced the removed kk_members table.
+        // Kleiderkammer: members are core users.
         'kk_item_categories' => $entry('kleiderkammer', 'übergreifend', 'reference', 'Shared clothing category catalog', [], $catalog, $clothing),
         'kk_item_types' => $entry('kleiderkammer', 'übergreifend', 'reference', 'Shared clothing type with optional category', [$parent('category_id', 'kk_item_categories', 'inherit')], 'NULL category is an uncategorized catalog type; clothing-manager ACL remains.', $clothing),
         'kk_sizes' => $entry('kleiderkammer', 'übergreifend', 'reference', 'Clothing type and optional item group', [$parent('item_type_id', 'kk_item_types'), $parent('group_id', 'kk_item_groups', 'inherit')], 'NULL group is an ungrouped size; type remains required.', $clothing),

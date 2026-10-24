@@ -13,7 +13,7 @@ class IcsExporter
     /** $withLinks adds the link into the app, which only makes sense for Kameraden */
     public function render(Collection $events, bool $withLinks = true): string
     {
-        $host = parse_url(config('app.url'), PHP_URL_HOST) ?: 'openwehr';
+        $host = parse_url(config('app.url'), PHP_URL_HOST) ?: 'wehrportal';
         $lines = [
             'BEGIN:VCALENDAR',
             'VERSION:2.0',

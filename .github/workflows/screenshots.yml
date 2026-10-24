@@ -26,8 +26,8 @@ jobs:
       postgres:
         image: postgres:18
         env:
-          POSTGRES_DB: openwehr_e2e
-          POSTGRES_USER: openwehr
+          POSTGRES_DB: wehrportal_e2e
+          POSTGRES_USER: wehrportal
           POSTGRES_PASSWORD: secret
         ports:
           - 5432:5432

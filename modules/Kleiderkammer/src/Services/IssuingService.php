@@ -101,9 +101,7 @@ class IssuingService
                 'issued_at' => now(),
                 'notes' => $notes,
             ]);
-            if ($issuedItem->getConnection()->getSchemaBuilder()->hasColumn($issuedItem->getTable(), 'ext_source_stock_id')) {
-                $issuedItem->forceFill(['ext_source_stock_id' => $stock->id]);
-            }
+            $issuedItem->forceFill(['ext_source_stock_id' => $stock->id]);
             $issuedItem->save();
 
             $stock->decrement('quantity', $quantity);

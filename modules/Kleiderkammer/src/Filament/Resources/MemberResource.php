@@ -22,7 +22,7 @@ use Modules\Kleiderkammer\src\Services\IssuingService;
 use Modules\Kleiderkammer\src\Services\PersonalAccess;
 
 // The suite's users seen from the Kleiderkammer. Kleiderwarte edit only the Kleiderkammer profile
-// (notes, clothing sizes, equipment); Abteilungen, functions, rank and status stay with the admins (/admin/users).
+// (notes, clothing sizes, equipment); Abteilungen, functions, rank and status stay with the admins (/admin/kameraden).
 class MemberResource extends Resource
 {
     use KleiderkammerArea;

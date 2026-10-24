@@ -36,42 +36,20 @@ return new class extends Migration
             $table->foreignId('association_id')->nullable()->constrained('x_vv_associations')->restrictOnDelete();
         });
 
-        $defaultLocationId = Schema::hasTable('x_locations')
-            ? DB::table('x_locations')->where('is_default', true)->value('id') ?? DB::table('x_locations')->orderBy('id')->value('id')
-            : null;
         $locations = Schema::hasTable('x_locations')
             ? DB::table('x_locations')->orderBy('id')->pluck('id')
             : collect([null]);
 
         foreach ($locations as $locationId) {
-            $oldName = DB::table('x_vv_members')
-                ->when($locationId, fn ($query) => $query->where('ext_location_id', $locationId))
-                ->when(! $locationId && Schema::hasColumn('x_vv_members', 'ext_location_id'), fn ($query) => $query->whereNull('ext_location_id'))
-                ->value('association_name');
-
-            $associationId = DB::table('x_vv_associations')->insertGetId([
-                'name' => $oldName ?: config('vereinsverwaltung.association_name', 'Feuerwehrverein'),
+            DB::table('x_vv_associations')->insert([
+                'name' => config('vereinsverwaltung.association_name', 'Feuerwehrverein'),
                 'location_id' => $locationId,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
 
-            if (Schema::hasTable('x_locations') && Schema::hasColumn('x_vv_members', 'ext_location_id')) {
-                DB::table('x_vv_members')->where('ext_location_id', $locationId)->update([
-                    'association_id' => $associationId,
-                    'ext_location_id' => $locationId,
-                ]);
-            } else {
-                DB::table('x_vv_members')->update(['association_id' => $associationId]);
-            }
         }
 
-        if ($defaultLocationId !== null) {
-            $fallbackAssociationId = DB::table('x_vv_associations')->where('location_id', $defaultLocationId)->value('id');
-        } else {
-            $fallbackAssociationId = DB::table('x_vv_associations')->value('id');
-        }
-        DB::table('x_vv_applications')->whereNull('association_id')->update(['association_id' => $fallbackAssociationId]);
     }
 
     public function down(): void
