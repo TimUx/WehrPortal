@@ -44,5 +44,5 @@
 
 ## Technik
 
-Laravel 12 (PHP 8.4), Livewire 4, Filament 5, Tailwind 4, PostgreSQL 18, OpenStreetMap-Karten. Betrieb als Docker-Image, z. B. mit Coolify.
+Laravel 12 (PHP 8.4), Livewire 4, Filament 5, Tailwind 4, PostgreSQL, OpenStreetMap-Karten. Betrieb mit Docker Compose auf einem eigenen Linux-VPS beim Hosting-Anbieter eigener Wahl, mit HTTPS-Reverse-Proxy. Compose enthält PostgreSQL 16 und Redis; CI verwendet PostgreSQL 18.
 - Sicherheit: wöchentliche Dependabot-Updates, bei jedem Push Tests, composer/npm audit, Larastan, Gitleaks und Trivy-Image-Scan, KI-Sicherheitsreview für Pull Requests, Meldeweg in SECURITY.md: https://github.com/TimUx/WehrPortal/blob/main/SECURITY.md

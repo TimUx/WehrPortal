@@ -2,7 +2,7 @@
 
 [Zur Hauptdokumentation](../README.md) · [Modulhandbücher](README.md)
 
-Der Workflow `.github/workflows/screenshots.yml` baut eine vollständige Testinstallation mit Beispieldaten auf, meldet sich im Browser an und fotografiert jedes Modul. Die Bilder liegen in `docs-extended/screenshots/` und sind in die Dokumentation eingebunden (README bei jedem Modul, [Galerie](#galerie)); `.github/workflows/docs-screenshots.yml` hält sie aktuell. Der Lauf dient zugleich als Smoke-Test vor Releases: Lädt eine Seite nicht, endet sie mit Fehler oder führt sie zurück zur Anmeldung, schlägt der Lauf fehl.
+Der Workflow `.github/workflows/screenshots.yml` baut eine vollständige Testinstallation mit Beispieldaten auf, meldet sich im Browser an und fotografiert jedes Modul. Die Bilder liegen in `docs/screenshots/` und sind in die Dokumentation eingebunden (README bei jedem Modul, [Galerie](#galerie)); `.github/workflows/docs-screenshots.yml` hält sie aktuell. Der Lauf dient zugleich als Smoke-Test vor Releases: Lädt eine Seite nicht, endet sie mit Fehler oder führt sie zurück zur Anmeldung, schlägt der Lauf fehl.
 
 ## Inhalt
 
@@ -15,7 +15,7 @@ Der Workflow `.github/workflows/screenshots.yml` baut eine vollständige Testins
 
 ## Galerie
 
-Alle Bilder der letzten Erzeugung (Ordner `docs-extended/screenshots/`, Klick öffnet das Bild in voller Größe). In der [README](../README.md) steht jedes Bild zusätzlich beim beschriebenen Modul.
+Alle Bilder der letzten Erzeugung (Ordner `docs/screenshots/`, Klick öffnet das Bild in voller Größe). In der [README](../README.md) steht jedes Bild zusätzlich beim beschriebenen Modul.
 
 | | |
 |---|---|
@@ -47,7 +47,7 @@ Alle Bilder der letzten Erzeugung (Ordner `docs-extended/screenshots/`, Klick ö
 3. `php artisan migrate:fresh --seed --seeder="Database\\Seeders\\ScreenshotSeeder"` – leere Datenbank, alle Migrationen, Beispieldaten für alle Module.
 4. `php artisan serve` auf `127.0.0.1:8000`.
 5. Playwright (`tests/e2e`, eigenes `package.json`, nur Chromium): Anmeldung über den echten Magic-Link-Ablauf – E-Mail auf `/anmelden` eingeben, den Link aus der geloggten Mail (`storage/logs/laravel.log`) lesen, bestätigen. Die Sitzung gilt für alle weiteren Seiten; ein erneuter Lauf gegen dieselbe Datenbank verwendet sie weiter, solange sie gültig ist.
-6. Pro Seite: HTTP-Status unter 400, keine Umleitung zu `/anmelden`, erwarteter Inhalt sichtbar, dann Screenshot nach `docs-extended/screenshots/<modul>/<seite>.png` (in CI in ein Artefakt).
+6. Pro Seite: HTTP-Status unter 400, keine Umleitung zu `/anmelden`, erwarteter Inhalt sichtbar, dann Screenshot nach `docs/screenshots/<modul>/<seite>.png` (in CI in ein Artefakt).
 7. Bei einem manuellen „Docs Screenshots“-Lauf auf `main`: geänderte Bilder werden zurück ins Repository committet (siehe unten).
 
 ## Seiten und Beispieldaten
@@ -89,7 +89,7 @@ Nicht fotografiert: `/personalakte/nachweise` (der QR-Code hängt vom zufällige
   ```
 
 - **Artefakte:** `screenshots` (immer, 30 Tage) mit allen Bildern; bei Fehlern zusätzlich `e2e-report` (Playwright-Report, Traces, Fehlerbilder, `storage/logs/` der Wegwerf-Installation, 7 Tage).
-- **Dokumentation aktuell halten:** `docs-screenshots.yml` wird bewusst nur manuell auf `main` gestartet. Er ruft `screenshots.yml` auf, ersetzt `docs-extended/screenshots/` durch das Artefakt und committet nur, wenn sich ein Bild geändert hat („Update documentation screenshots“, als `github-actions[bot]`). Weil der Lauf deterministisch ist, passiert das nur bei geänderter Oberfläche oder geänderten Beispieldaten. Pushes mit `GITHUB_TOKEN` lösen keine weiteren Läufe aus. Ist `main` gegen direkte Pushes geschützt, muss der Bot-Commit regulär per Pull Request übernommen werden oder eine ausdrücklich konfigurierte Ausnahme nutzen – sonst schlägt dieser Schritt fehl. Die vorhandenen Bilder sind übernommen und zeigen gegebenenfalls noch den früheren Produktnamen.
+- **Dokumentation aktuell halten:** `docs-screenshots.yml` wird bewusst nur manuell auf `main` gestartet. Er ruft `screenshots.yml` auf, ersetzt `docs/screenshots/` durch das Artefakt und committet nur, wenn sich ein Bild geändert hat („Update documentation screenshots“, als `github-actions[bot]`). Weil der Lauf deterministisch ist, passiert das nur bei geänderter Oberfläche oder geänderten Beispieldaten. Pushes mit `GITHUB_TOKEN` lösen keine weiteren Läufe aus. Ist `main` gegen direkte Pushes geschützt, muss der Bot-Commit regulär per Pull Request übernommen werden oder eine ausdrücklich konfigurierte Ausnahme nutzen – sonst schlägt dieser Schritt fehl. Die vorhandenen Bilder sind übernommen und zeigen gegebenenfalls noch den früheren Produktnamen.
 - Die Bilder und die Erweiterung `extensions/E2e` kommen nicht ins Docker-Image (`.dockerignore`).
 - `screenshots.yml` selbst braucht nur Leserechte und ist damit als Release-Gate (`workflow_call`) nutzbar. Keine Secrets nötig.
 
@@ -108,7 +108,7 @@ npm ci && npx playwright install --with-deps chromium
 npx playwright test
 ```
 
-Variablen: `E2E_BASE_URL` (Standard `http://127.0.0.1:8000`), `E2E_EMAIL` (Standard `admin@example.com`), `E2E_MAIL_LOG` (Pfad zum Mail-Log relativ zu `tests/e2e`, Standard `../../storage/logs/laravel.log`), `E2E_SCREENSHOT_DIR` (relativ zu `tests/e2e` oder absolut, Standard `../../docs-extended/screenshots` – ein lokaler Lauf aktualisiert also direkt die Bilder der Doku). Der Magic Link ist auf 5 Anforderungen pro Stunde und Adresse begrenzt, und bei eingefrorener Uhr läuft diese Stunde nie ab. Wiederholte Läufe verwenden deshalb die gespeicherte Sitzung (`tests/e2e/.auth/admin.json`); nach `migrate:fresh` wird neu angemeldet. Für byte-gleiche Bilder wie in CI vor dem Lauf `migrate:fresh` ausführen (jede Anmeldung erscheint im Admin-Dashboard unter „Letzte Anmeldungen“).
+Variablen: `E2E_BASE_URL` (Standard `http://127.0.0.1:8000`), `E2E_EMAIL` (Standard `admin@example.com`), `E2E_MAIL_LOG` (Pfad zum Mail-Log relativ zu `tests/e2e`, Standard `../../storage/logs/laravel.log`), `E2E_SCREENSHOT_DIR` (relativ zu `tests/e2e` oder absolut, Standard `../../docs/screenshots` – ein lokaler Lauf aktualisiert also direkt die Bilder der Doku). Der Magic Link ist auf 5 Anforderungen pro Stunde und Adresse begrenzt, und bei eingefrorener Uhr läuft diese Stunde nie ab. Wiederholte Läufe verwenden deshalb die gespeicherte Sitzung (`tests/e2e/.auth/admin.json`); nach `migrate:fresh` wird neu angemeldet. Für byte-gleiche Bilder wie in CI vor dem Lauf `migrate:fresh` ausführen (jede Anmeldung erscheint im Admin-Dashboard unter „Letzte Anmeldungen“).
 
 ## Stabile Bilder
 

@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 import path from 'node:path';
 
 /**
- * E2E smoke tests that also take the documentation screenshots (docs-extended/SCREENSHOTS.md).
+ * E2E smoke tests that also take the documentation screenshots (docs/SCREENSHOTS.md).
  * Expects a running app with the ScreenshotSeeder data at E2E_BASE_URL.
  */
 const baseURL = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:8000';

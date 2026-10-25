@@ -8,7 +8,7 @@ function screenshotPages(): array
     return array_map(fn (array $match) => "{$match[1]}/{$match[2]}", $matches);
 }
 
-/** Screenshot files a Markdown file embeds, relative to docs-extended/screenshots */
+/** Screenshot files a Markdown file embeds, relative to docs/screenshots */
 function embeddedScreenshots(string $file): array
 {
     preg_match_all('#screenshots/([a-z0-9-]+/[a-z0-9-]+)\.png#', file_get_contents(base_path($file)), $matches);
@@ -21,12 +21,12 @@ it('has a committed screenshot for every page of the E2E run', function () {
     expect($pages)->not->toBeEmpty();
 
     foreach ($pages as $page) {
-        expect(base_path("docs-extended/screenshots/{$page}.png"))->toBeFile();
+        expect(base_path("docs/screenshots/{$page}.png"))->toBeFile();
     }
 });
 
 it('embeds only existing screenshots in the documentation', function () {
-    foreach (['README.md', 'docs-extended/README.md', 'docs-extended/SCREENSHOTS.md', 'docs-extended/ANWESENHEIT.md', 'docs-extended/DATEIEN.md', 'docs-extended/LOCATIONS.md'] as $file) {
+    foreach (['README.md', 'docs/README.md', 'docs/SCREENSHOTS.md', 'docs/ANWESENHEIT.md', 'docs/DATEIEN.md', 'docs/LOCATIONS.md'] as $file) {
         foreach (embeddedScreenshots($file) as $image) {
             expect(screenshotPages())->toContain($image);
         }
@@ -34,7 +34,7 @@ it('embeds only existing screenshots in the documentation', function () {
 });
 
 it('shows every page in the README and the gallery', function () {
-    foreach (['README.md', 'docs-extended/SCREENSHOTS.md'] as $file) {
+    foreach (['README.md', 'docs/SCREENSHOTS.md'] as $file) {
         expect(embeddedScreenshots($file))->toEqualCanonicalizing(screenshotPages());
     }
 });
