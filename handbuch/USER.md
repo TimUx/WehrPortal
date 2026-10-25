@@ -29,7 +29,7 @@ Falls eure Wehr **Single Sign-On** eingerichtet hat, den entsprechenden Anmeldek
 
 ## In der App zurechtfinden
 
-![Startseite mit Modulübersicht](../docs-extended/screenshots/core/startseite.png)
+![Startseite mit Modulübersicht](../docs/screenshots/core/startseite.png)
 
 **Startseite:** Aktuelle Mitteilungen, anstehende Aufgaben und deine Module. Das Logo beziehungsweise der Name oben führt wieder hierher. Über **Anpassen** kannst du Module sortieren oder Kacheln ausblenden. Ausgeblendete Module bleiben über das Menü erreichbar.
 
@@ -60,7 +60,7 @@ Wenn Push für dein Gerät eingeschaltet ist, kommen Glocken-Nachrichten zusätz
 
 ## Profil und Personalakte
 
-![Eigene Personalakte](../docs-extended/screenshots/core/personalakte.png)
+![Eigene Personalakte](../docs/screenshots/core/personalakte.png)
 
 Unter **Profil / Meine Personalakte** findest du deine Daten und die von eurer Wehr genutzten persönlichen Übersichten. Dazu können Lehrgänge, Unterweisungen, Atemschutz, Stunden und digitale Nachweise gehören. Eigene Einsätze und ausgegebene Schlüssel können direkt im Profil stehen.
 

@@ -2,7 +2,7 @@
 
 [Zur Hauptdokumentation](../README.md)
 
-Alle Funktionen gehören zu WehrPortal; es gibt keine unterschiedlichen Modulklassen. Dieser Index sammelt weiterführende Handbücher für einzelne Module und übergreifende Funktionen. Die vollständige [Modulübersicht mit Screenshots](../README.md#module-im-überblick) steht in der README. Der bestehende Verzeichnisname `docs-extended/` bleibt erhalten, damit Dokumentations- und Bildlinks weiter funktionieren.
+Alle Funktionen gehören zu WehrPortal; es gibt keine unterschiedlichen Modulklassen. Dieser Index bündelt weiterführende Handbücher für einzelne Module und übergreifende Funktionen direkt mit der Projektseite und den Screenshots unter `docs/`. Die vollständige [Modulübersicht mit Screenshots](../README.md#module-im-überblick) steht in der README.
 
 Für den Einstieg: **[Installationsguide](../handbuch/INSTALLATION.md)** · **[Admin-Guide](../handbuch/ADMIN.md)** · **[User-Guide](../handbuch/USER.md)**.
 

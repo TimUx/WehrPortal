@@ -63,7 +63,7 @@ use Modules\Wasserkarte\src\Models\Source;
 use RuntimeException;
 
 /**
- * Fork: example installation for the E2E screenshots (tests/e2e, docs-extended/SCREENSHOTS.md).
+ * Fork: example installation for the E2E screenshots (tests/e2e, docs/SCREENSHOTS.md).
  * Runs the demo seeders, switches on every module and fills each with a little content, so every
  * page that is photographed shows something. All dates are relative to now(); the screenshot run
  * freezes the clock (E2E_FROZEN_NOW, extensions/E2e), so the data is the same in every run.
