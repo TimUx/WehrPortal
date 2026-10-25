@@ -63,7 +63,7 @@ class OidcSettingsPage extends Page implements HasForms
         return $schema
             ->components([
                 Section::make('Identity Provider')
-                    ->description('OpenID Connect (Authorization Code Flow mit PKCE), z. B. Keycloak. Anleitung: docs-extended/OIDC.md')
+                    ->description('OpenID Connect (Authorization Code Flow mit PKCE), z. B. Keycloak. Anleitung: docs/OIDC.md')
                     ->schema([
                         Forms\Components\Toggle::make('enabled')->label('Single Sign-On aktiv'),
                         Forms\Components\TextInput::make('label')->label('Text des Anmelde-Buttons')->maxLength(60),

@@ -1,7 +1,7 @@
 name: Docs Screenshots
 
-# Keeps the screenshots in the documentation (docs-extended/screenshots/, embedded in README.md
-# and docs-extended) current. Runs the E2E screenshot workflow and commits the pictures back to
+# Keeps the screenshots in the documentation (docs/screenshots/, embedded in README.md
+# and docs) current. Runs the E2E screenshot workflow and commits the pictures back to
 # `main` when they changed. The run is deterministic (frozen clock, fixed data), so a commit only
 # happens when the UI or the example data changed. Pushes with GITHUB_TOKEN start no new workflow runs.
 on:
@@ -32,17 +32,17 @@ jobs:
 
       # Replace the whole folder, so pages removed from tests/e2e/fixtures/pages.ts disappear too
       - name: Replace Screenshots
-        run: rm -rf docs-extended/screenshots && mkdir -p docs-extended/screenshots
+        run: rm -rf docs/screenshots && mkdir -p docs/screenshots
 
       - name: Download Screenshots
         uses: actions/download-artifact@v8
         with:
           name: screenshots
-          path: docs-extended/screenshots
+          path: docs/screenshots
 
       - name: Commit and Push
         run: |
-          git add -A docs-extended/screenshots
+          git add -A docs/screenshots
           if git diff --cached --quiet; then
             echo "Screenshots unchanged."
             exit 0

@@ -17,7 +17,7 @@ Dieser Guide führt durch die Einrichtung und den laufenden Betrieb in der Oberf
 
 ## Admin ist nicht gleich Fachrolle
 
-![Admin-Bereich mit Dashboard](../docs-extended/screenshots/admin/dashboard.png)
+![Admin-Bereich mit Dashboard](../docs/screenshots/admin/dashboard.png)
 
 **Globale Admins** verwalten den Kern und haben Zugriff auf aktive Module. **Modulverantwortliche** erhalten ihre Fachrechte über eine Modulrolle, etwa Kleiderwart oder Gerätewart. Sie brauchen dafür keine globalen Adminrechte. Der gemeinsame Admin-Bereich `/admin` zeigt ihnen nur die für sie erlaubten Verwaltungsbereiche; viele Fachaufgaben werden direkt im jeweiligen Modul erledigt.
 
@@ -57,7 +57,7 @@ Die Option **„Neue Kameraden automatisch freischalten“** steuert die automat
 
 Einige Module können durch den Betreiber zusätzlich per `*_ENABLED` gar nicht geladen werden. Dann genügt die Freischaltung in der Oberfläche nicht. Das ist eine technische Konfiguration, keine weitere Modulstufe.
 
-**Standortrollen nicht unvorbereitet umstellen:** Die optionalen Adapter für Anwesenheit und Mitteilungen benötigen zuerst ausdrücklich vergebene Rollen am jeweiligen Zielstandort. Alte globale Fachrollen oder Standort-Adminrechte ersetzen diese bei aktiviertem Adapter nicht. Vorbereitung und weitere Opt-ins beschreibt das [Locations-Handbuch](../docs-extended/LOCATIONS.md).
+**Standortrollen nicht unvorbereitet umstellen:** Die optionalen Adapter für Anwesenheit und Mitteilungen benötigen zuerst ausdrücklich vergebene Rollen am jeweiligen Zielstandort. Alte globale Fachrollen oder Standort-Adminrechte ersetzen diese bei aktiviertem Adapter nicht. Vorbereitung und weitere Opt-ins beschreibt das [Locations-Handbuch](../docs/LOCATIONS.md).
 
 ## Module startklar machen
 
@@ -67,9 +67,9 @@ Einige Module können durch den Betreiber zusätzlich per `*_ENABLED` gar nicht 
 
 **Fahrzeuge und Material:** Die gemeinsame Fahrzeugliste pflegen, dann bei Bedarf Fahrzeugprofile und Fristen ergänzen. Geräte und Kategorien in der Ausrüstung anlegen, bevor Wartungsvorlagen und Prüfaufträge eingerichtet werden. In Kleiderkammer und Schlüsselverwaltung erst Bestand und Kennzeichnungen erfassen, dann Ausgaben dokumentieren.
 
-**Dateien:** Unter **Admin → Dateien** Ablagen und Kontingente anlegen, anschließend im Explorer die Rechte vergeben. Gruppenverwalter erhalten durch ihre Rolle keinen Dateizugriff. Öffentliche Freigaben sind standardmäßig aus; Online-Office braucht einen gesonderten Server. [Einrichtung und Betriebsgrenzen](../docs-extended/DATEIEN.md).
+**Dateien:** Unter **Admin → Dateien** Ablagen und Kontingente anlegen, anschließend im Explorer die Rechte vergeben. Gruppenverwalter erhalten durch ihre Rolle keinen Dateizugriff. Öffentliche Freigaben sind standardmäßig aus; Online-Office braucht einen gesonderten Server. [Einrichtung und Betriebsgrenzen](../docs/DATEIEN.md).
 
-**Hydrantenkontrolle:** Hydrantenbestand und Ortszuordnung erfassen, dann Jahreskontrollen anlegen. Vorhandene Jahresdaten werden beim Ergänzen nicht überschrieben. Die Wasserkarte ist ein eigener Bestand, keine automatische Datenquelle für dieses Modul. [Bedienungsanleitung](../docs-extended/README.md#hydrantenkontrolle-bedienungsanleitung).
+**Hydrantenkontrolle:** Hydrantenbestand und Ortszuordnung erfassen, dann Jahreskontrollen anlegen. Vorhandene Jahresdaten werden beim Ergänzen nicht überschrieben. Die Wasserkarte ist ein eigener Bestand, keine automatische Datenquelle für dieses Modul. [Bedienungsanleitung](../docs/README.md#hydrantenkontrolle-bedienungsanleitung).
 
 **Verein:** Unter **Admin → Vereine** Verein, Standort und Vorstand zuordnen. Vor öffentlichem Beitritt Beiträge, Datenschutz- und Einwilligungstexte mit den Vereinsvorgaben abgleichen. SEPA-Dokumentation ist keine Zahlungsabwicklung.
 

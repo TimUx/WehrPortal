@@ -222,7 +222,7 @@
                 </div>
             @endif
         </section>
-        {{-- Optional EinsatzberichtPlus fields (see docs-extended/EINSATZBERICHT.md). --}}
+        {{-- Optional EinsatzberichtPlus fields (see docs/EINSATZBERICHT.md). --}}
         @includeIf('ebp::partials.editor', ['report' => $report, 'canEdit' => $canEdit, 'card' => $card])
 
         {{-- Verbrauchsmaterial --}}

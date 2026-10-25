@@ -193,7 +193,7 @@ Verschieben zwischen Ablagen ist weiterhin **nicht umgesetzt**; beim späteren A
 
 ## Übergreifend pro Meilenstein
 
-- **Doku:** `docs-extended/DATEIEN.md` und bei Betriebsänderungen `README.md` fortschreiben; Betriebsanleitung Office-Server (Compose-Beispiel, Netzwerk, TLS).
+- **Doku:** `docs/DATEIEN.md` und bei Betriebsänderungen `README.md` fortschreiben; Betriebsanleitung Office-Server (Compose-Beispiel, Netzwerk, TLS).
 - **CI:** Pest parallel, Larastan Level 5 ohne neue Baseline-Einträge, `composer audit`, `npm audit`.
 - **Release:** pro Meilenstein ein Release mit Migrationstest auf einer Kopie der Produktivdatenbank; vorher Backup von Datenbank **und** Dateien.
 - **Testdaten:** nur erfundene Personen und Domains (`ff-musterstadt.de`).

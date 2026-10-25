@@ -4,7 +4,7 @@ name: E2E Screenshots
 # login via magic link and screenshots of every module (tests/e2e, Playwright), uploaded as the
 # artifact `screenshots`. Read-only: doubles as a smoke test before releases
 # (`uses: ./.github/workflows/screenshots.yml`); docs-screenshots.yml calls it manually on `main`
-# and commits the pictures to docs-extended/screenshots/. See docs-extended/SCREENSHOTS.md.
+# and commits the pictures to docs/screenshots/. See docs/SCREENSHOTS.md.
 on:
   workflow_dispatch:
   workflow_call:
