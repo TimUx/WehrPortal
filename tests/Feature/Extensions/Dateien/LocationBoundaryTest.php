@@ -200,6 +200,7 @@ test('a no-location actor has only explicit shared NULL rights and module roles 
     $actor = User::factory()->create(['name' => 'Bernd Blaulicht', 'email' => 'bernd-dateien@example.com', 'ext_location_id' => null]);
     // Model creation assigns a default Standort; represent an unassigned historical row explicitly.
     DB::table('users')->where('id', $actor->id)->update(['ext_location_id' => null]);
+    $actor->locations()->detach();
     $actor->moduleAccess()->create(['module' => 'dateien', 'role' => 'gruppenverwalter']);
     $space = $this->files->createSpace($this->admin, ['name' => 'Gemeinsam']);
     $group = FileGroup::create(['name' => 'Gemeinsame Gruppe', 'ext_location_id' => null]);

@@ -32,7 +32,7 @@ function kamerad(string $name, ?Location $at = null, string $role = 'member', bo
     $user->moduleAccess()->create(['module' => 'anwesenheit']);
     if ($at) {
         $user->forceFill(['ext_location_id' => $at->id])->save();
-        DB::table('x_location_user')->insert(['location_id' => $at->id, 'user_id' => $user->id, 'role' => $role]);
+        $user->locations()->sync([$at->id => ['role' => $role]]);
     }
 
     return $user;
@@ -269,7 +269,10 @@ it('requires current target permissions for management contracts', function () {
 
 it('resolves management contracts independently for each assigned location', function () {
     $manager = kamerad('Walter Wehrführer', $this->south, 'admin');
-    DB::table('x_location_user')->insert(['location_id' => $this->north->id, 'user_id' => $manager->id, 'role' => 'member']);
+    DB::table('x_location_user')->updateOrInsert(
+        ['location_id' => $this->north->id, 'user_id' => $manager->id],
+        ['role' => 'member'],
+    );
     $list = AttendanceList::create(['title' => 'Übung', 'created_by' => $this->nord->id, 'ext_location_id' => $this->north->id, 'status' => 'submitted']);
     $template = AttendanceTemplate::create(['name' => 'Übung', 'kind' => 'uebung', 'ext_location_id' => $this->north->id]);
     $this->actingAs($manager);
@@ -286,7 +289,10 @@ it('resolves management contracts independently for each assigned location', fun
 
 it('drops revoked location permissions for already loaded records', function () {
     $manager = kamerad('Walter Wehrführer', $this->south, 'admin');
-    DB::table('x_location_user')->insert(['location_id' => $this->north->id, 'user_id' => $manager->id, 'role' => 'admin']);
+    DB::table('x_location_user')->updateOrInsert(
+        ['location_id' => $this->north->id, 'user_id' => $manager->id],
+        ['role' => 'admin'],
+    );
     $list = AttendanceList::create(['title' => 'Übung', 'created_by' => $this->nord->id, 'ext_location_id' => $this->north->id]);
     $this->actingAs($manager);
     expect(AttendanceService::canEdit($manager, $list))->toBeTrue();

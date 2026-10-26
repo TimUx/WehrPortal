@@ -23,7 +23,7 @@ test('Standort admins can upload, replace, retain and remove only their own cres
     $location = Location::create(['name' => 'Wache Nord', 'slug' => 'nord']);
     $other = Location::create(['name' => 'Wache Süd', 'slug' => 'sued']);
     $admin = User::factory()->create(['ext_location_id' => $location->id]);
-    $location->members()->attach($admin, ['role' => 'admin']);
+    $location->members()->syncWithoutDetaching([$admin->id => ['role' => 'admin']]);
 
     $page = Livewire::actingAs($admin)->test(EditLocation::class, ['record' => $location->id])
         ->set('data.crest_upload', [UploadedFile::fake()->image('nord.png', 50, 50)])
@@ -58,6 +58,7 @@ test('members may view only their own Standort crests and may not edit them', fu
     $this->get($other->crestUrl())->assertForbidden();
     Livewire::actingAs($member)->test(EditLocation::class, ['record' => $location->id])->assertNotFound();
     $member->forceFill(['ext_location_id' => null])->save();
+    $member->locations()->detach($location->id);
     $this->get($url)->assertForbidden();
 });
 

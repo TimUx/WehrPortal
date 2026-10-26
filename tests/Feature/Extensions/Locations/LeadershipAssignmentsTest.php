@@ -29,6 +29,7 @@ beforeEach(function () {
     $this->admin = User::factory()->create(['is_admin' => true]);
     $this->approver = User::factory()->create(['is_admin' => true]);
     $this->member = User::factory()->create();
+    DB::table('x_location_user')->where('user_id', $this->member->id)->delete();
     $this->north = Location::create(['name' => 'Wache Nord', 'slug' => 'leadership-north']);
     $this->south = Location::create(['name' => 'Wache Süd', 'slug' => 'leadership-south']);
     $this->grant = fn (string $profile = 'gbi', ?array $capabilities = null, ?string $expires = null, ?string $start = null) => $this->leadership->grant(

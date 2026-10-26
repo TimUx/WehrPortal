@@ -103,7 +103,7 @@ test('participants and the people to add show their Abteilung', function () {
 
     Livewire::actingAs($this->planer)->test(PlanEditor::class, ['plan' => $this->plan])
         ->assertSeeHtml('Hanna Hydrant</span>')->assertSee('· Jugendfeuerwehr')
-        ->assertSee('Tim Tanklösch (Einsatzabteilung)');
+        ->assertSee('Tim Tanklösch (Einsatzabteilung (Hauptstandort))');
 });
 
 test('the editor adds a department, fills the plan and swaps by hand', function () {

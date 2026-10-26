@@ -34,6 +34,7 @@ function clothingAuditFixture(): array
         ]);
         $users[$key] = $user->id;
     }
+    DB::table('x_location_user')->whereIn('user_id', array_values($users))->delete();
     DB::table('x_location_user')->insert([
         ['location_id' => $south, 'user_id' => $users['multi'], 'role' => 'member'],
         ['location_id' => $north, 'user_id' => $users['multi'], 'role' => 'member'],

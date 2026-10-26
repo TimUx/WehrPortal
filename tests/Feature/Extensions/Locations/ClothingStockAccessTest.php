@@ -107,7 +107,10 @@ it('reauthorizes held actors and targets against fresh grants and memberships', 
         'revoked' => $this->roles->revoke($this->admin, $this->grant->id, $this->a->id, 'Aufgabe beendet'),
         'expired' => $this->travel(2)->hours(),
         'member_inactive' => DB::table('users')->where('id', $this->worker->id)->update(['is_active' => false]),
-        'membership' => DB::table('users')->where('id', $this->worker->id)->update(['ext_location_id' => $this->b->id]),
+        'membership' => (function () {
+            DB::table('users')->where('id', $this->worker->id)->update(['ext_location_id' => $this->b->id]);
+            $this->worker->locations()->detach($this->a->id);
+        })(),
         'location_inactive' => DB::table('x_locations')->where('id', $this->a->id)->update(['is_active' => false]),
         'module_inactive' => DB::table('modules')->where('key', 'kleiderkammer')->update(['is_active' => false]),
         'target_moved' => DB::table('kk_stock')->where('id', $this->stock->id)->update(['ext_location_id' => $this->b->id]),

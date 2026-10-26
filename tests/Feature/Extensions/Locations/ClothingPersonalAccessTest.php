@@ -207,8 +207,14 @@ it('reauthorizes stale actors grants memberships and source rows', function (str
         'revoke' => $this->roles->revoke($this->admin, $this->grant->id, $this->a->id, 'Beendet'),
         'expiry' => $this->travel(2)->hours(),
         'actor' => DB::table('users')->where('id', $this->worker->id)->update(['is_active' => false]),
-        'membership' => DB::table('users')->where('id', $this->worker->id)->update(['ext_location_id' => $this->b->id]),
-        'member' => DB::table('users')->where('id', $this->shared->id)->update(['ext_location_id' => null]),
+        'membership' => (function () {
+            DB::table('users')->where('id', $this->worker->id)->update(['ext_location_id' => $this->b->id]);
+            $this->worker->locations()->detach($this->a->id);
+        })(),
+        'member' => (function () {
+            DB::table('users')->where('id', $this->shared->id)->update(['ext_location_id' => null]);
+            $this->shared->locations()->detach();
+        })(),
         'location' => DB::table('x_locations')->where('id', $this->a->id)->update(['is_active' => false]),
         'module' => DB::table('modules')->where('key', 'kleiderkammer')->update(['is_active' => false]),
         'source' => DB::table('kk_items')->where('id', $this->itemA->id)->update(['ext_location_id' => $this->b->id]),
@@ -241,6 +247,7 @@ it('authorizes direct member size edits against real membership and fresh grants
     $this->actingAs($this->worker);
     $this->profile->update(['size_id' => $this->size->id]);
     DB::table('users')->where('id', $this->shared->id)->update(['ext_location_id' => null]);
+    $this->shared->locations()->detach();
     expect(fn () => $this->profile->update(['group_id' => 999]))->toThrow(HttpException::class);
 });
 
@@ -405,6 +412,7 @@ it('correlates history and notifications to the exact recipient source membershi
     DB::table('x_location_user')->insert(['location_id' => $this->b->id, 'user_id' => $this->worker->id, 'role' => 'member']);
     $this->roles->grant($this->admin, $this->b->id, $this->worker->id, 'kleiderkammer', 'kleiderwart', 'Zusätzliche Aufgabe');
     DB::table('users')->where('id', $this->shared->id)->update(['ext_location_id' => $this->b->id]);
+    $this->shared->locations()->detach($this->a->id);
     $issued = $this->{$record};
     $this->actingAs($this->worker);
     expect(IssuedItem::whereKey($issued->id)->exists())->toBeFalse()

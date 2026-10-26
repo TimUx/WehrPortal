@@ -158,6 +158,7 @@ it('rechecks stale primary membership and global flags directly from the databas
     $stale = contextMember($north, admin: true);
     app(LocationAccess::class)->roles($stale);
     DB::table('users')->where('id', $stale->id)->update(['ext_location_id' => $south->id, 'is_admin' => false]);
+    $stale->locations()->sync([$south->id => ['role' => 'member']]);
 
     $this->actingAs($stale)->withSession(['ext_location_id' => $north->id]);
     $context = app(LocationContext::class)->forUser($stale);

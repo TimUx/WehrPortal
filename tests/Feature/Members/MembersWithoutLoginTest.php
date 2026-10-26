@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Notifications\Concerns\InApp;
 use App\Services\Invitation;
 use App\Services\MagicLinkService;
+use Extensions\Locations\Models\Location;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification as BaseNotification;
@@ -37,13 +38,15 @@ beforeEach(function () {
 
 test('an admin creates a member without e-mail: kept in the list, but no login, no Einladung', function () {
     $this->actingAs($this->admin);
-    Livewire::test(CreateUser::class)->fillForm(['name' => 'Paul Pumpe', 'email' => null])->call('create')->assertHasNoFormErrors();
+    $locationId = Location::default()->id;
+    $memberData = ['locations' => [$locationId], 'ext_location_id' => $locationId];
+    Livewire::test(CreateUser::class)->fillForm($memberData + ['name' => 'Paul Pumpe', 'email' => null])->call('create')->assertHasNoFormErrors();
     $kid = User::where('name', 'Paul Pumpe')->sole();
     expect($kid->email)->toBeNull()->and($kid->is_active)->toBeTrue()->and($kid->hasLogin())->toBeFalse();
 
     // A second one without address is fine (unique ignores empty addresses); an admin needs one
-    Livewire::test(CreateUser::class)->fillForm(['name' => 'Mia Musik', 'email' => null])->call('create')->assertHasNoFormErrors();
-    Livewire::test(CreateUser::class)->fillForm(['name' => 'Anna Admin', 'email' => null, 'is_admin' => true])->call('create')->assertHasFormErrors(['email']);
+    Livewire::test(CreateUser::class)->fillForm($memberData + ['name' => 'Mia Musik', 'email' => null])->call('create')->assertHasNoFormErrors();
+    Livewire::test(CreateUser::class)->fillForm($memberData + ['name' => 'Anna Admin', 'email' => null, 'is_admin' => true])->call('create')->assertHasFormErrors(['email']);
 
     Livewire::test(ListUsers::class)->assertSee('ohne Login')
         ->assertTableActionHidden('invite', $kid)->assertTableActionHidden('send_login_link', $kid);
