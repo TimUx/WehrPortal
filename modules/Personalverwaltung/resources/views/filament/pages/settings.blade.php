@@ -51,7 +51,7 @@
                 @error('rules')<p class="pv-error">{{ $message }}</p>@enderror
                 <div class="pv-grid">
                     <label><span class="pv-label">Abteilung Jugendfeuerwehr</span>
-                        <x-filament::input.wrapper><x-filament::input.select wire:model="youthGroupId"><option value="">– keine –</option>@foreach($groups as $g)<option value="{{ $g->id }}">{{ $g->name }}</option>@endforeach</x-filament::input.select></x-filament::input.wrapper></label>
+                        <x-filament::input.wrapper><x-filament::input.select wire:model="youthGroupId"><option value="">– keine –</option>@foreach($groups as $g)<option value="{{ $g->id }}">{{ $g->display_name }}</option>@endforeach</x-filament::input.select></x-filament::input.wrapper></label>
                     <label><span class="pv-label">Zeit in der Jugendfeuerwehr</span>
                         <x-filament::input.wrapper><x-filament::input.select wire:model="youthRule"><option value="full">zählt voll</option><option value="age">zählt ab einem Alter</option><option value="none">zählt nicht</option></x-filament::input.select></x-filament::input.wrapper></label>
                     <label><span class="pv-label">ab Alter (Jahre)</span>

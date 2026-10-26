@@ -40,7 +40,7 @@
                                 {{ $booking->vehicle->short_name ?? $booking->vehicle->name }}
                             </span>
                             @if($booking->group)
-                            <span class="text-xs text-gray-500">{{ $booking->group->name }}</span>
+                            <span class="text-xs text-gray-500">{{ $booking->group->display_name }}</span>
                             @endif
                             @if($booking->isPending())
                             <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Wartet auf Entscheidung</span>

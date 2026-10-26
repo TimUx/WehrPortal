@@ -25,7 +25,7 @@
         <p class="text-sm text-gray-600">
             {{ $booking->user->name }}
             @if(\App\Support\MemberFields::PHONE && $booking->user->phone) · <a href="tel:{{ $booking->user->phone }}" class="underline">{{ $booking->user->phone }}</a>@endif
-            @if($booking->group) · {{ $booking->group->name }}@endif
+            @if($booking->group) · {{ $booking->group->displayName() }}@endif
         </p>
         @if($booking->destination)
         <p class="text-xs text-gray-500">Ziel: {{ $booking->destination }}</p>

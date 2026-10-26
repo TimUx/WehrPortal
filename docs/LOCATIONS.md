@@ -25,7 +25,7 @@ Für Gemeinden mit mehreren Feuerwehrhäusern. Code: `extensions/Locations/`, Ab
 | Rolle | Wie | Sieht / darf |
 |---|---|---|
 | Globaler Admin | `users.is_admin` (unverändert) | alles, alle Standorte, legt Standorte an |
-| Standort-Admin | `x_location_user.role = admin` | nur den eigenen Standort: Name, Mitglieder, Abteilungen und Zuordnung von Fahrzeugen und Ausrüstung (Admin → Standorte) |
+| Standort-Admin | `x_location_user.role = admin` | nur den eigenen Standort: Name, Mitglieder und Zuordnung von Fahrzeugen und Ausrüstung; Abteilungen zentral unter Admin → Abteilungen |
 | Mitglied | `x_location_user` oder `users.ext_location_id` | nur Daten des eigenen Standorts |
 
 Standort-Admins erreichen `/admin` über `MyLocationPage` (`ModuleArea`), `User::canAccessPanel` bleibt unverändert. Core-Ressourcen (`AdminOnly`) bleiben globalen Admins vorbehalten.
@@ -40,7 +40,7 @@ Das Wappen erscheint in der Standortliste, als Vorschau beim Bearbeiten und nebe
 
 ## Datenmodell
 
-- `x_locations`, `x_location_user`; Spalte `ext_location_id` (nullable, FK, `nullOnDelete`) an `users`, `groups`, `member_functions`, `vehicles`, `ar_equipment`, `ar_categories`, `kk_items`, `eb_reports`, `mm_defects`, `kal_events` (Liste in `config/locations.php`).
+- `x_locations`, `x_location_user`; Spalte `ext_location_id` (nullable, FK, `nullOnDelete`) an `users`, `member_functions`, `vehicles`, `ar_equipment`, `ar_categories`, `kk_items`, `eb_reports`, `mm_defects`, `kal_events`. Bei `groups` ist sie verpflichtend und die Löschung des Standorts wird durch den FK verhindert (Liste der scoped Models in `config/locations.php`).
 - Zeilen ohne Standort (`NULL`) gelten als gemeinsam und bleiben sichtbar.
 - Die Migration legt den Hauptstandort an und ordnet vorhandene Daten zu; `app:ensure-locations` (Entrypoint `61-ensure-locations.sh`) und `Location::default()` stellen sicher, dass immer einer existiert. Der Hauptstandort und der letzte Standort sind nicht löschbar.
 
@@ -48,7 +48,8 @@ Das Wappen erscheint in der Standortliste, als Vorschau beim Bearbeiten und nebe
 
 - `LocationScope` (globaler Scope) filtert die konfigurierten Modelle auf die Standorte des angemeldeten Nutzers. Ohne angemeldeten Nutzer (Konsole, Queue, Scheduler, Login, Magic Link) und für globale Admins ist er aus.
 - Neue Datensätze erhalten für angemeldete Nutzer einen frisch geprüften aktiven Standort: gültige Auswahl, sonst berechtigter Primärstandort, sonst erster aktiver Mitgliedsstandort. Ohne solchen Standort wird die Vorbelegung abgewiesen; Schreiben in einen fremden Standort wirft `AuthorizationException`. Die Auswahl erweitert keine Berechtigung.
-- Abteilungen gehören zu einem Standort. Standort-Admins legen sie in **Admin → Standorte → Standort bearbeiten** an und ordnen Mitglieder dort mehreren Abteilungen zu; dabei bleiben Zuordnungen zu anderen Standorten unverändert.
+- Abteilungen gehören verpflichtend zu einem Standort. Globale und Standort-Admins verwalten sie zentral unter **Admin → Abteilungen**; Standort-Admins sehen dort nur ihre Standorte. Die Standortseite ist für das Hinzufügen von Mitgliedern und die Zuordnung zu den Abteilungen des Standorts da. Eine Abteilung kann standortübergreifend denselben Namen haben; Tabellen und Auswahlfelder ergänzen den Standort zur eindeutigen Anzeige.
+- Mitglieder lassen sich im Kameradenformular mehreren Standorten zuordnen. Dort sind Abteilungsoptionen auf die gewählten Standorte begrenzt; Standort-Admins können Mitglieder außerdem direkt auf ihrer Standortseite hinzufügen.
 - `PersonnelService::visibleMembers()` und alle Listen, die über Eloquent laufen, sind damit automatisch standortbezogen.
 - Bei Benutzern bleiben zusätzlich das eigene Konto und Mitglieder sichtbar, die über `x_location_user` einem der eigenen Standorte zugeordnet sind.
 - Mitteilungen tragen eine eigene optionale `announcements.ext_location_id`-Spalte. `NULL` bedeutet allgemein; ein Standortwert beschränkt Listen, Anhänge, Bestätigungen und Empfänger auf tatsächliche Mitgliedschaften dieses Standorts. Die Mitteilungs-Migration fügt vorhandene Mitteilungen nicht rückwirkend einem Standort zu.
@@ -443,6 +444,6 @@ Die gleiche Quellstandortprüfung gilt bei der Auswahl von Benachrichtigungsempf
 
 - `DB::table(...)`-Abfragen umgehen den Scope; bei Änderungen prüfen.
 - Eindeutige Schlüssel sind global (`eb_reports.number`, `ar_equipment.code`).
-- Standortfilter in den übrigen Core-Formularen und -Tabellen gibt es nicht; Mitglieder und Abteilungen lassen sich unter Admin → Standorte zuordnen.
+- Standortfilter in den übrigen Core-Formularen und -Tabellen gibt es nicht; Mitglieder lassen sich unter Admin → Standorte hinzufügen. Abteilungen werden zentral unter Admin → Abteilungen verwaltet.
 - Der Standortkontext erscheint in der App und im Admin-Menü; er steuert die Vorbelegung neuer Datensätze, nicht die gesamte Sicht. Browser-/Offline- und modulübergreifende Abnahmen bleiben offen.
 - Verbandbuch, Mitteilungen und weitere Datenbereiche brauchen jeweils eine eigene Standortprüfung; ein Eintrag in `config/locations.php` allein begrenzt sie nicht. Mitteilungen sind über ihre explizite Standortspalte und `Announcement::for()` begrenzt.

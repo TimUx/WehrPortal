@@ -23,7 +23,7 @@ class Overview extends Component
     {
         return view('unterweisungen::livewire.overview', [
             ...$service->matrix($this->groupId !== '' ? (int) $this->groupId : null),
-            'groups' => Group::orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
+            'groups' => Group::options(),
             'sessions' => Session::with('topic')->withCount(['attendances', 'attendances as signed_count' => fn ($q) => $q->whereNotNull('signed_at')])->latest('held_on')->limit(15)->get(),
         ]);
     }

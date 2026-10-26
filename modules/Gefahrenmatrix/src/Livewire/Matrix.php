@@ -8,6 +8,42 @@ use Livewire\Component;
 class Matrix extends Component
 {
     /** @var list<string> */
+    public const MATRIX_ENTITIES = [
+        'menschen',
+        'tiere',
+        'umwelt',
+        'sachwerte',
+        'mannschaft',
+        'geraet',
+    ];
+
+    /**
+     * @var array<string, list<string>>
+     */
+    private const MATRIX_EFFECTS = [
+        'atemgift' => ['menschen', 'tiere', 'umwelt', 'mannschaft'],
+        'angstreaktion' => ['menschen', 'tiere', 'mannschaft'],
+        'ausbreitung' => self::MATRIX_ENTITIES,
+        'atomare-gefahr' => self::MATRIX_ENTITIES,
+        'chemische-stoffe' => self::MATRIX_ENTITIES,
+        'cbrnex' => self::MATRIX_ENTITIES,
+        'container' => self::MATRIX_ENTITIES,
+        'korrosiv' => self::MATRIX_ENTITIES,
+        'elektrizitaet' => ['menschen', 'tiere', 'sachwerte', 'mannschaft', 'geraet'],
+        'erkrankung' => ['menschen', 'tiere', 'mannschaft'],
+        'explosion' => self::MATRIX_ENTITIES,
+        'einsturz' => ['menschen', 'tiere', 'sachwerte', 'mannschaft', 'geraet'],
+        'gefaehrliche-tiere' => self::MATRIX_ENTITIES,
+        'gewalt' => self::MATRIX_ENTITIES,
+        'wasser' => self::MATRIX_ENTITIES,
+        'hitze-kaelte' => self::MATRIX_ENTITIES,
+        'verkehr' => self::MATRIX_ENTITIES,
+        'umwelt' => self::MATRIX_ENTITIES,
+        'oel-kraftstoffe' => self::MATRIX_ENTITIES,
+        'radioaktive-strahlung' => self::MATRIX_ENTITIES,
+    ];
+
+    /** @var list<string> */
     public array $selected = [];
 
     /** @return array<string, array{title: string, hazards: array<string, string>}> */
@@ -78,6 +114,8 @@ class Matrix extends Component
 
         return view('gefahrenmatrix::livewire.matrix', [
             'groups' => self::catalog(),
+            'matrixEntities' => self::MATRIX_ENTITIES,
+            'matrixEffects' => self::MATRIX_EFFECTS,
             'selectedHazards' => $selected->map(fn (string $key) => $labels[$key])->values(),
         ]);
     }

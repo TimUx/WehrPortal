@@ -3,6 +3,7 @@
 namespace Modules\Kleiderkammer\src\Filament\Resources;
 
 use App\Enums\MemberStatus;
+use App\Models\Group;
 use App\Models\User;
 use Filament\Actions;
 use Filament\Forms;
@@ -72,7 +73,7 @@ class MemberResource extends Resource
                     : 'Abteilungen, Funktionen, Dienstgrad und Status pflegen Admins in der Kameradenverwaltung.')
                 ->schema(array_filter([
                     TextEntry::make('name')->label('Name'),
-                    static::minimalProfile() ? null : TextEntry::make('groups_list')->label('Abteilungen')->state(fn (User $record) => $record->groups->pluck('name')->implode(', '))->placeholder('–'),
+                    static::minimalProfile() ? null : TextEntry::make('groups_list')->label('Abteilungen')->state(fn (User $record) => $record->groups->map(fn (Group $group) => $group->displayName())->implode(', '))->placeholder('–'),
                     static::minimalProfile() ? null : TextEntry::make('functions_list')->label('Funktionen')->state(fn (User $record) => $record->functions->map->fullLabel()->implode(', '))->placeholder('–'),
                     static::minimalProfile() ? null : TextEntry::make('rank')->label('Dienstgrad')->placeholder('–'),
                     TextEntry::make('status')
@@ -111,7 +112,7 @@ class MemberResource extends Resource
                     ->searchable()
                     ->sortable(),
 
-                static::minimalProfile() ? null : Tables\Columns\TextColumn::make('groups.name')
+                static::minimalProfile() ? null : Tables\Columns\TextColumn::make('groups.display_name')
                     ->label('Abteilungen')
                     ->badge()
                     ->placeholder('–'),
@@ -145,7 +146,10 @@ class MemberResource extends Resource
             ->filters(array_filter([
                 static::minimalProfile() ? null : Tables\Filters\SelectFilter::make('groups')
                     ->label('Abteilung')
-                    ->relationship('groups', 'name', fn ($query) => $query->orderBy('sort_order')->orderBy('name'))
+                    ->relationship('groups', 'name', fn ($query) => $query
+                        ->when(Group::locationsAvailable(), fn ($q) => $q->with('location'))
+                        ->orderBy('sort_order')->orderBy('name'))
+                    ->getOptionLabelFromRecordUsing(fn (Group $record) => $record->displayName())
                     ->multiple()
                     ->preload(),
 

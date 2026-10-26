@@ -294,7 +294,9 @@ class BookingForm extends Component
     {
         $vehicles = Vehicle::active()->get();
         // Any group, not only the booker's own – e.g. a member driving for the Musikzug
-        $groups = Group::orderBy('sort_order')->orderBy('name')->get();
+        $groups = Group::query()
+            ->when(Group::locationsAvailable(), fn ($query) => $query->with('location'))
+            ->orderBy('sort_order')->orderBy('name')->get();
 
         $isAdmin = (bool) auth()->user()?->is_admin;
         $term = trim($this->ownerSearch);

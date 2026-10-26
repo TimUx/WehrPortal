@@ -2,6 +2,7 @@
 
 namespace Modules\Fahrzeugbuchung\src\Filament\Resources;
 
+use App\Models\Group;
 use Filament\Actions;
 use Filament\Forms;
 use Filament\Notifications\Notification;
@@ -49,7 +50,9 @@ class BookingResource extends Resource
 
             Forms\Components\Select::make('group_id')
                 ->label('Für Abteilung')
-                ->relationship('group', 'name')
+                ->relationship('group', 'name', fn ($query) => $query
+                    ->when(Group::locationsAvailable(), fn ($q) => $q->with('location')))
+                ->getOptionLabelFromRecordUsing(fn (Group $record) => $record->displayName())
                 ->nullable(),
 
             Forms\Components\DateTimePicker::make('starts_at')

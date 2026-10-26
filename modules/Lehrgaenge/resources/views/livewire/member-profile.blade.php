@@ -2,7 +2,7 @@
     <div>
         <a href="{{ route('lehrgaenge.members') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Lehrgänge der Kameraden</a>
         <h1 class="text-xl font-bold text-gray-900 mt-1">{{ $member->name }}</h1>
-        <p class="text-sm text-gray-500">{{ $member->rank ?: 'Kein Dienstgrad' }}@if($member->groups->isNotEmpty()) · {{ $member->groups->pluck('name')->implode(', ') }}@endif</p>
+        <p class="text-sm text-gray-500">{{ $member->rank ?: 'Kein Dienstgrad' }}@if($member->groups->isNotEmpty()) · {{ $member->groups->map(fn ($group) => $group->displayName())->implode(', ') }}@endif</p>
     </div>
 
     <section>

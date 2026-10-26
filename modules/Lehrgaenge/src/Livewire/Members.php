@@ -87,7 +87,7 @@ class Members extends Component
             'canManage' => $canManage,
             'candidates' => $canManage && trim($this->bulkCourse) !== '' ? $this->bulkCandidates() : collect(),
             'courseNames' => $canManage ? Course::orderBy('name')->pluck('name') : collect(),
-            'groups' => $canManage ? Group::orderBy('sort_order')->orderBy('name')->pluck('name', 'id') : collect(),
+            'groups' => $canManage ? Group::options() : collect(),
         ]);
     }
 }

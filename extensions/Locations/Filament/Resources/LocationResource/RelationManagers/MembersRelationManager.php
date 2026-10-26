@@ -2,6 +2,7 @@
 
 namespace Extensions\Locations\Filament\Resources\LocationResource\RelationManagers;
 
+use App\Models\Group;
 use App\Models\User;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\LocationAccess;
@@ -38,7 +39,7 @@ class MembersRelationManager extends RelationManager
             ->columns([
                 Tables\Columns\TextColumn::make('name')->label('Name')->searchable(),
                 Tables\Columns\TextColumn::make('email')->label('E-Mail'),
-                Tables\Columns\TextColumn::make('groups.name')->label('Abteilungen'),
+                Tables\Columns\TextColumn::make('groups.display_name')->label('Abteilungen'),
                 Tables\Columns\TextColumn::make('pivot.role')->label('Rolle')->badge()
                     ->formatStateUsing(fn ($state) => $state === 'admin' ? 'Standort-Admin' : 'Mitglied'),
             ])
@@ -67,7 +68,7 @@ class MembersRelationManager extends RelationManager
                             ->label('Abteilungen')
                             ->multiple()
                             ->searchable()
-                            ->options(fn () => $this->getOwnerRecord()->groups()->orderBy('sort_order')->orderBy('name')->pluck('name', 'id'))
+                            ->options(fn () => Group::options(fn ($query) => $query->where('ext_location_id', $this->getOwnerRecord()->getKey())))
                             ->helperText('Es werden nur Abteilungen dieses Standorts geändert.'),
                     ])
                     ->fillForm(fn (User $record): array => [

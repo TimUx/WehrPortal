@@ -8,7 +8,7 @@
                     class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm">
             </label>
         @endif
-        @forelse($contacts->groupBy(fn ($c) => $c->group?->name ?? '') as $group => $rows)
+        @forelse($contacts->groupBy(fn ($c) => $c->group?->display_name ?? '') as $group => $rows)
             <section class="space-y-2">
                 @if($group !== '')<h2 class="text-sm font-semibold text-gray-700">{{ $group }}</h2>@endif
                 <div class="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white shadow-sm">

@@ -84,7 +84,10 @@ class MemberList extends Component
         $manager = auth()->user();
         $year = (int) now('Europe/Berlin')->year;
         $term = trim($this->search);
-        $members = PersonnelService::visibleMembers($manager)->with(['groups', 'functions.parent'])
+        $members = PersonnelService::visibleMembers($manager)->with([
+            'groups' => fn ($query) => $query->when(Group::locationsAvailable(), fn ($query) => $query->with('location')),
+            'functions.parent',
+        ])
             ->when($term !== '', fn ($q) => $q->where(fn ($w) => $w->where('name', 'ilike', '%'.$term.'%')->orWhere('email', 'ilike', '%'.$term.'%')))
             ->when($this->groupId !== '', fn ($q) => $q->whereHas('groups', fn ($g) => $g->where('groups.id', (int) $this->groupId)))
             ->when(in_array($this->status, ['active', 'inactive', 'left'], true), fn ($q) => $q->where('status', $this->status))
@@ -95,7 +98,7 @@ class MemberList extends Component
 
         return view('personalverwaltung::livewire.member-list', [
             'members' => $members,
-            'groups' => Group::when($scope !== [], fn ($q) => $q->whereIn('id', $scope))->orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
+            'groups' => Group::options(fn ($q) => $q->when($scope !== [], fn ($q) => $q->whereIn('id', $scope))),
             'year' => $year,
             'attendance' => $withAttendance ? $members->getCollection()->mapWithKeys(fn (User $m) => [$m->id => $personnel->attendance($m, $year)]) : collect(),
             'due' => $personnel->dueHonors($manager, $year)->groupBy(fn ($row) => $row['user']->id),

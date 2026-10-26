@@ -207,7 +207,7 @@
                     >
                         <option value="">– keine –</option>
                         @foreach($groups as $group)
-                        <option value="{{ $group->id }}">{{ $group->name }}</option>
+                        <option value="{{ $group->id }}">{{ $group->display_name }}</option>
                         @endforeach
                     </select>
                 </div>

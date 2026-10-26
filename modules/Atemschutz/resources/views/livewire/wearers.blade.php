@@ -23,7 +23,7 @@
         @if($groups->isNotEmpty())
             <select wire:model.live="group" class="{{ $select }}" aria-label="Abteilung">
                 <option value="">Alle Abteilungen</option>
-                @foreach($groups as $g)<option value="{{ $g->id }}">{{ $g->name }}</option>@endforeach
+                @foreach($groups as $g)<option value="{{ $g->id }}">{{ $g->display_name }}</option>@endforeach
             </select>
         @endif
         <select wire:model="addUserId" class="{{ $select }}" aria-label="Kamerad hinzufügen">
@@ -84,7 +84,7 @@
                     <tr wire:key="w-{{ $s['wearer']->id }}">
                         <td class="p-2"><input type="checkbox" wire:model.live="selected" value="{{ $s['wearer']->user_id }}" class="rounded" aria-label="auswählen"></td>
                         <td class="p-2"><button type="button" wire:click="edit({{ $s['wearer']->id }})" class="font-medium text-fw-navy underline">{{ $s['wearer']->user->name }}</button>
-                            @if($s['wearer']->user->rank || $s['wearer']->user->groups->isNotEmpty())<span class="block text-[11px] text-gray-500">{{ collect([$s['wearer']->user->rank, $s['wearer']->user->groups->pluck('name')->implode(', ')])->filter()->implode(' · ') }}</span>@endif</td>
+                            @if($s['wearer']->user->rank || $s['wearer']->user->groups->isNotEmpty())<span class="block text-[11px] text-gray-500">{{ collect([$s['wearer']->user->rank, $s['wearer']->user->groups->pluck('display_name')->implode(', ')])->filter()->implode(' · ') }}</span>@endif</td>
                         <td class="p-2 text-xs font-semibold {{ $s['ready'] ? ($s['soon'] ? 'text-amber-800' : 'text-green-700') : 'text-red-700' }}">{{ $s['ready'] ? ($s['soon'] ? 'läuft ab' : 'bereit') : 'nicht bereit' }}</td>
                         @foreach($s['items'] as $key => $item)
                             <td class="p-2 text-xs {{ $item['ok'] ? ($item['until'] && $item['until']->lte(now()->addDays(\Modules\Atemschutz\src\Services\ReadinessService::SOON_DAYS)) ? 'text-amber-800' : 'text-gray-700') : (in_array($key, \Modules\Atemschutz\src\Services\ReadinessService::BLOCKING) ? 'font-semibold text-red-700' : 'text-gray-400') }}">

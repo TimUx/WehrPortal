@@ -110,7 +110,7 @@ class PlanCreate extends Component
     public function render()
     {
         return view('schichtplan::livewire.plan-create', [
-            'groups' => Group::orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
+            'groups' => Group::options(),
             'templates' => Template::orderBy('name')->pluck('name', 'id'),
             'event' => $this->event(),
             ...$this->signupOptions(),

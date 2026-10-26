@@ -25,6 +25,7 @@ use Extensions\Locations\Services\ScopedAnnouncementService;
 use Extensions\Locations\Support\AssignsLocation;
 use Filament\Facades\Filament;
 use Illuminate\Database\Events\MigrationsStarted;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -133,6 +134,18 @@ class LocationsServiceProvider extends ServiceProvider
         Gate::define('manage-location', fn (User $user, Location $location) => $this->app->make(LocationAccess::class)->canManage($user, $location));
 
         Event::listen(MigrationsStarted::class, fn () => AssignsLocation::reset());
+
+        User::created(function (User $user): void {
+            if ($user->ext_location_id) {
+                DB::table('x_location_user')->insertOrIgnore([
+                    'location_id' => $user->ext_location_id,
+                    'user_id' => $user->getKey(),
+                    'role' => 'member',
+                ]);
+            }
+
+            $this->app->make(LocationAccess::class)->forget($user);
+        });
 
         foreach ((array) config('locations.models') as $class) {
             if (! class_exists($class)) {

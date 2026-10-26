@@ -56,7 +56,7 @@ trait SignupSettings
     protected function signupOptions(): array
     {
         return [
-            'audienceGroupOptions' => Group::orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
+            'audienceGroupOptions' => Group::options(),
             'audienceFunctionOptions' => MemberFunction::with('parent')->orderBy('sort_order')->orderBy('name')->get()
                 ->mapWithKeys(fn (MemberFunction $f) => [$f->id => $f->fullLabel()])->sort(),
         ];

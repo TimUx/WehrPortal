@@ -4543,12 +4543,6 @@ parameters:
 			path: modules/Personalverwaltung/src/Services/PersonnelService.php
 
 		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:mapWithKeys\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\<int\<0, max\>, string\>, Closure\(App\\Models\\Group\)\: non\-empty\-array\<int\<0, max\>, string\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: modules/Personalverwaltung/src/Services/PersonnelService.php
-
-		-
 			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:mapWithKeys\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\<int\<0, max\>, string\>, Closure\(App\\Models\\MemberFunction\)\: non\-empty\-array\<int\<0, max\>, string\> given\.$#'
 			identifier: argument.type
 			count: 1

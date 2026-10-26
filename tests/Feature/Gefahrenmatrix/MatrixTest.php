@@ -3,6 +3,7 @@
 use App\Models\Module;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Modules\Gefahrenmatrix\src\Livewire\Matrix;
 
@@ -17,16 +18,19 @@ beforeEach(function () {
 test('members can select and clear hazards without persisting a matrix', function () {
     Livewire::actingAs($this->member)
         ->test(Matrix::class)
+        ->assertSee('aria-label="Gefahrenmatrix-Tabelle"', false)
         ->call('toggle', 'atemgift')
         ->assertSet('selected', ['atemgift'])
         ->assertSee('Atemgift')
+        ->assertSee('Menschen')
+        ->assertSee('Mannschaft')
         ->call('toggle', 'atemgift')
         ->assertSet('selected', [])
         ->call('toggle', 'explosion')
         ->call('clear')
         ->assertSet('selected', []);
 
-    expect(\Illuminate\Support\Facades\Schema::hasTable('gm_matrices'))->toBeFalse();
+    expect(Schema::hasTable('gm_matrices'))->toBeFalse();
 });
 
 test('unknown hazards cannot be selected', function () {

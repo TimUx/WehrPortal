@@ -28,7 +28,7 @@
         {{-- Name, rank and Abteilung --}}
         <div class="absolute left-[32%] right-[4%] top-[8%] flex h-[15%] flex-col justify-center bg-white px-[2.5cqw]">
             <p class="truncate text-[5cqw] font-semibold leading-tight text-gray-900">{{ $u->name }}</p>
-            <p class="truncate text-[2.6cqw] leading-tight text-gray-600">{{ collect([$u->rank, $u->groups->pluck('name')->implode(', ')])->filter()->implode(' · ') }}</p>
+            <p class="truncate text-[2.6cqw] leading-tight text-gray-600">{{ collect([$u->rank, $u->groups->pluck('display_name')->implode(', ')])->filter()->implode(' · ') }}</p>
         </div>
         {{-- Fields like on the official card --}}
         <dl class="absolute left-[32%] right-[4%] top-[25.5%] grid h-[37.5%] grid-cols-[1.75fr_1fr] content-center gap-x-[2.5cqw] gap-y-[1.2cqw] bg-white/95 px-[2.5cqw]">

@@ -28,7 +28,7 @@
                 <div class="mt-1 flex flex-wrap gap-1.5">
                     @foreach(auth()->user()->groups as $group)
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {{ $group->name }}
+                        {{ $group->displayName() }}
                     </span>
                     @endforeach
                 </div>

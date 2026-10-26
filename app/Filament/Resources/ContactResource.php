@@ -41,7 +41,7 @@ class ContactResource extends Resource
             Forms\Components\TextInput::make('name')->label('Name')->required()->maxLength(150),
             Forms\Components\TextInput::make('phone')->label('Telefon')->tel()->maxLength(50),
             Forms\Components\TextInput::make('email')->label('E-Mail')->email()->maxLength(255),
-            Forms\Components\Select::make('group_id')->label('Abteilung (optional)')->options(fn () => Group::orderBy('sort_order')->orderBy('name')->pluck('name', 'id'))
+            Forms\Components\Select::make('group_id')->label('Abteilung (optional)')->options(fn () => Group::options())
                 ->helperText('Zum Gruppieren, z. B. „Jugendfeuerwehr“. Sichtbar sind alle Ansprechpartner für alle.'),
             Forms\Components\TextInput::make('note')->label('Hinweis')->placeholder('z. B. erreichbar abends')->maxLength(300),
         ])->columns(2);
@@ -54,7 +54,7 @@ class ContactResource extends Resource
                 Tables\Columns\TextColumn::make('role')->label('Aufgabe')->searchable(),
                 Tables\Columns\TextColumn::make('name')->label('Name')->searchable(),
                 Tables\Columns\TextColumn::make('phone')->label('Telefon'),
-                Tables\Columns\TextColumn::make('group.name')->label('Abteilung'),
+                Tables\Columns\TextColumn::make('group.display_name')->label('Abteilung'),
             ])
             ->defaultSort('sort_order')
             ->reorderable('sort_order')

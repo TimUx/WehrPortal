@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Enums\MemberStatus;
 use App\Filament\Resources\UserResource;
+use App\Models\Group;
 use App\Models\Module;
 use App\Models\User;
 use App\Services\ModuleRegistry;
@@ -104,7 +105,7 @@ class ModuleMembers extends Page implements HasTable
                 ->searchable()
                 ->toggleable(isToggledHiddenByDefault: true),
 
-            TextColumn::make('groups.name')
+            TextColumn::make('groups.display_name')
                 ->label('Abteilungen')
                 ->badge()
                 ->separator(', ')
@@ -178,7 +179,10 @@ class ModuleMembers extends Page implements HasTable
                         : $query) : null,
                 SelectFilter::make('groups')
                     ->label('Abteilung')
-                    ->relationship('groups', 'name', fn ($query) => $query->orderBy('sort_order'))
+                    ->relationship('groups', 'name', fn ($query) => $query
+                        ->when(Group::locationsAvailable(), fn ($q) => $q->with('location'))
+                        ->orderBy('sort_order'))
+                    ->getOptionLabelFromRecordUsing(fn (Group $record) => $record->displayName())
                     ->multiple()
                     ->preload(),
                 SelectFilter::make('status')

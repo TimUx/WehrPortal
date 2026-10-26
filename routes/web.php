@@ -6,6 +6,7 @@ use App\Http\Controllers\ScanController;
 use App\Livewire\Profile\Hours;
 use App\Models\Contact;
 use App\Models\FeedbackThread;
+use App\Models\Group;
 use App\Models\User;
 use App\Services\CredentialRegistry;
 use App\Services\HoursRegistry;
@@ -60,7 +61,9 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/willkommen', fn () => view('pages.welcome'))->name('welcome');
     // The Bestand across modules: one search and scan field (barcode, QR, RFID, NFC) and the Ersatzbeschaffung
     Route::get('/bestand', fn () => view('pages.inventory'))->name('inventory');
-    Route::get('/ansprechpartner', fn () => view('pages.contacts', ['contacts' => Contact::with('group')->orderBy('sort_order')->orderBy('id')->get()]))->name('contacts');
+    Route::get('/ansprechpartner', fn () => view('pages.contacts', ['contacts' => Contact::with([
+        'group' => fn ($query) => $query->when(Group::locationsAvailable(), fn ($q) => $q->with('location')),
+    ])->orderBy('sort_order')->orderBy('id')->get()]))->name('contacts');
 
     // Notifications (the bell): the list, and opening one marks it read and leads to where something is to do
     Route::get('/benachrichtigungen', fn () => view('pages.notifications.index'))->name('notifications.index');

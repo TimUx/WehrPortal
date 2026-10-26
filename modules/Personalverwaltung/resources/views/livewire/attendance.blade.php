@@ -22,7 +22,7 @@
                 @foreach($rows as $r)
                     <tr wire:key="a-{{ $r['user']->id }}">
                         <td class="px-4 py-2"><a href="{{ route('personalverwaltung.member', $r['user']) }}" class="font-medium text-gray-900 hover:underline">{{ $r['user']->name }}</a></td>
-                        <td class="px-4 py-2 text-gray-600">{{ $r['user']->groups->pluck('name')->implode(', ') ?: '–' }}</td>
+                        <td class="px-4 py-2 text-gray-600">{{ $r['user']->groups->pluck('display_name')->implode(', ') ?: '–' }}</td>
                         <td class="px-4 py-2 text-right text-gray-600">{{ $r['total'] ? $r['attended'].' / '.$r['total'] : '–' }}</td>
                         <td class="px-4 py-2">
                             @if($r['percent'] !== null)
