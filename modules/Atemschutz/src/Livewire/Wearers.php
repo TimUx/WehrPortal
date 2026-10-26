@@ -213,7 +213,9 @@ class Wearers extends Component
         return view('atemschutz::livewire.wearers', [
             'states' => $states,
             'counts' => $readiness->poolCounts(),
-            'groups' => Group::orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
+            'groups' => Group::query()
+                ->when(Group::locationsAvailable(), fn ($query) => $query->with('location'))
+                ->orderBy('sort_order')->orderBy('name')->get(),
             'candidates' => User::active()->whereNotIn('id', Wearer::where('is_active', true)->pluck('user_id'))->orderBy('name')->get(['id', 'name']),
             'editingWearer' => $this->editing ? Wearer::with('user')->find($this->editing) : null,
             'trainings' => $this->editing ? Training::where('user_id', Wearer::find($this->editing)?->user_id)->latest('done_on')->limit(20)->get() : collect(),

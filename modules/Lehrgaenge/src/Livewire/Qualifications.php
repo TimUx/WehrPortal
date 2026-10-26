@@ -35,7 +35,7 @@ class Qualifications extends Component
     {
         return view('lehrgaenge::livewire.qualifications', [
             ...self::table($this->groupId !== '' ? (int) $this->groupId : null),
-            'groups' => Group::orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
+            'groups' => Group::options(),
         ]);
     }
 }

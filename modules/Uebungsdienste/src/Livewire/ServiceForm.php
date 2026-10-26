@@ -131,7 +131,7 @@ class ServiceForm extends Component
             'places' => Place::options(),
             'dressCodes' => DressCode::options(),
             'targetLocations' => $plan->locationOptions(auth()->user()),
-            'targetGroups' => Group::whereRaw('lower(name) = ?', ['einsatzabteilung'])->orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
+            'targetGroups' => Group::options(fn ($query) => $query->whereRaw('lower(name) = ?', ['einsatzabteilung'])),
             'locationsEnabled' => $plan->locationsEnabled(),
             'inCalendar' => CalendarLink::available(),
         ]);

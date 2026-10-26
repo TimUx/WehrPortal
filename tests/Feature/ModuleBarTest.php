@@ -27,6 +27,15 @@ test('a module shows its Modulleiste with only the tabs the Kamerad may open', f
         ->assertSee('href="'.route('lehrgaenge.courses').'"', false)->assertSee('href="'.route('lehrgaenge.registrations').'"', false)->assertSee('href="'.route('lehrgaenge.import').'"', false);
 });
 
+test('the app shell uses the available desktop width while keeping responsive padding', function () {
+    $home = $this->actingAs($this->hanna)->get(route('home'))->assertOk();
+    $home->assertSee('class="w-full px-4 sm:px-6 lg:px-8 2xl:px-12"', false)
+        ->assertSee('class="flex-1 w-full px-4 py-4 sm:px-6 lg:px-8 2xl:px-12"', false);
+
+    $this->get(route('lehrgaenge.index'))->assertOk()
+        ->assertSee('class="w-full px-4 sm:px-6 lg:px-8 2xl:px-12"', false);
+});
+
 test('the Personalakte has its own bar, not the one of the module that adds the page', function () {
     $html = $this->actingAs($this->bernd)->get(route('lehrgaenge.personnel-file'))->assertOk()->getContent();
     expect($html)->toContain('Meine Personalakte')->toContain('href="'.route('profile').'"')

@@ -40,6 +40,27 @@ test('discovery, PKCE redirect and a successful callback log the user in', funct
     expect(json_encode(ActivityLog::all()->toArray()))->not->toContain('s3cr3t')->not->toContain('subject-1');
 });
 
+test('a guest opening the portal is sent to login and returns there after OIDC', function () {
+    $user = User::factory()->create([
+        'email' => 'hanna@example.com',
+        'last_login_at' => now()->subDay(),
+    ]);
+    Identity::create(['user_id' => $user->id, 'issuer' => OIDC_ISSUER, 'subject' => 'subject-1']);
+
+    $this->get('/')
+        ->assertRedirect(route('auth.magic-link.form'))
+        ->assertSessionHas('url.intended');
+    $this->get('/anmelden')->assertOk()->assertSee(route('oidc.redirect'));
+
+    $redirect = $this->get('/auth/oidc/redirect');
+    parse_str((string) parse_url($redirect->headers->get('Location'), PHP_URL_QUERY), $query);
+    $this->idp->nonce = $query['nonce'];
+
+    $this->get('/auth/oidc/callback?code=abc&state='.$query['state'])
+        ->assertRedirect(route('home'));
+    $this->assertAuthenticatedAs($user);
+});
+
 test('the identity (issuer + subject) wins over the e-mail address afterwards', function () {
     $user = User::factory()->create(['email' => 'hanna@example.com']);
     Identity::create(['user_id' => $user->id, 'issuer' => OIDC_ISSUER, 'subject' => 'subject-1']);

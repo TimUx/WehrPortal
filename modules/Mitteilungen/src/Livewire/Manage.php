@@ -232,13 +232,16 @@ class Manage extends Component
         }
 
         return view('mitteilungen::livewire.manage', [
-            'announcements' => $announcements->managementQuery($user)->with(['groups', 'functions', 'author', 'files'])->latest()->get(),
+            'announcements' => $announcements->managementQuery($user)->with([
+                'groups' => fn ($query) => $query->when(Group::locationsAvailable(), fn ($query) => $query->with('location')),
+                'functions', 'author', 'files',
+            ])->latest()->get(),
             'locations' => $access ? Location::query()->whereKey($locationIds)->orderBy('sort_order')->orderBy('name')->pluck('name', 'id') : collect(),
             'locationsEnabled' => $access !== null && Schema::hasTable('x_locations'),
             'canManageGeneral' => $announcements->canManageScope($user, null),
-            'groups' => Group::when(! $canSelectAudience, fn ($q) => $q->whereRaw('1 = 0'))
-                ->when($selectedLocation, fn ($q) => $q->where(fn ($w) => $w->whereNull('ext_location_id')->orWhere('ext_location_id', $selectedLocation)))
-                ->orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
+            'groups' => Group::options(fn ($q) => $q
+                ->when(! $canSelectAudience, fn ($q) => $q->whereRaw('1 = 0'))
+                ->when($selectedLocation, fn ($q) => $q->where('ext_location_id', $selectedLocation))),
             'functions' => MemberFunction::topLevel()->when(! $canSelectAudience, fn ($q) => $q->whereRaw('1 = 0'))
                 ->when($selectedLocation, fn ($q) => $q->where(fn ($w) => $w->whereNull('ext_location_id')->orWhere('ext_location_id', $selectedLocation)))
                 ->orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),

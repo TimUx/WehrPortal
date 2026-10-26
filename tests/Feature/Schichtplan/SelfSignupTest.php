@@ -153,7 +153,7 @@ test('the target group can also be a Funktion, including its sub-functions', fun
 
     expect($this->plan->refresh()->inAudience($this->otto))->toBeTrue()
         ->and($this->plan->inAudience($this->hanna))->toBeTrue()
-        ->and($this->plan->audienceLabel())->toBe('Jugendfeuerwehr, Maschinist');
+        ->and($this->plan->audienceLabel())->toBe('Jugendfeuerwehr (Hauptstandort), Maschinist');
 });
 
 test('the day before everyone gets one reminder of their confirmed shifts', function () {

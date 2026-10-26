@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\UserResource\Pages;
 
 use App\Filament\Resources\UserResource;
+use App\Models\User;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Arr;
 
@@ -21,6 +22,10 @@ class CreateUser extends CreateRecord
 
     protected function afterCreate(): void
     {
+        if ($this->record instanceof User) {
+            UserResource::syncPrimaryLocation($this->record);
+        }
+
         UserResource::syncModuleAccess($this->record, $this->moduleFormState);
     }
 

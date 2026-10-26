@@ -78,6 +78,8 @@ class SettingsPage extends Page implements ModuleArea
 
     protected function getViewData(): array
     {
-        return ['groups' => Group::orderBy('sort_order')->orderBy('name')->get(['id', 'name'])];
+        return ['groups' => Group::query()
+            ->when(Group::locationsAvailable(), fn ($query) => $query->with('location'))
+            ->orderBy('sort_order')->orderBy('name')->get()];
     }
 }

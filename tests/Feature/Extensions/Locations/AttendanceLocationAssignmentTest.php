@@ -33,7 +33,10 @@ beforeEach(function () {
     $this->leader = User::factory()->create(['name' => 'Lena Leiter']);
     DB::table('users')->where('id', $this->creator->id)->update(['ext_location_id' => $this->target->id]);
     DB::table('users')->where('id', $this->leader->id)->update(['ext_location_id' => $this->other->id]);
-    DB::table('x_location_user')->insert(['user_id' => $this->leader->id, 'location_id' => $this->target->id, 'role' => 'member']);
+    DB::table('x_location_user')->updateOrInsert(
+        ['user_id' => $this->leader->id, 'location_id' => $this->target->id],
+        ['role' => 'member'],
+    );
     $this->template = DB::table('x_att_templates')->insertGetId([
         'name' => 'Vertrauliche Vorlage', 'leader_id' => $this->leader->id,
         'recipients' => 'vorlage@example.com', 'created_at' => now(), 'updated_at' => now(),

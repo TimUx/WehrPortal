@@ -27,7 +27,7 @@
         </div>
         <dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
             <div><dt class="text-xs uppercase tracking-wide text-gray-500">Eintritt</dt><dd>{{ $member->joined_at?->format('d.m.Y') ?? '–' }}</dd></div>
-            <div><dt class="text-xs uppercase tracking-wide text-gray-500">Abteilungen</dt><dd>{{ $member->groups->pluck('name')->implode(', ') ?: '–' }}</dd></div>
+            <div><dt class="text-xs uppercase tracking-wide text-gray-500">Abteilungen</dt><dd>{{ $member->groups->pluck('display_name')->implode(', ') ?: '–' }}</dd></div>
             <div><dt class="text-xs uppercase tracking-wide text-gray-500">Funktionen</dt><dd>{{ $member->functions->map->fullLabel()->implode(', ') ?: '–' }}</dd></div>
         </dl>
         @include('personalverwaltung::partials.service-time', ['member' => $member])

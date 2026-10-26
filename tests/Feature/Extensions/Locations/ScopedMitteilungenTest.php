@@ -36,6 +36,7 @@ beforeEach(function () {
     $this->a = Location::create(['name' => 'Wache Nord', 'slug' => 'editor-nord']);
     $this->b = Location::create(['name' => 'Wache Süd', 'slug' => 'editor-sued']);
     $this->editor = User::factory()->create(['ext_location_id' => $this->a->id]);
+    $this->editor->locations()->sync([$this->a->id => ['role' => 'member']]);
     DB::table('x_location_user')->insert(['location_id' => $this->b->id, 'user_id' => $this->editor->id, 'role' => 'admin']);
     $this->editor->moduleAccess()->create(['module' => 'mitteilungen', 'role' => 'redakteur']);
     $this->grant = fn (?Location $at = null, ?string $expires = null) => $this->roles->grant(
@@ -83,7 +84,10 @@ it('rechecks live expiry membership activity and stale admin models', function (
         'member' => DB::table('users')->where('id', $this->editor->id)->update(['is_active' => false]),
         'location' => DB::table('x_locations')->where('id', $this->a->id)->update(['is_active' => false]),
         'module' => DB::table('modules')->where('key', 'mitteilungen')->update(['is_active' => false]),
-        'membership' => DB::table('users')->where('id', $this->editor->id)->update(['ext_location_id' => null]),
+        'membership' => (function () {
+            DB::table('users')->where('id', $this->editor->id)->update(['ext_location_id' => null]);
+            $this->editor->locations()->detach($this->a->id);
+        })(),
         'revoke' => $this->roles->revoke($this->admin, $grant->id, $this->a->id, 'Redaktion beendet'),
     };
     expect($this->service->canManage($this->editor, $this->noticeA))->toBeFalse()
@@ -251,6 +255,7 @@ it('never promotes an editorial grant into external channel configuration rights
 it('uses fresh primary and pivot membership for readers without turning global admins into recipients', function (bool $clearPrimary) {
     ($this->grant)();
     DB::table('users')->where('id', $this->editor->id)->update(['ext_location_id' => $clearPrimary ? null : $this->b->id]);
+    $this->editor->locations()->detach($this->a->id);
     expect($this->editor->getAttribute('ext_location_id'))->toBe($this->a->id)
         ->and(Announcement::for($this->editor)->whereKey($this->noticeA->id)->exists())->toBeFalse()
         ->and(Announcement::for($this->editor)->whereKey($this->noticeB->id)->exists())->toBeTrue()
@@ -287,7 +292,10 @@ it('rejects direct recipient mutations after fresh eligibility loss despite stal
     $reader->moduleAccess()->create(['module' => 'mitteilungen']);
     match ($loss) {
         'inactive' => DB::table('users')->where('id', $reader->id)->update(['is_active' => false]),
-        'membership' => DB::table('users')->where('id', $reader->id)->update(['ext_location_id' => null]),
+        'membership' => (function () use ($reader) {
+            DB::table('users')->where('id', $reader->id)->update(['ext_location_id' => null]);
+            $reader->locations()->detach($this->a->id);
+        })(),
         'module-access' => $reader->moduleAccess()->delete(),
         'module-off' => DB::table('modules')->where('key', 'mitteilungen')->update(['is_active' => false]),
         'audience' => $this->noticeA->groups()->attach(Group::create(['name' => 'Andere Empfänger'])),

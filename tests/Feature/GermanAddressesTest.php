@@ -52,8 +52,8 @@ test('"Als Kamerad ansehen" sits at the start of each row and on "Kamerad bearbe
     Livewire::test(EditUser::class, ['record' => $member->getKey()])->assertActionVisible('impersonate');
 });
 
-test('Abteilungen and Funktionen are a sub-menu of Kameraden; the Kleiderkammer messages are called Mängel & Wäsche', function () {
-    expect(GroupResource::getNavigationParentItem())->toBe('Kameraden')
+test('Abteilungen are a top-level admin item and functions remain under Kameraden; the Kleiderkammer messages are called Mängel & Wäsche', function () {
+    expect(GroupResource::getNavigationParentItem())->toBeNull()
         ->and(MemberFunctionResource::getNavigationParentItem())->toBe('Kameraden')
         ->and(EquipmentMessageResource::getPluralModelLabel())->toBe('Mängel & Wäsche')
         ->and(EquipmentMessageResource::getNavigationLabel())->toBe('Mängel & Wäsche');

@@ -6,6 +6,8 @@ use App\Models\Group;
 use App\Models\MemberFunction;
 use App\Models\User;
 use App\Support\Csv;
+use Extensions\Locations\Models\Location;
+use Extensions\Locations\Services\LocationAccess;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -23,10 +25,16 @@ class MemberStructureTransfer
 
     public function exportGroups(): string
     {
-        $rows = Group::with('users:id,email')->orderBy('sort_order')->orderBy('name')->get()
-            ->map(fn (Group $g) => [$g->name, $g->sort_order, $this->emails($g->users)]);
+        $withLocations = Group::locationsAvailable();
+        /** @var \Illuminate\Database\Eloquent\Collection<int, Group> $groups */
+        $groups = Group::query()
+            ->with(['users:id,email', ...($withLocations ? ['location'] : [])])
+            ->orderBy('sort_order')->orderBy('name')->get();
+        $rows = $groups->map(fn (Group $g) => $withLocations
+            ? [$g->name, $g->location?->getAttribute('name'), $g->sort_order, $this->emails($g->users)]
+            : [$g->name, $g->sort_order, $this->emails($g->users)]);
 
-        return $this->csv(self::GROUP_HEADER, $rows);
+        return $this->csv($withLocations ? ['Abteilung', 'Standort', 'Reihenfolge', 'Mitglieder'] : self::GROUP_HEADER, $rows);
     }
 
     /** One row per function; a function with sub-functions gets its own row and one per sub-function */
@@ -58,7 +66,8 @@ class MemberStructureTransfer
                     continue;
                 }
 
-                $group = Group::whereRaw('lower(name) = ?', [mb_strtolower($name)])->first() ?? new Group(['name' => $name]);
+                $group = $this->groupForImport($name, trim($row['standort'] ?? ''));
+                $group ??= new Group(['name' => $name]);
                 $stats[$group->exists ? 'updated' : 'created']++;
                 $group->sort_order = is_numeric($row['reihenfolge'] ?? null) ? (int) $row['reihenfolge'] : ($group->sort_order ?? (int) Group::max('sort_order') + 1);
                 $group->save();
@@ -72,6 +81,42 @@ class MemberStructureTransfer
         $stats['unknown'] = array_values(array_unique($stats['unknown']));
 
         return $stats;
+    }
+
+    private function groupForImport(string $name, string $locationName): ?Group
+    {
+        if (! Group::locationsAvailable()) {
+            return Group::whereRaw('lower(name) = ?', [mb_strtolower($name)])->first();
+        }
+
+        if ($locationName !== '') {
+            $locations = Location::query()->whereRaw('lower(name) = ?', [mb_strtolower($locationName)])->get();
+            if ($locations->count() !== 1) {
+                throw ValidationException::withMessages([
+                    'file' => $locations->isEmpty()
+                        ? "Der Standort „{$locationName}“ gibt es nicht."
+                        : "Der Standort „{$locationName}“ ist nicht eindeutig.",
+                ]);
+            }
+
+            $location = $locations->first();
+            $user = auth()->user();
+            if ($user && ! app(LocationAccess::class)->canManage($user, $location)) {
+                throw ValidationException::withMessages(['file' => "Du darfst den Standort „{$locationName}“ nicht verwalten."]);
+            }
+
+            return Group::where('ext_location_id', $location->getKey())
+                ->whereRaw('lower(name) = ?', [mb_strtolower($name)])->first();
+        }
+
+        $matches = Group::whereRaw('lower(name) = ?', [mb_strtolower($name)])->limit(2)->get();
+        if ($matches->count() > 1) {
+            throw ValidationException::withMessages([
+                'file' => "Die Abteilung „{$name}“ gibt es an mehreren Standorten. Bitte die Spalte „Standort“ ergänzen.",
+            ]);
+        }
+
+        return $matches->first();
     }
 
     /** @return array{created: int, updated: int, members: int, unknown: list<string>} */

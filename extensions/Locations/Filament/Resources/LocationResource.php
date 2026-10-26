@@ -121,7 +121,6 @@ class LocationResource extends Resource
         return [
             RelationManagers\MembersRelationManager::class,
             RelationManagers\ModuleRolesRelationManager::class,
-            RelationManagers\GroupsRelationManager::class,
             RelationManagers\VehiclesRelationManager::class,
             RelationManagers\EquipmentRelationManager::class,
         ];

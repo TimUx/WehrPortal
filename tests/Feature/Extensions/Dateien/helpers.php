@@ -3,7 +3,6 @@
 use App\Models\User;
 use Extensions\Locations\Models\Location;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 function filesMember(string $name = 'Hanna Hydrant', ?Location $location = null, bool $admin = false): User
@@ -16,7 +15,7 @@ function filesMember(string $name = 'Hanna Hydrant', ?Location $location = null,
     $user->moduleAccess()->create(['module' => 'dateien']);
     $location ??= Location::default();
     $user->forceFill(['ext_location_id' => $location->id])->save();
-    DB::table('x_location_user')->insert(['location_id' => $location->id, 'user_id' => $user->id, 'role' => 'member']);
+    $user->locations()->sync([$location->id => ['role' => 'member']]);
 
     return $user;
 }

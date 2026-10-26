@@ -27,8 +27,8 @@ Dieser Guide führt durch die Einrichtung und den laufenden Betrieb in der Oberf
 
 1. **Grunddaten festlegen:** Unter **Admin → Einstellungen** Wehrname, Kurzname, Logo und Mail-Signatur setzen. Das eigene Wehrlogo und die installierbare WehrPortal-App-Marke sind getrennt.
 2. **Standorte vorbereiten:** Bei Nutzung von Locations unter **Admin → Standorte** die benötigten Standorte anlegen. Mitglieder, zuständige Standort-Admins, Fahrzeuge und Ausrüstung passend zuordnen. Standortlose Daten können gemeinsam sichtbar bleiben; Locations ist keine vollständige Mandantentrennung.
-3. **Abteilungen und Funktionen anlegen:** Abteilungen beschreiben Zugehörigkeiten, Funktionen Aufgaben. Eine Funktion wie Jugendwart ersetzt keine Modulrolle wie Ausbildungsleiter. Bei Locations die standortbezogene Abteilungsverwaltung beachten.
-4. **Mitglieder erfassen:** Namen, Status und gegebenenfalls E-Mail pflegen; Abteilungen, Funktionen und Standorte zuordnen. Nur die benötigten personenbezogenen Felder verwenden.
+3. **Abteilungen und Funktionen anlegen:** Abteilungen beschreiben Zugehörigkeiten, Funktionen Aufgaben. Eine Funktion wie Jugendwart ersetzt keine Modulrolle wie Ausbildungsleiter. Bei Locations Abteilungen zentral unter **Admin → Abteilungen** anlegen und jeweils einem Standort zuweisen; Standort-Admins verwalten dort nur ihre eigenen Standorte.
+4. **Mitglieder erfassen:** Namen, Status und gegebenenfalls E-Mail pflegen; bei aktiven Locations Standorte (einen oder mehrere), passende Abteilungen und Funktionen zuordnen. Nur die benötigten personenbezogenen Felder verwenden.
 5. **Module aktivieren:** Unter **Admin → Module** zunächst die wirklich benötigten Module einschalten und Fachverantwortliche festlegen. Alle Module folgen derselben bedarfsorientierten Auswahl.
 6. **Stammdaten und Rechte einrichten:** Geräte, Fahrzeuge, Ablagen und andere benötigte Daten im jeweiligen Modul pflegen. Abhängigkeiten beachten, etwa Ausrüstung für Wartung.
 7. **Mit normalem Konto prüfen:** Sichtbarkeit und typische Abläufe ohne Adminrechte durchgehen. Erst danach die Kameraden einladen.

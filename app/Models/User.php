@@ -8,10 +8,12 @@ use App\Filament\ModuleAreas;
 use App\Services\AuthMethodRegistry;
 use App\Services\ModuleRegistry;
 use Database\Factories\UserFactory;
+use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\LocationModuleRoles;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -50,6 +52,7 @@ class User extends Authenticatable implements FilamentUser
         'notes',
         'last_login_at',
         'remember_token',
+        'ext_location_id',
     ];
 
     protected $hidden = [
@@ -217,9 +220,22 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasMany(Guardian::class)->orderBy('name');
     }
 
+    /** @return BelongsToMany<Group, $this> */
     public function groups(): BelongsToMany
     {
         return $this->belongsToMany(Group::class);
+    }
+
+    public function locations(): BelongsToMany
+    {
+        return $this->belongsToMany(Location::class, 'x_location_user', 'user_id', 'location_id')
+            ->withPivot('role')
+            ->orderBy('name');
+    }
+
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(Location::class, 'ext_location_id');
     }
 
     /** Holds the "Vorstand" function or one of its sub-functions */

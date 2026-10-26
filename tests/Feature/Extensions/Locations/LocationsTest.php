@@ -1,13 +1,15 @@
 <?php
 
+use App\Filament\Resources\GroupResource\Pages\CreateGroup;
+use App\Filament\Resources\UserResource\Pages\EditUser;
 use App\Models\Group;
 use App\Models\User;
 use Extensions\Locations\Filament\Resources\LocationResource\Pages\EditLocation;
-use Extensions\Locations\Filament\Resources\LocationResource\RelationManagers\GroupsRelationManager;
 use Extensions\Locations\Filament\Resources\LocationResource\RelationManagers\MembersRelationManager;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\LocationAccess;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
@@ -23,6 +25,7 @@ function memberAt(Location $location, string $role = 'member', bool $admin = fal
 {
     $user = User::factory()->create(['is_admin' => $admin]);
     $user->forceFill(['ext_location_id' => $location->id])->save();
+    DB::table('x_location_user')->where('user_id', $user->id)->delete();
     DB::table('x_location_user')->insert(['location_id' => $location->id, 'user_id' => $user->id, 'role' => $role]);
 
     return $user;
@@ -118,23 +121,71 @@ it('lets only Standort-Admins manage their own Standort', function () {
         ->and($access->isLocationAdmin(memberAt($north)))->toBeFalse();
 });
 
-it('lets Standort-Admins manage Abteilungen for their Standort', function () {
+it('provides one location-aware Abteilungsverwaltung for global and Standort-Admins', function () {
     $south = station('Wache Süd');
     $north = station('Wache Nord');
     $admin = memberAt($south, 'admin');
-    $northAdmin = memberAt($north, 'admin');
+    $globalAdmin = User::factory()->admin()->create();
 
-    Livewire::actingAs($admin)
-        ->test(GroupsRelationManager::class, ['ownerRecord' => $south, 'pageClass' => EditLocation::class])
-        ->callTableAction('create', data: ['name' => 'Einsatzabteilung', 'sort_order' => 1])
-        ->assertHasNoTableActionErrors();
+    $this->actingAs($admin)->get('/admin/abteilungen')->assertOk();
+
+    Livewire::actingAs($admin)->test(CreateGroup::class)
+        ->fillForm(['name' => 'Einsatzabteilung', 'ext_location_id' => $south->id])
+        ->call('create')
+        ->assertHasNoFormErrors();
 
     $group = Group::where('name', 'Einsatzabteilung')->sole();
     expect($group->ext_location_id)->toBe($south->id);
 
-    Livewire::actingAs($northAdmin)
-        ->test(GroupsRelationManager::class, ['ownerRecord' => $north, 'pageClass' => EditLocation::class])
-        ->assertDontSee('Einsatzabteilung');
+    Livewire::actingAs($globalAdmin)->test(CreateGroup::class)
+        ->fillForm(['name' => 'Einsatzabteilung', 'ext_location_id' => $north->id])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    expect(Group::options())->toContain('Einsatzabteilung (Wache Süd)', 'Einsatzabteilung (Wache Nord)');
+});
+
+it('requires a location for every Abteilung', function () {
+    $south = station('Wache Süd');
+    $group = $south->groups()->create(['name' => 'Einsatzabteilung']);
+
+    $column = DB::selectOne("SELECT is_nullable FROM information_schema.columns WHERE table_name = 'groups' AND column_name = 'ext_location_id'");
+
+    expect($column->is_nullable)->toBe('NO');
+    $this->assertDatabaseHas('groups', ['id' => $group->id, 'ext_location_id' => $south->id]);
+});
+
+it('refuses deleting a Standort which still owns Abteilungen', function () {
+    $south = station('Wache Süd');
+    $south->groups()->create(['name' => 'Einsatzabteilung']);
+
+    expect(fn () => $south->delete())->toThrow(QueryException::class);
+});
+
+it('loads the Standort edit page with its member attachment controls', function () {
+    $admin = User::factory()->admin()->create();
+    $location = station('Wache Süd');
+
+    $this->actingAs($admin)
+        ->get("/admin/standorte/{$location->id}/bearbeiten")
+        ->assertOk()
+        ->assertSeeLivewire(MembersRelationManager::class);
+});
+
+it('lets admins assign members to one or more Standorte from the member form', function () {
+    $admin = User::factory()->admin()->create();
+    $south = station('Wache Süd');
+    $north = station('Wache Nord');
+    $member = User::factory()->create();
+
+    Livewire::actingAs($admin)->test(EditUser::class, ['record' => $member->getKey()])
+        ->fillForm(['locations' => [$south->id, $north->id], 'ext_location_id' => $south->id])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($member->fresh()->locations()->pluck('x_locations.id')->map(fn ($id) => (int) $id)->all())
+        ->toEqualCanonicalizing([$south->id, $north->id])
+        ->and((int) $member->fresh()->ext_location_id)->toBe($south->id);
 });
 
 it('lets Standort-Admins assign members to multiple local Abteilungen without changing other Standorte', function () {

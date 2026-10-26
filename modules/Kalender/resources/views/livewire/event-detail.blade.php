@@ -15,7 +15,7 @@
                     <p class="mt-1 text-xs text-gray-500">Kommt aus dem {{ \Modules\Kalender\src\Models\Event::MANAGED_BY[$event->managed_by] }} – Zeit, Ort, Kleidung und Zielgruppe werden dort gepflegt und hier übernommen.</p>
                 @endif
                 <p class="mt-1 text-xs text-gray-500">
-                    Für: {{ $event->groups->isEmpty() && $event->invitees->isEmpty() ? 'alle' : $event->groups->pluck('name')->concat($event->invitees->pluck('name'))->implode(', ') }}
+                    Für: {{ $event->groups->isEmpty() && $event->invitees->isEmpty() ? 'alle' : $event->groups->pluck('display_name')->concat($event->invitees->pluck('name'))->implode(', ') }}
                     @if($event->is_public) · öffentlich @endif
                     @if($event->isExternal()) · aus „{{ $event->source?->name }}“ @endif
                     @if($event->series_id) · Teil einer Terminreihe @endif

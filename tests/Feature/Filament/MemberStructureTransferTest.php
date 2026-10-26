@@ -6,6 +6,7 @@ use App\Models\Group;
 use App\Models\MemberFunction;
 use App\Models\User;
 use App\Services\MemberStructureTransfer;
+use Extensions\Locations\Models\Location;
 use Filament\Facades\Filament;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
@@ -27,9 +28,34 @@ test('Abteilungen are exported as CSV with order and members', function () {
     $csv = app(MemberStructureTransfer::class)->exportGroups();
 
     expect($csv)->toStartWith("\xEF\xBB\xBF")
-        ->toContain("Abteilung;Reihenfolge;Mitglieder\nEinsatzabteilung;1;\nJugendfeuerwehr;2;\"bernd@example.com, hanna@example.com\"");
+        ->toContain("Abteilung;Standort;Reihenfolge;Mitglieder\nEinsatzabteilung;Hauptstandort;1;\nJugendfeuerwehr;Hauptstandort;2;\"bernd@example.com, hanna@example.com\"");
 
     Livewire::test(ListGroups::class)->callAction('export')->assertFileDownloaded('abteilungen-'.now()->format('Y-m-d').'.csv');
+});
+
+test('Abteilung transfers distinguish same-named groups by Standort', function () {
+    $south = Location::create(['name' => 'Wache Süd', 'slug' => 'wache-sued']);
+    $north = Location::create(['name' => 'Wache Nord', 'slug' => 'wache-nord']);
+    $southGroup = $south->groups()->create(['name' => 'Einsatzabteilung', 'sort_order' => 1]);
+    $northGroup = $north->groups()->create(['name' => 'Einsatzabteilung', 'sort_order' => 2]);
+    $csv = "Abteilung;Standort;Reihenfolge;Mitglieder\nEinsatzabteilung;Wache Süd;1;hanna@example.com\nEinsatzabteilung;Wache Nord;2;bernd@example.com\n";
+
+    $stats = app(MemberStructureTransfer::class)->importGroups($csv, true);
+
+    expect($stats['updated'])->toBe(2)
+        ->and($southGroup->fresh()->users()->pluck('users.id')->all())->toBe([$this->hanna->id])
+        ->and($northGroup->fresh()->users()->pluck('users.id')->all())->toBe([$this->bernd->id]);
+});
+
+test('legacy Abteilung transfers are rejected when duplicate names need a Standort', function () {
+    $south = Location::create(['name' => 'Wache Süd', 'slug' => 'wache-sued']);
+    $north = Location::create(['name' => 'Wache Nord', 'slug' => 'wache-nord']);
+    $south->groups()->create(['name' => 'Einsatzabteilung']);
+    $north->groups()->create(['name' => 'Einsatzabteilung']);
+
+    expect(fn () => app(MemberStructureTransfer::class)->importGroups(
+        "Abteilung;Reihenfolge;Mitglieder\nEinsatzabteilung;1;\n", false
+    ))->toThrow(ValidationException::class, 'mehreren Standorten');
 });
 
 test('importing Abteilungen adds and updates by name, adds members, reports unknown addresses', function () {

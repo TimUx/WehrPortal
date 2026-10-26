@@ -1,6 +1,8 @@
 document.addEventListener('alpine:init', () => {
-    window.Alpine.data('hazardMatrix', (groups) => ({
+    window.Alpine.data('hazardMatrix', (groups, matrixEntities, matrixEffects) => ({
         groups,
+        matrixEntities,
+        matrixEffects,
         selected: [],
         toggle(key) {
             this.selected = this.selected.includes(key) ? this.selected.filter((item) => item !== key) : [...this.selected, key];
@@ -10,6 +12,14 @@ document.addEventListener('alpine:init', () => {
         },
         label(key) {
             return Object.values(this.groups).flatMap((group) => Object.entries(group.hazards)).find(([hazard]) => hazard === key)?.[1] || '';
+        },
+        get matrixRows() {
+            return Object.values(this.groups)
+                .flatMap((group) => Object.entries(group.hazards))
+                .filter(([key]) => this.selected.includes(key));
+        },
+        appliesTo(hazard, entity) {
+            return this.matrixEffects[hazard]?.includes(entity) ?? false;
         },
     }));
 

@@ -129,7 +129,9 @@ class Plan extends Model
     public function audienceLabel(): ?string
     {
         $parts = [
-            ...Group::whereIn('id', $this->audience_groups ?? [])->orderBy('name')->pluck('name')->all(),
+            ...Group::query()->whereIn('id', $this->audience_groups ?? [])
+                ->when(Group::locationsAvailable(), fn ($query) => $query->with('location'))
+                ->orderBy('name')->get()->map(fn (Group $group) => $group->displayName())->all(),
             ...MemberFunction::whereIn('id', $this->audience_functions ?? [])->orderBy('name')->pluck('name')->all(),
         ];
 

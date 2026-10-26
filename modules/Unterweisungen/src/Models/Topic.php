@@ -67,7 +67,9 @@ class Topic extends Model
         if ($this->for_all) {
             return 'alle aktiven Kameraden';
         }
-        $parts = [...Group::whereIn('id', $this->group_ids ?? [])->pluck('name')->all(), ...MemberFunction::whereIn('id', $this->function_ids ?? [])->pluck('name')->all()];
+        $parts = [...Group::query()->whereIn('id', $this->group_ids ?? [])
+            ->when(Group::locationsAvailable(), fn ($query) => $query->with('location'))
+            ->get()->map(fn (Group $group) => $group->displayName())->all(), ...MemberFunction::whereIn('id', $this->function_ids ?? [])->pluck('name')->all()];
 
         return $parts ? implode(', ', $parts) : 'niemand verpflichtend';
     }

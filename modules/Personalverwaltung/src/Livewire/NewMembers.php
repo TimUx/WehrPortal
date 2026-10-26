@@ -94,7 +94,7 @@ class NewMembers extends Component
         $scope = PersonnelService::scopeOf(auth()->user());
 
         return view('personalverwaltung::livewire.new-members', [
-            'groups' => Group::when($scope !== [], fn ($q) => $q->whereIn('id', $scope))->orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
+            'groups' => Group::options(fn ($q) => $q->when($scope !== [], fn ($q) => $q->whereIn('id', $scope))),
             'qr' => $this->invite ? QrCode::dataUri($this->invite['url'], 260) : null,
             'rows' => collect($rows),
         ]);

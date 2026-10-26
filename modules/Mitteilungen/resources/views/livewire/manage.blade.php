@@ -81,7 +81,7 @@
             <div class="p-4 flex items-start justify-between gap-3" wire:key="a-{{ $a->id }}">
                 <div class="min-w-0">
                     <p class="font-semibold text-gray-900">@if($a->important)<span class="text-red-600">Wichtig:</span> @endif{{ $a->title }}</p>
-                    <p class="text-xs text-gray-500">{{ $state }}@if($a->visible_until) · bis {{ $a->visible_until->setTimezone('Europe/Berlin')->format('d.m.Y') }}@endif · {{ $a->ext_location_id ? 'Standort: '.($locations[$a->ext_location_id] ?? 'unbekannt') : 'Allgemein' }} · {{ $a->groups->isEmpty() && $a->functions->isEmpty() ? 'alle' : $a->groups->pluck('name')->merge($a->functions->pluck('name'))->implode(', ') }} · {{ $a->author?->name }}@if($a->files->isNotEmpty()) · 📎 {{ $a->files->count() }}@endif</p>
+                    <p class="text-xs text-gray-500">{{ $state }}@if($a->visible_until) · bis {{ $a->visible_until->setTimezone('Europe/Berlin')->format('d.m.Y') }}@endif · {{ $a->ext_location_id ? 'Standort: '.($locations[$a->ext_location_id] ?? 'unbekannt') : 'Allgemein' }} · {{ $a->groups->isEmpty() && $a->functions->isEmpty() ? 'alle' : $a->groups->toBase()->map(fn ($group) => $group->displayName())->merge($a->functions->pluck('name'))->implode(', ') }} · {{ $a->author?->name }}@if($a->files->isNotEmpty()) · 📎 {{ $a->files->count() }}@endif</p>
                     <button type="button" wire:click="showStats({{ $a->id }})" class="text-xs text-fw-navy underline">{{ $a->needs_ack ? 'Lesebestätigungen' : 'Gelesen von' }}</button>
                     @if($statsFor === $a->id && $stats)
                         <div class="mt-1 rounded-lg bg-gray-50 p-2 text-xs text-gray-700">

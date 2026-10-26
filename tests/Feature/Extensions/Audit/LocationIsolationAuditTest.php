@@ -20,11 +20,7 @@ it('does not expose a vehicle from another location by id', function () {
     $south = Location::create(['name' => 'FF Musterstadt Süd', 'slug' => 'audit-sued']);
     $member = User::factory()->create(['name' => 'Hanna Hydrant']);
     $member->forceFill(['ext_location_id' => $north->id])->save();
-    DB::table('x_location_user')->insert([
-        'location_id' => $north->id,
-        'user_id' => $member->id,
-        'role' => 'member',
-    ]);
+    $member->locations()->sync([$north->id => ['role' => 'member']]);
 
     $foreign = Vehicle::factory()->create(['ext_location_id' => $south->id]);
 
@@ -40,11 +36,7 @@ it('keeps a null-location vehicle visible as shared data', function () {
     $shared->forceFill(['ext_location_id' => null])->save();
     $member = User::factory()->create(['name' => 'Hanna Hydrant']);
     $member->forceFill(['ext_location_id' => $location->id])->save();
-    DB::table('x_location_user')->insert([
-        'location_id' => $location->id,
-        'user_id' => $member->id,
-        'role' => 'member',
-    ]);
+    $member->locations()->sync([$location->id => ['role' => 'member']]);
 
     $this->actingAs($member);
 
@@ -70,6 +62,7 @@ it('limits a user without a location to shared rows only', function () {
     $shared->forceFill(['ext_location_id' => null])->save();
     $member = User::factory()->create(['name' => 'Hanna Hydrant']);
     $member->forceFill(['ext_location_id' => null])->save();
+    $member->locations()->detach();
 
     $this->actingAs($member);
 
@@ -82,10 +75,7 @@ it('stores module roles without a location dimension', function () {
     $south = Location::create(['name' => 'FF Musterstadt Süd', 'slug' => 'audit-sued']);
     $member = User::factory()->create(['name' => 'Hanna Hydrant']);
     $member->forceFill(['ext_location_id' => $north->id])->save();
-    DB::table('x_location_user')->insert([
-        ['location_id' => $north->id, 'user_id' => $member->id, 'role' => 'member'],
-        ['location_id' => $south->id, 'user_id' => $member->id, 'role' => 'member'],
-    ]);
+    $member->locations()->sync([$north->id => ['role' => 'member'], $south->id => ['role' => 'member']]);
     DB::table('module_user')->insert([
         'user_id' => $member->id,
         'module' => 'audit-module',
@@ -101,10 +91,7 @@ it('drops a removed location membership after its access cache is cleared', func
     $south = Location::create(['name' => 'FF Musterstadt Süd', 'slug' => 'audit-sued']);
     $member = User::factory()->create(['name' => 'Hanna Hydrant']);
     $member->forceFill(['ext_location_id' => $north->id])->save();
-    DB::table('x_location_user')->insert([
-        ['location_id' => $north->id, 'user_id' => $member->id, 'role' => 'member'],
-        ['location_id' => $south->id, 'user_id' => $member->id, 'role' => 'member'],
-    ]);
+    $member->locations()->sync([$north->id => ['role' => 'member'], $south->id => ['role' => 'member']]);
     $access = app(LocationAccess::class);
 
     expect($access->visibleLocationIds($member))->toEqualCanonicalizing([$north->id, $south->id]);

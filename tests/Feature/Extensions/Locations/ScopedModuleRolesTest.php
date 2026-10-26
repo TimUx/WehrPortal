@@ -35,7 +35,11 @@ beforeEach(function () {
     $this->a = Location::create(['name' => 'Wache Nord', 'slug' => 'role-nord']);
     $this->b = Location::create(['name' => 'Wache Süd', 'slug' => 'role-sued']);
     $this->member = User::factory()->create(['ext_location_id' => $this->a->id]);
-    DB::table('x_location_user')->insert(['location_id' => $this->b->id, 'user_id' => $this->member->id, 'role' => 'admin']);
+    DB::table('x_location_user')->where('user_id', $this->member->id)->delete();
+    DB::table('x_location_user')->updateOrInsert(
+        ['location_id' => $this->b->id, 'user_id' => $this->member->id],
+        ['role' => 'admin'],
+    );
     $this->grant = fn (?string $role = 'verwalter', ?Location $at = null, ?string $expires = null) => $this->roles->grant(
         $this->admin, ($at ?? $this->a)->id, $this->member->id, 'anwesenheit', $role, 'Ausdrückliche Testzuweisung', $expires);
 });
@@ -98,7 +102,10 @@ it('permanently revokes grants when raw membership removal eliminates the final 
     if ($source === 'primary') {
         DB::table('users')->where('id', $this->member->id)->update(['ext_location_id' => $location->id]);
     } else {
-        DB::table('x_location_user')->insert(['user_id' => $this->member->id, 'location_id' => $location->id, 'role' => 'member']);
+        DB::table('x_location_user')->updateOrInsert(
+            ['user_id' => $this->member->id, 'location_id' => $location->id],
+            ['role' => 'member'],
+        );
     }
     expect($this->member->hasModuleRole('anwesenheit', 'verwalter', $location->id))->toBeFalse();
     ($this->grant)('verwalter', $location);
@@ -108,7 +115,10 @@ it('permanently revokes grants when raw membership removal eliminates the final 
 })->with(['primary', 'pivot']);
 
 it('retains a grant until both overlapping membership sources are removed', function (string $first) {
-    DB::table('x_location_user')->insert(['user_id' => $this->member->id, 'location_id' => $this->a->id, 'role' => 'member']);
+    DB::table('x_location_user')->updateOrInsert(
+        ['user_id' => $this->member->id, 'location_id' => $this->a->id],
+        ['role' => 'member'],
+    );
     $grant = ($this->grant)();
     $removePrimary = fn () => DB::table('users')->where('id', $this->member->id)->update(['ext_location_id' => $this->b->id]);
     $removePivot = fn () => DB::table('x_location_user')->where('user_id', $this->member->id)->where('location_id', $this->a->id)->delete();
@@ -122,9 +132,13 @@ it('retains a grant until both overlapping membership sources are removed', func
 
 it('also closes grants when a pivot membership is moved through raw updates', function (string $column) {
     $grant = ($this->grant)('verwalter', $this->b);
-    $value = $column === 'location_id'
-        ? $this->a->id
-        : User::factory()->create(['ext_location_id' => $this->b->id])->id;
+    if ($column === 'location_id') {
+        $value = $this->a->id;
+    } else {
+        $destination = User::factory()->create(['ext_location_id' => $this->b->id]);
+        $destination->locations()->detach();
+        $value = $destination->id;
+    }
     DB::table('x_location_user')->where('user_id', $this->member->id)->where('location_id', $this->b->id)->update([$column => $value]);
     expect($grant->fresh()->revoked_source)->toBe('membership')
         ->and($grant->fresh()->revoked_by)->toBeNull();
@@ -366,6 +380,7 @@ it('inventories zero single and multiple candidates without writing or choosing 
     $single = User::factory()->create(['ext_location_id' => $this->a->id]);
     $zero = User::factory()->create();
     DB::table('users')->where('id', $zero->id)->update(['ext_location_id' => null]);
+    $zero->locations()->detach();
     foreach ([$single, $zero] as $member) {
         $member->moduleAccess()->create(['module' => 'anwesenheit']);
     }

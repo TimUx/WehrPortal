@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
-use Extensions\Locations\Models\Location;
 
 /**
  * One Übungsdienst: date, start and end (Berlin time), place, Kleidung, target group, topic and who
@@ -50,14 +49,8 @@ class Service extends Model
         $groups = Group::whereIn('id', $this->group_ids ?? [])
             ->whereRaw('lower(name) = ?', ['einsatzabteilung'])->orderBy('name')
             ->get($locationsEnabled ? ['name', 'ext_location_id'] : ['name']);
-        $locations = $locationsEnabled
-            ? Location::whereIn('id', $groups->pluck('ext_location_id')->filter())->pluck('name', 'id')
-            : collect();
-        $names = $groups->map(function (Group $group) use ($locations) {
-            $location = $locations->get($group->getAttribute('ext_location_id'));
-
-            return $group->name.($location ? ' · '.$location : '');
-        })->all();
+        $groups->when($locationsEnabled, fn ($groups) => $groups->load('location'));
+        $names = $groups->map(fn (Group $group) => $group->displayName())->all();
 
         return $names === [] ? null : implode(', ', $names);
     }

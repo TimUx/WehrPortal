@@ -213,7 +213,7 @@ class LicenseService
             if (! $license->user?->is_active || $license->documentExpired()) {
                 continue;
             }
-            foreach ($license->user->groups->pluck('name')->whenEmpty(fn ($c) => $c->push('ohne Abteilung')) as $group) {
+            foreach ($license->user->groups->pluck('display_name')->whenEmpty(fn ($c) => $c->push('ohne Abteilung')) as $group) {
                 foreach ($license->validClasses() as $class) {
                     $matrix[$group][$class] = ($matrix[$group][$class] ?? 0) + 1;
                 }

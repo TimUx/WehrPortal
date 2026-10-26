@@ -45,6 +45,10 @@ class EditUser extends EditRecord
 
     protected function afterSave(): void
     {
+        if ($this->record instanceof User) {
+            UserResource::syncPrimaryLocation($this->record);
+        }
+
         UserResource::syncModuleAccess($this->record, $this->moduleFormState);
 
         $record = $this->record->fresh();

@@ -74,7 +74,7 @@ class Topics extends Component
     {
         return view('unterweisungen::livewire.topics', [
             'topics' => Topic::with('vehicle')->withCount('sessions')->orderByDesc('is_active')->orderBy('name')->get(),
-            'groups' => Group::orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
+            'groups' => Group::options(),
             'functions' => MemberFunction::topLevel()->orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
             'vehicles' => Vehicle::where('is_active', true)->orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
         ]);

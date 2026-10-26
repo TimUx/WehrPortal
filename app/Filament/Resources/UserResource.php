@@ -6,6 +6,7 @@ use App\Enums\MemberGender;
 use App\Enums\MemberStatus;
 use App\Filament\Concerns\AdminOnly;
 use App\Filament\Resources\UserResource\Pages;
+use App\Models\Group;
 use App\Models\MemberFunction;
 use App\Models\Module;
 use App\Models\User;
@@ -17,6 +18,7 @@ use App\Services\MemberRemoval;
 use App\Services\ModuleRegistry;
 use App\Support\FireRanks;
 use App\Support\MemberFields;
+use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\LocationModuleRoles;
 use Filament\Actions;
 use Filament\Forms;
@@ -135,9 +137,39 @@ class UserResource extends Resource
 
             Section::make('Mitgliedsdaten')
                 ->schema([
+                    Forms\Components\Select::make('locations')
+                        ->label('Standorte')
+                        ->relationship('locations', 'name', fn ($query) => $query->orderBy('sort_order')->orderBy('name'))
+                        ->multiple()
+                        ->live()
+                        ->preload()
+                        ->searchable()
+                        ->required(fn () => Group::locationsAvailable())
+                        ->visible(fn () => Group::locationsAvailable())
+                        ->afterStateUpdated(function (array $state, Get $get, Set $set): void {
+                            if (! in_array((string) $get('ext_location_id'), array_map('strval', $state), true)) {
+                                $set('ext_location_id', $state[0] ?? null);
+                            }
+                        })
+                        ->helperText('Mitgliedschaften an einem oder mehreren Standorten.'),
+
+                    Forms\Components\Select::make('ext_location_id')
+                        ->label('Primärer Standort')
+                        ->options(fn (Get $get) => Location::query()
+                            ->whereKey($get('locations') ?? [])
+                            ->orderBy('sort_order')->orderBy('name')
+                            ->pluck('name', 'id'))
+                        ->required(fn () => Group::locationsAvailable())
+                        ->visible(fn () => Group::locationsAvailable())
+                        ->live(),
+
                     Forms\Components\CheckboxList::make('groups')
                         ->label('Abteilungen')
-                        ->relationship('groups', 'name', fn ($query) => $query->orderBy('sort_order')->orderBy('name'))
+                        ->relationship('groups', 'name', fn ($query, Get $get) => $query
+                            ->when(Group::locationsAvailable(), fn ($q) => $q->with('location')
+                                ->whereIn('ext_location_id', $get('locations') ?? []))
+                            ->orderBy('sort_order')->orderBy('name'))
+                        ->getOptionLabelFromRecordUsing(fn (Group $record) => $record->displayName())
                         ->helperText('Wo das Mitglied Mitglied ist, z. B. Einsatzabteilung oder Jugendfeuerwehr.')
                         ->columns(['default' => 1, 'md' => 3])
                         ->columnSpanFull(),
@@ -303,7 +335,11 @@ class UserResource extends Resource
         $modules = $registry->all();
 
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['groups', 'functions.parent']))
+            ->modifyQueryUsing(fn ($query) => $query->with([
+                'groups' => fn ($q) => $q->when(Group::locationsAvailable(), fn ($q) => $q->with('location')),
+                'functions.parent',
+                'location',
+            ]))
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->label('Name')
@@ -317,7 +353,13 @@ class UserResource extends Resource
                     ->sortable()
                     ->toggleable(),
 
-                Tables\Columns\TextColumn::make('groups.name')
+                Tables\Columns\TextColumn::make('location.name')
+                    ->label('Standort')
+                    ->visible(fn () => Group::locationsAvailable())
+                    ->searchable()
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('groups.display_name')
                     ->label('Abteilungen')
                     ->badge()
                     ->separator(', ')
@@ -364,7 +406,10 @@ class UserResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('groups')
                     ->label('Abteilung')
-                    ->relationship('groups', 'name', fn ($query) => $query->orderBy('sort_order'))
+                    ->relationship('groups', 'name', fn ($query) => $query
+                        ->when(Group::locationsAvailable(), fn ($q) => $q->with('location'))
+                        ->orderBy('sort_order'))
+                    ->getOptionLabelFromRecordUsing(fn (Group $record) => $record->displayName())
                     ->multiple()
                     ->preload(),
 
@@ -768,6 +813,21 @@ class UserResource extends Resource
                     ->where('module', $key)
                     ->delete();
             }
+        }
+    }
+
+    public static function syncPrimaryLocation(User $user): void
+    {
+        if (! Group::locationsAvailable()) {
+            return;
+        }
+
+        $locationIds = $user->locations()->pluck('x_locations.id')->map(fn ($id) => (int) $id);
+        $current = (int) $user->getAttribute('ext_location_id');
+        $primary = $locationIds->contains($current) ? $current : $locationIds->first();
+
+        if ($primary !== null && $primary !== $current) {
+            $user->forceFill(['ext_location_id' => $primary])->save();
         }
     }
 }

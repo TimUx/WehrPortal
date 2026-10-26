@@ -300,7 +300,7 @@ class EventForm extends Component
     {
         return view('kalender::livewire.event-form', [
             'types' => Event::TYPES,
-            'groups' => Group::orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
+            'groups' => Group::options(),
             'people' => User::active()->orderBy('name')->get()->filter(fn (User $u) => $u->canUseModule('kalender'))->pluck('name', 'id'),
             'repeats' => EventService::REPEATS,
             'inSeries' => (bool) $this->event?->series_id,

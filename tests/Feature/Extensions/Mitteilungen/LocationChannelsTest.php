@@ -9,14 +9,16 @@ use Extensions\Locations\Services\LocationAccess;
 use Extensions\Mitteilungen\Models\ChannelDelivery;
 use Extensions\Mitteilungen\Models\ChannelDestination;
 use Extensions\Mitteilungen\Services\ChannelSettings;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Validation\ValidationException;
 use Modules\Mitteilungen\src\Models\Announcement;
 use Modules\Mitteilungen\src\Models\AnnouncementFile;
 use Modules\Mitteilungen\src\Services\AnnouncementService;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 function channelLocation(string $name): Location
 {
@@ -27,7 +29,7 @@ function channelMember(Location $location, bool $module = true, bool $admin = fa
 {
     $user = User::factory()->create(['is_admin' => $admin]);
     $user->forceFill(['ext_location_id' => $primary ?? $location->id])->save();
-    DB::table('x_location_user')->insert(['location_id' => $location->id, 'user_id' => $user->id, 'role' => 'member']);
+    $user->locations()->sync([$location->id => ['role' => 'member']]);
     if ($module) {
         $user->moduleAccess()->create(['module' => 'mitteilungen']);
     }
@@ -51,10 +53,11 @@ it('limits location notices to eligible members while general notices cross loca
     $northMember = channelMember($north);
     $southMember = channelMember($south);
     $multi = channelMember($north, primary: (int) $north->id);
-    DB::table('x_location_user')->insert(['location_id' => $south->id, 'user_id' => $multi->id, 'role' => 'member']);
+    $multi->locations()->sync([$north->id => ['role' => 'member'], $south->id => ['role' => 'member']]);
     app(LocationAccess::class)->forget($multi);
     $withoutLocation = User::factory()->create();
     $withoutLocation->forceFill(['ext_location_id' => null])->save();
+    $withoutLocation->locations()->detach();
     $withoutLocation->moduleAccess()->create(['module' => 'mitteilungen']);
     $inactive = channelMember($south);
     $inactive->update(['status' => 'inactive']);
@@ -87,9 +90,9 @@ it('rejects location-admin scope escalation and cross-location audience ids', fu
     $service = app(AnnouncementService::class);
 
     expect(fn () => $service->save(null, ['title' => 'Allgemein', 'important' => false], [], $editor))
-        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
     expect(fn () => $service->save(null, ['title' => 'Fremde Abteilung', 'important' => false], [$otherGroup->id], $editor, locationId: (int) $north->id))
-        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
     expect(Announcement::count())->toBe(0);
 });
 
@@ -254,7 +257,7 @@ it('encodes Matrix room IDs, retries with a stable transaction ID, and refuses e
     $record = ChannelDelivery::sole();
     expect($record->status)->toBe('sent')->and($record->attempts)->toBe(2);
 
-    Http::swap($http = new \Illuminate\Http\Client\Factory);
+    Http::swap($http = new Factory);
     $http->fake(fn ($request) => $request->method() === 'GET'
         ? Http::response(['algorithm' => 'm.megolm.v1.aes-sha2'], 200)
         : Http::response([], 200));

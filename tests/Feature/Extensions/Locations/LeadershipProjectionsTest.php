@@ -103,14 +103,13 @@ it('counts active primary or explicitly associated personnel once with exact loc
     $secondary = User::factory()->create(['ext_location_id' => $this->south->id]);
     User::factory()->create(['ext_location_id' => null]);
     User::factory()->create(['ext_location_id' => $this->north->id, 'is_active' => false]);
-    DB::table('x_location_user')->insert([
+    DB::table('x_location_user')->upsert([
         ['user_id' => $member->id, 'location_id' => $this->north->id, 'role' => 'member'],
         ['user_id' => $secondary->id, 'location_id' => $this->north->id, 'role' => 'member'],
-    ]);
+    ], ['location_id', 'user_id'], ['role']);
     $local = DB::table('groups')->insertGetId(['name' => 'Einsatzabteilung', 'ext_location_id' => $this->north->id]);
     $foreign = DB::table('groups')->insertGetId(['name' => 'Fremde Abteilung', 'ext_location_id' => $this->south->id]);
-    $shared = DB::table('groups')->insertGetId(['name' => 'Nicht zugeordnet', 'ext_location_id' => null]);
-    foreach ([$local, $foreign, $shared] as $id) {
+    foreach ([$local, $foreign] as $id) {
         DB::table('group_user')->insert(['group_id' => $id, 'user_id' => $member->id]);
     }
     expect($this->projections->read($this->reader, $this->north->id, 'personnel_summary'))->toBe([

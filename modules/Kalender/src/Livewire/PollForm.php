@@ -119,7 +119,7 @@ class PollForm extends Component
     {
         return view('kalender::livewire.poll-form', [
             'types' => Event::TYPES,
-            'groups' => Group::orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
+            'groups' => Group::options(),
             'functions' => MemberFunction::with('parent')->orderBy('sort_order')->orderBy('name')->get()->mapWithKeys(fn (MemberFunction $f) => [$f->id => $f->fullLabel()])->sort(),
             'people' => User::active()->orderBy('name')->get()->filter(fn (User $u) => $u->canUseModule('kalender'))->pluck('name', 'id'),
         ]);

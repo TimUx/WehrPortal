@@ -89,7 +89,7 @@
                     <span>
                         {{ $booking->user->name }}
                         @if($booking->group)
-                            · <span class="text-gray-500">{{ $booking->group->name }}</span>
+                            · <span class="text-gray-500">{{ $booking->group->display_name }}</span>
                         @endif
                     </span>
                 </div>

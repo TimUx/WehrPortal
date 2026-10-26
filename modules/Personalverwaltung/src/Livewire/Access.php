@@ -48,7 +48,7 @@ class Access extends Component
     {
         return view('personalverwaltung::livewire.access', [
             'managers' => $this->managers(),
-            'groups' => Group::orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
+            'groups' => Group::options(),
         ]);
     }
 }

@@ -22,7 +22,7 @@
 @endphp
 @if($bar)
     <div class="border-b border-gray-200 bg-white print:hidden" data-module-bar>
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="w-full px-4 sm:px-6 lg:px-8 2xl:px-12">
             <div class="flex items-center gap-3 py-2 sm:min-h-12 sm:py-0">
                 <a href="{{ $bar['url'] }}" class="flex shrink-0 items-center gap-2 text-sm font-semibold text-gray-900 hover:text-fw-navy">
                     @if($bar['key'])

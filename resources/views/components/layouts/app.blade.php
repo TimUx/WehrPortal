@@ -27,7 +27,7 @@
         {{-- Top Header --}}
         @include('partials.impersonation-banner')
         <header class="bg-fw-navy text-white shadow-sm">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="w-full px-4 sm:px-6 lg:px-8 2xl:px-12">
                 <div class="flex items-center justify-between h-11 sm:h-14">
                     <a href="{{ route('home') }}" class="flex min-w-0 flex-1 items-center gap-2.5 mr-3">
                         <img src="{{ $orgLogoUrl ?? asset('images/wehrportal-logo.svg') }}" alt="" class="h-7 sm:h-9 w-9 sm:w-12 shrink-0 object-contain">
@@ -65,7 +65,7 @@
         @auth<x-module-bar />@endauth
 
 {{-- Main content --}}
-        <main class="flex-1 px-4 sm:px-6 lg:px-8 py-4 max-w-7xl mx-auto w-full">
+        <main class="flex-1 w-full px-4 py-4 sm:px-6 lg:px-8 2xl:px-12">
             {{ $slot }}
         </main>
 

@@ -51,7 +51,7 @@
                     <tr wire:key="m-{{ $member->id }}" class="hover:bg-gray-50">
                         <td class="px-2 py-2">@if($canEdit)<input type="checkbox" wire:model.live="selected" value="{{ $member->id }}" class="rounded" aria-label="{{ $member->name }} auswählen">@endif</td>
                         <td class="px-4 py-2"><a href="{{ route('personalverwaltung.member', $member) }}" class="font-medium text-gray-900 hover:underline">{{ $member->name }}</a></td>
-                        <td class="px-4 py-2 text-gray-600">{{ $member->groups->pluck('name')->implode(', ') ?: '–' }}</td>
+                        <td class="px-4 py-2 text-gray-600">{{ $member->groups->pluck('display_name')->implode(', ') ?: '–' }}</td>
                         <td class="px-4 py-2 text-gray-600">{{ $member->rank ?: '–' }}</td>
                         <td class="px-4 py-2 text-xs text-gray-600">{{ $member->functions->map->fullLabel()->implode(', ') ?: '–' }}
                             @if($badges[$member->id] ?? null)<span class="mt-0.5 flex flex-wrap gap-1">@foreach($badges[$member->id] as $b)<span class="rounded bg-fw-navy/10 px-1.5 py-0.5 text-[10px] font-semibold text-fw-navy">{{ $b }}</span>@endforeach</span>@endif</td>

@@ -326,7 +326,7 @@ class PlanEditor extends Component
             'candidates' => $candidates,
             // Stationsverantwortung: participants first, then everyone else with access
             'leadOptions' => $plan->participants->pluck('user')->sortBy('name')->concat($candidates)->unique('id')->pluck('name', 'id'),
-            'groups' => Group::orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
+            'groups' => Group::options(),
             'templates' => Template::orderBy('name')->pluck('name', 'id'),
             'stats' => $plans->stats($plan),
             'requests' => $assignments->filter->isRequested()->count(),
