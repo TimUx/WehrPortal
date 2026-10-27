@@ -97,6 +97,12 @@ class Equipment extends Model
         return sprintf('AR-%04d', $highest + 1);
     }
 
+    /** The Standort (Locations extension) */
+    public function standort(): BelongsTo
+    {
+        return $this->belongsTo(\Extensions\Locations\Models\Location::class, 'ext_location_id');
+    }
+
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class, 'category_id');
