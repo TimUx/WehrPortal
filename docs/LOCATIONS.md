@@ -28,6 +28,8 @@ Für Gemeinden mit mehreren Feuerwehrhäusern. Code: `extensions/Locations/`, Ab
 | Standort-Admin | `x_location_user.role = admin` | nur den eigenen Standort: Name, Mitglieder und Zuordnung von Fahrzeugen und Ausrüstung; Abteilungen zentral unter Admin → Abteilungen |
 | Mitglied | `x_location_user` oder `users.ext_location_id` | nur Daten des eigenen Standorts |
 
+Für jeden Standort werden bei der Erstellung die Abteilungen Einsatzabteilung, Jugendfeuerwehr, Kinderfeuerwehr, Alters- und Ehrenabteilung, Vorstand und Verein angelegt. Weitere Abteilungen bleiben möglich. Kameraden können mehreren Standorten und Abteilungen angehören und mehrere Funktionen gleichzeitig innehaben; die Mitgliedschaft in der Abteilung Vorstand wird unabhängig davon manuell gepflegt.
+
 Standort-Admins erreichen `/admin` über `MyLocationPage` (`ModuleArea`), `User::canAccessPanel` bleibt unverändert. Core-Ressourcen (`AdminOnly`) bleiben globalen Admins vorbehalten.
 
 ## Standortwappen

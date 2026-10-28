@@ -8,10 +8,11 @@ use Extensions\Dateien\Http\Controllers\PreviewController;
 use Extensions\Dateien\Http\Controllers\PublicShareController;
 use Extensions\Dateien\Http\Controllers\UploadController;
 use Extensions\Dateien\Http\Controllers\WopiController;
+use Extensions\Dateien\Http\Middleware\EnsureDateienAccess;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('dateien')->name('dateien.')
-    ->middleware(['web', 'auth', 'active', 'module:dateien'])
+    ->middleware(['web', 'auth', 'active', EnsureDateienAccess::class])
     ->group(function () {
         Route::get('/', fn () => view('dateien::livewire.page'))->name('index');
         Route::post('/hochladen', UploadController::class)->middleware('throttle:dateien-upload')->name('upload');

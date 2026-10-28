@@ -3,6 +3,7 @@
 use App\Filament\Resources\UserResource;
 use App\Livewire\Dashboard\Home;
 use App\Models\ActivityLog;
+use App\Models\Group;
 use App\Models\Module;
 use App\Models\User;
 use Extensions\Locations\Models\Location;
@@ -35,6 +36,13 @@ beforeEach(function () {
     $this->member = User::factory()->create(['name' => 'Hanna Hydrant']);
     $this->member->moduleAccess()->create(['module' => 'einsatzbericht']);
     $this->tim = User::factory()->create(['name' => 'Tim Tanklösch']);
+    $activeGroup = Group::withoutGlobalScopes()
+        ->where('ext_location_id', Location::default()->id)
+        ->where('name', 'Einsatzabteilung')
+        ->firstOrFail();
+    foreach ([$this->leader, $this->chief, $this->member, $this->tim] as $user) {
+        $user->groups()->syncWithoutDetaching([$activeGroup->id]);
+    }
 
     $this->hlf = Vehicle::factory()->create(['name' => 'HLF 20', 'is_active' => true]);
     $this->tlf = Vehicle::factory()->create(['name' => 'TLF 3000', 'is_active' => true]);
@@ -56,7 +64,12 @@ function fullReport(): Report
     $t->r->assign($t->leader, $hlf, $t->member, 'angriffstrupp', true);
     $t->r->assign($t->leader, $hlf, $t->chief, 'wassertrupp');
     $standby = $t->r->addVehicle($t->leader, $report, null);
-    $t->r->assign($t->leader, $standby, User::factory()->create(['name' => 'Klara Kübel']));
+    $standbyMember = User::factory()->create(['name' => 'Klara Kübel']);
+    $standbyMember->groups()->syncWithoutDetaching([
+        Group::withoutGlobalScopes()->where('ext_location_id', Location::default()->id)
+            ->where('name', 'Einsatzabteilung')->value('id'),
+    ]);
+    $t->r->assign($t->leader, $standby, $standbyMember);
 
     return $report->refresh();
 }
@@ -231,15 +244,20 @@ test('crew options and assignment are restricted to the vehicle Standort', funct
     $vehicle = Vehicle::factory()->create(['name' => 'HLF Nord', 'ext_location_id' => $location->id]);
     $local = User::factory()->create(['name' => 'Nina Nord', 'ext_location_id' => $location->id]);
     $foreign = User::factory()->create(['name' => 'Bernd Süd', 'ext_location_id' => $otherLocation->id]);
+    $localGroup = $location->groups()->where('name', 'Einsatzabteilung')->firstOrFail();
+    $local->groups()->attach($localGroup);
+    $notOperational = User::factory()->create(['name' => 'Klara Kübel', 'ext_location_id' => $location->id]);
     $report = $this->r->create($admin);
     $reportVehicle = $this->r->addVehicle($admin, $report, $vehicle->id);
 
     $editor = Livewire::actingAs($admin)->test(ReportEditor::class, ['report' => $report]);
     $crewSelect = explode('</select>', explode('wire:model="newCrew.'.$reportVehicle->id.'.user"', $editor->html(), 2)[1], 2)[0];
-    expect($crewSelect)->toContain('Nina Nord')->not->toContain('Bernd Süd');
+    expect($crewSelect)->toContain('Nina Nord')->not->toContain('Bernd Süd', 'Klara Kübel');
 
     expect(fn () => $this->r->assign($admin, $reportVehicle, $foreign))
         ->toThrow(ValidationException::class, 'desselben Standorts');
+    expect(fn () => $this->r->assign($admin, $reportVehicle, $notOperational))
+        ->toThrow(ValidationException::class, 'Einsatzabteilung');
     expect($this->r->assign($admin, $reportVehicle, $local)->user_id)->toBe($local->id);
 });
 

@@ -9,6 +9,7 @@ use App\Support\SignatureImage;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\LocationAccess;
 use Extensions\Locations\Services\LocationContext;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -255,11 +256,12 @@ class ReportService
     {
         $this->assert(self::canEdit($by, $vehicle->report));
 
-        $locationId = $vehicle->vehicle?->getAttribute('ext_location_id');
-        if (config('locations.enabled') && $locationId !== null
-            && (int) $member->getAttribute('ext_location_id') !== (int) $locationId
-            && ! $member->locations()->whereKey($locationId)->exists()) {
-            throw ValidationException::withMessages(['crew' => 'Für dieses Fahrzeug können nur Kameraden desselben Standorts eingeteilt werden.']);
+        if (! $this->eligibleCrew($vehicle)->contains('id', $member->getKey())) {
+            if (config('locations.enabled')) {
+                throw ValidationException::withMessages(['crew' => 'Für dieses Fahrzeug können nur aktive Kameraden der Einsatzabteilung desselben Standorts eingeteilt werden.']);
+            }
+
+            throw ValidationException::withMessages(['crew' => 'Es können nur aktive Kameraden der Einsatzabteilung eingeteilt werden.']);
         }
 
         if (! array_key_exists($function, CrewMember::FUNCTIONS)) {
@@ -270,6 +272,32 @@ class ReportService
             ['report_id' => $vehicle->report_id, 'user_id' => $member->id],
             ['report_vehicle_id' => $vehicle->id, 'function' => $function, 'breathing_apparatus' => $breathingApparatus && ! $vehicle->is_standby],
         );
+    }
+
+    /** @return EloquentCollection<int, User> */
+    public function eligibleCrew(ReportVehicle $vehicle): EloquentCollection
+    {
+        $locationId = $vehicle->vehicle?->getAttribute('ext_location_id') ?? $vehicle->report?->getAttribute('ext_location_id');
+        $people = User::active()
+            ->whereHas('groups', function ($groups) use ($locationId) {
+                $groups->whereRaw('lower(groups.name) = ?', [mb_strtolower('Einsatzabteilung')]);
+                if (config('locations.enabled')) {
+                    $groups->where('groups.ext_location_id', $locationId);
+                }
+            });
+
+        if (config('locations.enabled')) {
+            if ($locationId === null) {
+                return $people->whereRaw('1 = 0')->get(['id', 'name']);
+            }
+
+            $people->where(function ($members) use ($locationId) {
+                $members->where('ext_location_id', $locationId)
+                    ->orWhereHas('locations', fn ($locations) => $locations->whereKey($locationId));
+            });
+        }
+
+        return $people->orderBy('name')->get(['id', 'name']);
     }
 
     public function updateCrew(User $by, CrewMember $crew, string $function, bool $breathingApparatus): void

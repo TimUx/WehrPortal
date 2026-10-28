@@ -48,6 +48,12 @@ class LocationAccess
         return array_keys(array_filter($this->roles($user), fn ($role) => $role === 'admin'));
     }
 
+    public function canAssignLocationAdmins(User $user, Location $location): bool
+    {
+        return $user->is_active && ($this->isGlobalAdmin($user)
+            || in_array((int) $location->getKey(), app(StandardRoleAssignments::class)->locationIdsForProfile($user, 'wehrfuehrung'), true));
+    }
+
     public function isLocationAdmin(User $user): bool
     {
         return $user->is_active && ! $this->isGlobalAdmin($user) && $this->adminLocationIds($user) !== [];
@@ -96,6 +102,10 @@ class LocationAccess
         $own = $user->getAttribute('ext_location_id');
         if ($own && ! isset($roles[(int) $own])) {
             $roles[(int) $own] = 'member';
+        }
+
+        foreach (app(StandardRoleAssignments::class)->locationIdsForProfile($user, 'wehrfuehrung') as $locationId) {
+            $roles[$locationId] = 'admin';
         }
 
         return $roles;

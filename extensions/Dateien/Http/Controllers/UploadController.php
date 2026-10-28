@@ -9,6 +9,7 @@ use Extensions\Dateien\Services\FileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Plain multipart upload for the explorer (one file per request): the browser shows real progress
@@ -22,25 +23,45 @@ class UploadController
         $user = $request->user();
         abort_unless($user instanceof User, 403);
         $data = $request->validate([
-            'file' => ['required', 'file', 'max:'.FileService::maxUploadKb()],
+            'file' => ['nullable', 'file', 'max:'.FileService::maxUploadKb()],
             'space' => ['nullable', 'integer', 'min:1'],
             'parent' => ['nullable', 'integer', 'min:1'],
             'node' => ['nullable', 'integer', 'min:1'],
             'expected_version' => ['nullable', 'integer', 'min:0'],
+            'path' => ['nullable', 'string', 'max:4096'],
+            'directories' => ['nullable', 'array', 'max:500'],
+            'directories.*' => ['required', 'string', 'max:4096'],
         ], [], ['file' => 'Datei']);
+
+        if (isset($data['directories'])) {
+            if (isset($data['file']) || ! empty($data['node'])) {
+                throw ValidationException::withMessages(['directories' => 'Ordner können nur in einer Ablage oder einem Ordner angelegt werden.']);
+            }
+            $parent = ! empty($data['parent']) ? Node::query()->findOrFail($data['parent']) : null;
+            $space = Space::query()->findOrFail($parent ? $parent->space_id : ($data['space'] ?? 0));
+            $created = $files->createFolderPaths($user, $space, $parent, $data['directories']);
+
+            return response()->json(['created' => $created], 201);
+        }
+
+        if (! isset($data['file'])) {
+            throw ValidationException::withMessages(['file' => 'Bitte eine Datei oder Ordner auswählen.']);
+        }
         /** @var UploadedFile $file */
-        $file = $request->file('file');
+        $file = $data['file'];
 
         if (! empty($data['node'])) {
+            if (! empty($data['path'])) {
+                throw ValidationException::withMessages(['path' => 'Eine neue Dateiversion kann keinen Ordnerpfad enthalten.']);
+            }
             $node = Node::query()->findOrFail($data['node']);
             $version = $files->addVersion($user, $node, $file, isset($data['expected_version']) ? (int) $data['expected_version'] : null);
 
             return response()->json(['id' => $node->id, 'name' => $node->name, 'version' => $version->number]);
         }
-
         $parent = ! empty($data['parent']) ? Node::query()->findOrFail($data['parent']) : null;
         $space = Space::query()->findOrFail($parent ? $parent->space_id : ($data['space'] ?? 0));
-        $node = $files->upload($user, $space, $parent, $file);
+        $node = $files->upload($user, $space, $parent, $file, $data['path'] ?? '');
 
         return response()->json(['id' => $node->id, 'name' => $node->name, 'version' => 1], 201);
     }

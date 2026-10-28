@@ -2,6 +2,7 @@
 
 namespace Extensions\Dateien;
 
+use App\Models\Module;
 use App\Models\User;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
@@ -12,6 +13,7 @@ use Extensions\Dateien\Console\PruneOfficeSessionsCommand;
 use Extensions\Dateien\Console\PruneSharesCommand;
 use Extensions\Dateien\Console\ReconcileCommand;
 use Extensions\Dateien\Filament\DateienPlugin;
+use Extensions\Dateien\Http\Middleware\EnsureDateienAccess;
 use Extensions\Dateien\Livewire\Explorer;
 use Extensions\Dateien\Office\OfficeService;
 use Extensions\Dateien\Office\OfficeSettings;
@@ -21,10 +23,12 @@ use Extensions\Dateien\Services\CollaborationService;
 use Extensions\Dateien\Services\FileAccess;
 use Extensions\Dateien\Services\FileService;
 use Extensions\Dateien\Services\GroupService;
+use Extensions\Dateien\Services\LocationFileProvisioner;
 use Extensions\Dateien\Services\Maintenance;
 use Extensions\Dateien\Services\PreviewService;
 use Extensions\Dateien\Services\ShareService;
 use Extensions\Dateien\Services\ZipService;
+use Extensions\Locations\Models\Location;
 use Filament\Facades\Filament;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Scheduling\Schedule;
@@ -47,6 +51,7 @@ class DateienServiceProvider extends ServiceProvider
         ]]);
         $this->app->singleton(FileAccess::class);
         $this->app->singleton(FileService::class);
+        $this->app->singleton(LocationFileProvisioner::class);
         $this->app->singleton(GroupService::class);
         $this->app->singleton(Maintenance::class);
         $this->app->singleton(ShareService::class);
@@ -64,6 +69,16 @@ class DateienServiceProvider extends ServiceProvider
     {
         $this->loadMigrationsFrom(__DIR__.'/database/migrations');
         $this->loadViewsFrom(__DIR__.'/resources/views', 'dateien');
+        Location::created(fn (Location $location) => $this->app->make(LocationFileProvisioner::class)->ensure($location));
+        Module::saved(function (Module $module): void {
+            if ($module->key === 'dateien' && $module->is_active) {
+                $this->app->make(LocationFileProvisioner::class)->ensureAll();
+            }
+        });
+        if (! $this->app->runningInConsole()) {
+            $this->app->make(LocationFileProvisioner::class)->ensureAll();
+        }
+        Livewire::addPersistentMiddleware([EnsureDateienAccess::class]);
         if (! $this->app->routesAreCached()) {
             Route::group([], __DIR__.'/routes/web.php');
         }

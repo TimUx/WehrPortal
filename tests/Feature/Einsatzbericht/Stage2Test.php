@@ -1,7 +1,9 @@
 <?php
 
+use App\Models\Group;
 use App\Models\Module;
 use App\Models\User;
+use Extensions\Locations\Models\Location;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -27,6 +29,9 @@ beforeEach(function () {
     $this->chief->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'wehrführung']);
     $this->member = User::factory()->create(['name' => 'Hanna Hydrant']);
     $this->member->moduleAccess()->create(['module' => 'einsatzbericht']);
+    $groupId = Group::withoutGlobalScopes()->where('ext_location_id', Location::default()->id)
+        ->where('name', 'Einsatzabteilung')->value('id');
+    $this->member->groups()->syncWithoutDetaching([$groupId]);
 
     $this->r = app(ReportService::class);
     $this->report = $this->r->create($this->leader);

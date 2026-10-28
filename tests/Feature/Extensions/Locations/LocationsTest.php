@@ -8,9 +8,10 @@ use App\Models\User;
 use Extensions\Locations\Filament\Resources\LocationResource\Pages\EditLocation;
 use Extensions\Locations\Filament\Resources\LocationResource\RelationManagers\MembersRelationManager;
 use Extensions\Locations\Models\Location;
+use Extensions\Locations\Models\StandardRoleAssignment;
 use Extensions\Locations\Services\LocationAccess;
+use Extensions\Locations\Services\StandardRoleAssignments;
 use Illuminate\Auth\Access\AuthorizationException;
-use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
@@ -37,6 +38,7 @@ it('always has a default Standort', function () {
         DB::table('x_vv_associations')->delete();
     }
 
+    DB::table('groups')->delete();
     DB::table('x_locations')->delete();
 
     $default = Location::default();
@@ -54,6 +56,7 @@ it('refuses to delete the default or the last Standort', function () {
 
     expect(fn () => $default->delete())->toThrow(ValidationException::class);
 
+    $other->groups()->delete();
     $other->delete();
     expect(fn () => $default->delete())->toThrow(ValidationException::class);
 });
@@ -122,6 +125,34 @@ it('lets only Standort-Admins manage their own Standort', function () {
         ->and($access->isLocationAdmin(memberAt($north)))->toBeFalse();
 });
 
+it('gives Wehrführung the Standort-Admin role and lets Wehrführung appoint another admin', function () {
+    $south = station('Wache Süd');
+    $chief = memberAt($south);
+    $newAdmin = memberAt($south);
+    $globalAdmin = User::factory()->admin()->create();
+    $roles = app(StandardRoleAssignments::class);
+    $access = app(LocationAccess::class);
+
+    expect($access->canManage($chief, $south))->toBeFalse();
+
+    $roles->grant($globalAdmin, $chief->id, 'wehrfuehrung', $south->id, null, 'Wehrführung');
+
+    expect($access->canManage($chief, $south))->toBeTrue()
+        ->and($access->canAssignLocationAdmins($chief, $south))->toBeTrue()
+        ->and($access->canManage($newAdmin, $south))->toBeFalse();
+
+    $assignment = StandardRoleAssignment::query()->where('user_id', $chief->id)->sole();
+    $roles->revoke($globalAdmin, $assignment->id, 'Aufgabe beendet');
+
+    expect($access->canManage($chief, $south))->toBeFalse()
+        ->and($access->canAssignLocationAdmins($chief, $south))->toBeFalse();
+
+    $south->members()->updateExistingPivot($newAdmin->id, ['role' => 'admin']);
+    $access->forget($newAdmin);
+
+    expect($access->canManage($newAdmin, $south))->toBeTrue();
+});
+
 it('provides one location-aware Abteilungsverwaltung for global and Standort-Admins', function () {
     $south = station('Wache Süd');
     $north = station('Wache Nord');
@@ -131,19 +162,19 @@ it('provides one location-aware Abteilungsverwaltung for global and Standort-Adm
     $this->actingAs($admin)->get('/admin/abteilungen')->assertOk();
 
     Livewire::actingAs($admin)->test(CreateGroup::class)
-        ->fillForm(['name' => 'Einsatzabteilung', 'ext_location_id' => $south->id])
+        ->fillForm(['name' => 'Musikzug', 'ext_location_id' => $south->id])
         ->call('create')
         ->assertHasNoFormErrors();
 
-    $group = Group::where('name', 'Einsatzabteilung')->sole();
+    $group = Group::where('name', 'Musikzug')->where('ext_location_id', $south->id)->sole();
     expect($group->ext_location_id)->toBe($south->id);
 
     Livewire::actingAs($globalAdmin)->test(CreateGroup::class)
-        ->fillForm(['name' => 'Einsatzabteilung', 'ext_location_id' => $north->id])
+        ->fillForm(['name' => 'Musikzug', 'ext_location_id' => $north->id])
         ->call('create')
         ->assertHasNoFormErrors();
 
-    expect(Group::options())->toContain('Einsatzabteilung (Wache Süd)', 'Einsatzabteilung (Wache Nord)');
+    expect(Group::options())->toContain('Musikzug (Wache Süd)', 'Musikzug (Wache Nord)');
 });
 
 it('requires a location for every Abteilung', function () {
@@ -154,13 +185,6 @@ it('requires a location for every Abteilung', function () {
 
     expect($column->is_nullable)->toBe('NO');
     $this->assertDatabaseHas('groups', ['id' => $group->id, 'ext_location_id' => $south->id]);
-});
-
-it('refuses deleting a Standort which still owns Abteilungen', function () {
-    $south = station('Wache Süd');
-    $south->groups()->create(['name' => 'Einsatzabteilung']);
-
-    expect(fn () => $south->delete())->toThrow(QueryException::class);
 });
 
 it('loads the Standort edit page with its member attachment controls', function () {

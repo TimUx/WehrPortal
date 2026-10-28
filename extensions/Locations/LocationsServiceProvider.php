@@ -22,6 +22,7 @@ use Extensions\Locations\Services\ClothingStockAccess;
 use Extensions\Locations\Services\LocationAccess;
 use Extensions\Locations\Services\LocationModuleRoles;
 use Extensions\Locations\Services\ScopedAnnouncementService;
+use Extensions\Locations\Services\StandardDepartments;
 use Extensions\Locations\Support\AssignsLocation;
 use Filament\Facades\Filament;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -84,6 +85,12 @@ class LocationsServiceProvider extends ServiceProvider
         if (config('locations.clothing_personal_enabled')) {
             $this->app->make(ClothingPersonalAccess::class)->validateConfiguration();
         }
+
+        Location::created(function (Location $location): void {
+            if (config('locations.enabled')) {
+                $this->app->make(StandardDepartments::class)->ensureFor($location);
+            }
+        });
 
         if (! config('locations.enabled')) {
             return;

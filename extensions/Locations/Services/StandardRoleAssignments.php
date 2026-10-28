@@ -75,7 +75,7 @@ class StandardRoleAssignments
                 throw ValidationException::withMessages(['profile' => 'Eine aktive Vergabe besteht bereits. Sie muss zuerst ausdrücklich widerrufen werden.']);
             }
 
-            return StandardRoleAssignment::query()->create([
+            $assignment = StandardRoleAssignment::query()->create([
                 'user_id' => $userId,
                 'profile' => $profile,
                 'location_id' => $locationId,
@@ -85,6 +85,10 @@ class StandardRoleAssignments
                 'reason' => $reason,
                 'expires_at' => $expiresAt === null ? null : CarbonImmutable::parse($expiresAt)->utc(),
             ]);
+
+            app(LocationAccess::class)->forget($member);
+
+            return $assignment;
         });
     }
 
@@ -99,6 +103,7 @@ class StandardRoleAssignments
                 throw ValidationException::withMessages(['reason' => 'Diese Zuweisung wurde bereits entzogen.']);
             }
             $grant->update(['revoked_by' => $by->id, 'revoked_at' => now(), 'revoke_reason' => $reason, 'revoked_source' => 'admin']);
+            app(LocationAccess::class)->forget(User::withoutGlobalScopes()->findOrFail($grant->user_id));
         });
     }
 
@@ -122,6 +127,21 @@ class StandardRoleAssignments
 
             return (int) $assignment->location_id === $locationId && $this->memberAt((int) $assignment->user_id, $locationId);
         });
+    }
+
+    /** @return list<int> active locations for a location-wide role profile, independent of module activation */
+    public function locationIdsForProfile(User $user, string $profile): array
+    {
+        if (! $this->active($user)) {
+            return [];
+        }
+
+        return $this->live($user)
+            ->filter(fn (StandardRoleAssignment $assignment) => $assignment->profile === $profile
+                && $assignment->location_id !== null && $assignment->group_id === null
+                && $this->activeLocation((int) $assignment->location_id)
+                && $this->memberAt((int) $user->id, (int) $assignment->location_id))
+            ->pluck('location_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
     }
 
     public function hasModuleRoleForGroup(User $user, string $module, string $role, int $locationId, int $groupId): bool

@@ -212,6 +212,7 @@ it('renders an empty location installation without creating a default row', func
     if (Schema::hasTable('x_vv_associations')) {
         DB::table('x_vv_associations')->delete();
     }
+    DB::table('groups')->delete();
     DB::table('x_locations')->delete();
 
     $this->actingAs($user)->get('/')->assertOk()->assertSee('Kein aktiver berechtigter Standort');
