@@ -53,6 +53,7 @@ class Location extends Model
             if ($location->is_default || static::query()->count() <= 1) {
                 throw ValidationException::withMessages(['location' => 'Der Hauptstandort bzw. der letzte Standort kann nicht gelöscht werden.']);
             }
+
         });
 
         // Extensions\ models are not picked up by the core activity log, so changes are written here

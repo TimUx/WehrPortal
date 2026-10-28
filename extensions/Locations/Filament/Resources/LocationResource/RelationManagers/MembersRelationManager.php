@@ -50,7 +50,11 @@ class MembersRelationManager extends RelationManager
                     ->recordSelectOptionsQuery(fn ($query) => $query->withoutGlobalScope(LocationScope::class)->where('users.is_active', true))
                     ->schema(fn (Actions\AttachAction $action): array => [
                         $action->getRecordSelect(),
-                        Forms\Components\Select::make('role')->label('Rolle')->options(['member' => 'Mitglied', 'admin' => 'Standort-Admin'])->default('member')->required(),
+                        Forms\Components\Select::make('role')->label('Rolle')
+                            ->options(fn () => app(LocationAccess::class)->canAssignLocationAdmins(auth()->user(), $this->getOwnerRecord())
+                                ? ['member' => 'Mitglied', 'admin' => 'Standort-Admin']
+                                : ['member' => 'Mitglied'])
+                            ->default('member')->required(),
                     ])
                     ->after(fn () => app(LocationAccess::class)->forget()),
             ])
@@ -58,7 +62,9 @@ class MembersRelationManager extends RelationManager
                 Actions\Action::make('toggleAdmin')
                     ->label(fn (User $record) => $record->pivot->role === 'admin' ? 'Zum Mitglied machen' : 'Zum Standort-Admin machen')
                     ->icon('heroicon-o-shield-check')
+                    ->visible(fn () => app(LocationAccess::class)->canAssignLocationAdmins(auth()->user(), $this->getOwnerRecord()))
                     ->action(function (User $record) {
+                        abort_unless(app(LocationAccess::class)->canAssignLocationAdmins(auth()->user(), $this->getOwnerRecord()), 403);
                         $this->getOwnerRecord()->members()->updateExistingPivot($record->getKey(), ['role' => $record->pivot->role === 'admin' ? 'member' : 'admin']);
                         app(LocationAccess::class)->forget();
                     }),

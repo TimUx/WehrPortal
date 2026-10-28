@@ -85,6 +85,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 @forelse($modules as $key => $module)
                     <a href="{{ $module['url'] }}" wire:key="mod-{{ $key }}"
+                       title="{{ $module['description'] }}" aria-label="{{ $module['name'] }}: {{ $module['description'] }}"
                        class="block h-full bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:border-fw-navy hover:shadow-md transition-all group">
                         <div class="flex items-start gap-4">
                             <div class="flex-shrink-0 w-12 h-12 rounded-xl bg-fw-navy/10 flex items-center justify-center group-hover:bg-fw-navy/15 transition-colors">
@@ -92,7 +93,6 @@
                             </div>
                             <div class="min-w-0">
                                 <h3 class="font-semibold text-gray-900 group-hover:text-fw-navy transition-colors">{{ $module['name'] }}</h3>
-                                <p class="text-sm text-gray-500 mt-0.5">{{ $module['description'] }}</p>
                             </div>
                         </div>
                     </a>

@@ -6,9 +6,11 @@ use App\Models\User;
 use Extensions\Dateien\Models\Node;
 use Extensions\Dateien\Models\Permission;
 use Extensions\Dateien\Models\Space;
+use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\LocationAccess;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class FileAccess
 {
@@ -18,12 +20,29 @@ class FileAccess
     {
         $fresh = User::withoutGlobalScopes()->find($user->getKey());
         $module = DB::table('modules')->where('key', 'dateien')->where('is_active', true)->first();
+        $hasLocationFolder = $fresh && $this->hasLocationFolderAccess($fresh);
         if (! $fresh || ! $fresh->is_active || ! $module
-            || (! $fresh->is_admin && ! $module->auto_assign && ! $fresh->moduleAccess()->where('module', 'dateien')->exists())) {
+            || (! $fresh->is_admin && ! $hasLocationFolder && ! $module->auto_assign && ! $fresh->moduleAccess()->where('module', 'dateien')->exists())) {
             throw new AuthorizationException('Kein Zugriff auf Dateien.');
         }
 
         return $fresh;
+    }
+
+    public function hasLocationFolderAccess(User $user): bool
+    {
+        if (! config('locations.enabled') || ! Schema::hasColumn('x_files_spaces', 'is_location_default')) {
+            return false;
+        }
+
+        $locationIds = DB::table('x_locations')->where('is_active', true)
+            ->where(fn ($query) => $query
+                ->whereIn('id', DB::table('x_location_user')->where('user_id', $user->id)->select('location_id'))
+                ->orWhere('id', $user->ext_location_id))
+            ->pluck('id');
+
+        return $locationIds->isNotEmpty() && DB::table('x_files_spaces')
+            ->where('is_location_default', true)->whereIn('ext_location_id', $locationIds)->exists();
     }
 
     public function level(User $user, Space|Node $target): ?string
@@ -113,6 +132,11 @@ class FileAccess
             $groups->where(fn ($q) => $q->whereNull('x_files_groups.ext_location_id')->orWhereIn('x_files_groups.ext_location_id', $locations));
         }
         $groups = $groups->pluck('group_id')->all();
+        $departments = DB::table('groups')->join('group_user', 'group_user.group_id', '=', 'groups.id')
+            ->where('group_user.user_id', $user->id)
+            ->when(config('locations.enabled') && $space->ext_location_id !== null,
+                fn ($query) => $query->where('groups.ext_location_id', $space->ext_location_id))
+            ->pluck('groups.id')->all();
         $nodes = [];
         $inherit = true;
         foreach ($chain as $node) {
@@ -129,10 +153,20 @@ class FileAccess
                     $query->orWhere(fn ($q) => $q->where('target_type', 'space')->where('target_id', $space->id));
                 }
             })
-            ->where(function ($query) use ($user, $groups) {
+            ->where(function ($query) use ($user, $groups, $departments) {
                 $query->where(fn ($q) => $q->where('subject_type', 'user')->where('subject_id', $user->id))
-                    ->orWhere(fn ($q) => $q->where('subject_type', 'group')->whereIn('subject_id', $groups));
+                    ->orWhere(fn ($q) => $q->where('subject_type', 'group')->whereIn('subject_id', $groups))
+                    ->orWhere(fn ($q) => $q->where('subject_type', 'department')->whereIn('subject_id', $departments));
             })->pluck('level')->map(fn ($level) => self::LEVELS[$level] ?? 0)->max() ?? 0;
+        if ($space->is_location_default && config('locations.enabled') && $space->ext_location_id !== null) {
+            $locationAccess = new LocationAccess;
+            $location = Location::query()->find($space->ext_location_id);
+            if ($location && $locationAccess->canManage($user, $location)) {
+                $best = max($best, self::LEVELS['manage']);
+            } elseif ($inherit && $locationAccess->canSee($user, (int) $space->ext_location_id)) {
+                $best = max($best, self::LEVELS['edit']);
+            }
+        }
 
         return array_search($best, self::LEVELS, true) ?: null;
     }

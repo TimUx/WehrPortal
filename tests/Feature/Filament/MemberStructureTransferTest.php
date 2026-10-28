@@ -36,8 +36,8 @@ test('Abteilungen are exported as CSV with order and members', function () {
 test('Abteilung transfers distinguish same-named groups by Standort', function () {
     $south = Location::create(['name' => 'Wache Süd', 'slug' => 'wache-sued']);
     $north = Location::create(['name' => 'Wache Nord', 'slug' => 'wache-nord']);
-    $southGroup = $south->groups()->create(['name' => 'Einsatzabteilung', 'sort_order' => 1]);
-    $northGroup = $north->groups()->create(['name' => 'Einsatzabteilung', 'sort_order' => 2]);
+    $southGroup = $south->groups()->where('name', 'Einsatzabteilung')->firstOrFail();
+    $northGroup = $north->groups()->where('name', 'Einsatzabteilung')->firstOrFail();
     $csv = "Abteilung;Standort;Reihenfolge;Mitglieder\nEinsatzabteilung;Wache Süd;1;hanna@example.com\nEinsatzabteilung;Wache Nord;2;bernd@example.com\n";
 
     $stats = app(MemberStructureTransfer::class)->importGroups($csv, true);
@@ -50,9 +50,6 @@ test('Abteilung transfers distinguish same-named groups by Standort', function (
 test('legacy Abteilung transfers are rejected when duplicate names need a Standort', function () {
     $south = Location::create(['name' => 'Wache Süd', 'slug' => 'wache-sued']);
     $north = Location::create(['name' => 'Wache Nord', 'slug' => 'wache-nord']);
-    $south->groups()->create(['name' => 'Einsatzabteilung']);
-    $north->groups()->create(['name' => 'Einsatzabteilung']);
-
     expect(fn () => app(MemberStructureTransfer::class)->importGroups(
         "Abteilung;Reihenfolge;Mitglieder\nEinsatzabteilung;1;\n", false
     ))->toThrow(ValidationException::class, 'mehreren Standorten');

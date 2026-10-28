@@ -1,6 +1,9 @@
 <?php
 
+use App\Models\Group;
+use App\Models\User;
 use App\Support\SafeUrl;
+use Extensions\Locations\Models\Location;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\RefreshCommittedDatabase;
 use Tests\TestCase;
@@ -40,4 +43,13 @@ function signaturePng(bool $blank = false): string
     imagedestroy($image);
 
     return 'data:image/png;base64,'.base64_encode($png);
+}
+
+function joinIncidentDepartment(User $member, ?Location $location = null): void
+{
+    $department = $location
+        ? $location->groups()->firstOrCreate(['name' => 'Einsatzabteilung'], ['sort_order' => 10])
+        : Group::withoutGlobalScopes()->firstOrCreate(['name' => 'Einsatzabteilung', 'ext_location_id' => null], ['sort_order' => 10]);
+
+    $member->groups()->syncWithoutDetaching([$department->id]);
 }

@@ -52,8 +52,8 @@ beforeEach(function () {
     Mail::fake();
     $this->south = stationOf('Wache Süd');
     $this->north = stationOf('Wache Nord');
-    $this->southGroup = $this->south->groups()->create(['name' => 'Einsatzabteilung']);
-    $this->northGroup = $this->north->groups()->create(['name' => 'Einsatzabteilung']);
+    $this->southGroup = $this->south->groups()->where('name', 'Einsatzabteilung')->firstOrFail();
+    $this->northGroup = $this->north->groups()->where('name', 'Einsatzabteilung')->firstOrFail();
     $this->hanna = kamerad('Hanna Hydrant', $this->south);
     $this->bernd = kamerad('Bernd Blaulicht', $this->south);
     $this->nord = kamerad('Nora Nord', $this->north);
@@ -62,6 +62,7 @@ beforeEach(function () {
 it('creates a standalone list without any calendar event, with duration and count', function () {
     Livewire::actingAs($this->hanna)->test(ListForm::class)
         ->set('form.title', 'Übungsabend')
+        ->set('form.group_id', (string) $this->southGroup->id)
         ->set('form.starts_at', '2026-10-05T19:00')->set('form.ends_at', '2026-10-05T20:30')
         ->set('form.leader_id', (string) $this->bernd->id)
         ->set("selected.{$this->hanna->id}", true)->set('form.guests', '2')
@@ -82,7 +83,8 @@ it('creates a standalone list without any calendar event, with duration and coun
 
 it('attaches uploaded files to the mail and rejects bad ones', function () {
     $fill = fn () => Livewire::actingAs($this->hanna)->test(ListForm::class)
-        ->set('form.title', 'Unterricht')->set('form.starts_at', '2026-10-05T19:00')->set('form.ends_at', '2026-10-05T20:00')
+        ->set('form.title', 'Unterricht')->set('form.group_id', (string) $this->southGroup->id)
+        ->set('form.starts_at', '2026-10-05T19:00')->set('form.ends_at', '2026-10-05T20:00')
         ->set('form.leader_id', (string) $this->bernd->id)->set('form.recipients', 'a@example.com');
 
     $fill()->set('uploads', [UploadedFile::fake()->create('virus.php', 5)])->call('save')->assertHasErrors('uploads');
@@ -97,7 +99,8 @@ it('attaches uploaded files to the mail and rejects bad ones', function () {
 
 it('keeps a draft without needing leader or participants and does not mail it', function () {
     Livewire::actingAs($this->hanna)->test(ListForm::class)
-        ->set('form.title', 'Entwurf')->set('mode', 'draft')->call('save')->assertHasNoErrors();
+        ->set('form.title', 'Entwurf')->set('form.group_id', (string) $this->southGroup->id)
+        ->set('mode', 'draft')->call('save')->assertHasNoErrors();
 
     expect(AttendanceList::sole()->status)->toBe('draft');
     Mail::assertNothingSent();
@@ -143,7 +146,7 @@ it('shows members only their own lists and Standort-Admins all lists of their St
     Livewire::actingAs($this->hanna)->test(ListIndex::class)->assertSee('Meine')->assertDontSee('Berndsliste')->assertDontSee('Nordliste');
 
     $admin = kamerad('Walter Wehrführer', $this->south, 'admin');
-    expect(AttendanceService::canManage($admin))->toBeTrue();
+    expect(AttendanceService::canManage($admin))->toBeFalse();
     Livewire::actingAs($admin)->test(ListIndex::class)->assertSee('Meine')->assertSee('Berndsliste')->assertDontSee('Nordliste');
 
     $global = kamerad('Gisela Gemeinde', null, 'member', true);
@@ -223,8 +226,8 @@ it('puts the offline draft markers on the form fields', function () {
 it('keeps global settings writable only by active global administrators', function () {
     Setting::set('anwesenheit.recipients', 'listen@example.com');
     $manager = kamerad('Walter Wehrführer', $this->south, 'admin');
-    $this->actingAs($manager)->get('/admin/anwesenheit/einstellungen')->assertOk()->assertDontSee('>Speichern<', false);
-    Livewire::actingAs($manager)->test(SettingsPage::class)->call('save')->assertForbidden();
+    $this->actingAs($manager)->get('/admin/anwesenheit/einstellungen')->assertForbidden();
+    expect(AttendanceService::canManage($manager))->toBeFalse();
     expect(AttendanceService::defaultRecipients())->toBe('listen@example.com');
 
     $global = kamerad('Gisela Gemeinde', null, 'member', true);
@@ -322,8 +325,8 @@ it('rechecks read permission on subsequent component renders', function () {
 });
 
 it('limits youth and children wardens to assigned groups for lists, members, and templates', function () {
-    $youth = $this->south->groups()->create(['name' => 'Jugendfeuerwehr']);
-    $children = $this->south->groups()->create(['name' => 'Kinderfeuerwehr']);
+    $youth = $this->south->groups()->where('name', 'Jugendfeuerwehr')->firstOrFail();
+    $children = $this->south->groups()->where('name', 'Kinderfeuerwehr')->firstOrFail();
     $warden = kamerad('Jana Jugendwart', $this->south);
     $youthMember = kamerad('Yara Jugend', $this->south);
     $childrenMember = kamerad('Karla Kinder', $this->south);
@@ -386,9 +389,9 @@ it('limits youth and children wardens to assigned groups for lists, members, and
 });
 
 it('lets municipality wardens manage only matching groups across active locations', function () {
-    $youthNorth = $this->north->groups()->create(['name' => 'Jugendfeuerwehr']);
-    $youthSouth = $this->south->groups()->create(['name' => 'Jugendfeuerwehr']);
-    $childrenSouth = $this->south->groups()->create(['name' => 'Kinderfeuerwehr']);
+    $youthNorth = $this->north->groups()->where('name', 'Jugendfeuerwehr')->firstOrFail();
+    $youthSouth = $this->south->groups()->where('name', 'Jugendfeuerwehr')->firstOrFail();
+    $childrenSouth = $this->south->groups()->where('name', 'Kinderfeuerwehr')->firstOrFail();
     $warden = kamerad('Jana Gemeindejugendwart');
     app(StandardRoleAssignments::class)->grant(
         User::factory()->admin()->create(),
@@ -411,8 +414,11 @@ it('lets municipality wardens manage only matching groups across active location
         'ext_location_id' => $this->south->id, 'group_id' => $childrenSouth->id,
     ]);
     $service = app(AttendanceService::class);
+    $main = Location::default();
+    $youthMain = $main->groups()->where('name', 'Jugendfeuerwehr')->firstOrFail();
 
     expect($service->groupOptions($warden))->toBe([
+        $youthMain->id => 'Jugendfeuerwehr (Hauptstandort)',
         $youthNorth->id => 'Jugendfeuerwehr (Wache Nord)',
         $youthSouth->id => 'Jugendfeuerwehr (Wache Süd)',
     ])
@@ -424,8 +430,8 @@ it('lets municipality wardens manage only matching groups across active location
 
 it('keeps group-scoped attendance permissions when the optional location role adapter is enabled', function () {
     config(['locations.scoped_role_modules' => ['anwesenheit']]);
-    $youth = $this->south->groups()->create(['name' => 'Jugendfeuerwehr']);
-    $children = $this->south->groups()->create(['name' => 'Kinderfeuerwehr']);
+    $youth = $this->south->groups()->where('name', 'Jugendfeuerwehr')->firstOrFail();
+    $children = $this->south->groups()->where('name', 'Kinderfeuerwehr')->firstOrFail();
     $warden = kamerad('Jana Jugendwart', $this->south);
     $grant = app(StandardRoleAssignments::class)->grant(
         User::factory()->admin()->create(),
@@ -455,7 +461,7 @@ it('keeps group-scoped attendance permissions when the optional location role ad
 });
 
 it('rejects template targets whose group belongs to another location', function () {
-    $foreignGroup = $this->north->groups()->create(['name' => 'Jugendfeuerwehr']);
+    $foreignGroup = $this->north->groups()->where('name', 'Jugendfeuerwehr')->firstOrFail();
     $admin = User::factory()->admin()->create();
 
     expect(app(AttendanceService::class)->canSelectGroup($admin, $this->south->id, $foreignGroup->id))->toBeFalse();

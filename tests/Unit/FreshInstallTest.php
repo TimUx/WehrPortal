@@ -13,9 +13,9 @@ test('a fresh WehrPortal install creates the current schema without predecessor 
     try {
         $this->artisan('migrate:fresh', ['--force' => true])->assertSuccessful();
 
-        // Fresh installs start empty — data comes from DemoDataSeeder, not migrations
+        // Fresh installs contain only the required departments; operational data comes from the seeder.
         expect(Vehicle::count())->toBe(0)
-            ->and(Group::count())->toBe(0)
+            ->and(Group::count())->toBe(6)
             ->and(User::count())->toBe(0)
             ->and(Course::count())->toBe(0);
         foreach (['is_decider', 'can_post_announcements', 'department'] as $column) {

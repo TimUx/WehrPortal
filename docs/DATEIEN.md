@@ -24,12 +24,12 @@ Die Erweiterung hat keinen eigenen `DATEIEN_ENABLED`-Schalter: Sie wird geladen,
 
 ## Einrichtung und Bedienung
 
-1. Unter **Admin → Module** „Dateien“ einschalten und den gewünschten Mitgliedern freigeben. Die Freigabe allein gewährt noch keinen Zugriff auf eine Ablage.
-2. Als globaler Admin unter **Admin → Dateien** (`/admin/dateien`) eine Ablage anlegen. Optional einen Standort und ein Kontingent in MiB wählen. Ohne Standort ist eine Ablage standortübergreifend; ein Kontingent umfasst **alle Versionen einschließlich Papierkorb**, nicht nur die aktuellen Inhalte.
+1. Unter **Admin → Module** „Dateien“ einschalten. Ist Locations aktiv, wird automatisch für jeden Standort eine Ablage mit dessen Namen eingerichtet; Standortangehörige erhalten dort auch ohne eigenen Dateien-Modulzugang Lese- und Bearbeitungsrechte, aber keine Rechteverwaltung. Andere Ablagen bleiben durch Modulzugang und ACL geschützt.
+2. Als globaler Admin unter **Admin → Dateien** (`/admin/dateien`) weitere Ablagen anlegen. Optional einen Standort und ein Kontingent in MiB wählen. Ohne Standort ist eine Ablage standortübergreifend; ein Kontingent umfasst **alle Versionen einschließlich Papierkorb**, nicht nur die aktuellen Inhalte.
 3. Dort eigene Dateigruppen anlegen und bestehende Mitglieder zuordnen. Dateigruppen sind unabhängig von Abteilungen und Funktionen. Die Modulrolle `gruppenverwalter` erlaubt Gruppen- und Mitgliederverwaltung, aber keinen automatischen Zugriff auf Dateien. Das Gruppenverwalter-Kennzeichen einer Mitgliedschaft dokumentiert die Zuständigkeit; es ersetzt die Modulrolle nicht.
-4. Unter `/dateien` die Ablage öffnen und Rechte an Benutzer oder Dateigruppen vergeben. Globale Admins dürfen in aktiven Modulen alles; für alle anderen gilt **standardmäßig kein Zugriff**.
+4. Unter `/dateien` die Ablage öffnen und Rechte an Kameraden, Abteilungen oder Dateigruppen vergeben. Globale Admins dürfen in aktiven Modulen alles; für andere Ablagen gilt **standardmäßig kein Zugriff**.
 
-Der Explorer bietet Ordner, Mehrfach-Upload, Umbenennen, Verschieben innerhalb einer Ablage, Downloads, Versionsverlauf, Rechte, Suche, Favoriten, „Zuletzt verwendet“, Bildvorschau, ZIP-Download, Kommentare und Papierkorb. Namenskonflikte werden angezeigt; es gibt kein stilles Überschreiben. Für einen Inhaltswechsel ausdrücklich eine **neue Version** hochladen. „Mit mir geteilt“ erschließt Direktfreigaben, auch wenn der übergeordnete Ordner nicht zugänglich ist.
+Der Explorer bietet Ordner, Mehrfach-Upload per Dateiauswahl oder Drag-and-drop sowie das Ablegen ganzer Ordner einschließlich Unterordnern. Die Ordnerstruktur bleibt erhalten; Namenskonflikte werden angezeigt und nicht still überschrieben. Außerdem gibt es Umbenennen, Verschieben innerhalb einer Ablage, Downloads, Versionsverlauf, Rechte, Suche, Favoriten, „Zuletzt verwendet“, Bildvorschau, ZIP-Download, Kommentare und Papierkorb. Für einen Inhaltswechsel ausdrücklich eine **neue Version** hochladen. „Mit mir geteilt“ erschließt Direktfreigaben, auch wenn der übergeordnete Ordner nicht zugänglich ist.
 
 ## Rechte
 
@@ -39,13 +39,13 @@ Der Explorer bietet Ordner, Mehrfach-Upload, Umbenennen, Verschieben innerhalb e
 | `edit` – Bearbeiten | Zusätzlich hochladen, Ordner erstellen, umbenennen, neue Versionen und Versionswiederherstellungen |
 | `manage` – Verwalten | Zusätzlich Rechte/Vererbung ändern, verschieben, Papierkorb und Wiederherstellung, endgültig löschen |
 
-Rechte gelten für eine ganze Ablage oder einen einzelnen Ordner/eine Datei. Benutzer- und Gruppenrechte werden zusammengeführt; das **höchste zutreffende Recht** gewinnt. Es gibt keine expliziten Verbote. Neue Einträge erben Rechte vom Elternordner beziehungsweise der Ablage. Wird die Vererbung an einem Eintrag unterbrochen, zählen dort nur dessen eigene Rechte und für dessen Nachkommen die Rechte unterhalb dieser Grenze.
+Rechte gelten für eine ganze Ablage oder einen einzelnen Ordner/eine Datei. Kameraden-, Abteilungs- und Dateigruppenrechte werden zusammengeführt; das **höchste zutreffende Recht** gewinnt. Abteilungsfreigaben gelten nur für die gewählte Abteilung am Standort der Ablage. Es gibt keine expliziten Verbote. Neue Einträge erben Rechte vom Elternordner beziehungsweise der Ablage. Wird die Vererbung an einem Eintrag unterbrochen, zählen dort nur dessen eigene Rechte und für dessen Nachkommen die Rechte unterhalb dieser Grenze.
 
 Eine Direktfreigabe verrät keine Namen gesperrter Eltern oder Geschwister. Ein Ordnerrecht öffnet nicht automatisch Kinder mit unterbrochener Vererbung. Verschieben erfordert `manage` an Quelle **und** Ziel; es kann die geerbten Rechte verändern. Ablageübergreifendes Verschieben ist in diesem Meilenstein absichtlich ausgeschlossen.
 
 ### Standorte
 
-Bei aktiver Locations-Extension prüft die zentrale Berechtigungslogik zusätzlich den Standort der Ablage. Auch ein direktes Benutzerrecht oder eine Gruppenmitgliedschaft umgeht diese Grenze nicht. Das gilt für technische Downloads und Service-Aufrufe, nicht nur für die Oberfläche. Gruppenverwalter sehen nur gemeinsame Gruppen und Gruppen ihrer Standorte und dürfen keine fremden Standortmitglieder durch manipulierte IDs hinzufügen. Globale Admins verwalten alle Standorte. Standortlose Ablagen und Gruppen sind bewusst gemeinsam – für vertrauliche Standortdaten immer einen Standort setzen.
+Bei aktiver Locations-Extension prüft die zentrale Berechtigungslogik zusätzlich den Standort der Ablage. Für die automatisch angelegte Standortablage erhalten Standortangehörige Bearbeitungsrecht und Standort-Admins Verwaltungsrecht. Der Zugriff auf diese Ablage ist auch ohne eigene Dateien-Modulrolle möglich; er öffnet keine anderen Ablagen. In Unterordnern kann die Vererbung unterbrochen und der Zugriff gezielt an einzelne Kameraden oder Abteilungen vergeben werden. Auch ein direktes Benutzerrecht oder eine Gruppenmitgliedschaft umgeht die Standortgrenze nicht. Das gilt für technische Downloads und Service-Aufrufe, nicht nur für die Oberfläche. Gruppenverwalter sehen nur gemeinsame Gruppen und Gruppen ihrer Standorte und dürfen keine fremden Standortmitglieder durch manipulierte IDs hinzufügen. Globale Admins verwalten alle Standorte. Standortlose Ablagen und Dateigruppen sind bewusst gemeinsam – für vertrauliche Standortdaten immer einen Standort setzen.
 
 Eine Mitgliedschaft über den Primärstandort **oder** eine ausdrückliche Standortzuordnung genügt für diese zusätzliche Standortgrenze; sie erteilt noch keine Datei-ACL. Entfällt nur eine von mehreren passenden Mitgliedschaftsquellen, ist das nicht automatisch der vollständige Standortentzug. Beim nächsten Zugriff zählen die dann gültigen Rechte, nicht ein zuvor geöffnetes Formular oder eine frühere erfolgreiche Anmeldung. Öffentliche Links sind die unten beschriebene, ausdrücklich eingeschaltete Ausnahme für Gäste.
 
@@ -107,7 +107,7 @@ Die Suche umfasst Namen und Beschreibungen, aber keine Dateiinhalte. Nicht entha
 
 ## Betrieb (Meilenstein 2)
 
-- **Hochladen:** mehrere Dateien per Drag & Drop oder Auswahl, mit Fortschritt und Abbrechen (`POST /dateien/hochladen`, eine Datei pro Anfrage). Größenobergrenze der Admin-Einstellung: `DATEIEN_MAX_UPLOAD_LIMIT_KB` (Standard 51200). PHP (`upload_max_filesize`, `post_max_size`) und Reverse-Proxy müssen mindestens so viel zulassen.
+- **Hochladen:** mehrere Dateien oder ganze Ordner per Drag & Drop, mit Fortschritt und Abbrechen (`POST /dateien/hochladen`, eine Datei pro Anfrage). Die Ordnerstruktur bleibt erhalten; höchstens 50 Dateien und 500 Ordner pro Ablagevorgang. Größenobergrenze der Admin-Einstellung: `DATEIEN_MAX_UPLOAD_LIMIT_KB` (Standard 51200). PHP (`upload_max_filesize`, `post_max_size`) und Reverse-Proxy müssen mindestens so viel zulassen.
 - **Herunterladen:** gestreamt mit Range-Anfragen; Prüfsumme wird vor der Auslieferung geprüft (abschaltbar). Begrenzung: 60 Uploads und 300 Downloads pro Minute und Kamerad (`config/dateien.php` → `rate_limits`).
 - **Suche:** Namenssuche über alle Bereiche; nur Einträge, die der Kamerad lesen darf, nie Papierkorb.
 - **Benachrichtigung:** neue oder geänderte Freigaben melden sich bei den Empfängern (Glocke, Mail, Push), nur Name und Recht.

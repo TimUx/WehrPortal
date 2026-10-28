@@ -40,6 +40,7 @@ beforeEach(function () {
     $this->hanna = User::factory()->create(['name' => 'Hanna Hydrant', 'ext_location_id' => $this->north->id]);
     $this->fritz = User::factory()->create(['name' => 'Fritz Feuer', 'ext_location_id' => $this->north->id]);
     foreach ([$this->hanna, $this->fritz] as $u) {
+        joinIncidentDepartment($u, $this->north);
         $u->moduleAccess()->create(['module' => 'expositionen']);
     }
     $roles = app(StandardRoleAssignments::class);

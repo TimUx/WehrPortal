@@ -46,10 +46,10 @@ beforeEach(function () {
     $this->north = Location::create(['name' => 'Wache Nord', 'slug' => 'standard-nord']);
     $this->south = Location::create(['name' => 'Wache Süd', 'slug' => 'standard-sued']);
     $this->member->forceFill(['ext_location_id' => $this->north->id])->save();
-    $this->youthNorth = $this->north->groups()->create(['name' => 'Jugendfeuerwehr']);
-    $this->youthSouth = $this->south->groups()->create(['name' => 'Jugendfeuerwehr']);
-    $this->childrenNorth = $this->north->groups()->create(['name' => 'Kinderfeuerwehr']);
-    $this->childrenSouth = $this->south->groups()->create(['name' => 'Kinderfeuerwehr']);
+    $this->youthNorth = $this->north->groups()->where('name', 'Jugendfeuerwehr')->firstOrFail();
+    $this->youthSouth = $this->south->groups()->where('name', 'Jugendfeuerwehr')->firstOrFail();
+    $this->childrenNorth = $this->north->groups()->where('name', 'Kinderfeuerwehr')->firstOrFail();
+    $this->childrenSouth = $this->south->groups()->where('name', 'Kinderfeuerwehr')->firstOrFail();
     $this->roles = app(StandardRoleAssignments::class);
 });
 
@@ -157,7 +157,10 @@ it('allows municipality youth wardens to manage every matching group across acti
         'group_ids' => [$this->childrenNorth->id],
     ]);
 
-    expect($planner->locationOptions($this->member)->keys()->map(fn ($id) => (int) $id)->all())->toBe([$this->north->id, $this->south->id])
+    $main = Location::default();
+    $youthMain = $main->groups()->where('name', 'Jugendfeuerwehr')->firstOrFail();
+    expect($planner->locationOptions($this->member)->keys()->map(fn ($id) => (int) $id)->all())->toBe([$main->id, $this->north->id, $this->south->id])
+        ->and($planner->groupOptions($this->member, [$main->id])->keys()->map(fn ($id) => (int) $id)->all())->toBe([(int) $youthMain->id])
         ->and($planner->groupOptions($this->member, [$this->north->id])->keys()->map(fn ($id) => (int) $id)->all())->toBe([(int) $this->youthNorth->id])
         ->and($planner->groupOptions($this->member, [$this->south->id])->keys()->map(fn ($id) => (int) $id)->all())->toBe([(int) $this->youthSouth->id])
         ->and($planner->canManageService($this->member, $youthNorth))->toBeTrue()
@@ -180,7 +183,10 @@ it('allows municipality children wardens to manage every matching group across a
         'group_ids' => [$this->childrenSouth->id],
     ]);
 
-    expect($planner->locationOptions($childrenWarden)->keys()->map(fn ($id) => (int) $id)->all())->toBe([$this->north->id, $this->south->id])
+    $main = Location::default();
+    $childrenMain = $main->groups()->where('name', 'Kinderfeuerwehr')->firstOrFail();
+    expect($planner->locationOptions($childrenWarden)->keys()->map(fn ($id) => (int) $id)->all())->toBe([$main->id, $this->north->id, $this->south->id])
+        ->and($planner->groupOptions($childrenWarden, [$main->id])->keys()->map(fn ($id) => (int) $id)->all())->toBe([(int) $childrenMain->id])
         ->and($planner->groupOptions($childrenWarden, [$this->north->id])->keys()->map(fn ($id) => (int) $id)->all())->toBe([(int) $this->childrenNorth->id])
         ->and($planner->groupOptions($childrenWarden, [$this->south->id])->keys()->map(fn ($id) => (int) $id)->all())->toBe([(int) $this->childrenSouth->id])
         ->and($planner->canManageService($childrenWarden, $north))->toBeTrue()

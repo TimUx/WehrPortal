@@ -265,7 +265,10 @@ it('refuses invalid stock targets and batches atomically', function (string $cas
         'missing' => DB::table('kk_stock')->where('id', $second)->delete(),
         'negative' => DB::table('kk_stock')->where('id', $second)->update(['quantity' => -1]),
         'inactive' => DB::table('x_locations')->where('id', $this->target->id)->update(['is_active' => false]),
-        'target_missing' => DB::table('x_locations')->where('id', $this->target->id)->delete(),
+        'target_missing' => (function () {
+            DB::table('groups')->where('ext_location_id', $this->target->id)->delete();
+            DB::table('x_locations')->where('id', $this->target->id)->delete();
+        })(),
         'open_second' => DB::table('kk_issued_items')->insert(['item_type_id' => $this->type, 'user_id' => $this->recipient->id, 'issued_at' => now()]),
     };
     expect(fn () => ($this->apply)())->toThrow(RuntimeException::class)

@@ -2,6 +2,7 @@
 
 use App\Models\Module;
 use Extensions\Dateien\Models\AuditEvent;
+use Extensions\Dateien\Models\Node;
 use Extensions\Dateien\Notifications\SharedWithYouNotification;
 use Extensions\Dateien\Services\FileService;
 use Extensions\Dateien\Services\Maintenance;
@@ -33,6 +34,23 @@ it('uploads through the endpoint with rights checks', function () {
     $this->actingAs($this->member)->postJson(route('dateien.upload'), ['file' => filesUpload('Neue Fassung', 'neu.txt'), 'space' => $this->space->id])->assertForbidden();
     $this->files->setPermission($this->admin, $this->space, 'user', $this->member->id, 'edit');
     $this->actingAs($this->member)->postJson(route('dateien.upload'), ['file' => filesUpload('Neue Fassung', 'neu.txt'), 'space' => $this->space->id])->assertCreated();
+    $this->actingAs($this->member)->postJson(route('dateien.upload'), [
+        'file' => filesUpload('Datei im Unterordner', 'unterlage.txt'),
+        'space' => $this->space->id,
+        'path' => 'Ausbildung/2026',
+    ])->assertCreated();
+    $uploaded = Node::query()->where('name', 'unterlage.txt')->sole();
+    expect($uploaded->parent->name)->toBe('2026')
+        ->and($uploaded->parent->parent->name)->toBe('Ausbildung');
+    $this->actingAs($this->member)->postJson(route('dateien.upload'), [
+        'file' => filesUpload('Ungültiger Pfad', 'ungueltig.txt'),
+        'space' => $this->space->id,
+        'path' => '../fremd',
+    ])->assertUnprocessable();
+    $this->actingAs($this->member)->postJson(route('dateien.upload'), [
+        'directories' => ['Leere Ordner', 'Leere Ordner/Unterordner'],
+        'space' => $this->space->id,
+    ])->assertCreated()->assertJson(['created' => 2]);
     $this->actingAs($this->member)->postJson(route('dateien.upload'), ['file' => filesUpload('Zweite Fassung'), 'node' => $this->node->id, 'expected_version' => 1])
         ->assertOk()->assertJson(['version' => 2]);
 });

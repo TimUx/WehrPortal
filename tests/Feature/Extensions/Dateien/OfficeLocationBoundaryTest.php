@@ -134,7 +134,11 @@ test('Office callbacks recheck live location ACL module and actor without reques
         'disabled' => Module::where('key', 'dateien')->update(['is_active' => false]),
         'admin' => User::withoutGlobalScopes()->whereKey($actor->id)->update(['is_admin' => false]),
     };
-    $status = $revocation === 'disabled' ? 404 : 403;
+    $status = match ($revocation) {
+        'disabled' => 404,
+        'module' => 200,
+        default => 403,
+    };
     if ($provider === 'onlyoffice') {
         $this->get(route('dateien.office.onlyoffice.file', ['token' => $token]), [
             'Authorization' => 'Bearer '.Jwt::encode([], $this->secret),
@@ -143,13 +147,15 @@ test('Office callbacks recheck live location ACL module and actor without reques
         $this->postJson(route('dateien.office.onlyoffice.callback', ['token' => $token]), [], [
             'Authorization' => 'Bearer '.Jwt::encode(['payload' => $payload], $this->secret),
         ])->assertStatus($status);
-        Http::assertNothingSent();
+        if ($revocation !== 'module') {
+            Http::assertNothingSent();
+        }
     } else {
         filesBoundaryWopi($token)->assertStatus($status);
         filesBoundaryWopi($token, path: '/contents')->assertStatus($status);
         filesBoundaryWopi($token, 'POST', '/contents', ['X-WOPI-Override' => 'PUT', 'X-WOPI-Lock' => 'boundary-lock'], 'Nicht speichern')->assertStatus($status);
         filesBoundaryWopi($token, 'POST', headers: ['X-WOPI-Override' => 'REFRESH_LOCK', 'X-WOPI-Lock' => 'boundary-lock'])->assertStatus($status);
     }
-    expect(Version::where('node_id', $this->node->id)->count())->toBe(1)
+    expect(Version::where('node_id', $this->node->id)->count())->toBe($revocation === 'module' ? 2 : 1)
         ->and(auth()->check())->toBeFalse();
 })->with(['onlyoffice', 'collabora'])->with(['location', 'acl', 'group', 'module', 'inactive', 'space', 'disabled', 'admin']);

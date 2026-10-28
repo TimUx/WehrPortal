@@ -1,7 +1,9 @@
 <?php
 
+use App\Models\Group;
 use App\Models\Module;
 use App\Models\User;
+use Extensions\Locations\Models\Location;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
@@ -26,6 +28,9 @@ beforeEach(function () {
     $this->chief = User::factory()->create(['name' => 'Wilma Wehrführer']);
     $this->chief->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'wehrführung']);
     $this->hanna = User::factory()->create(['name' => 'Hanna Hydrant']);
+    $groupId = Group::withoutGlobalScopes()->where('ext_location_id', Location::default()->id)
+        ->where('name', 'Einsatzabteilung')->value('id');
+    $this->hanna->groups()->syncWithoutDetaching([$groupId]);
     $this->hlf = Vehicle::factory()->create(['name' => 'HLF 20', 'is_active' => true]);
     $this->r = app(ReportService::class);
 });
@@ -88,6 +93,10 @@ test('Einsatzleiter and Wehrführung sign; the checksum shows corrections after 
 });
 
 test('Nebenberichte: own crew and number, counted once in the statistics', function () {
+    $groupId = Group::withoutGlobalScopes()->where('ext_location_id', Location::default()->id)
+        ->where('name', 'Einsatzabteilung')->value('id');
+    $this->leader->groups()->syncWithoutDetaching([$groupId]);
+
     $main = $this->r->create($this->leader);
     $this->r->update($this->leader, $main, ['keyword' => 'F3 Scheune', 'category' => 'brand_gross', 'address' => 'Hofweg 1, 12345 Musterstadt']);
     $this->r->start($this->leader, $main);

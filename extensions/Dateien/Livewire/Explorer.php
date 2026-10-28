@@ -2,6 +2,7 @@
 
 namespace Extensions\Dateien\Livewire;
 
+use App\Models\Group;
 use App\Models\User;
 use Extensions\Dateien\Models\Comment;
 use Extensions\Dateien\Models\FileGroup;
@@ -32,6 +33,7 @@ class Explorer extends Component
 
     protected $validationAttributes = [
         'folderName' => 'Ordnername',
+        'spaceName' => 'Ablagename',
         'name' => 'Name',
         'destination' => 'Zielordner',
         'upload' => 'Datei',
@@ -66,6 +68,11 @@ class Explorer extends Component
     public string $name = '';
 
     public string $folderName = '';
+
+    public string $spaceName = '';
+
+    #[Url]
+    public string $layout = 'list';
 
     public string $destination = '';
 
@@ -125,6 +132,22 @@ class Explorer extends Component
         $this->node = $node;
         $this->view = $view;
         $this->resetSelection();
+    }
+
+    public function setLayout(string $layout): void
+    {
+        abort_unless(in_array($layout, ['list', 'table', 'tiles'], true), 404);
+        $this->layout = $layout;
+    }
+
+    public function createSpace(): void
+    {
+        abort_unless($this->user()->is_admin, 403);
+        $this->validate(['spaceName' => ['required', 'string', 'max:255']]);
+        $space = $this->service()->createSpace($this->user(), ['name' => $this->spaceName]);
+        $this->reset('spaceName');
+        $this->navigate($space->id);
+        session()->flash('flash', 'Ablage erstellt. Vergeben Sie unter „Berechtigungen“ den Zugriff.');
     }
 
     public function select(int $id): void
@@ -280,13 +303,19 @@ class Explorer extends Component
     {
         $target = $this->permissionTarget();
         $this->validate([
-            'subjectType' => ['required', 'in:user,group'],
+            'subjectType' => ['required', 'in:user,group,department'],
             'subjectId' => ['required', 'integer', 'min:1'],
             'permissionLevel' => ['nullable', 'in:read,edit,manage'],
         ]);
         $space = $target instanceof Space ? $target : Space::query()->findOrFail($target->space_id);
         $subjects = $this->subjects($space);
-        abort_unless($subjects[$this->subjectType === 'user' ? 'users' : 'groups']->contains('id', (int) $this->subjectId), 403);
+        $list = match ($this->subjectType) {
+            'user' => $subjects['users'],
+            'group' => $subjects['groups'],
+            'department' => $subjects['departments'],
+            default => throw new \LogicException('Unsupported permission subject type.'),
+        };
+        abort_unless($list->contains('id', (int) $this->subjectId), 403);
         $this->service()->setPermission($this->user(), $target, $this->subjectType, (int) $this->subjectId, $this->permissionLevel ?: null);
         $this->leaveInaccessibleContext();
         session()->flash('flash', 'Berechtigung gespeichert.');
@@ -488,7 +517,7 @@ class Explorer extends Component
         ]]);
     }
 
-    /** @return array{users: EloquentCollection<int, User>, groups: EloquentCollection<int, FileGroup>} */
+    /** @return array{users: EloquentCollection<int, User>, groups: EloquentCollection<int, FileGroup>, departments: EloquentCollection<int, Group>} */
     private function subjects(Space $space): array
     {
         $users = User::query()->where('is_active', true);
@@ -507,10 +536,12 @@ class Explorer extends Component
             $locations = app(LocationAccess::class)->visibleLocationIds($this->user());
             $groups->where(fn ($query) => $query->whereNull('ext_location_id')->orWhereIn('ext_location_id', $locations));
         }
+        $departments = Group::withoutGlobalScopes()->where('ext_location_id', $space->ext_location_id);
 
         return [
             'users' => $users->orderBy('name')->get(['id', 'name']),
             'groups' => $groups->orderBy('name')->get(),
+            'departments' => $departments->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
         ];
     }
 
@@ -531,6 +562,27 @@ class Explorer extends Component
         }
 
         return $crumbs;
+    }
+
+    /** @return list<array{node: Node, depth: int}> */
+    private function folderTree(Space $space): array
+    {
+        $folders = Node::query()->where('space_id', $space->id)->where('kind', 'folder')->orderBy('name')->get()
+            ->filter(fn (Node $node) => $this->access()->can($this->user(), $node, 'read'));
+        $visibleIds = $folders->modelKeys();
+        $children = $folders->groupBy(fn (Node $node) => $node->parent_id !== null && in_array((int) $node->parent_id, $visibleIds, true)
+            ? (int) $node->parent_id
+            : 0);
+        $tree = [];
+        $append = function (int $parentId, int $depth) use (&$append, &$tree, $children): void {
+            foreach ($children->get($parentId, collect()) as $node) {
+                $tree[] = ['node' => $node, 'depth' => $depth];
+                $append((int) $node->id, $depth + 1);
+            }
+        };
+        $append(0, 0);
+
+        return $tree;
     }
 
     public function render()
@@ -575,7 +627,8 @@ class Explorer extends Component
         $selected = $this->selectedId !== null ? $this->selected('read', $this->view === 'trash') : null;
         $target = $selected ?? $folder ?? $space;
         $canManage = $target && ! ($target instanceof Node && $target->trashed()) && $access->can($user, $target, 'manage');
-        $subjects = $canManage ? $this->subjects($space ?? Space::query()->findOrFail($selected->space_id)) : ['users' => collect(), 'groups' => collect()];
+        $subjects = $canManage ? $this->subjects($space ?? Space::query()->findOrFail($selected->space_id))
+            : ['users' => collect(), 'groups' => collect(), 'departments' => collect()];
         $destinations = $selected && ! $selected->trashed() && $access->can($user, $selected, 'manage')
             ? Node::query()->where('space_id', $selected->space_id)->where('kind', 'folder')->whereKeyNot($selected->id)->orderBy('name')->get()
                 ->filter(fn (Node $node) => $access->can($user, $node, 'manage'))
@@ -585,6 +638,7 @@ class Explorer extends Component
             'spaces' => $spaces, 'currentSpace' => $space, 'folder' => $folder, 'rows' => $rows,
             'selected' => $selected, 'target' => $target, 'access' => $access, 'user' => $user,
             'breadcrumbs' => $folder ? $this->breadcrumbs($folder) : collect(),
+            'folderTree' => $space && $this->view !== 'trash' ? $this->folderTree($space) : [],
             'canWriteHere' => $this->view !== 'trash' && ($this->node === null || $folder) && ($folder || $space) && $access->can($user, $folder ?? $space, 'edit'),
             'canManage' => $canManage, 'subjects' => $subjects, 'destinations' => $destinations,
             'versions' => $versions = $selected && $selected->kind === 'file' && ! $selected->trashed() ? $this->service()->versions($user, $selected) : collect(),

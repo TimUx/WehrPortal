@@ -206,7 +206,11 @@ test('deadlines: reminder mail once, documented work moves the next date and the
 });
 
 test('who is out at an Einsatz or booked right now, and the Einsatzhistorie', function () {
-    $leader = User::factory()->create(['name' => 'Bernd Blaulicht']);
+    $location = Location::create(['name' => 'Wache Fleetbericht', 'slug' => 'fleet-report']);
+    $leader = User::factory()->create(['name' => 'Bernd Blaulicht', 'ext_location_id' => $location->id]);
+    $this->hanna->forceFill(['ext_location_id' => $location->id])->save();
+    $this->hlf->update(['ext_location_id' => $location->id]);
+    joinIncidentDepartment($this->hanna, $location);
     $leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
     $reports = app(ReportService::class);
     $report = $reports->create($leader);

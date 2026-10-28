@@ -257,6 +257,8 @@ test('linked to an Einsatzbericht: the Trupp is marked unter Atemschutz and show
     $hlf = $reports->addVehicle($leader, $report, Vehicle::factory()->create(['name' => 'HLF 20', 'is_active' => true, 'ext_location_id' => $location->id])->id);
     $this->hanna->forceFill(['ext_location_id' => $location->id])->save();
     $this->bernd->forceFill(['ext_location_id' => $location->id])->save();
+    joinIncidentDepartment($this->hanna, $location);
+    joinIncidentDepartment($this->bernd, $location);
     $reports->assign($leader, $hlf, $this->hanna, 'angriffstrupp');
     $reports->assign($leader, $hlf, $this->bernd, 'angriffstrupp');
 
@@ -328,12 +330,17 @@ test('who may do what, the pages and the PDF', function () {
 });
 
 test('an Einsatz marked unter Atemschutz in the Einsatzbericht counts, also without Überwachung', function () {
-    $leader = User::factory()->create();
+    $location = Location::create(['name' => 'Wache Bericht', 'slug' => 'atemschutz-report']);
+    $leader = User::factory()->create(['ext_location_id' => $location->id]);
     $leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
+    $this->hanna->forceFill(['ext_location_id' => $location->id])->save();
+    $this->bernd->forceFill(['ext_location_id' => $location->id])->save();
+    joinIncidentDepartment($this->hanna, $location);
+    joinIncidentDepartment($this->bernd, $location);
     $reports = app(ReportService::class);
     $report = $reports->create($leader, now()->subDays(3));
     $reports->update($leader, $report, ['keyword' => 'FEU 2']);
-    $hlf = $reports->addVehicle($leader, $report, Vehicle::factory()->create(['is_active' => true])->id);
+    $hlf = $reports->addVehicle($leader, $report, Vehicle::factory()->create(['is_active' => true, 'ext_location_id' => $location->id])->id);
     $reports->assign($leader, $hlf, $this->hanna, 'angriffstrupp', true);
     $reports->assign($leader, $hlf, $this->bernd, 'maschinist');
 

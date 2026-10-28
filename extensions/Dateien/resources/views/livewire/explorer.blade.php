@@ -6,9 +6,16 @@
 <div class="mx-auto max-w-6xl space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
         <h1 class="text-xl font-bold text-gray-900">Dateien</h1>
-        <label class="w-full text-sm sm:w-72"><span class="sr-only">Dateien suchen</span>
-            <input type="search" wire:model.live.debounce.400ms="search" maxlength="100" placeholder="Name suchen …" class="{{ $input }} w-full">
-        </label>
+        <div class="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
+            <label class="min-w-48 flex-1 text-sm sm:w-72 sm:flex-none"><span class="sr-only">Dateien suchen</span>
+                <input type="search" wire:model.live.debounce.400ms="search" maxlength="100" placeholder="Name suchen …" class="{{ $input }} w-full">
+            </label>
+            <div class="inline-flex rounded-lg border border-gray-200 bg-white p-1" role="group" aria-label="Ansicht wählen">
+                <button type="button" wire:click="setLayout('list')" aria-pressed="{{ $layout === 'list' ? 'true' : 'false' }}" class="rounded-md px-2 py-1 text-sm {{ $layout === 'list' ? 'bg-fw-navy text-white' : 'text-fw-navy' }}">Liste</button>
+                <button type="button" wire:click="setLayout('table')" aria-pressed="{{ $layout === 'table' ? 'true' : 'false' }}" class="rounded-md px-2 py-1 text-sm {{ $layout === 'table' ? 'bg-fw-navy text-white' : 'text-fw-navy' }}">Tabelle</button>
+                <button type="button" wire:click="setLayout('tiles')" aria-pressed="{{ $layout === 'tiles' ? 'true' : 'false' }}" class="rounded-md px-2 py-1 text-sm {{ $layout === 'tiles' ? 'bg-fw-navy text-white' : 'text-fw-navy' }}">Kacheln</button>
+            </div>
+        </div>
     </div>
     @if(session('flash'))
         <p role="status" class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{{ session('flash') }}</p>
@@ -26,6 +33,26 @@
             @empty
                 <p class="text-sm text-gray-500">Keine freigegebenen Bereiche.</p>
             @endforelse
+            @if($user->is_admin)
+                <form wire:submit="createSpace" class="space-y-2 border-t border-gray-100 pt-3">
+                    <label class="block text-sm font-medium">Gemeinsame Ablage
+                        <input wire:model="spaceName" required maxlength="255" placeholder="Name der Ablage" class="{{ $input }} mt-1 w-full">
+                    </label>
+                    <button class="{{ $button }} w-full justify-center" wire:loading.attr="disabled">Ablage erstellen</button>
+                </form>
+            @endif
+            @if($currentSpace && $folderTree !== [])
+                <div class="border-t border-gray-100 pt-3">
+                    <h3 class="mb-2 text-sm font-semibold">Ordnerstruktur</h3>
+                    <nav aria-label="Ordnerstruktur" class="max-h-80 space-y-1 overflow-y-auto">
+                        @foreach($folderTree as $treeRow)
+                            <button type="button" wire:click="navigate(null, {{ $treeRow['node']->id }})" style="padding-left: {{ min($treeRow['depth'] * 1.25, 8) }}rem" class="block w-full truncate rounded px-2 py-1 text-left text-sm {{ $folder?->id === $treeRow['node']->id ? 'bg-blue-50 font-semibold text-fw-navy' : 'text-gray-700 hover:bg-gray-50' }}">
+                                <span aria-hidden="true">📁</span> {{ $treeRow['node']->name }}
+                            </button>
+                        @endforeach
+                    </nav>
+                </div>
+            @endif
             <hr class="border-gray-100">
             <button type="button" wire:click="navigate(null, null, 'favorites')" class="block text-sm text-fw-navy">Favoriten</button>
             <button type="button" wire:click="navigate(null, null, 'recent')" class="block text-sm text-fw-navy">Zuletzt verwendet</button>
@@ -80,25 +107,50 @@
                     @include('dateien::partials.upload', ['label' => 'Dateien hochladen', 'multiple' => true, 'parent' => $folder?->id, 'spaceId' => $currentSpace?->id, 'nodeId' => null])
                 </div>
             @endif
-            <div class="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white shadow-sm">
-                @forelse($rows as $row)
-                    <div wire:key="node-{{ $row->id }}" class="flex items-center justify-between gap-3 px-4 py-3">
-                        <div class="min-w-0">
-                            @if($searching)
-                                <button type="button" wire:click="openResult({{ $row->id }})" class="break-words text-left font-semibold text-fw-navy">{{ $row->name }}</button>
-                            @elseif($row->kind === 'folder' && $view !== 'trash')
-                                <button type="button" wire:click="navigate(null, {{ $row->id }})" class="break-words text-left font-semibold text-fw-navy">{{ $row->name }}</button>
-                            @else
-                                <button type="button" wire:click="select({{ $row->id }})" class="break-words text-left font-semibold text-gray-900">{{ $row->name }}</button>
-                            @endif
-                            <p class="text-xs text-gray-500">{{ $row->kind === 'folder' ? 'Ordner' : 'Datei' }}@if($row->trashed()) · Gelöscht {{ $row->deleted_at->timezone('Europe/Berlin')->format('d.m.Y H:i') }}@endif</p>
+            @if($layout === 'table')
+                <div class="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-gray-50 text-xs uppercase text-gray-500">
+                            <tr><th class="px-4 py-3">Name</th><th class="px-4 py-3">Typ</th><th class="px-4 py-3">Aktion</th></tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @forelse($rows as $row)
+                                <tr wire:key="node-{{ $row->id }}">
+                                    <td class="max-w-0 truncate px-4 py-3 font-medium text-fw-navy">
+                                        @if($searching)<button type="button" wire:click="openResult({{ $row->id }})">{{ $row->name }}</button>
+                                        @elseif($row->kind === 'folder' && $view !== 'trash')<button type="button" wire:click="navigate(null, {{ $row->id }})">{{ $row->name }}</button>
+                                        @else<button type="button" wire:click="select({{ $row->id }})">{{ $row->name }}</button>@endif
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-gray-500">{{ $row->kind === 'folder' ? 'Ordner' : 'Datei' }}@if($row->trashed()) · Gelöscht {{ $row->deleted_at->timezone('Europe/Berlin')->format('d.m.Y H:i') }}@endif</td>
+                                    <td class="whitespace-nowrap px-4 py-3"><button type="button" wire:click="{{ $searching ? 'openResult' : 'select' }}({{ $row->id }})" class="{{ $link }}">{{ $searching ? 'Öffnen' : 'Details' }}</button></td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="3" class="px-4 py-6 text-sm text-gray-500">{{ $searching ? 'Keine Treffer.' : 'Keine Einträge.' }}</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            @else
+                <div class="{{ $layout === 'tiles' ? 'grid gap-3 sm:grid-cols-2 lg:grid-cols-3' : 'divide-y divide-gray-100' }} rounded-2xl border border-gray-100 bg-white shadow-sm">
+                    @forelse($rows as $row)
+                        <div wire:key="node-{{ $row->id }}" class="{{ $layout === 'tiles' ? 'min-w-0 rounded-xl p-4' : 'flex items-center justify-between gap-3 px-4 py-3' }}">
+                            <div class="min-w-0">
+                                @if($searching)
+                                    <button type="button" wire:click="openResult({{ $row->id }})" class="break-words text-left font-semibold text-fw-navy">{{ $row->name }}</button>
+                                @elseif($row->kind === 'folder' && $view !== 'trash')
+                                    <button type="button" wire:click="navigate(null, {{ $row->id }})" class="break-words text-left font-semibold text-fw-navy">{{ $layout === 'tiles' ? '📁 ' : '' }}{{ $row->name }}</button>
+                                @else
+                                    <button type="button" wire:click="select({{ $row->id }})" class="break-words text-left font-semibold text-gray-900">{{ $layout === 'tiles' ? '📄 ' : '' }}{{ $row->name }}</button>
+                                @endif
+                                <p class="text-xs text-gray-500">{{ $row->kind === 'folder' ? 'Ordner' : 'Datei' }}@if($row->trashed()) · Gelöscht {{ $row->deleted_at->timezone('Europe/Berlin')->format('d.m.Y H:i') }}@endif</p>
+                            </div>
+                            <button type="button" wire:click="{{ $searching ? 'openResult' : 'select' }}({{ $row->id }})" class="{{ $link }}">{{ $searching ? 'Öffnen' : 'Details' }}</button>
                         </div>
-                        <button type="button" wire:click="{{ $searching ? 'openResult' : 'select' }}({{ $row->id }})" class="{{ $link }}">{{ $searching ? 'Öffnen' : 'Details' }}</button>
-                    </div>
-                @empty
-                    <p class="px-4 py-6 text-sm text-gray-500">{{ $searching ? 'Keine Treffer.' : 'Keine Einträge.' }}</p>
-                @endforelse
-            </div>
+                    @empty
+                        <p class="px-4 py-6 text-sm text-gray-500">{{ $searching ? 'Keine Treffer.' : 'Keine Einträge.' }}</p>
+                    @endforelse
+                </div>
+            @endif
             @if($selected)
                 <section class="space-y-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
                     <div class="flex items-center justify-between gap-3">
@@ -227,7 +279,11 @@
                     <ul class="space-y-1 text-sm">
                         @forelse($permissions as $permission)
                             @php
-                                $subjectList = $permission->subject_type === 'user' ? $subjects['users'] : $subjects['groups'];
+                                $subjectList = match ($permission->subject_type) {
+                                    'user' => $subjects['users'],
+                                    'department' => $subjects['departments'],
+                                    default => $subjects['groups'],
+                                };
                                 $subject = $subjectList->firstWhere('id', $permission->subject_id);
                             @endphp
                             <li class="flex flex-wrap items-center gap-2">
@@ -240,12 +296,12 @@
                     </ul>
                     <form wire:submit="savePermission" class="flex flex-wrap items-end gap-2">
                         <label class="text-sm">Empfängertyp
-                            <select wire:model.live="subjectType" class="{{ $input }} mt-1 block"><option value="user">Kamerad</option><option value="group">Dateigruppe</option></select>
+                            <select wire:model.live="subjectType" class="{{ $input }} mt-1 block"><option value="user">Kamerad</option><option value="department">Abteilung</option><option value="group">Dateigruppe</option></select>
                         </label>
                         <label class="text-sm">Empfänger
                             <select wire:model="subjectId" required class="{{ $input }} mt-1 block">
                                 <option value="">Bitte auswählen</option>
-                                @foreach($subjects[$subjectType === 'user' ? 'users' : 'groups'] as $subject)
+                                @foreach($subjects[match ($subjectType) { 'user' => 'users', 'department' => 'departments', default => 'groups' }] as $subject)
                                     <option value="{{ $subject->id }}">{{ $subject->name }}</option>
                                 @endforeach
                             </select>

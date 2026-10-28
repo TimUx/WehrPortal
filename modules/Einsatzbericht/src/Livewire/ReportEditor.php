@@ -370,17 +370,10 @@ class ReportEditor extends Component
         $report = $this->report->load(['vehicles.crew.user', 'vehicles.vehicle', 'commander', 'closer', 'releaser', 'materials']);
         $user = auth()->user();
         $assigned = $report->vehicles->flatMap->crew->pluck('user_id')->all();
-        $crewOptions = $report->vehicles->mapWithKeys(function (ReportVehicle $reportVehicle) {
-            $locationId = $reportVehicle->vehicle?->getAttribute('ext_location_id');
-            $people = User::active()
-                ->when(config('locations.enabled') && $locationId !== null, fn ($query) => $query->where(function ($members) use ($locationId) {
-                    $members->where('ext_location_id', $locationId)
-                        ->orWhereHas('locations', fn ($locations) => $locations->whereKey($locationId));
-                }))
-                ->orderBy('name')->get(['id', 'name']);
-
-            return [$reportVehicle->id => $people];
-        });
+        $reports = app(ReportService::class);
+        $crewOptions = $report->vehicles->mapWithKeys(fn (ReportVehicle $reportVehicle) => [
+            $reportVehicle->id => $reports->eligibleCrew($reportVehicle),
+        ]);
 
         return view('einsatzbericht::livewire.report-editor', [
             'canEdit' => ReportService::canEdit($user, $report),

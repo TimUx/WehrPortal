@@ -136,12 +136,12 @@ class FileService
         });
     }
 
-    public function upload(User $user, Space $space, ?Node $parent, UploadedFile $file): Node
+    public function upload(User $user, Space $space, ?Node $parent, UploadedFile $file, string $relativePath = ''): Node
     {
         $keys = [];
         try {
-            return $this->mutate($user, $space, function (Space $space) use ($user, $parent, $file, &$keys) {
-                $parent = $this->destination($user, $space, $parent, 'edit');
+            return $this->mutate($user, $space, function (Space $space) use ($user, $parent, $file, $relativePath, &$keys) {
+                $parent = $this->ensureFolders($user, $space, $parent, $relativePath);
                 $name = $this->name($file->getClientOriginalName());
                 $node = Node::create(['space_id' => $space->id, 'parent_id' => $parent?->id, 'name' => $name, 'kind' => 'file']);
                 $this->storeVersion($user, $space, $node, $file, null, $keys);
@@ -154,6 +154,19 @@ class FileService
             $this->cleanup($keys);
             throw $e;
         }
+    }
+
+    /** @param  list<string>  $paths */
+    public function createFolderPaths(User $user, Space $space, ?Node $parent, array $paths): int
+    {
+        return $this->mutate($user, $space, function (Space $space) use ($user, $parent, $paths) {
+            $created = 0;
+            foreach ($paths as $path) {
+                $this->ensureFolders($user, $space, $parent, $path, $created);
+            }
+
+            return $created;
+        });
     }
 
     public function addVersion(User $user, Node $node, UploadedFile $file, ?int $expectedVersion = null): Version
@@ -326,7 +339,7 @@ class FileService
         $this->mutate($user, $space, function (Space $space) use ($user, $target, $subjectType, $subjectId, $level) {
             $target = $target instanceof Node ? $this->freshNode($target, $space) : $space;
             $this->access->authorize($user, $target, 'manage');
-            if ($subjectId < 1 || ! in_array($subjectType, ['user', 'group'], true) || ($level !== null && ! isset(FileAccess::LEVELS[$level]))) {
+            if ($subjectId < 1 || ! in_array($subjectType, ['user', 'group', 'department'], true) || ($level !== null && ! isset(FileAccess::LEVELS[$level]))) {
                 $this->invalid('permission', 'Ungültige Berechtigung.');
             }
             if ($subjectType === 'user' && $level !== null) {
@@ -351,6 +364,12 @@ class FileService
                     && $group->ext_location_id !== null && $group->ext_location_id !== $space->ext_location_id)) {
                     throw new AuthorizationException('Kein Zugriff auf diese Dateigruppe.');
                 }
+            } elseif ($subjectType === 'department' && $level !== null) {
+                $department = DB::table('groups')->where('id', $subjectId)->first(['id', 'ext_location_id']);
+                if (! $department || (config('locations.enabled') && $space->ext_location_id !== null
+                    && (int) $department->ext_location_id !== (int) $space->ext_location_id)) {
+                    throw new AuthorizationException('Keine Freigabe für diese Abteilung möglich.');
+                }
             }
             $key = ['target_type' => $target instanceof Space ? 'space' : 'node', 'target_id' => $target->id, 'subject_type' => $subjectType, 'subject_id' => $subjectId];
             $previous = Permission::where($key)->value('level');
@@ -358,6 +377,9 @@ class FileService
                 Permission::where($key)->delete();
             } else {
                 Permission::updateOrCreate($key, ['level' => $level]);
+                if ($target instanceof Node && $target->kind === 'folder' && $target->inherit_permissions) {
+                    $target->update(['inherit_permissions' => false]);
+                }
                 if ($previous !== $level) {
                     DB::afterCommit(fn () => $this->notifyShared($user, $target, $subjectType, $subjectId, $level));
                 }
@@ -653,6 +675,48 @@ class FileService
         return $parent;
     }
 
+    private function ensureFolders(User $user, Space $space, ?Node $parent, string $path, ?int &$created = null): ?Node
+    {
+        $parent = $this->destination($user, $space, $parent, 'edit');
+        if ($path === '') {
+            return $parent;
+        }
+        if (strlen($path) > 4096 || str_starts_with($path, '/') || str_ends_with($path, '/') || str_contains($path, '\\')) {
+            $this->invalid('path', 'Der Ordnerpfad ist ungültig.');
+        }
+
+        $segments = explode('/', $path);
+        if (count($segments) > 64 || in_array('', $segments, true)) {
+            $this->invalid('path', 'Der Ordnerpfad ist ungültig.');
+        }
+        foreach ($segments as $segment) {
+            $segment = $this->name($segment);
+            $query = Node::query()->where('space_id', $space->id)->where('kind', 'folder')
+                ->whereRaw('lower(name) = lower(?)', [$segment]);
+            $parent ? $query->where('parent_id', $parent->id) : $query->whereNull('parent_id');
+            $folder = $query->first();
+
+            if ($folder) {
+                $parent = $this->freshNode($folder, $space);
+                $this->access->authorize($user, $parent, 'edit');
+
+                continue;
+            }
+
+            $parent = Node::create([
+                'space_id' => $space->id,
+                'parent_id' => $parent?->id,
+                'name' => $segment,
+                'kind' => 'folder',
+            ]);
+            $created = ($created ?? 0) + 1;
+            $this->audit($user, 'folder.created', $space, $parent);
+            $this->collaboration()->notifySubscribers($user, $parent, 'created');
+        }
+
+        return $parent;
+    }
+
     /** @param  array{session: int, autosave: bool}|null  $office  set for saves from the office server */
     private function storeVersion(User $user, Space $space, Node $node, UploadedFile $file, ?int $expected, array &$keys, ?array $office = null): Version
     {
@@ -829,9 +893,11 @@ class FileService
     private function notifyShared(User $actor, Space|Node $target, string $subjectType, int $subjectId, string $level): void
     {
         try {
-            $ids = $subjectType === 'user'
-                ? [$subjectId]
-                : DB::table('x_files_group_members')->where('group_id', $subjectId)->pluck('user_id')->all();
+            $ids = match ($subjectType) {
+                'user' => [$subjectId],
+                'group' => DB::table('x_files_group_members')->where('group_id', $subjectId)->pluck('user_id')->all(),
+                'department' => DB::table('group_user')->where('group_id', $subjectId)->pluck('user_id')->all(),
+            };
             $recipients = User::withoutGlobalScopes()->whereIn('id', $ids)->whereKeyNot($actor->id)->where('is_active', true)->get()
                 ->filter(fn (User $recipient) => $this->access->can($recipient, $target, 'read'));
             foreach ($recipients as $recipient) {
