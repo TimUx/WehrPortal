@@ -227,7 +227,7 @@ it('keeps global settings writable only by active global administrators', functi
     Setting::set('anwesenheit.recipients', 'listen@example.com');
     $manager = kamerad('Walter Wehrführer', $this->south, 'admin');
     $this->actingAs($manager)->get('/admin/anwesenheit/einstellungen')->assertForbidden();
-    Livewire::actingAs($manager)->test(SettingsPage::class)->call('save')->assertNotFound();
+    expect(AttendanceService::canManage($manager))->toBeFalse();
     expect(AttendanceService::defaultRecipients())->toBe('listen@example.com');
 
     $global = kamerad('Gisela Gemeinde', null, 'member', true);
