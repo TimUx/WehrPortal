@@ -29,12 +29,14 @@ class StandardDepartments
                 return;
             }
 
-            foreach (self::NAMES as $index => $name) {
-                Group::withoutGlobalScopes()->firstOrCreate(
-                    ['ext_location_id' => $location->getKey(), 'name' => $name],
-                    ['sort_order' => ($index + 1) * 10],
-                );
-            }
+            Group::withoutEvents(function () use ($location): void {
+                foreach (self::NAMES as $index => $name) {
+                    Group::withoutGlobalScopes()->firstOrCreate(
+                        ['ext_location_id' => $location->getKey(), 'name' => $name],
+                        ['sort_order' => ($index + 1) * 10],
+                    );
+                }
+            });
         });
     }
 }

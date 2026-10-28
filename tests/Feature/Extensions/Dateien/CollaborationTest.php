@@ -56,7 +56,7 @@ test('favourites and recently used only list what is still readable', function (
 test('subscribers of a folder are notified about new files, versions and comments, never without read access', function () {
     Notification::fake();
     $outsider = filesMember('Bernd Blaulicht');
-    $this->files->setPermission($this->admin, $this->space, 'user', $outsider->id, 'read');
+    $this->files->setPermission($this->admin, $this->folder, 'user', $outsider->id, 'read');
     $this->collab->toggleSubscription($this->member, $this->folder);
     $this->collab->toggleSubscription($outsider, $this->folder);
     $this->files->setPermission($this->admin, $this->secret, 'user', $outsider->id, 'read');

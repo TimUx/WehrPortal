@@ -42,7 +42,7 @@ class AttendanceService
         return (bool) config('locations.enabled') && Schema::hasTable('x_locations');
     }
 
-    /** Global admins, Standort-Admins (of their own Standort) and users with the module role "verwalter" */
+    /** Checks access to shared attendance administration; Standort-specific rights are checked with canManageAt(). */
     public static function canManage(User $user): bool
     {
         $roles = app(LocationModuleRoles::class);
@@ -60,7 +60,6 @@ class AttendanceService
         }
 
         return $user->is_admin
-            || (self::locationsOn() && app(LocationAccess::class)->isLocationAdmin($user))
             || $user->moduleAccess()->where('module', 'anwesenheit')->where('role', 'verwalter')->exists()
             || $assignments->hasGlobalModuleRole($user, 'anwesenheit')
             || $user->standardRoleGroupIds('anwesenheit', self::GROUP_ROLES) !== [];
@@ -84,7 +83,8 @@ class AttendanceService
         if (app(LocationModuleRoles::class)->enabled('anwesenheit')) {
             return $user->is_admin || app(LocationModuleRoles::class)->isGlobalAdmin($user)
                 || $user->hasModuleRole('anwesenheit', 'verwalter', $locationId)
-                || app(StandardRoleAssignments::class)->hasGlobalModuleRole($user, 'anwesenheit');
+                || app(StandardRoleAssignments::class)->hasGlobalModuleRole($user, 'anwesenheit')
+                || (self::locationsOn() && in_array($locationId, app(LocationAccess::class)->adminLocationIds($user), true));
         }
 
         return $user->is_admin || $user->hasModuleRole('anwesenheit', 'verwalter', $locationId)

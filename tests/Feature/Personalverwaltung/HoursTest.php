@@ -28,6 +28,7 @@ beforeEach(function () {
     $this->chief->moduleAccess()->create(['module' => 'kalender', 'role' => 'terminverwalter']);
     $this->chief->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
     $this->hanna = User::factory()->create(['name' => 'Hanna Hydrant']);
+    joinIncidentDepartment($this->hanna);
     foreach (['kalender', 'einsatzbericht', 'lehrgaenge', 'schichtplan', 'personalverwaltung'] as $m) {
         $this->hanna->moduleAccess()->create(['module' => $m]);
     }

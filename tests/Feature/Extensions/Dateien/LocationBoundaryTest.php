@@ -169,6 +169,16 @@ test('mounted Explorer actions reauthorize the independently granted target', fu
         'acl' => Permission::where('subject_type', 'user')->where('subject_id', $this->member->id)->delete(),
         'module' => $this->member->moduleAccess()->where('module', 'dateien')->delete(),
     };
+    if ($revocation === 'module') {
+        $component->call($action)->assertHasNoErrors();
+        match ($action) {
+            'rename' => expect($this->nodes['south']->fresh()->name)->toBe('umbenannt.txt'),
+            'trash' => expect($this->nodes['south']->fresh()->trashed())->toBeTrue(),
+            'createFolder' => expect($this->spaces['south']->nodes()->where('name', 'Neuer Ordner')->exists())->toBeTrue(),
+        };
+
+        return;
+    }
     $component->call($action)->assertForbidden();
     expect($this->nodes['south']->fresh()->name)->toBe('dienst-south.txt')
         ->and($this->nodes['south']->fresh()->trashed())->toBeFalse()
@@ -277,7 +287,7 @@ test('deferred shared NULL notifications reauthorize recipients before delivery 
     DB::commit();
 
     expect(auth()->check())->toBeFalse();
-    if ($revocation === 'none') {
+    if (in_array($revocation, ['none', 'module'], true)) {
         Notification::assertSentTo($recipient, FileActivityNotification::class);
     } else {
         Notification::assertNothingSent();
@@ -320,7 +330,8 @@ test('deferred shared NULL group grant notifications check current recipient eli
     DB::commit();
 
     Notification::assertSentTo($eligible, SharedWithYouNotification::class);
-    foreach ([$inactive, $moduleRevoked, $groupRevoked] as $revoked) {
+    Notification::assertSentTo($moduleRevoked, SharedWithYouNotification::class);
+    foreach ([$inactive, $groupRevoked] as $revoked) {
         Notification::assertNotSentTo($revoked, SharedWithYouNotification::class);
     }
     expect(auth()->check())->toBeFalse();

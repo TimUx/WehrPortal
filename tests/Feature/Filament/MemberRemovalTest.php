@@ -5,6 +5,7 @@ use App\Models\ActivityLog;
 use App\Models\Module;
 use App\Models\User;
 use App\Services\MemberRemoval;
+use Extensions\Locations\Models\Location;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Illuminate\Support\Carbon;
@@ -26,20 +27,24 @@ beforeEach(function () {
     Cache::forget('modules_active_keys');
     $this->travelTo(Carbon::parse('2027-05-10 20:00', 'Europe/Berlin'));
 
-    $this->admin = User::factory()->admin()->create(['name' => 'Anna Admin']);
-    $this->hanna = User::factory()->create(['name' => 'Hanna Hydrant']);
+    $location = Location::create(['name' => 'Wache Mitglieder', 'slug' => 'member-removal']);
+    $this->admin = User::factory()->admin()->create(['name' => 'Anna Admin', 'ext_location_id' => $location->id]);
+    $this->hanna = User::factory()->create(['name' => 'Hanna Hydrant', 'ext_location_id' => $location->id]);
+    $this->bernd = User::factory()->create(['name' => 'Bernd Blaulicht', 'ext_location_id' => $location->id]);
+    joinIncidentDepartment($this->hanna, $location);
+    joinIncidentDepartment($this->bernd, $location);
     $this->former = User::factory()->create(['name' => 'Ehemalige Mitglieder', 'status' => 'left']);
     $this->actingAs($this->admin);
 
-    // Hanna's traces: a booking, an event she created, two Einsätze (one together with "Ehemalige Mitglieder")
-    $vehicle = Vehicle::factory()->create(['name' => 'HLF 20', 'is_active' => true]);
+    // Hanna's traces: a booking, an event she created and two eligible Einsatz crews.
+    $vehicle = Vehicle::factory()->create(['name' => 'HLF 20', 'is_active' => true, 'ext_location_id' => $location->id]);
     $this->booking = app(BookingService::class)->create(['vehicle_id' => $vehicle->id, 'purpose' => 'Übungsfahrt',
         'starts_at' => now()->addDay(), 'ends_at' => now()->addDay()->addHours(2)], $this->hanna->id);
     $this->event = app(EventService::class)->create(['title' => 'Übung', 'type' => 'uebung', 'starts_at' => now()->addDays(2), 'ends_at' => now()->addDays(2)->addHours(2)], [], null)->first();
     $this->event->forceFill(['created_by' => $this->hanna->id])->save();
 
     $reports = app(ReportService::class);
-    foreach ([[$this->hanna, $this->former], [$this->hanna]] as $i => $crew) {
+    foreach ([[$this->hanna, $this->bernd], [$this->hanna]] as $i => $crew) {
         $report = $reports->create($this->admin, now()->subDays($i + 1));
         $onVehicle = $reports->addVehicle($this->admin, $report, $vehicle->id);
         foreach ($crew as $person) {

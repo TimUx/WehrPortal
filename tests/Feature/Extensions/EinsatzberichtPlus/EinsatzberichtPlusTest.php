@@ -17,16 +17,20 @@ use Modules\Einsatzbericht\src\Services\ReportService;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 
 beforeEach(function () {
+    config(['locations.enabled' => true]);
     Module::where('key', 'einsatzbericht')->update(['is_active' => true]);
     Module::where('key', 'fahrzeuge')->update(['is_active' => true]);
     Cache::forget('modules_active_keys');
     $this->travelTo(Carbon::parse('2027-05-10 20:00', 'Europe/Berlin'));
 
-    $this->leader = User::factory()->create(['name' => 'Bernd Blaulicht', 'is_admin' => true]);
+    $location = Location::create(['name' => 'Wache Einsatzbericht Plus', 'slug' => 'ebp-test']);
+    $this->leader = User::factory()->create(['name' => 'Bernd Blaulicht', 'is_admin' => true, 'ext_location_id' => $location->id]);
     $this->leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
-    $this->member = User::factory()->create(['name' => 'Hanna Hydrant']);
+    $this->member = User::factory()->create(['name' => 'Hanna Hydrant', 'ext_location_id' => $location->id]);
     $this->member->moduleAccess()->create(['module' => 'einsatzbericht']);
-    $this->hlf = Vehicle::factory()->create(['name' => 'HLF 20', 'is_active' => true]);
+    joinIncidentDepartment($this->leader, $location);
+    joinIncidentDepartment($this->member, $location);
+    $this->hlf = Vehicle::factory()->create(['name' => 'HLF 20', 'is_active' => true, 'ext_location_id' => $location->id]);
 
     $this->r = app(ReportService::class);
     $this->report = $this->r->create($this->leader, Carbon::parse('2027-05-10 19:12', 'Europe/Berlin'));
@@ -60,7 +64,9 @@ it('shows under- and over-filled crews in the editor but still lets the report b
         ->assertSee('unter Sollbesatzung');
 
     foreach (['Ida Impuls', 'Jonas Jet', 'Karla Kübel'] as $name) {
-        $this->r->assign($this->leader, $this->rv, User::factory()->create(['name' => $name]));
+        $member = User::factory()->create(['name' => $name, 'ext_location_id' => $this->hlf->ext_location_id]);
+        joinIncidentDepartment($member, Location::findOrFail($this->hlf->ext_location_id));
+        $this->r->assign($this->leader, $this->rv, $member);
     }
     Livewire::test(ReportEditor::class, ['report' => $this->report->refresh()])
         ->assertSeeHtml('data-crew-check="over"')
@@ -139,7 +145,7 @@ it('adds an external vehicle as free text', function () {
 
 it('refuses users without the Einsatzleiter role', function () {
     $this->actingAs($this->member);
-    Livewire::test(Extras::class, ['reportId' => $this->report->id])->assertForbidden();
+    Livewire::test(Extras::class, ['reportId' => $this->report->id])->assertNotFound();
 });
 
 it('refuses editing a released report for the Einsatzleiter', function () {

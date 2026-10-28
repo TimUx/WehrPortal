@@ -27,7 +27,7 @@ use Livewire\Livewire;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 beforeEach(function () {
-    config(['locations.scoped_role_modules' => ['anwesenheit']]);
+    config(['locations.enabled' => true, 'locations.scoped_role_modules' => ['anwesenheit']]);
     Module::where('key', 'anwesenheit')->update(['is_active' => true, 'auto_assign' => false]);
     app(ModuleRegistry::class)->clearCache();
     $this->roles = app(LocationModuleRoles::class);
@@ -38,7 +38,7 @@ beforeEach(function () {
     DB::table('x_location_user')->where('user_id', $this->member->id)->delete();
     DB::table('x_location_user')->updateOrInsert(
         ['location_id' => $this->b->id, 'user_id' => $this->member->id],
-        ['role' => 'admin'],
+        ['role' => 'member'],
     );
     $this->grant = fn (?string $role = 'verwalter', ?Location $at = null, ?string $expires = null) => $this->roles->grant(
         $this->admin, ($at ?? $this->a)->id, $this->member->id, 'anwesenheit', $role, 'Ausdrückliche Testzuweisung', $expires);
@@ -426,8 +426,13 @@ it('reauthorizes attendance template target writes and rejects forged locations'
     ($this->grant)();
     ($this->grant)(null, $this->b);
     Livewire::actingAs($this->member)->test(CreateTemplate::class)
-        ->fillForm(['name' => 'Nicht erlaubt', 'kind' => 'uebung', 'ext_location_id' => $this->b->id])
-        ->call('create')->assertHasFormErrors(['ext_location_id']);
+        ->fillForm([
+            'name' => 'Nicht erlaubt',
+            'kind' => 'uebung',
+            'ext_location_id' => $this->b->id,
+            'group_id' => $this->b->groups()->where('name', 'Einsatzabteilung')->value('id'),
+        ])
+        ->call('create')->assertForbidden();
     $template = AttendanceTemplate::create(['name' => 'Vorlage', 'kind' => 'uebung', 'ext_location_id' => $this->a->id]);
     $component = Livewire::actingAs($this->member)->test(EditTemplate::class, ['record' => $template->id])
         ->assertOk()->fillForm(['name' => 'Nach Entzug']);

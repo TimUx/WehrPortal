@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Group;
 use App\Models\Module;
 use App\Models\Setting;
 use App\Models\User;
@@ -107,13 +108,17 @@ it('counts active primary or explicitly associated personnel once with exact loc
         ['user_id' => $member->id, 'location_id' => $this->north->id, 'role' => 'member'],
         ['user_id' => $secondary->id, 'location_id' => $this->north->id, 'role' => 'member'],
     ], ['location_id', 'user_id'], ['role']);
-    $local = DB::table('groups')->insertGetId(['name' => 'Einsatzabteilung', 'ext_location_id' => $this->north->id]);
+    $local = $this->north->groups()->where('name', 'Einsatzabteilung')->value('id');
     $foreign = DB::table('groups')->insertGetId(['name' => 'Fremde Abteilung', 'ext_location_id' => $this->south->id]);
     foreach ([$local, $foreign] as $id) {
         DB::table('group_user')->insert(['group_id' => $id, 'user_id' => $member->id]);
     }
+    $departmentCounts = $this->north->groups()->orderBy('id')->get()->map(fn (Group $group) => [
+        'department_id' => $group->id,
+        'member_count' => $group->id === $local ? 1 : 0,
+    ])->all();
     expect($this->projections->read($this->reader, $this->north->id, 'personnel_summary'))->toBe([
-        'active_member_count' => 2, 'department_counts' => [['department_id' => $local, 'member_count' => 1]],
+        'active_member_count' => 2, 'department_counts' => $departmentCounts,
     ]);
 });
 
