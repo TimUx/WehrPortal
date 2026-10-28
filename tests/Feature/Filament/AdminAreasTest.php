@@ -81,6 +81,7 @@ test('global search only offers resources of the own area', function () {
 });
 
 test('the Wehrführung and Personalverwalter find their module settings in /admin', function () {
+    config(['locations.enabled' => false]);
     Module::query()->whereIn('key', ['einsatzbericht', 'personalverwaltung'])->update(['is_active' => true]);
     Cache::forget('modules_active_keys');
     $chief = User::factory()->create(['name' => 'Bernd Blaulicht']);

@@ -2,14 +2,17 @@
 
 namespace Modules\Ausruestung\src\Notifications;
 
+use App\Models\User;
 use App\Notifications\Concerns\InApp;
 use App\Services\OrganizationSettings;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Collection;
+use Modules\Ausruestung\src\Filament\Resources\EquipmentResource;
 use Modules\Ausruestung\src\Filament\Resources\RecallResource;
 use Modules\Ausruestung\src\Models\Equipment;
 use Modules\Ausruestung\src\Models\Recall;
+use Modules\Ausruestung\src\Services\EquipmentService;
 
 /** Items were found for a manufacturer recall and locked */
 class RecallMatchedNotification extends Notification
@@ -34,8 +37,15 @@ class RecallMatchedNotification extends Notification
             $mail->line('… und '.($this->equipment->count() - 20).' weitere.');
         }
 
+        $url = $notifiable instanceof User && ! EquipmentService::canManageGlobal($notifiable)
+            ? EquipmentResource::getUrl()
+            : RecallResource::getUrl('edit', ['record' => $this->recall]);
+        $label = $notifiable instanceof User && ! EquipmentService::canManageGlobal($notifiable)
+            ? 'Ausrüstung öffnen'
+            : 'Rückruf öffnen';
+
         return $mail
-            ->action('Rückruf öffnen', RecallResource::getUrl('edit', ['record' => $this->recall]))
+            ->action($label, $url)
             ->salutation(app(OrganizationSettings::class)->salutation());
     }
 }

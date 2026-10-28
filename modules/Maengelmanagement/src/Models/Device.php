@@ -3,16 +3,21 @@
 namespace Modules\Maengelmanagement\src\Models;
 
 use App\Models\User;
+use Extensions\Locations\Models\Location as Standort;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/** Something a defect can be reported for. The code on its QR label opens the report form. */
+/**
+ * Something a defect can be reported for. The code on its QR label opens the report form.
+ *
+ * @property-read ?Standort $site
+ */
 class Device extends Model
 {
     protected $table = 'mm_devices';
 
-    protected $fillable = ['code', 'name', 'location', 'description', 'is_active', 'responsible_id'];
+    protected $fillable = ['code', 'name', 'location', 'description', 'is_active', 'responsible_id', 'ext_location_id'];
 
     protected function casts(): array
     {
@@ -45,6 +50,11 @@ class Device extends Model
     public function responsible(): BelongsTo
     {
         return $this->belongsTo(User::class, 'responsible_id');
+    }
+
+    public function site(): BelongsTo
+    {
+        return $this->belongsTo(Standort::class, 'ext_location_id');
     }
 
     public function defects(): HasMany

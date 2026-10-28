@@ -13,7 +13,7 @@ class AttendancePdf
 
     public function render(AttendanceList $list): string
     {
-        $list->loadMissing(['leader', 'participants', 'creator']);
+        $list->loadMissing(['leader', 'participants', 'creator', 'group']);
 
         return Pdf::loadView('anwesenheit::pdf.list', ['list' => $list, 'org' => $this->org->name()])->setPaper('a4')->output();
     }

@@ -3,6 +3,7 @@
 namespace Modules\Maengelmanagement\src\Models;
 
 use App\Models\User;
+use Extensions\Locations\Models\Location as Standort;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -18,6 +19,7 @@ class Defect extends Model
     protected $fillable = [
         'device_id', 'vehicle_id', 'location', 'title', 'description', 'urgency', 'status',
         'reporter_id', 'assigned_to', 'resolved_at', 'question_open_at', 'equipment_id', 'ar_damage_id', 'reminded_at',
+        'ext_location_id',
     ];
 
     /** How long the reporter may say "doch nicht behoben" after it was closed */
@@ -37,6 +39,11 @@ class Defect extends Model
     public function device(): BelongsTo
     {
         return $this->belongsTo(Device::class);
+    }
+
+    public function site(): BelongsTo
+    {
+        return $this->belongsTo(Standort::class, 'ext_location_id');
     }
 
     public function vehicle(): BelongsTo

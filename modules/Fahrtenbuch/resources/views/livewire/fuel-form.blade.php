@@ -5,8 +5,9 @@
     <section class="space-y-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label class="block text-sm text-gray-700">Fahrzeug
-                <select wire:model.live="vehicleId" class="{{ $input }}"><option value="">– bitte wählen –</option>@foreach($vehicles as $v)<option value="{{ $v->id }}">{{ $v->name }}</option>@endforeach</select>
+                <select wire:model.live="vehicleId" class="{{ $input }}"><option value="">– bitte wählen –</option>@foreach($vehicles as $v)<option value="{{ $v->id }}">{{ $v->name }}{{ $v->standort ? ' ('.$v->standort->name.')' : '' }}</option>@endforeach</select>
             </label>
+            @if($selectedVehicle?->standort)<p class="text-xs text-gray-500">Standort: {{ $selectedVehicle->standort->name }}</p>@endif
             <label class="block text-sm text-gray-700">Zeitpunkt<input type="datetime-local" wire:model="fueledAt" class="{{ $input }}"></label>
             <label class="block text-sm text-gray-700">Kilometerstand<input type="number" inputmode="numeric" wire:model="km" class="{{ $input }}"></label>
             <label class="block text-sm text-gray-700">Kraftstoff

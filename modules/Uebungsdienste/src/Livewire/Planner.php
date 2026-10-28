@@ -12,7 +12,8 @@ use Modules\Uebungsdienste\src\Services\ServicePlan;
 
 /**
  * The Übungsdienstplan of a year: the next Dienst on top, the coming ones below (past ones on
- * request). The Wehrführung plans services for their Standort; admins can manage all Standorte.
+ * request). Planners manage only the groups and Standorte in their role; global roles and admins can
+ * manage the matching groups across all Standorte.
  */
 class Planner extends Component
 {

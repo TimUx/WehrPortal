@@ -40,6 +40,16 @@
                     @error('form.ext_location_id')<span class="{{ $error }}">{{ $message }}</span>@enderror
                 </label>
             @endif
+            @if($locationsOn)
+                <label class="block text-sm text-gray-700">Abteilung
+                    <select wire:model.live="form.group_id" class="{{ $input }}">
+                        <option value="">Bitte auswählen</option>
+                        @foreach($groups as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
+                    </select>
+                    @error('form.group_id')<span class="{{ $error }}">{{ $message }}</span>@enderror
+                    @if(!$groups)<span class="text-xs text-gray-500">Für diesen Standort ist noch keine Abteilung angelegt.</span>@endif
+                </label>
+            @endif
             <label class="block text-sm text-gray-700">{{ __('anwesenheit::messages.starts_at') }}
                 <input type="datetime-local" wire:model="form.starts_at" data-offline-draft-field class="{{ $input }}">
                 @error('form.starts_at')<span class="{{ $error }}">{{ $message }}</span>@enderror

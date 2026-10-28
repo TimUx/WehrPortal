@@ -2,16 +2,19 @@
 
 namespace Modules\Ausruestung\src\Filament\Resources;
 
+use Extensions\Locations\Models\Location as Standort;
 use Filament\Actions;
 use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Modules\Ausruestung\src\Filament\Concerns\AusruestungArea;
 use Modules\Ausruestung\src\Filament\Resources\LocationResource\Pages;
 use Modules\Ausruestung\src\Filament\Resources\LocationResource\RelationManagers\CompartmentsRelationManager;
 use Modules\Ausruestung\src\Models\Location;
+use Modules\Ausruestung\src\Services\EquipmentService;
 
 /** Rooms, stores and vehicles, with their Geräteräume and Soll-Beladung */
 class LocationResource extends Resource
@@ -34,13 +37,45 @@ class LocationResource extends Resource
 
     protected static ?int $navigationSort = 61;
 
+    public static function canAccess(): bool
+    {
+        return static::canAccessArea() && EquipmentService::canManage(auth()->user());
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        if (config('locations.enabled') && $user) {
+            $query->where(function (Builder $query) use ($user): void {
+                $query->whereIn('ext_location_id', EquipmentService::manageableLocationIds($user));
+                if ($user->is_admin) {
+                    $query->orWhereNull('ext_location_id');
+                }
+            });
+        }
+
+        return $query;
+    }
+
     public static function form(Schema $schema): Schema
     {
-        return $schema->components([
+        $components = [
             Forms\Components\TextInput::make('name')->label('Name')->required()->maxLength(255)->placeholder('z. B. HLF 20 oder Gerätehaus, Lager 1'),
             Forms\Components\Select::make('kind')->label('Art')->options(Location::KINDS)->default(Location::ROOM)->required()->native(false),
             Forms\Components\Textarea::make('description')->label('Beschreibung')->rows(2)->columnSpanFull(),
-        ]);
+        ];
+        if (config('locations.enabled')) {
+            $components[] = Forms\Components\Select::make('ext_location_id')
+                ->label('Organisatorischer Standort')
+                ->options(fn () => Standort::query()->whereIn('id', EquipmentService::manageableLocationIds(auth()->user()))
+                    ->orderBy('name')->pluck('name', 'id'))
+                ->required()
+                ->searchable();
+        }
+
+        return $schema->components($components);
     }
 
     public static function table(Table $table): Table
@@ -48,6 +83,7 @@ class LocationResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')->label('Name')->searchable(),
+                Tables\Columns\TextColumn::make('standort.name')->label('Standort')->placeholder('–')->visible(config('locations.enabled')),
                 Tables\Columns\TextColumn::make('kind')->label('Art')->badge()->formatStateUsing(fn (string $state) => Location::KINDS[$state] ?? $state),
                 Tables\Columns\TextColumn::make('compartments_count')->label('Geräteräume')->counts('compartments'),
                 Tables\Columns\TextColumn::make('equipment_count')->label('Geräte')->counts('equipment'),

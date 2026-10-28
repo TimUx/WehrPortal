@@ -27,6 +27,9 @@ class LoanService
 
         return DB::transaction(function () use ($equipment, $borrower, $by, $from, $until, $notes) {
             $equipment = Equipment::whereKey($equipment->id)->lockForUpdate()->firstOrFail();
+            if ($by && ! EquipmentService::canViewEquipment($by, $equipment)) {
+                throw ValidationException::withMessages(['equipment_id' => 'Du darfst dieses Gerät an dem Standort nicht aufrufen.']);
+            }
 
             if (in_array($equipment->status, [EquipmentStatus::Retired, EquipmentStatus::Locked, EquipmentStatus::Defective, EquipmentStatus::InRepair], true)) {
                 throw ValidationException::withMessages(['equipment_id' => 'Das Gerät ist zurzeit nicht ausleihbar ('.$equipment->status->label().').']);
@@ -54,6 +57,10 @@ class LoanService
     /** Lend right away: a reservation from now that is handed out at once */
     public function lend(Equipment $equipment, User $borrower, ?User $by, Carbon $until, ?string $notes = null): Loan
     {
+        if ($by) {
+            $this->equipment->assertCanManageEquipment($by, $equipment);
+        }
+
         return DB::transaction(function () use ($equipment, $borrower, $by, $until, $notes) {
             $loan = $this->reserve($equipment, $borrower, $by, now(), $until, $notes);
             $this->handOut($loan, $by);
@@ -66,6 +73,9 @@ class LoanService
     {
         DB::transaction(function () use ($loan, $by) {
             $equipment = Equipment::whereKey($loan->equipment_id)->lockForUpdate()->firstOrFail();
+            if ($by) {
+                $this->equipment->assertCanManageEquipment($by, $equipment);
+            }
             $loan->refresh();
 
             if ($loan->status !== LoanStatus::Reserved) {
@@ -90,6 +100,9 @@ class LoanService
     {
         DB::transaction(function () use ($loan, $by, $damage) {
             $equipment = Equipment::whereKey($loan->equipment_id)->lockForUpdate()->firstOrFail();
+            if ($by && ! EquipmentService::canViewEquipment($by, $equipment)) {
+                throw ValidationException::withMessages(['loan' => 'Du darfst dieses Gerät an dem Standort nicht verwalten.']);
+            }
             $loan->refresh();
 
             if ($loan->status !== LoanStatus::Active) {
@@ -112,11 +125,15 @@ class LoanService
 
     public function cancel(Loan $loan, ?User $by): void
     {
+        $equipment = Equipment::withoutGlobalScopes()->findOrFail($loan->equipment_id);
+        if ($by && ! EquipmentService::canViewEquipment($by, $equipment)) {
+            throw ValidationException::withMessages(['loan' => 'Du darfst dieses Gerät an dem Standort nicht verwalten.']);
+        }
         if ($loan->status !== LoanStatus::Reserved) {
             throw ValidationException::withMessages(['loan' => 'Nur eine Reservierung kann storniert werden.']);
         }
 
         $loan->update(['status' => LoanStatus::Cancelled]);
-        $this->equipment->log($loan->equipment, $by, 'loan', 'Reservierung von '.$loan->user->name.' storniert');
+        $this->equipment->log($equipment, $by, 'loan', 'Reservierung von '.$loan->user->name.' storniert');
     }
 }

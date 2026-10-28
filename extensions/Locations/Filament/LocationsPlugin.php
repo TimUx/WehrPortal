@@ -22,7 +22,7 @@ class LocationsPlugin implements Plugin
     public function register(Panel $panel): void
     {
         $panel->resources([LocationResource::class])
-            ->pages([MyLocationPage::class])
+            ->pages([MyLocationPage::class, StandardRolesPage::class, LeadershipOverviewPage::class])
             ->renderHook(PanelsRenderHook::USER_MENU_PROFILE_AFTER, fn () => view('locations::partials.switcher'));
     }
 

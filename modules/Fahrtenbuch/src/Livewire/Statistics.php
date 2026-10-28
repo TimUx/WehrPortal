@@ -19,7 +19,7 @@ class Statistics extends Component
 
     public function render(LogbookService $logbook)
     {
-        $rows = $logbook->statistics($this->year);
+        $rows = $logbook->statistics($this->year, auth()->user());
 
         return view('fahrtenbuch::livewire.statistics', [
             'rows' => $rows,

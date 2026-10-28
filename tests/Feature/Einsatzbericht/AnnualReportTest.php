@@ -42,7 +42,7 @@ test('the Jahresbericht brings together what every switched-on module knows abou
 
     // Dienste with attendance, a Lehrgang, a trip, the career
     $events = app(EventService::class);
-    $dienst = $events->create(['title' => 'Übung', 'type' => 'uebung', 'starts_at' => Carbon::parse('2027-06-01 19:00', 'Europe/Berlin'), 'ends_at' => Carbon::parse('2027-06-01 21:00', 'Europe/Berlin')], [], $this->chief)->first();
+    $dienst = $events->create(['title' => 'Übung', 'type' => 'uebung', 'starts_at' => Carbon::parse('2027-06-01 19:00', 'Europe/Berlin'), 'ends_at' => Carbon::parse('2027-06-01 21:00', 'Europe/Berlin')], [], null)->first();
     $events->setAttendance($dienst, $this->hanna, true, $this->chief);
     $course = Course::create(['name' => 'Truppmann Teil 1']);
     Record::create(['user_id' => $this->hanna->id, 'course_id' => $course->id, 'status' => 'completed', 'completed_on' => '2027-09-12']);

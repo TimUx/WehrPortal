@@ -100,7 +100,7 @@ class FahrzeugeServiceProvider extends ServiceProvider
                 return null;
             }
             $like = '%'.$term.'%';
-            $vehicles = Vehicle::query()->where(fn ($q) => $q->where('name', 'ilike', $like)->orWhere('short_name', 'ilike', $like)
+            $vehicles = FleetService::vehiclesFor($user)->where(fn ($q) => $q->where('name', 'ilike', $like)->orWhere('short_name', 'ilike', $like)
                 ->orWhereIn('id', Profile::where('call_sign', 'ilike', $like)->orWhere('license_plate', 'ilike', $like)
                     ->orWhere('vin', 'ilike', $like)->orWhere('vehicle_type', 'ilike', $like)->select('vehicle_id')))
                 ->orderBy('sort_order')->orderBy('name')->get();
@@ -116,8 +116,10 @@ class FahrzeugeServiceProvider extends ServiceProvider
                 return null;
             }
 
+            $locationIds = FleetService::vehicleLocationScope($user);
+
             return Profile::with('vehicle')->whereNotNull('replacement_year')->where('replacement_year', '<=', $to)
-                ->whereHas('vehicle', fn ($q) => $q->where('is_active', true))->get()
+                ->whereHas('vehicle', fn ($q) => $q->where('is_active', true)->when($locationIds !== null, fn ($q) => $q->whereIn('ext_location_id', $locationIds)))->get()
                 ->map(fn ($p) => ['year' => $p->replacement_year, 'title' => $p->vehicle->name, 'detail' => collect(['Ersatzbeschaffung',
                     $p->purchased_on ? 'beschafft '.$p->purchased_on->format('Y') : ($p->year_built ? 'Baujahr '.$p->year_built : null)])->filter()->implode(' · '),
                     'cost_cents' => $p->replacement_cost_cents, 'url' => route('fahrzeuge.show', $p->vehicle_id)]);
@@ -125,12 +127,13 @@ class FahrzeugeServiceProvider extends ServiceProvider
 
         // Start page: the fleet at a glance, overdue deadlines for the Fahrzeugwarte
         app(DashboardRegistry::class)->register('fahrzeuge', 'fleet', function (User $user) {
-            $vehicles = Vehicle::where('is_active', true)->get();
+            $vehicles = FleetService::vehiclesFor($user)->where('is_active', true)->get();
             if ($vehicles->isEmpty()) {
                 return null;
             }
             $states = app(FleetService::class)->states($vehicles)->groupBy('tone')->map->count();
-            $overdue = FleetService::canManage($user) ? Deadline::active()->where('due_on', '<', FleetService::today()->toDateString())->count() : 0;
+            $overdue = FleetService::canManage($user) ? Deadline::active()->whereIn('vehicle_id', $vehicles->pluck('id'))
+                ->where('due_on', '<', FleetService::today()->toDateString())->count() : 0;
 
             return view('fahrzeuge::cards.fleet', ['total' => $vehicles->count(), 'states' => $states, 'overdue' => $overdue])->render();
         });

@@ -8,6 +8,7 @@ use Livewire\WithPagination;
 use Modules\Ausruestung\src\Enums\EquipmentStatus;
 use Modules\Ausruestung\src\Models\Category;
 use Modules\Ausruestung\src\Models\Equipment;
+use Modules\Ausruestung\src\Services\EquipmentService;
 
 /** Every member sees the equipment with status, place and inspection date */
 class EquipmentList extends Component
@@ -30,7 +31,12 @@ class EquipmentList extends Component
 
     public function render()
     {
-        $equipment = Equipment::with(['category', 'location', 'compartment.location'])
+        $relations = ['category', 'location', 'compartment.location'];
+        if (config('locations.enabled', false)) {
+            $relations[] = 'standort';
+        }
+
+        $equipment = EquipmentService::equipmentFor(auth()->user())->with($relations)
             ->inService()
             ->when(trim($this->search) !== '', function ($q) {
                 $term = '%'.trim($this->search).'%';

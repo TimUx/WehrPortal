@@ -7,7 +7,7 @@ use App\Models\User;
 use App\Services\ImageResizer;
 use App\Services\ModuleRegistry;
 use App\Support\SignatureImage;
-use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -73,7 +73,116 @@ class WartungService
     /** Gerätewart and Prüfer: carry out Wartungen and sign the protocol */
     public static function canPerform(User $user): bool
     {
-        return self::canManage($user) || (self::canView($user) && $user->hasModuleRole(self::MODULE, 'pruefer'));
+        return self::canManage($user) || (self::canView($user)
+            && ($user->hasAnyModuleRole(self::MODULE, 'geraetewart') || $user->hasAnyModuleRole(self::MODULE, 'pruefer')));
+    }
+
+    public static function canManageOnEquipment(User $user, Equipment $equipment): bool
+    {
+        if (! self::equipmentExists($equipment)) {
+            return false;
+        }
+        $locationId = self::equipmentLocationId($equipment);
+
+        return self::canView($user)
+            && ($user->is_admin || $user->hasModuleRole(self::MODULE, 'geraetewart', $locationId));
+    }
+
+    public static function canPerformOnEquipment(User $user, Equipment $equipment): bool
+    {
+        if (! self::equipmentExists($equipment)) {
+            return false;
+        }
+        $locationId = self::equipmentLocationId($equipment);
+
+        return self::canView($user)
+            && ($user->is_admin
+                || $user->hasModuleRole(self::MODULE, 'geraetewart', $locationId)
+                || $user->hasModuleRole(self::MODULE, 'pruefer', $locationId));
+    }
+
+    /** Null preserves the existing global module access; an empty list denies scoped records. */
+    public static function locationScope(User $user): ?array
+    {
+        if (self::canManage($user) || $user->hasModuleRole(self::MODULE, 'pruefer')) {
+            return null;
+        }
+
+        if ($user->hasAnyModuleRole(self::MODULE, 'geraetewart') || $user->hasAnyModuleRole(self::MODULE, 'pruefer')) {
+            return $user->standardRoleLocationIds(self::MODULE, ['geraetewart', 'pruefer']);
+        }
+
+        return null;
+    }
+
+    public static function canViewEquipment(User $user, Equipment $equipment): bool
+    {
+        if (! self::equipmentExists($equipment)) {
+            return false;
+        }
+        $locations = self::locationScope($user);
+
+        $locationId = self::equipmentLocationId($equipment);
+
+        return self::canView($user) && ($locations === null || ($locationId !== null && in_array($locationId, $locations, true)));
+    }
+
+    public static function canViewProtocol(User $user, Protocol $protocol): bool
+    {
+        $locations = self::locationScope($user);
+        if (! self::canView($user) || $locations === []) {
+            return false;
+        }
+        if ($locations === null) {
+            return true;
+        }
+        $equipmentId = DB::table('wm_protocols')->where('id', $protocol->getKey())->value('equipment_id');
+        if ($equipmentId === null) {
+            return false;
+        }
+
+        $locationId = DB::table('ar_equipment')->where('id', $equipmentId)->value('ext_location_id');
+
+        return $locationId !== null && in_array((int) $locationId, $locations, true);
+    }
+
+    /** @param Builder<Task> $query
+     * @return Builder<Task>
+     */
+    public static function scopeTasksFor(User $user, Builder $query): Builder
+    {
+        $locations = self::locationScope($user);
+        if ($locations === []) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $locations === null ? $query : $query->whereHas('equipment', fn ($equipment) => $equipment->whereIn('ext_location_id', $locations));
+    }
+
+    /** @param Builder<Protocol> $query
+     * @return Builder<Protocol>
+     */
+    public static function scopeProtocolsFor(User $user, Builder $query): Builder
+    {
+        $locations = self::locationScope($user);
+        if ($locations === []) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $locations === null ? $query : $query->whereHas('equipment', fn ($equipment) => $equipment->whereIn('ext_location_id', $locations));
+    }
+
+    /** @return Builder<Equipment> */
+    public static function performableEquipmentFor(User $user): Builder
+    {
+        $query = Equipment::query();
+        $locations = self::locationScope($user);
+
+        if ($locations === []) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $locations === null ? $query : $query->whereIn('ext_location_id', $locations);
     }
 
     public static function today(): Carbon
@@ -84,16 +193,6 @@ class WartungService
     public static function hourlyRateCents(): int
     {
         return (int) Setting::get(self::HOURLY_RATE_SETTING, 0);
-    }
-
-    /** Who gets the reminders; admins when nobody has the role */
-    public function managers(): EloquentCollection
-    {
-        $managers = User::active()
-            ->whereHas('moduleAccess', fn ($q) => $q->where('module', self::MODULE)->where('role', 'geraetewart'))
-            ->get();
-
-        return $managers->isNotEmpty() ? $managers : User::active()->where('is_admin', true)->get();
     }
 
     // ─── templates, Fachfirmen, qualifications, settings ─────────────────────
@@ -326,7 +425,7 @@ class WartungService
     /** An ad hoc Wartung, e.g. after an Einsatz or when a Fachfirma comes anyway */
     public function planAdHoc(User $by, Equipment $equipment, ?Template $template, string $dueOn, ?int $providerId, ?string $notes): Task
     {
-        $this->assertManager($by);
+        $this->assertManagerOnEquipment($by, $equipment);
         try {
             $due = Carbon::createFromFormat('!Y-m-d', $dueOn);
         } catch (Throwable) {
@@ -334,6 +433,9 @@ class WartungService
         }
         if ($template === null && $this->text($notes, 500) === null) {
             throw ValidationException::withMessages(['notes' => 'Bitte angeben, was gemacht werden soll – oder eine Vorlage wählen.']);
+        }
+        if ($template && (! $template->is_active || ! $template->devices()->whereKey($equipment->id)->exists())) {
+            throw ValidationException::withMessages(['template_id' => 'Diese Vorlage gilt nicht für das gewählte Gerät.']);
         }
         if ($template && Task::open()->where('template_id', $template->id)->where('equipment_id', $equipment->id)->exists()) {
             throw ValidationException::withMessages(['template_id' => 'Für dieses Gerät ist diese Wartung schon offen.']);
@@ -348,7 +450,11 @@ class WartungService
 
     public function cancelTask(User $by, Task $task): void
     {
-        $this->assertManager($by);
+        $equipment = $task->equipment;
+        if (! $equipment) {
+            throw ValidationException::withMessages(['wartung' => 'Für diese Wartung ist kein Gerät mehr zugeordnet.']);
+        }
+        $this->assertManagerOnEquipment($by, $equipment);
         if ($task->status === 'open') {
             $task->update(['status' => 'cancelled']);
         }
@@ -377,6 +483,12 @@ class WartungService
         }
         $template = $task?->template ?? (filled($data['template_id'] ?? null) ? Template::find((int) $data['template_id']) : null);
         $equipment = $task?->equipment ?? Equipment::find((int) ($data['equipment_id'] ?? 0));
+        if (! $equipment || ! self::canPerformOnEquipment($by, $equipment)) {
+            throw ValidationException::withMessages(['equipment_id' => 'Du darfst dieses Gerät an dem Standort nicht warten.']);
+        }
+        if ($template && (! $template->is_active || ! $template->devices()->whereKey($equipment->id)->exists())) {
+            throw ValidationException::withMessages(['template_id' => 'Diese Vorlage gilt nicht für das gewählte Gerät.']);
+        }
         $clean = $this->validateProtocol($by, $data, $template, $equipment);
         $png = SignatureImage::fromDataUrl($signature, 'signature');
         $attachments = $this->prepareAttachments($files);
@@ -413,9 +525,9 @@ class WartungService
         try {
             $note = 'Prüfprotokoll '.$protocol->code().($protocol->findings ? ': '.$protocol->findings : '');
             if ($countsAsInspection) {
-                $this->equipment->recordInspection($equipment, $by, $protocol->performed_on->copy(), $protocol->passed(), $note);
+                $this->equipment->recordInspectionFromMaintenance($by, $equipment, $protocol->performed_on->copy(), $protocol->passed(), $note);
             } elseif (! $protocol->passed()) {
-                $this->equipment->reportDamage($equipment, $by, 'Wartung nicht bestanden – '.$note);
+                $this->equipment->reportDamageFromMaintenance($by, $equipment, 'Wartung nicht bestanden – '.$note);
             } else {
                 $this->equipment->log($equipment, $by, 'inspection', 'Wartung „'.$protocol->title.'“ bestanden – '.$protocol->code());
             }
@@ -433,7 +545,13 @@ class WartungService
     /** A wrong protocol is cancelled, never deleted. The Prüffrist of the device stays; check it there. */
     public function voidProtocol(User $by, Protocol $protocol, string $reason): void
     {
-        $this->assertManager($by);
+        $equipmentId = DB::table('wm_protocols')->where('id', $protocol->getKey())->value('equipment_id');
+        $equipment = $equipmentId === null ? null : Equipment::withoutGlobalScopes()->find((int) $equipmentId);
+        if ($equipment) {
+            $this->assertManagerOnEquipment($by, $equipment);
+        } else {
+            $this->assertManager($by);
+        }
         $reason = trim($reason);
         if (mb_strlen($reason) < 5) {
             throw ValidationException::withMessages(['void_reason' => 'Bitte den Grund für die Stornierung angeben.']);
@@ -477,21 +595,44 @@ class WartungService
             return 0;
         }
 
-        $this->managers()->each(function (User $user) use ($due, $overdue) {
+        $managers = User::withoutGlobalScopes()->active()->get()->filter(fn (User $user) => $user->hasAnyModuleRole(self::MODULE, 'geraetewart'));
+        $admins = User::withoutGlobalScopes()->active()->where('is_admin', true)->get();
+        /** @var array<int, array{user: User, due: list<Task>, overdue: list<Task>}> $notifications */
+        $notifications = [];
+        foreach (['due' => $due, 'overdue' => $overdue] as $kind => $tasks) {
+            foreach ($tasks as $task) {
+                $equipment = $task->equipment ?? Equipment::withoutGlobalScopes()->find($task->equipment_id);
+                $task->setRelation('equipment', $equipment);
+                $recipients = $managers->filter(fn (User $user) => $equipment && self::canManageOnEquipment($user, $equipment));
+                if ($recipients->isEmpty()) {
+                    $recipients = $admins;
+                }
+                foreach ($recipients as $user) {
+                    $notifications[$user->id] ??= ['user' => $user, 'due' => [], 'overdue' => []];
+                    $notifications[$user->id][$kind][] = $task;
+                }
+            }
+        }
+
+        foreach ($notifications as $notification) {
             try {
-                $user->notify(new WartungDigestNotification($due, $overdue));
+                $notification['user']->notify(new WartungDigestNotification(collect($notification['due']), collect($notification['overdue'])));
             } catch (Throwable $e) {
                 report($e);
             }
-        });
+        }
 
         return $due->count() + $overdue->count();
     }
 
     /** @return array{count: int, failed: int, minutes: int, cost: int} the protocols of a year, cancelled ones left out */
-    public function yearTotals(int $year): array
+    public function yearTotals(int $year, ?User $user = null): array
     {
-        $row = Protocol::where('year', $year)->whereNull('voided_at')
+        $query = Protocol::where('year', $year)->whereNull('voided_at');
+        if ($user !== null) {
+            $query = self::scopeProtocolsFor($user, $query);
+        }
+        $row = $query
             ->selectRaw("count(*) as count, count(*) filter (where result = 'failed') as failed, coalesce(sum(minutes), 0) as minutes,
                 coalesce(sum(labor_cost_cents + material_cost_cents + external_cost_cents), 0) as cost")
             ->first();
@@ -660,5 +801,24 @@ class WartungService
         if (! self::canManage($user)) {
             throw ValidationException::withMessages(['wartung' => 'Das dürfen nur Gerätewarte und Admins.']);
         }
+    }
+
+    private function assertManagerOnEquipment(User $user, Equipment $equipment): void
+    {
+        if (! self::canManageOnEquipment($user, $equipment)) {
+            throw ValidationException::withMessages(['wartung' => 'Du darfst Wartungen an diesem Standort nicht verwalten.']);
+        }
+    }
+
+    private static function equipmentExists(Equipment $equipment): bool
+    {
+        return DB::table('ar_equipment')->where('id', $equipment->getKey())->exists();
+    }
+
+    private static function equipmentLocationId(Equipment $equipment): ?int
+    {
+        $locationId = DB::table('ar_equipment')->where('id', $equipment->getKey())->value('ext_location_id');
+
+        return $locationId === null ? null : (int) $locationId;
     }
 }

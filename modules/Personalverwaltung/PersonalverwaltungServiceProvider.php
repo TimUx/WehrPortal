@@ -147,7 +147,7 @@ class PersonalverwaltungServiceProvider extends ServiceProvider
         // The Modulleiste: tabs and Verwaltung, each only for who may use it
         app(ModuleRegistry::class)->navigation('personalverwaltung', fn (User $u) => [
             'tabs' => [
-                ModuleNav::tab('Kameraden', 'personalverwaltung.index', ['personalverwaltung.member']),
+                PersonnelService::canView($u) ? ModuleNav::tab('Kameraden', 'personalverwaltung.index', ['personalverwaltung.member']) : null,
                 PersonnelService::canManage($u) ? ModuleNav::tab('Neue Mitglieder', 'personalverwaltung.new') : null,
                 PersonnelService::canManage($u) ? ModuleNav::tab('Änderungswünsche', 'personalverwaltung.requests') : null,
                 PersonnelService::canManage($u) ? ModuleNav::tab('Ehrungen', 'personalverwaltung.honors') : null,
@@ -156,7 +156,7 @@ class PersonalverwaltungServiceProvider extends ServiceProvider
                 PersonnelService::attendanceAvailable() ? ModuleNav::tab('Dienstbeteiligung', 'personalverwaltung.attendance') : null,
                 $u->is_admin ? ModuleNav::tab('Zugriff', 'personalverwaltung.access') : null,
             ],
-            'manage' => PersonnelService::canManage($u) ? SettingsPage::getUrl() : null,
+            'manage' => PersonnelService::canConfigure($u) ? SettingsPage::getUrl() : null,
         ]);
     }
 }

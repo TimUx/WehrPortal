@@ -3,7 +3,7 @@
         <div>
             <a href="{{ route('anwesenheit.index') }}" class="inline-flex text-sm text-fw-navy underline">← {{ __('anwesenheit::messages.module') }}</a>
             <h1 class="text-xl font-bold text-gray-900">{{ $list->title }}</h1>
-            <p class="text-sm text-gray-500">{{ $list->kindLabel() }} · {{ $list->isSubmitted() ? __('anwesenheit::messages.submitted') : __('anwesenheit::messages.draft') }}</p>
+            <p class="text-sm text-gray-500">{{ $list->kindLabel() }}@if($list->group) · {{ $list->group->display_name }}@endif · {{ $list->isSubmitted() ? __('anwesenheit::messages.submitted') : __('anwesenheit::messages.draft') }}</p>
         </div>
         <div class="flex flex-wrap gap-2 text-sm">
             <a href="{{ route('anwesenheit.pdf', $list) }}" target="_blank" class="rounded-lg bg-fw-navy px-3 py-2 font-semibold text-white">{{ __('anwesenheit::messages.pdf') }}</a>
@@ -21,6 +21,7 @@
             <div><dt class="text-gray-500">{{ __('anwesenheit::messages.duration') }}</dt><dd>{{ $list->durationLabel() }}</dd></div>
             <div><dt class="text-gray-500">{{ __('anwesenheit::messages.count') }}</dt><dd>{{ $list->participant_count }}@if($list->guests) <span class="text-gray-500">(davon {{ $list->guests }} Gäste)</span>@endif</dd></div>
             <div><dt class="text-gray-500">{{ __('anwesenheit::messages.leader') }}</dt><dd>{{ $list->leader?->name ?? '–' }}</dd></div>
+            <div><dt class="text-gray-500">Standort</dt><dd>{{ $list->group?->display_name ?? '–' }}</dd></div>
             <div class="col-span-2"><dt class="text-gray-500">E-Mail</dt><dd>{{ $list->mailed_at ? __('anwesenheit::messages.mailed').' ('.$list->mailed_at->timezone('Europe/Berlin')->format('d.m.Y H:i').')' : __('anwesenheit::messages.not_mailed') }}@if($recipients) <span class="text-gray-500">→ {{ implode(', ', $recipients) }}</span>@endif</dd></div>
         </dl>
     </section>

@@ -50,23 +50,23 @@ class UebungsdiensteServiceProvider extends ServiceProvider
         Livewire::component('uebungsdienste.planner', Planner::class);
         Livewire::component('uebungsdienste.service-form', ServiceForm::class);
 
-        Gate::define('plan-uebungsdienste', fn (User $user) => $user->is_admin || ($user->canUseModule('uebungsdienste') && $user->hasModuleRole('einsatzbericht', 'wehrführung')));
+        Gate::define('plan-uebungsdienste', fn (User $user) => app(ServicePlan::class)->canPlan($user));
 
         app(ModuleRegistry::class)->register(
             'uebungsdienste',
             'Übungsdienstplaner',
-            'Übungsdienste der Einsatzabteilung planen – für die Wehrführung',
+            'Übungsdienste standortbezogen für passende Abteilungen planen',
             provider: self::class,
             route: 'uebungsdienste.index',
-            // Wehrführung and admins; other users can only be unlocked by explicit confirmation
-            audience: fn (User $user) => $user->hasModuleRole('einsatzbericht', 'wehrführung'),
-            audienceLabel: 'Wehrführung',
+            roles: ['wehrführung', 'jugendwart', 'kinderwart', 'gemeindejugendwart', 'gemeindekinderwart'],
+            audience: fn (User $user) => app(ServicePlan::class)->canPlan($user),
+            audienceLabel: 'Übungsdienstleitung',
         );
 
         // Start page: the next Übungsdienst. The Wehrführung (module access) sees topic and who is responsible,
-        // every other Kamerad of the target group date, time and place – like the Kalender, never the topic
+        // Other group members see date, time and place – like the Kalender, never the topic
         app(DashboardRegistry::class)->register('uebungsdienste', 'next', function (User $user) {
-            $planner = $user->canUseModule('uebungsdienste');
+            $planner = $user->can('plan-uebungsdienste');
             $next = $planner ? app(ServicePlan::class)->nextForPlanner($user) : app(ServicePlan::class)->nextFor($user);
 
             return $next ? view('uebungsdienste::cards.next', ['service' => $next, 'planner' => $planner])->render() : null;

@@ -3,6 +3,7 @@
 namespace Modules\Kalender\src\Services;
 
 use App\Models\User;
+use Extensions\Locations\Scopes\LocationScope;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -33,9 +34,11 @@ class PollService
      * @param  array{title: string, type: string, location?: ?string, description?: ?string, deadline?: ?Carbon}  $data
      * @param  list<array{starts_at: Carbon, ends_at: Carbon, all_day?: bool}>  $options
      */
-    public function create(User $by, array $data, array $options, array $groupIds = [], array $functionIds = [], array $userIds = [], bool $notify = true): Poll
+    public function create(User $by, array $data, array $options, array $groupIds = [], array $functionIds = [], array $userIds = [], bool $notify = true, array $locationIds = []): Poll
     {
-        $this->assertManager($by);
+        $locationAccess = app(CalendarLocationAccess::class);
+        $locationIds = $locationAccess->resolveTargets($by, $locationIds, $groupIds, $functionIds, $userIds, $data, true);
+        $this->assertManager($by, $locationIds);
         if (count($options) < 2) {
             throw ValidationException::withMessages(['options' => 'Bitte mindestens zwei Terminvorschläge angeben.']);
         }
@@ -51,14 +54,17 @@ class PollService
             throw ValidationException::withMessages(['type' => 'Bitte die Art des Termins wählen.']);
         }
 
-        $poll = DB::transaction(function () use ($by, $data, $options, $groupIds, $functionIds, $userIds) {
-            $poll = Poll::create([...$data, 'deadline' => $data['deadline'] ?? null, 'created_by' => $by->id]);
+        $poll = DB::transaction(function () use ($by, $data, $options, $groupIds, $functionIds, $userIds, $locationIds, $locationAccess) {
+            $poll = Poll::create([...$data, ...($locationAccess->enabled() ? ['ext_location_id' => $locationIds[0]] : []), 'deadline' => $data['deadline'] ?? null, 'created_by' => $by->id]);
             foreach (collect($options)->sortBy('starts_at') as $o) {
                 $poll->options()->create(['starts_at' => $o['starts_at']->copy()->utc(), 'ends_at' => $o['ends_at']->copy()->utc(), 'all_day' => (bool) ($o['all_day'] ?? false)]);
             }
             $poll->groups()->sync($groupIds);
             $poll->functions()->sync($functionIds);
             $poll->invitees()->sync($userIds);
+            if ($locationAccess->enabled()) {
+                $poll->locations()->sync($locationIds);
+            }
 
             return $poll;
         });
@@ -72,7 +78,13 @@ class PollService
 
     public function audience(Poll $poll): EloquentCollection
     {
-        return Audience::users($poll->groups()->pluck('groups.id'), $poll->functions()->pluck('member_functions.id'), $poll->invitees()->pluck('users.id'));
+        $audience = Audience::users(
+            $poll->groups()->withoutGlobalScope(LocationScope::class)->pluck('groups.id'),
+            $poll->functions()->withoutGlobalScope(LocationScope::class)->pluck('member_functions.id'),
+            $poll->invitees()->withoutGlobalScope(LocationScope::class)->pluck('users.id'),
+        );
+
+        return app(CalendarLocationAccess::class)->restrictAudience($audience, $poll->locationIds());
     }
 
     /** @param  array<int, string>  $answers  option id => yes | maybe | no; options left out stay unanswered */
@@ -109,7 +121,7 @@ class PollService
      */
     public function results(Poll $poll): array
     {
-        $options = $poll->options()->with('votes.user')->get()->map(function (PollOption $o) {
+        $options = $poll->options()->with(['votes.user' => fn ($query) => $query->withoutGlobalScope(LocationScope::class)])->get()->map(function (PollOption $o) {
             $by = $o->votes->groupBy('answer');
 
             return ['option' => $o, 'yes' => $by->get('yes', collect())->pluck('user'), 'maybe' => $by->get('maybe', collect())->pluck('user'),
@@ -127,7 +139,7 @@ class PollService
             'options' => $options,
             'open' => $this->audience($poll)->reject(fn (User $u) => $voterIds->contains($u->id))->values(),
             'best' => $best,
-            'voters' => User::whereIn('id', $voterIds)->orderBy('name')->get(),
+            'voters' => User::withoutGlobalScope(LocationScope::class)->whereIn('id', $voterIds)->orderBy('name')->get(),
         ];
     }
 
@@ -137,7 +149,7 @@ class PollService
      */
     public function decide(User $by, Poll $poll, PollOption $option, bool $rsvp = true, bool $notify = true): Event
     {
-        $this->assertManager($by);
+        $this->assertManager($by, $poll->locationIds());
         if ($option->poll_id !== $poll->id) {
             throw ValidationException::withMessages(['decide' => 'Dieser Vorschlag gehört nicht zur Abfrage.']);
         }
@@ -149,8 +161,10 @@ class PollService
             $event = $this->events->create([
                 'title' => $poll->title, 'type' => $poll->type, 'starts_at' => $option->starts_at->copy(), 'ends_at' => $option->ends_at->copy(),
                 'all_day' => $option->all_day, 'location' => $poll->location, 'description' => $poll->description, 'rsvp' => $rsvp,
-            ], $poll->groups()->pluck('groups.id')->all(), $by, userIds: $poll->invitees()->pluck('users.id')->all(),
-                functionIds: $poll->functions()->pluck('member_functions.id')->all())->first();
+            ], $poll->groups()->withoutGlobalScope(LocationScope::class)->pluck('groups.id')->all(), $by,
+                userIds: $poll->invitees()->withoutGlobalScope(LocationScope::class)->pluck('users.id')->all(),
+                functionIds: $poll->functions()->withoutGlobalScope(LocationScope::class)->pluck('member_functions.id')->all(),
+                locationIds: $poll->locationIds())->first();
 
             if ($rsvp) {
                 foreach ($option->votes()->whereIn('answer', ['yes', 'maybe'])->get() as $vote) {
@@ -172,13 +186,13 @@ class PollService
 
     public function close(User $by, Poll $poll): void
     {
-        $this->assertManager($by);
+        $this->assertManager($by, $poll->locationIds());
         $poll->update(['closed_at' => $poll->closed_at ?? now()]);
     }
 
     public function reopen(User $by, Poll $poll): void
     {
-        $this->assertManager($by);
+        $this->assertManager($by, $poll->locationIds());
         if ($poll->isDecided()) {
             throw ValidationException::withMessages(['decide' => 'Der Termin ist schon festgelegt.']);
         }
@@ -187,7 +201,7 @@ class PollService
 
     public function delete(User $by, Poll $poll): void
     {
-        $this->assertManager($by);
+        $this->assertManager($by, $poll->locationIds());
         $poll->delete();
     }
 
@@ -211,9 +225,11 @@ class PollService
         return $sent;
     }
 
-    private function assertManager(User $user): void
+    private function assertManager(User $user, array $locationIds = []): void
     {
-        if (! $user->canManageKalender()) {
+        $canManage = $user->canManageKalender()
+            || (app(CalendarLocationAccess::class)->enabled() && $user->canManageKalenderLocations($locationIds));
+        if (! $canManage) {
             throw ValidationException::withMessages(['poll' => 'Terminabfragen legen Terminverwalter und Admins an.']);
         }
     }

@@ -105,7 +105,10 @@ class ClothingPersonalAccess extends PersonalAccess
 
     public function isGlobal(?User $actor): bool
     {
-        return $this->eligible($actor) && app(LocationModuleRoles::class)->isGlobalAdmin($actor);
+        return $this->eligible($actor) && (
+            app(LocationModuleRoles::class)->isGlobalAdmin($actor)
+            || app(StandardRoleAssignments::class)->hasGlobalModuleRole($actor, 'kleiderkammer', 'kleiderwart')
+        );
     }
 
     public function locationIds(?User $actor): array

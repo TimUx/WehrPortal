@@ -4,6 +4,7 @@ namespace Modules\Schichtplan\src\Policies;
 
 use App\Models\User;
 use Modules\Schichtplan\src\Models\Plan;
+use Modules\Schichtplan\src\Services\PlanLocationAccess;
 use Modules\Schichtplan\src\Services\SignupService;
 
 class PlanPolicy
@@ -14,12 +15,14 @@ class PlanPolicy
      */
     public function view(User $user, Plan $plan): bool
     {
-        return $user->canManageSchichtplan()
+        return app(PlanLocationAccess::class)->canManage($user, $plan->ext_location_id)
             || ($plan->isPublished() && ($plan->concerns($user) || ($plan->isSelfSignup() && SignupService::mayJoin($user, $plan))));
     }
 
     public function manage(User $user, ?Plan $plan = null): bool
     {
-        return $user->canManageSchichtplan();
+        return $plan === null
+            ? $user->canManageAnySchichtplan()
+            : $user->canManageSchichtplanAt($plan->ext_location_id);
     }
 }

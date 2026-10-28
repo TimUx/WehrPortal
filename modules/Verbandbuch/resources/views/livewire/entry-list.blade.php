@@ -6,9 +6,12 @@
                 <h1 class="text-xl font-bold text-gray-900">{{ $all ? 'Verbandbuch' : 'Meine Einträge' }}</h1>
                 <p class="text-sm text-gray-500">
                     @if($all)
+                        @if(config('locations.enabled'))
+                            Einträge deiner Standorte.
+                        @endif
                         Alle Verletzungen, Unfälle und Vorfälle nach DGUV Information 204-021. Gesundheitsdaten sind verschlüsselt; jeder Zugriff wird protokolliert.
                     @else
-                        Einträge, in denen du verletzt wurdest, Erste Hilfe geleistet oder den Eintrag geschrieben hast. Alle Einträge sehen nur Sicherheitsbeauftragte und Wehrführung.
+                        Einträge, in denen du verletzt wurdest, Erste Hilfe geleistet oder den Eintrag geschrieben hast. Andere Einträge sehen nur GBI/SBI, Admins und die zuständige Wehrführung.
                     @endif
                 </p>
             </div>

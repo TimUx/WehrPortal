@@ -1,8 +1,12 @@
 <?php
 
 use App\Models\ActivityLog;
+use App\Models\LoginToken;
 use App\Models\User;
+use App\Notifications\InvitationNotification;
+use App\Services\Invitation;
 use Extensions\Oidc\Models\Identity;
+use Illuminate\Support\Facades\Notification;
 use Jose\Component\KeyManagement\JWKFactory;
 
 require_once __DIR__.'/helpers.php';
@@ -40,6 +44,29 @@ test('discovery, PKCE redirect and a successful callback log the user in', funct
     expect(json_encode(ActivityLog::all()->toArray()))->not->toContain('s3cr3t')->not->toContain('subject-1');
 });
 
+test('active SSO invitations prefill the e-mail and send users to the identity provider', function () {
+    $user = User::factory()->create(['email' => 'hanna@example.com']);
+    $admin = User::factory()->admin()->create();
+    $invite = app(Invitation::class)->createForScreen($user, $admin);
+
+    expect($invite['method'])->toBe('sso')
+        ->and($invite['expires_at'])->toBeNull()
+        ->and(LoginToken::where('user_id', $user->id)->exists())->toBeFalse();
+
+    $redirect = $this->get($invite['url'])->assertRedirectContains(OIDC_ISSUER.'/protocol/openid-connect/auth?');
+    parse_str((string) parse_url($redirect->headers->get('Location'), PHP_URL_QUERY), $query);
+    expect($query['login_hint'])->toBe('hanna@example.com');
+
+    Notification::fake();
+    app(Invitation::class)->send($user, $admin);
+    Notification::assertSentTo($user, InvitationNotification::class, function (InvitationNotification $notification) use ($user): bool {
+        $mail = $notification->toMail($user);
+
+        return $mail->actionText === 'Mit Single Sign-On anmelden'
+            && str_contains($mail->actionUrl, 'login_hint=hanna%40example.com');
+    });
+});
+
 test('a guest opening the portal is sent to login and returns there after OIDC', function () {
     $user = User::factory()->create([
         'email' => 'hanna@example.com',
@@ -53,6 +80,29 @@ test('a guest opening the portal is sent to login and returns there after OIDC',
     $this->get('/anmelden')->assertOk()->assertSee(route('oidc.redirect'));
 
     $redirect = $this->get('/auth/oidc/redirect');
+    parse_str((string) parse_url($redirect->headers->get('Location'), PHP_URL_QUERY), $query);
+    $this->idp->nonce = $query['nonce'];
+
+    $this->get('/auth/oidc/callback?code=abc&state='.$query['state'])
+        ->assertRedirect(route('home'));
+    $this->assertAuthenticatedAs($user);
+});
+
+test('a guest opening the portal is sent directly to exclusive SSO and can still reach local admin login', function () {
+    oidcConfigure(['exclusive' => true]);
+    $user = User::factory()->create([
+        'email' => 'hanna@example.com',
+        'last_login_at' => now()->subDay(),
+    ]);
+    Identity::create(['user_id' => $user->id, 'issuer' => OIDC_ISSUER, 'subject' => 'subject-1']);
+
+    $guestRedirect = $this->get('/');
+    $guestRedirect->assertRedirect(route('oidc.redirect'))->assertSessionHas('url.intended', route('home'));
+
+    $this->get('/anmelden')->assertOk()->assertSee(route('oidc.local'));
+    $this->get(route('oidc.local'))->assertOk()->assertSee('Login-Link anfordern');
+
+    $redirect = $this->get($guestRedirect->headers->get('Location'));
     parse_str((string) parse_url($redirect->headers->get('Location'), PHP_URL_QUERY), $query);
     $this->idp->nonce = $query['nonce'];
 

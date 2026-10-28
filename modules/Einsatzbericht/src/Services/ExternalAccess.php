@@ -164,7 +164,7 @@ class ExternalAccess
 
     private function assertLead(User $by, Report $report): void
     {
-        if (! ReportService::canLead($by)) {
+        if (! ReportService::canLeadReport($by, $report)) {
             throw ValidationException::withMessages(['external' => 'Den QR-Zugang erzeugen und sperren Einsatzleiter und Wehrführung.']);
         }
     }

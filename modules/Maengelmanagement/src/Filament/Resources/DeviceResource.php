@@ -3,6 +3,7 @@
 namespace Modules\Maengelmanagement\src\Filament\Resources;
 
 use App\Support\QrCode;
+use Extensions\Locations\Models\Location as Standort;
 use Filament\Actions;
 use Filament\Forms;
 use Filament\Resources\Resource;
@@ -10,8 +11,10 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\HtmlString;
 use Modules\Maengelmanagement\src\Filament\Concerns\MaengelmanagementArea;
+use Modules\Maengelmanagement\src\Filament\Pages\MaengelmanagementDashboard;
 use Modules\Maengelmanagement\src\Filament\Resources\DeviceResource\Pages;
 use Modules\Maengelmanagement\src\Models\Device;
 
@@ -33,6 +36,29 @@ class DeviceResource extends Resource
 
     protected static ?int $navigationSort = 20;
 
+    public static function canAccess(): bool
+    {
+        $user = auth()->user();
+
+        return MaengelmanagementDashboard::canAccess()
+            && parent::canAccess()
+            && $user !== null
+            && $user->canManageMaengel();
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        if (config('locations.enabled') && $user !== null && ! $user->is_admin
+            && ! $user->hasModuleRole('maengelmanagement', 'verantwortlicher')) {
+            return $query->whereIn('ext_location_id', $user->standardRoleLocationIds('maengelmanagement', ['verantwortlicher']));
+        }
+
+        return $query;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
@@ -40,7 +66,18 @@ class DeviceResource extends Resource
                 ->description('Für jedes Gerät gibt es einen QR-Code. Wer ihn scannt, landet direkt im Meldeformular.')
                 ->schema([
                     Forms\Components\TextInput::make('name')->label('Name')->required()->maxLength(150),
-                    Forms\Components\TextInput::make('location')->label('Standort')->maxLength(150)->placeholder('z. B. Fahrzeughalle'),
+                    Forms\Components\TextInput::make('location')->label('Ort')->maxLength(150)->placeholder('z. B. Fahrzeughalle'),
+                    Forms\Components\Select::make('ext_location_id')
+                        ->label('Feuerwehrstandort')
+                        ->options(fn () => Standort::query()->active()->get()
+                            ->filter(fn (Standort $site) => auth()->user()?->canManageMaengelAt((int) $site->getKey()))
+                            ->mapWithKeys(fn (Standort $site) => [$site->getKey() => $site->name])
+                            ->all())
+                        ->required(fn () => config('locations.enabled'))
+                        ->visible(fn () => config('locations.enabled'))
+                        ->dehydrated(fn () => config('locations.enabled'))
+                        ->native(false)
+                        ->searchable(),
                     Forms\Components\Select::make('responsible_id')->label('Zuständig')
                         ->relationship('responsible', 'name', fn ($query) => $query->where('is_active', true)->orderBy('name'))
                         ->searchable()->preload()->placeholder('– niemand –')
@@ -62,18 +99,24 @@ class DeviceResource extends Resource
 
     public static function table(Table $table): Table
     {
+        $columns = [
+            Tables\Columns\TextColumn::make('code')->label('Code')->fontFamily('mono')->searchable()->sortable(),
+            Tables\Columns\TextColumn::make('name')->label('Name')->searchable()->sortable(),
+            Tables\Columns\TextColumn::make('location')->label('Ort')->placeholder('–')->searchable(),
+            Tables\Columns\TextColumn::make('open_defects_count')
+                ->label('Offene Mängel')
+                ->counts(['defects as open_defects_count' => fn ($q) => $q->active()])
+                ->badge()
+                ->color(fn ($state) => $state > 0 ? 'danger' : 'gray'),
+            Tables\Columns\IconColumn::make('is_active')->label('Aktiv')->boolean(),
+        ];
+        if (config('locations.enabled')) {
+            $columns[] = Tables\Columns\TextColumn::make('site.name')->label('Feuerwehrstandort')->placeholder('Nicht zugeordnet')->sortable();
+        }
+
         return $table
-            ->columns([
-                Tables\Columns\TextColumn::make('code')->label('Code')->fontFamily('mono')->searchable()->sortable(),
-                Tables\Columns\TextColumn::make('name')->label('Name')->searchable()->sortable(),
-                Tables\Columns\TextColumn::make('location')->label('Standort')->placeholder('–')->searchable(),
-                Tables\Columns\TextColumn::make('open_defects_count')
-                    ->label('Offene Mängel')
-                    ->counts(['defects as open_defects_count' => fn ($q) => $q->active()])
-                    ->badge()
-                    ->color(fn ($state) => $state > 0 ? 'danger' : 'gray'),
-                Tables\Columns\IconColumn::make('is_active')->label('Aktiv')->boolean(),
-            ])
+            ->modifyQueryUsing(fn ($query) => $query->with(config('locations.enabled') ? ['site'] : []))
+            ->columns($columns)
             ->defaultSort('name')
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_active')->label('Aktiv')->default(true),

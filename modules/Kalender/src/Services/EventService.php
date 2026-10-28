@@ -5,6 +5,7 @@ namespace Modules\Kalender\src\Services;
 use App\Models\Guardian;
 use App\Models\User;
 use App\Support\Csv;
+use Extensions\Locations\Scopes\LocationScope;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Carbon;
@@ -30,23 +31,28 @@ class EventService
     public const REPEATS = ['weekly' => 'Jede Woche', 'biweekly' => 'Alle 2 Wochen', 'monthly' => 'Jeden Monat'];
 
     /**
-     * @param  array{title: string, type: string, starts_at: Carbon, ends_at: Carbon, all_day?: bool, location?: ?string, description?: ?string, rsvp?: bool, rsvp_deadline?: ?Carbon}  $data
+     * @param  array{title: string, type: string, starts_at: Carbon, ends_at: Carbon, all_day?: bool, location?: ?string, description?: ?string, rsvp?: bool, rsvp_deadline?: ?Carbon, managed_by?: ?string}  $data
      * @param  int[]  $groupIds  audience; empty = everyone
      * @param  array{freq: string, until: Carbon}|null  $repeat
      * @param  int[]  $userIds  Kameraden invited individually
      * @param  int[]  $functionIds  Funktionen of the target group
      * @return Collection<int, Event> the created events in order
      */
-    public function create(array $data, array $groupIds, ?User $by, ?array $repeat = null, bool $notify = false, array $userIds = [], array $functionIds = []): Collection
+    public function create(array $data, array $groupIds, ?User $by, ?array $repeat = null, bool $notify = false, array $userIds = [], array $functionIds = [], array $locationIds = []): Collection
     {
         $this->assertTimes($data['starts_at'], $data['ends_at']);
+        $locationAccess = app(CalendarLocationAccess::class);
+        $locationIds = $locationAccess->resolveTargets($by, $locationIds, $groupIds, $functionIds, $userIds, $data, $by !== null && empty($data['managed_by'] ?? null));
+        if ($locationAccess->enabled()) {
+            $data['ext_location_id'] = $locationIds[0];
+        }
         $occurrences = $this->occurrences($data['starts_at'], $repeat);
         $seriesId = count($occurrences) > 1 ? (string) Str::uuid() : null;
         $duration = $data['starts_at']->diffInSeconds($data['ends_at']);
         $deadlineBefore = isset($data['rsvp_deadline']) ? $data['rsvp_deadline']->diffInSeconds($data['starts_at'], false) : null;
 
-        $events = DB::transaction(function () use ($data, $groupIds, $userIds, $functionIds, $by, $occurrences, $seriesId, $duration, $deadlineBefore) {
-            return collect($occurrences)->map(function (Carbon $start) use ($data, $groupIds, $userIds, $functionIds, $by, $seriesId, $duration, $deadlineBefore) {
+        $events = DB::transaction(function () use ($data, $groupIds, $userIds, $functionIds, $locationIds, $locationAccess, $by, $occurrences, $seriesId, $duration, $deadlineBefore) {
+            return collect($occurrences)->map(function (Carbon $start) use ($data, $groupIds, $userIds, $functionIds, $locationIds, $locationAccess, $by, $seriesId, $duration, $deadlineBefore) {
                 $event = Event::create([
                     ...$data,
                     'starts_at' => $start->copy()->utc(),
@@ -59,6 +65,9 @@ class EventService
                 $event->groups()->sync($groupIds);
                 $event->invitees()->sync($userIds);
                 $event->functions()->sync($functionIds);
+                if ($locationAccess->enabled()) {
+                    $event->locations()->sync($locationIds);
+                }
 
                 return $event;
             });
@@ -81,27 +90,38 @@ class EventService
      * Saves changes to one event. With $following, title, type, place, description, Rückmeldung and
      * audience also go to the later events of the same repetition; times only change for this one.
      */
-    public function update(Event $event, array $data, array $groupIds, bool $following = false, array $userIds = [], ?array $functionIds = null, ?User $by = null, bool $notify = false): void
+    public function update(Event $event, array $data, array $groupIds, bool $following = false, array $userIds = [], ?array $functionIds = null, ?User $by = null, bool $notify = false, array $locationIds = []): void
     {
         $this->assertTimes($data['starts_at'], $data['ends_at']);
         // Callers that don't know Funktionen keep the ones set
         $functionIds ??= $event->functions()->pluck('member_functions.id')->all();
+        $locationAccess = app(CalendarLocationAccess::class);
+        $locationIds = $locationAccess->resolveTargets($by, $locationIds ?: $event->locationIds(), $groupIds, $functionIds, $userIds, $data, $by !== null && empty($data['managed_by'] ?? $event->managed_by));
+        if ($locationAccess->enabled()) {
+            $data['ext_location_id'] = $locationIds[0];
+        }
         [$oldTime, $oldLocation] = [$event->timeLabel(), (string) $event->location];
 
-        DB::transaction(function () use ($event, $data, $groupIds, $userIds, $functionIds, $following) {
+        DB::transaction(function () use ($event, $data, $groupIds, $userIds, $functionIds, $locationIds, $locationAccess, $following) {
             $event->update([...$data, 'starts_at' => $data['starts_at']->copy()->utc(), 'ends_at' => $data['ends_at']->copy()->utc()]);
             $event->groups()->sync($groupIds);
             $event->invitees()->sync($userIds);
             $event->functions()->sync($functionIds);
+            if ($locationAccess->enabled()) {
+                $event->locations()->sync($locationIds);
+            }
 
             if ($following && $event->series_id) {
                 $shared = collect($data)->only(['title', 'type', 'location', 'place_id', 'dress_code_ids', 'description', 'rsvp', 'min_participants', 'is_public'])->all();
                 Event::where('series_id', $event->series_id)->where('starts_at', '>', $event->starts_at)->get()
-                    ->each(function (Event $later) use ($shared, $groupIds, $userIds, $functionIds) {
-                        $later->update($shared);
+                    ->each(function (Event $later) use ($shared, $groupIds, $userIds, $functionIds, $locationIds, $locationAccess) {
+                        $later->update([...$shared, ...($locationAccess->enabled() ? ['ext_location_id' => $locationIds[0]] : [])]);
                         $later->groups()->sync($groupIds);
                         $later->invitees()->sync($userIds);
                         $later->functions()->sync($functionIds);
+                        if ($locationAccess->enabled()) {
+                            $later->locations()->sync($locationIds);
+                        }
                     });
             }
         });
@@ -129,7 +149,7 @@ class EventService
     {
         $audience = $this->audience($event)->pluck('id');
 
-        return $event->responses()->whereIn('status', ['yes', 'maybe'])->with('user')->get()
+        return $event->responses()->whereIn('status', ['yes', 'maybe'])->with(['user' => fn ($query) => $query->withoutGlobalScope(LocationScope::class)])->get()
             ->pluck('user')->filter()->filter(fn (User $u) => $audience->contains($u->id))->values();
     }
 
@@ -138,7 +158,7 @@ class EventService
     {
         $event->update(['cancelled_at' => now()]);
 
-        $affected = $event->responses()->whereIn('status', ['yes', 'maybe'])->with('user')->get()
+        $affected = $event->responses()->whereIn('status', ['yes', 'maybe'])->with(['user' => fn ($query) => $query->withoutGlobalScope(LocationScope::class)])->get()
             ->pluck('user')->filter()->reject(fn (User $u) => $by && $u->is($by));
         $this->notify($affected, new EventCancelledNotification($event), $event);
     }
@@ -211,13 +231,19 @@ class EventService
      */
     public function audience(Event $event): EloquentCollection
     {
-        return Audience::users($event->groups()->pluck('groups.id'), $event->functions()->pluck('member_functions.id'), $event->invitees()->pluck('users.id'));
+        $audience = Audience::users(
+            $event->groups()->withoutGlobalScope(LocationScope::class)->pluck('groups.id'),
+            $event->functions()->withoutGlobalScope(LocationScope::class)->pluck('member_functions.id'),
+            $event->invitees()->withoutGlobalScope(LocationScope::class)->pluck('users.id'),
+        );
+
+        return app(CalendarLocationAccess::class)->restrictAudience($audience, $event->locationIds());
     }
 
     /** Rückmeldungen grouped, who of the audience has not answered yet, attendance and whether there are enough */
     public function summary(Event $event): array
     {
-        $responses = $event->responses()->with('user')->get();
+        $responses = $event->responses()->with(['user' => fn ($query) => $query->withoutGlobalScope(LocationScope::class)])->get();
         $answered = $responses->whereNotNull('status')->pluck('user_id')->all();
         $yes = $responses->where('status', 'yes')->values();
 
@@ -269,13 +295,13 @@ class EventService
     {
         $responses = $event->responses()->get()->keyBy('user_id');
 
-        return $this->audience($event)->concat(User::whereIn('id', $responses->keys())->get())->unique('id')->sortBy('name')->values()
+        return $this->audience($event)->concat(User::withoutGlobalScope(LocationScope::class)->whereIn('id', $responses->keys())->get())->unique('id')->sortBy('name')->values()
             ->map(function (User $user) use ($responses) {
                 $response = $responses->get($user->id);
 
                 return [
                     'user' => $user,
-                    'groups' => $user->groups()->pluck('name')->implode(', '),
+                    'groups' => $user->groups()->withoutGlobalScope(LocationScope::class)->pluck('name')->implode(', '),
                     'status' => $response?->status ? $response->label() : 'offen',
                     'comment' => $response?->comment ?? '',
                     'attended' => match ($response?->attended) {

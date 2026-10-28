@@ -20,6 +20,6 @@ class PollList extends Component
         $answered = PollVote::where('user_id', $user->id)->join('kal_poll_options', 'kal_poll_options.id', '=', 'kal_poll_votes.option_id')
             ->distinct()->pluck('kal_poll_options.poll_id')->flip();
 
-        return view('kalender::livewire.poll-list', ['polls' => $polls, 'answered' => $answered, 'manager' => $user->canManageKalender()]);
+        return view('kalender::livewire.poll-list', ['polls' => $polls, 'answered' => $answered, 'manager' => $user->canManageAnyKalenderLocation()]);
     }
 }

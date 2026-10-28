@@ -2,6 +2,7 @@
 
 namespace Extensions\Anwesenheit\Services;
 
+use App\Models\Group;
 use App\Models\Module;
 use App\Models\Setting;
 use App\Models\User;
@@ -15,6 +16,7 @@ use Extensions\Locations\Models\Location;
 use Extensions\Locations\Scopes\LocationScope;
 use Extensions\Locations\Services\LocationAccess;
 use Extensions\Locations\Services\LocationModuleRoles;
+use Extensions\Locations\Services\StandardRoleAssignments;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -27,12 +29,13 @@ use Throwable;
 
 /**
  * Owns every change to an Anwesenheitsliste. Standort rules come from the Locations extension: the lists,
- * templates and members are filtered by its LocationScope, and a list can only be written to a Standort
- * the user belongs to.
+ * templates and members are filtered by the current Location and group assignments before a list is written.
  */
 class AttendanceService
 {
     public const MAX_MINUTES = 7 * 24 * 60;
+
+    private const GROUP_ROLES = ['jugendwart', 'kinderwart', 'gemeindejugendwart', 'gemeindekinderwart'];
 
     public static function locationsOn(): bool
     {
@@ -42,8 +45,14 @@ class AttendanceService
     /** Global admins, Standort-Admins (of their own Standort) and users with the module role "verwalter" */
     public static function canManage(User $user): bool
     {
-        if (app(LocationModuleRoles::class)->enabled('anwesenheit')) {
-            return $user->canUseModule('anwesenheit') && $user->hasAnyModuleRole('anwesenheit', 'verwalter');
+        $roles = app(LocationModuleRoles::class);
+        $assignments = app(StandardRoleAssignments::class);
+        if ($roles->enabled('anwesenheit')) {
+            return $user->canUseModule('anwesenheit')
+                && ($user->is_admin
+                    || $roles->hasAnyRole($user, 'anwesenheit', 'verwalter')
+                    || $assignments->hasGlobalModuleRole($user, 'anwesenheit')
+                    || $user->standardRoleGroupIds('anwesenheit', self::GROUP_ROLES) !== []);
         }
 
         if (! $user->is_active) {
@@ -52,12 +61,15 @@ class AttendanceService
 
         return $user->is_admin
             || (self::locationsOn() && app(LocationAccess::class)->isLocationAdmin($user))
-            || $user->hasModuleRole('anwesenheit', 'verwalter');
+            || $user->moduleAccess()->where('module', 'anwesenheit')->where('role', 'verwalter')->exists()
+            || $assignments->hasGlobalModuleRole($user, 'anwesenheit')
+            || $user->standardRoleGroupIds('anwesenheit', self::GROUP_ROLES) !== [];
     }
 
     public static function canSee(User $user, AttendanceList $list): bool
     {
-        return self::canAccessLocation($user, $list->ext_location_id) && (self::canManageAt($user, $list->ext_location_id)
+        return self::canAccessLocation($user, $list->ext_location_id) && self::canAccessListTarget($user, $list)
+            && (self::canManageGroupAt($user, $list->ext_location_id, $list->group_id)
             || (int) $list->created_by === (int) $user->id
             || (int) $list->leader_id === (int) $user->id
             || $list->participants()->whereKey($user->id)->exists());
@@ -70,11 +82,54 @@ class AttendanceService
         }
 
         if (app(LocationModuleRoles::class)->enabled('anwesenheit')) {
-            return $user->hasModuleRole('anwesenheit', 'verwalter', $locationId);
+            return $user->is_admin || app(LocationModuleRoles::class)->isGlobalAdmin($user)
+                || $user->hasModuleRole('anwesenheit', 'verwalter', $locationId)
+                || app(StandardRoleAssignments::class)->hasGlobalModuleRole($user, 'anwesenheit');
         }
 
         return $user->is_admin || $user->hasModuleRole('anwesenheit', 'verwalter', $locationId)
+            || app(StandardRoleAssignments::class)->hasGlobalModuleRole($user, 'anwesenheit')
             || (self::locationsOn() && in_array($locationId, app(LocationAccess::class)->adminLocationIds($user), true));
+    }
+
+    public static function canManageGroupAt(User $user, ?int $locationId, ?int $groupId): bool
+    {
+        if (self::canManageAt($user, $locationId)) {
+            return true;
+        }
+
+        if (! $locationId || ! $groupId || ! self::locationsOn()) {
+            return false;
+        }
+
+        foreach (self::GROUP_ROLES as $role) {
+            if ($user->hasModuleRoleForGroup('anwesenheit', $role, $locationId, $groupId)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function canAccessListTarget(User $user, AttendanceList $list): bool
+    {
+        $groupIds = $user->standardRoleGroupIds('anwesenheit', self::GROUP_ROLES);
+
+        return $groupIds === []
+            || ($list->group_id !== null && (self::canManageAt($user, $list->ext_location_id)
+                || in_array((int) $list->group_id, $groupIds, true)));
+    }
+
+    /** @return list<int> */
+    private static function groupLocationIds(User $user): array
+    {
+        $groupIds = $user->standardRoleGroupIds('anwesenheit', self::GROUP_ROLES);
+        if ($groupIds === [] || ! Schema::hasColumn('groups', 'ext_location_id')) {
+            return [];
+        }
+
+        return DB::table('groups')->whereIn('id', $groupIds)->whereNotNull('ext_location_id')
+            ->distinct()->pluck('ext_location_id')->map(fn ($id) => (int) $id)->all();
     }
 
     private static function canAccessLocation(User $user, ?int $locationId): bool
@@ -82,7 +137,9 @@ class AttendanceService
         $roles = app(LocationModuleRoles::class);
         if ($roles->enabled('anwesenheit')) {
             return $user->canUseModule('anwesenheit')
-                && ($roles->isGlobalAdmin($user) || $roles->canAccessLocation($user, $locationId));
+                && ($roles->isGlobalAdmin($user) || $roles->canAccessLocation($user, $locationId)
+                    || ($locationId !== null && (in_array($locationId, $user->standardRoleLocationIds('anwesenheit', ['verwalter']), true)
+                        || in_array($locationId, self::groupLocationIds($user), true))));
         }
 
         if (self::locationsOn()) {
@@ -90,20 +147,25 @@ class AttendanceService
         }
 
         return $user->is_active && $user->canUseModule('anwesenheit') && ($user->is_admin || ! self::locationsOn()
-            || ($locationId !== null && app(LocationAccess::class)->canSee($user, $locationId)));
+            || ($locationId !== null && (app(LocationAccess::class)->canSee($user, $locationId)
+                || in_array($locationId, $user->standardRoleLocationIds('anwesenheit', ['verwalter']), true)
+                || in_array($locationId, self::groupLocationIds($user), true))));
     }
 
     /** The creator edits until the list is submitted; managers also correct submitted lists */
     public static function canEdit(User $user, AttendanceList $list): bool
     {
         return self::canAccessLocation($user, $list->ext_location_id)
-            && (self::canManageAt($user, $list->ext_location_id) || ((int) $list->created_by === (int) $user->id && ! $list->isSubmitted()));
+            && self::canAccessListTarget($user, $list)
+            && (self::canManageGroupAt($user, $list->ext_location_id, $list->group_id)
+                || ((int) $list->created_by === (int) $user->id && ! $list->isSubmitted()));
     }
 
     public static function canResend(User $user, AttendanceList $list): bool
     {
         return $list->isSubmitted() && self::canAccessLocation($user, $list->ext_location_id)
-            && (self::canManageAt($user, $list->ext_location_id) || (int) $list->created_by === (int) $user->id);
+            && self::canAccessListTarget($user, $list)
+            && (self::canManageGroupAt($user, $list->ext_location_id, $list->group_id) || (int) $list->created_by === (int) $user->id);
     }
 
     /** @return Builder<AttendanceList> */
@@ -112,40 +174,42 @@ class AttendanceService
         $query = AttendanceList::withoutGlobalScope(LocationScope::class);
 
         $roles = app(LocationModuleRoles::class);
+        $groupIds = $user->standardRoleGroupIds('anwesenheit', self::GROUP_ROLES);
+        $globalManager = $user->is_admin || app(StandardRoleAssignments::class)->hasGlobalModuleRole($user, 'anwesenheit');
         if ($roles->enabled('anwesenheit')) {
             if (! $user->canUseModule('anwesenheit')) {
                 return $query->whereRaw('1 = 0');
             }
-            if ($roles->isGlobalAdmin($user)) {
+            if ($roles->isGlobalAdmin($user) || $globalManager) {
                 return $query;
             }
-            $locations = Location::where('is_active', true)->pluck('id')
-                ->filter(fn ($id) => $roles->canAccessLocation($user, (int) $id))->all();
-            $managed = $roles->roleLocationIds($user, 'anwesenheit', 'verwalter');
-
-            return $query->whereIn('ext_location_id', $locations)
-                ->where(fn (Builder $q) => $q->whereIn('ext_location_id', $managed)
-                    ->orWhere('created_by', $user->id)->orWhere('leader_id', $user->id)
-                    ->orWhereIn('id', DB::table('x_att_participants')->where('user_id', $user->id)->select('list_id')));
         }
 
         if (! $user->is_active || ! $user->canUseModule('anwesenheit')) {
             return $query->whereRaw('1 = 0');
         }
 
-        if ($user->is_admin) {
+        if ($globalManager) {
             return $query;
         }
 
+        $locations = array_keys($this->locationsFor($user));
         if (self::locationsOn()) {
             app(LocationAccess::class)->forget($user);
-            $query->whereIn('ext_location_id', app(LocationAccess::class)->visibleLocationIds($user));
+            $query->whereIn('ext_location_id', $locations);
         }
 
-        if (! $user->hasModuleRole('anwesenheit', 'verwalter')) {
-            $managed = self::locationsOn() ? app(LocationAccess::class)->adminLocationIds($user) : [];
+        $managed = array_values(array_filter($locations, fn ($locationId) => self::canManageAt($user, (int) $locationId)));
+        if ($groupIds !== []) {
+            $query->where(fn (Builder $q) => $q->whereIn('group_id', $groupIds)->orWhereIn('ext_location_id', $managed));
+        }
+
+        if ($managed !== [] && $groupIds === []) {
             $query->where(fn (Builder $q) => $q->whereIn('ext_location_id', $managed)
                 ->orWhere('created_by', $user->id)->orWhere('leader_id', $user->id)
+                ->orWhereIn('id', DB::table('x_att_participants')->where('user_id', $user->id)->select('list_id')));
+        } elseif ($managed === [] && $groupIds === []) {
+            $query->where(fn (Builder $q) => $q->where('created_by', $user->id)->orWhere('leader_id', $user->id)
                 ->orWhereIn('id', DB::table('x_att_participants')->where('user_id', $user->id)->select('list_id')));
         }
 
@@ -162,33 +226,99 @@ class AttendanceService
         $roles = app(LocationModuleRoles::class);
         if ($roles->enabled('anwesenheit')) {
             return Location::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get()
-                ->filter(fn (Location $location) => $roles->isGlobalAdmin($user) || $roles->canAccessLocation($user, (int) $location->id))
+                ->filter(fn (Location $location) => $roles->isGlobalAdmin($user)
+                    || app(StandardRoleAssignments::class)->hasGlobalModuleRole($user, 'anwesenheit')
+                    || $roles->canAccessLocation($user, (int) $location->id)
+                    || in_array((int) $location->id, self::groupLocationIds($user), true))
                 ->pluck('name', 'id')->all();
         }
 
-        return Location::query()->whereIn('id', app(LocationAccess::class)->visibleLocationIds($user))
+        $visible = app(LocationAccess::class)->visibleLocationIds($user);
+
+        return Location::query()->where(function (Builder $query) use ($visible, $user) {
+            $query->whereIn('id', $visible);
+            if ($user->is_admin || app(StandardRoleAssignments::class)->hasGlobalModuleRole($user, 'anwesenheit')) {
+                $query->orWhere('is_active', true);
+            } else {
+                $query->orWhereIn('id', self::groupLocationIds($user));
+            }
+        })
             ->where('is_active', true)->orderBy('sort_order')->orderBy('name')->pluck('name', 'id')->all();
     }
 
     /** The Standort a new list starts in */
     public function defaultLocation(User $user): ?int
     {
-        return self::locationsOn() ? app(LocationAccess::class)->currentLocationId($user) : null;
+        if (! self::locationsOn()) {
+            return null;
+        }
+
+        $locations = $this->locationsFor($user);
+        $current = app(LocationAccess::class)->currentLocationId($user);
+
+        return $current !== null && array_key_exists($current, $locations) ? $current : (array_key_first($locations) ?: null);
+    }
+
+    public function defaultGroup(User $user, ?int $locationId): ?int
+    {
+        $groups = $this->groupOptions($user, $locationId);
+
+        return count($groups) === 1 ? (int) array_key_first($groups) : null;
     }
 
     /**
-     * Kameraden who can be on a list of that Standort: those of the Standort and those without one. Users
-     * who are not global admins only ever see their own Standorte anyway (LocationScope).
+     * Kameraden eligible for a target list: members of its Standort and, when selected, the exact group.
      *
      * @return Collection<int, User>
      */
-    public function members(?int $locationId): Collection
+    public function members(?int $locationId, ?int $groupId = null): Collection
     {
         return User::active()
             ->when($locationId && self::locationsOn(), fn (Builder $q) => $q->where(fn (Builder $w) => $w
                 ->whereNull('users.ext_location_id')->orWhere('users.ext_location_id', $locationId)
                 ->orWhereIn('users.id', DB::table('x_location_user')->where('location_id', $locationId)->select('user_id'))))
+            ->when($groupId !== null, fn (Builder $q) => $q->whereExists(fn ($membership) => $membership
+                ->selectRaw('1')->from('group_user')
+                ->join('groups', 'groups.id', '=', 'group_user.group_id')
+                ->whereColumn('group_user.user_id', 'users.id')
+                ->where('group_user.group_id', $groupId)
+                ->when($locationId !== null, fn ($membership) => $membership->where('groups.ext_location_id', $locationId))))
             ->orderBy('name')->get(['id', 'name']);
+    }
+
+    /** @return array<int, string> Groups that the user may target; labels include the Standort. */
+    public function groupOptions(User $user, ?int $locationId = null): array
+    {
+        if (! self::locationsOn() || ! Schema::hasColumn('groups', 'ext_location_id')) {
+            return [];
+        }
+
+        $locations = $locationId === null ? array_keys($this->locationsFor($user)) : [$locationId];
+        $groupIds = $user->standardRoleGroupIds('anwesenheit', self::GROUP_ROLES);
+        $groups = Group::withoutGlobalScopes()
+            ->join('x_locations', 'x_locations.id', '=', 'groups.ext_location_id')
+            ->whereIn('groups.ext_location_id', $locations)
+            ->where('x_locations.is_active', true)
+            ->orderBy('x_locations.sort_order')->orderBy('x_locations.name')
+            ->orderBy('groups.name')
+            ->get(['groups.*', 'x_locations.name as target_location_name'])
+            ->filter(fn (Group $group) => self::canManageAt($user, (int) $group->ext_location_id)
+                || $groupIds === []
+                || in_array((int) $group->id, $groupIds, true));
+
+        return $groups->mapWithKeys(fn (Group $group) => [
+            $group->id => $group->name.' ('.$group->getAttribute('target_location_name').')',
+        ])->all();
+    }
+
+    public function canSelectGroup(User $user, ?int $locationId, ?int $groupId): bool
+    {
+        if (! self::locationsOn()) {
+            return $groupId === null;
+        }
+
+        return $locationId !== null && $groupId !== null
+            && array_key_exists($groupId, $this->groupOptions($user, $locationId));
     }
 
     /**
@@ -197,13 +327,34 @@ class AttendanceService
      * @param  Builder<AttendanceTemplate>  $query
      * @return Builder<AttendanceTemplate>
      */
-    public function restrictTemplateQuery(Builder $query, User $user): Builder
+    public function restrictTemplateQuery(Builder $query, User $user, bool $forManagement = false): Builder
     {
         $query->withoutGlobalScope(LocationScope::class);
-        if (self::locationsOn() && ! $user->is_admin) {
-            $access = app(LocationAccess::class);
-            $access->forget($user);
-            $query->whereIn('x_att_templates.ext_location_id', $access->visibleLocationIds($user));
+        if (! $user->is_active || ! $user->canUseModule('anwesenheit')) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ($user->is_admin || app(StandardRoleAssignments::class)->hasGlobalModuleRole($user, 'anwesenheit')
+            || app(LocationModuleRoles::class)->enabled('anwesenheit') && app(LocationModuleRoles::class)->isGlobalAdmin($user)) {
+            return $query;
+        }
+
+        if (! self::locationsOn()) {
+            return $query;
+        }
+
+        $locations = array_keys($this->locationsFor($user));
+        $managed = array_values(array_filter($locations, fn ($locationId) => self::canManageAt($user, (int) $locationId)));
+        $groupIds = $user->standardRoleGroupIds('anwesenheit', self::GROUP_ROLES);
+
+        if ($groupIds !== []) {
+            $query->whereIn('x_att_templates.ext_location_id', $locations)
+                ->where(fn (Builder $q) => $q->whereIn('x_att_templates.ext_location_id', $managed)
+                    ->orWhereIn('x_att_templates.group_id', $groupIds));
+        } elseif ($forManagement) {
+            $query->whereIn('x_att_templates.ext_location_id', $managed);
+        } else {
+            $query->whereIn('x_att_templates.ext_location_id', $locations);
         }
 
         return $query;
@@ -227,16 +378,16 @@ class AttendanceService
         return $options;
     }
 
-    /** @return array{title: ?string, kind: string, starts_at: ?string, ends_at: ?string, leader_id: ?int, recipients: ?string, template_id: ?int, source_event_id: ?int}|null */
+    /** @return array{title: ?string, kind: string, starts_at: ?string, ends_at: ?string, leader_id: ?int, group_id: ?int, recipients: ?string, template_id: ?int, source_event_id: ?int}|null */
     public function prefill(User $user, string $key): ?array
     {
         [$type, $id] = array_pad(explode(':', $key, 2), 2, null);
-        $blank = ['title' => null, 'kind' => 'uebung', 'starts_at' => null, 'ends_at' => null, 'leader_id' => null, 'recipients' => null, 'template_id' => null, 'source_event_id' => null];
+        $blank = ['title' => null, 'kind' => 'uebung', 'starts_at' => null, 'ends_at' => null, 'leader_id' => null, 'group_id' => null, 'recipients' => null, 'template_id' => null, 'source_event_id' => null];
 
         if ($type === 'tpl' && ($template = $this->restrictTemplateQuery(AttendanceTemplate::query(), $user)->where('is_active', true)->find((int) $id))) {
             $start = now('Europe/Berlin')->startOfMinute();
 
-            return [...$blank, 'title' => $template->title ?: $template->name, 'kind' => $template->kind, 'leader_id' => $template->leader_id, 'recipients' => $template->recipients,
+            return [...$blank, 'title' => $template->title ?: $template->name, 'kind' => $template->kind, 'leader_id' => $template->leader_id, 'group_id' => $template->group_id, 'recipients' => $template->recipients,
                 'template_id' => $template->id, 'starts_at' => $template->duration_minutes ? $start->copy()->subMinutes($template->duration_minutes)->format('Y-m-d\TH:i') : null,
                 'ends_at' => $template->duration_minutes ? $start->format('Y-m-d\TH:i') : null];
         }
@@ -293,7 +444,7 @@ class AttendanceService
     }
 
     /**
-     * Saves the list. $data: title, kind, ext_location_id, starts_at, ends_at (local strings), leader_id, guests, notes,
+     * Saves the list. $data: title, kind, ext_location_id, group_id, starts_at, ends_at (local strings), leader_id, guests, notes,
      * recipients, template_id, source_event_id. With $submit the list is finished: all required data must be there.
      *
      * @param  array<string, mixed>  $data
@@ -316,10 +467,10 @@ class AttendanceService
         $leaderId = ! empty($data['leader_id']) ? (int) $data['leader_id'] : null;
         $guests = max(0, min(999, (int) ($data['guests'] ?? 0)));
         $locationId = ! empty($data['ext_location_id']) ? (int) $data['ext_location_id'] : null;
+        $groupId = ! empty($data['group_id']) ? (int) $data['group_id'] : null;
 
-        if (! $list && $locationId === null && app(LocationModuleRoles::class)->enabled('anwesenheit')
-            && ! app(LocationModuleRoles::class)->isGlobalAdmin($by)) {
-            $errors['form.ext_location_id'] = 'Bitte einen zugänglichen Standort ausdrücklich auswählen.';
+        if (self::locationsOn() && $locationId === null) {
+            $errors['form.ext_location_id'] = 'Bitte einen zugänglichen Standort auswählen.';
         }
 
         if ($title === '' || mb_strlen($title) > 150) {
@@ -338,8 +489,24 @@ class AttendanceService
         if ($locationId !== null && (! self::locationsOn() || ! in_array($locationId, array_keys($this->locationsFor($by)), true))) {
             $errors['form.ext_location_id'] = 'Kein Zugriff auf diesen Standort.';
         }
-        if ($list && $locationId !== null && $locationId !== $list->ext_location_id
-            && ! self::canManageAt($by, $locationId)) {
+        if ($locationId !== null && self::locationsOn()) {
+            if ($groupId === null || ! array_key_exists($groupId, $this->groupOptions($by, $locationId))) {
+                $errors['form.group_id'] = 'Bitte eine Abteilung dieses Standorts auswählen.';
+            } elseif ($by->standardRoleGroupIds('anwesenheit', self::GROUP_ROLES) !== []
+                && ! self::canManageGroupAt($by, $locationId, $groupId)) {
+                $errors['form.group_id'] = 'Keine Verwaltungsberechtigung für diese Abteilung.';
+            }
+        } elseif (! self::locationsOn() && $groupId !== null) {
+            $errors['form.group_id'] = 'Eine Abteilung kann nur mit aktivierter Standortverwaltung ausgewählt werden.';
+        }
+        if ($list && ($locationId !== $list->ext_location_id || $groupId !== $list->group_id)
+            && $by->standardRoleGroupIds('anwesenheit', self::GROUP_ROLES) !== []
+            && ! self::canManageGroupAt($by, $locationId, $groupId)) {
+            $errors['form.group_id'] = 'Keine Verwaltungsberechtigung für diese Abteilung.';
+        }
+        if ($list && $locationId !== $list->ext_location_id
+            && ! self::canManageAt($by, $locationId)
+            && ! self::canManageGroupAt($by, $locationId, $groupId)) {
             $errors['form.ext_location_id'] = 'Keine Verwaltungsberechtigung für diesen Standort.';
         }
 
@@ -349,11 +516,11 @@ class AttendanceService
             $errors['form.recipients'] = 'Ungültige E-Mail-Adresse: '.$invalid->implode(', ');
         }
 
-        // The leader takes part; everybody must belong to the Standort of the list
+        // The leader takes part; everybody must belong to the target group.
         $ids = collect($participantIds)->map(fn ($id) => (int) $id)->when($leaderId, fn ($c) => $c->push($leaderId))->unique()->values();
-        $allowed = $this->members($locationId ?? ($list?->ext_location_id))->pluck('id');
+        $allowed = $this->members($locationId ?? ($list?->ext_location_id), $groupId ?? $list?->group_id)->pluck('id');
         if ($ids->diff($allowed)->isNotEmpty()) {
-            $errors['selected'] = 'Mindestens eine Person gehört nicht zu diesem Standort oder ist nicht aktiv.';
+            $errors['selected'] = 'Mindestens eine Person gehört nicht zu dieser Abteilung oder ist nicht aktiv.';
         }
         if ($submit) {
             if ($leaderId === null) {
@@ -381,10 +548,10 @@ class AttendanceService
             throw ValidationException::withMessages($errors);
         }
 
-        return DB::transaction(function () use ($by, $list, $title, $kind, $start, $end, $leaderId, $guests, $locationId, $recipients, $data, $ids, $uploads, $submit) {
+        return DB::transaction(function () use ($by, $list, $title, $kind, $start, $end, $leaderId, $guests, $locationId, $groupId, $recipients, $data, $ids, $uploads, $submit) {
             $list ??= new AttendanceList(['created_by' => $by->id]);
             $list->fill([
-                'title' => $title, 'kind' => $kind, 'starts_at' => $start, 'ends_at' => $end,
+                'title' => $title, 'kind' => $kind, 'group_id' => $groupId, 'starts_at' => $start, 'ends_at' => $end,
                 'duration_minutes' => self::minutesBetween($start, $end), 'leader_id' => $leaderId, 'guests' => $guests,
                 'participant_count' => $ids->count() + $guests, 'notes' => trim((string) ($data['notes'] ?? '')) ?: null,
                 'recipients' => trim($recipients) ?: null,

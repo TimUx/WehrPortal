@@ -3,6 +3,7 @@
 namespace Modules\Verbandbuch\src\Livewire;
 
 use App\Models\User;
+use Extensions\Locations\Services\LocationContext;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Modules\Verbandbuch\src\Models\Entry;
@@ -24,6 +25,8 @@ class EntryForm extends Component
     public string $occurredAt = '';
 
     public string $location = '';
+
+    public string $organizationalLocationId = '';
 
     public string $injuredUserId = '';
 
@@ -54,6 +57,7 @@ class EntryForm extends Component
     {
         $this->occurredAt = VerbandbuchService::now()->format('Y-m-d\TH:i');
         $this->firstAiderUserId = (string) auth()->id();
+        $this->organizationalLocationId = (string) (app(LocationContext::class)->forUser(auth()->user())['current'] ?? '');
     }
 
     public function save(VerbandbuchService $service)
@@ -64,6 +68,7 @@ class EntryForm extends Component
         try {
             $entry = $service->create(auth()->user(), [
                 'kind' => $this->kind, 'occasion' => $this->occasion, 'occurred_at' => $this->occurredAt, 'location' => $this->location,
+                'ext_location_id' => $this->organizationalLocationId,
                 'injured_user_id' => $person($this->injuredUserId), 'injured_name' => $this->injuredUserId === self::OTHER ? $this->injuredName : null,
                 'description' => $this->description, 'injury' => $this->injury, 'witnesses' => $this->witnesses,
                 'first_aid_at' => $this->firstAidAt, 'first_aid_measures' => $this->firstAidMeasures,
@@ -87,6 +92,7 @@ class EntryForm extends Component
     {
         return view('verbandbuch::livewire.entry-form', [
             'members' => User::active()->orderBy('name')->get(['id', 'name']),
+            'locations' => config('locations.enabled') ? app(LocationContext::class)->forUser(auth()->user())['locations'] : collect(),
             'hurt' => $this->kind !== 'incident',
             'injuredLabel' => match (true) {
                 $this->injuredUserId === self::OTHER => $this->injuredName,

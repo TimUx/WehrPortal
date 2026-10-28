@@ -47,6 +47,7 @@ class EquipmentDetail extends Component
 
     public function mount(): void
     {
+        $this->authorizeView();
         $this->reserveFrom = now()->addDay()->setTimezone('Europe/Berlin')->format('Y-m-d\T08:00');
         $this->reserveUntil = now()->addDays(2)->setTimezone('Europe/Berlin')->format('Y-m-d\T18:00');
         $this->useDate = now()->setTimezone('Europe/Berlin')->format('Y-m-d\TH:i');
@@ -122,6 +123,7 @@ class EquipmentDetail extends Component
 
     public function logUse(EquipmentService $service): void
     {
+        $this->authorizeView();
         $this->validate([
             'useType' => ['required', Rule::in(EquipmentEvent::MANUAL_TYPES)],
             'useDate' => ['required', 'date', fn ($a, $value, $fail) => $this->local($value)->gt(now()->addMinutes(5)) ? $fail('Das Datum liegt in der Zukunft.') : null],
@@ -139,9 +141,19 @@ class EquipmentDetail extends Component
         return Carbon::parse($value, 'Europe/Berlin')->utc();
     }
 
+    private function authorizeView(): void
+    {
+        abort_unless(EquipmentService::canViewEquipment(auth()->user(), $this->equipment), 404);
+    }
+
     public function render()
     {
-        $this->equipment->loadMissing(['category', 'location', 'compartment.location']);
+        $this->authorizeView();
+        $relations = ['category', 'location', 'compartment.location'];
+        if (config('locations.enabled', false)) {
+            $relations[] = 'standort';
+        }
+        $this->equipment->loadMissing($relations);
 
         return view('ausruestung::livewire.equipment-detail', [
             'events' => $this->equipment->events()->with('user')->limit(20)->get(),
@@ -149,7 +161,7 @@ class EquipmentDetail extends Component
             'canReserve' => in_array($this->equipment->status, [EquipmentStatus::Available, EquipmentStatus::Loaned], true),
             'useTypes' => array_intersect_key(EquipmentEvent::TYPES, array_flip(EquipmentEvent::MANUAL_TYPES)),
             'workTypes' => array_intersect_key(EquipmentEvent::TYPES, array_flip(EquipmentEvent::WORK_TYPES)),
-            'canManage' => $canManage = auth()->user()->canManageAusruestung(),
+            'canManage' => $canManage = EquipmentService::canManageEquipment(auth()->user(), $this->equipment),
             'costs' => $canManage ? app(EquipmentService::class)->lifecycleCosts($this->equipment) : null,
         ]);
     }

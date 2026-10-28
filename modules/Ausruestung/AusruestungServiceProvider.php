@@ -83,8 +83,10 @@ class AusruestungServiceProvider extends ServiceProvider
                 return null;
             }
 
+            $user = auth()->user();
+
             return match (true) {
-                (bool) auth()->user()?->canManageAusruestung() => EquipmentResource::getUrl('edit', ['record' => $equipment]),
+                $user?->canManageAusruestung() && EquipmentService::canManageEquipment($user, $equipment) => EquipmentResource::getUrl('edit', ['record' => $equipment]),
                 // Not logged in: the short Geräteinfo, if a Gerätewart switched it on
                 ! auth()->check() && PublicScan::enabled() => route('ausruestung.public', $equipment->code),
                 default => route('ausruestung.show', $equipment),
@@ -108,7 +110,7 @@ class AusruestungServiceProvider extends ServiceProvider
             $like = '%'.$term.'%';
             $tag = Equipment::normalizeTag($term);
 
-            return Equipment::with(['category', 'location', 'compartment.location'])->inService()
+            return EquipmentService::equipmentFor($user)->with(['category', 'location', 'compartment.location'])->inService()
                 ->where(fn ($q) => $q->where('name', 'ilike', $like)->orWhere('code', 'ilike', $like)->orWhere('serial_number', 'ilike', $like)
                     ->orWhere('barcode', $term)->orWhere('manufacturer', 'ilike', $like)->orWhere('model', 'ilike', $like)
                     ->when($tag, fn ($q) => $q->orWhere('rfid', $tag)))
@@ -121,7 +123,7 @@ class AusruestungServiceProvider extends ServiceProvider
                 return null;
             }
 
-            return Equipment::with('category')->inService()->get()
+            return EquipmentService::equipmentFor($user)->with('category')->inService()->get()
                 ->filter(fn (Equipment $e) => $e->lifetimeEndsAt() && $e->lifetimeEndsAt()->year <= $to)
                 ->map(fn (Equipment $e) => ['year' => $e->lifetimeEndsAt()->year, 'title' => $e->name.' ('.$e->code.')',
                     'detail' => 'Lebensdauer bis '.$e->lifetimeEndsAt()->format('d.m.Y').($e->category ? ' · '.$e->category->name : ''),

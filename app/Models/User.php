@@ -10,6 +10,7 @@ use App\Services\ModuleRegistry;
 use Database\Factories\UserFactory;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\LocationModuleRoles;
+use Extensions\Locations\Services\StandardRoleAssignments;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -23,6 +24,9 @@ use Illuminate\Support\Facades\Cache;
 use Modules\Fahrzeugbuchung\src\Models\Booking;
 use Modules\Kleiderkammer\src\Services\PersonalAccess;
 
+/**
+ * @property int|null $ext_location_id
+ */
 class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<UserFactory> */
@@ -139,7 +143,15 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->is_active
             && $this->canUseModule('maengelmanagement')
-            && ($this->is_admin || $this->hasModuleRole('maengelmanagement', 'verantwortlicher'));
+            && ($this->is_admin || $this->hasAnyModuleRole('maengelmanagement', 'verantwortlicher'));
+    }
+
+    /** A local Mängel role may only manage defects assigned to that Standort. */
+    public function canManageMaengelAt(?int $locationId): bool
+    {
+        return $this->is_active
+            && $this->canUseModule('maengelmanagement')
+            && ($this->is_admin || $this->hasModuleRole('maengelmanagement', 'verantwortlicher', $locationId));
     }
 
     /** Admins and Gerätewarte manage the equipment; other members see it, report damages and reserve */
@@ -147,7 +159,8 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->is_active
             && $this->canUseModule('ausruestung')
-            && ($this->is_admin || $this->hasModuleRole('ausruestung', 'geraetewart'));
+            && ($this->is_admin || $this->hasModuleRole('ausruestung', 'geraetewart')
+                || $this->standardRoleLocationIds('ausruestung', ['geraetewart']) !== []);
     }
 
     /** Admins and Redakteure (e.g. the Wehrführung) write the notices of the Mitteilungen module */
@@ -168,6 +181,41 @@ class User extends Authenticatable implements FilamentUser
         return $this->is_active
             && $this->canUseModule('kalender')
             && ($this->is_admin || $this->hasModuleRole('kalender', 'terminverwalter'));
+    }
+
+    public function canManageKalenderAt(?int $locationId = null): bool
+    {
+        if ($this->canManageKalender()) {
+            return true;
+        }
+
+        return $this->is_active
+            && $locationId !== null
+            && $this->canUseModule('kalender')
+            && $this->hasModuleRole('kalender', 'terminverwalter', $locationId);
+    }
+
+    /** @param list<int> $locationIds */
+    public function canManageKalenderLocations(array $locationIds): bool
+    {
+        if ($locationIds === []) {
+            return false;
+        }
+
+        foreach ($locationIds as $locationId) {
+            if (! $this->canManageKalenderAt($locationId)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public function canManageAnyKalenderLocation(): bool
+    {
+        return $this->canManageKalender()
+            || ($this->is_active && $this->canUseModule('kalender')
+                && $this->standardRoleLocationIds('kalender', ['terminverwalter']) !== []);
     }
 
     /** Admins and Ausbildungsleiter keep the Lehrgänge of everyone; other members see their own */
@@ -191,6 +239,20 @@ class User extends Authenticatable implements FilamentUser
         return $this->is_active
             && $this->canUseModule('schichtplan')
             && ($this->is_admin || $this->hasModuleRole('schichtplan', 'planer'));
+    }
+
+    public function canManageSchichtplanAt(?int $locationId): bool
+    {
+        return $this->is_active
+            && $this->canUseModule('schichtplan')
+            && ($this->is_admin || ($locationId !== null && $this->hasModuleRole('schichtplan', 'planer', $locationId)));
+    }
+
+    public function canManageAnySchichtplan(): bool
+    {
+        return $this->is_active
+            && $this->canUseModule('schichtplan')
+            && ($this->is_admin || $this->hasAnyModuleRole('schichtplan', 'planer'));
     }
 
     /** An admin who can always log in locally (magic link), even if an external login method is exclusive or down */
@@ -226,6 +288,7 @@ class User extends Authenticatable implements FilamentUser
         return $this->belongsToMany(Group::class);
     }
 
+    /** @return BelongsToMany<Location, $this> */
     public function locations(): BelongsToMany
     {
         return $this->belongsToMany(Location::class, 'x_location_user', 'user_id', 'location_id')
@@ -233,6 +296,7 @@ class User extends Authenticatable implements FilamentUser
             ->orderBy('name');
     }
 
+    /** @return BelongsTo<Location, $this> */
     public function location(): BelongsTo
     {
         return $this->belongsTo(Location::class, 'ext_location_id');
@@ -321,6 +385,10 @@ class User extends Authenticatable implements FilamentUser
             return true;
         }
 
+        if (app(StandardRoleAssignments::class)->canEnterModule($this, $key)) {
+            return true;
+        }
+
         // Auto-assign: all active users have access without an explicit record
         $autoAssign = Cache::remember("module_auto_assign_{$key}", 60, fn () => Module::where('key', $key)->value('auto_assign')
         );
@@ -337,14 +405,25 @@ class User extends Authenticatable implements FilamentUser
     public function hasModuleRole(string $key, string $role, ?int $locationId = null): bool
     {
         $scopedRoles = app(LocationModuleRoles::class);
-        if ($scopedRoles->enabled($key)) {
-            return $scopedRoles->hasRole($this, $key, $role, $locationId);
-        }
-
-        return $this->moduleAccess()
+        $legacyRole = $this->moduleAccess()
             ->where('module', $key)
             ->where('role', $role)
             ->exists();
+        if ($legacyRole && ! $scopedRoles->enabled($key)) {
+            return true;
+        }
+
+        $standardRoles = app(StandardRoleAssignments::class);
+        if ($standardRoles->hasGlobalModuleRole($this, $key, $role)) {
+            return true;
+        }
+
+        if ($scopedRoles->enabled($key)) {
+            return $scopedRoles->hasRole($this, $key, $role, $locationId)
+                || ($locationId !== null && $standardRoles->hasModuleRoleAt($this, $key, $role, $locationId));
+        }
+
+        return $locationId !== null && $standardRoles->hasModuleRoleAt($this, $key, $role, $locationId);
     }
 
     /** Navigation only; object authorization must use hasModuleRole with an explicit target. */
@@ -352,7 +431,29 @@ class User extends Authenticatable implements FilamentUser
     {
         $scopedRoles = app(LocationModuleRoles::class);
 
-        return $scopedRoles->enabled($key) ? $scopedRoles->hasAnyRole($this, $key, $role) : $this->hasModuleRole($key, $role);
+        $existing = $scopedRoles->enabled($key)
+            ? $scopedRoles->hasAnyRole($this, $key, $role)
+            : $this->hasModuleRole($key, $role);
+
+        return $existing || app(StandardRoleAssignments::class)->hasAnyModuleRole($this, $key, $role);
+    }
+
+    /** Target-specific check for a standard role assigned to exactly one Abteilung. */
+    public function hasModuleRoleForGroup(string $key, string $role, int $locationId, int $groupId): bool
+    {
+        return app(StandardRoleAssignments::class)->hasModuleRoleForGroup($this, $key, $role, $locationId, $groupId);
+    }
+
+    /** @return list<int> */
+    public function standardRoleGroupIds(string $key, array $roles): array
+    {
+        return app(StandardRoleAssignments::class)->groupIds($this, $key, $roles);
+    }
+
+    /** @return list<int> */
+    public function standardRoleLocationIds(string $key, array $roles): array
+    {
+        return app(StandardRoleAssignments::class)->locationIds($this, $key, $roles);
     }
 
     public function scopeActive($query)

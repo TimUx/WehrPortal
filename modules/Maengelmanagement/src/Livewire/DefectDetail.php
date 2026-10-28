@@ -111,7 +111,7 @@ class DefectDetail extends Component
 
     public function takeOver(DefectService $service): void
     {
-        abort_unless(auth()->user()->canManageMaengel(), 403);
+        abort_unless(DefectService::canEdit(auth()->user(), $this->defect), 403);
         $service->assign($this->defect, auth()->user(), auth()->user());
         if ($this->defect->status === DefectStatus::Open) {
             $service->setStatus($this->defect, auth()->user(), DefectStatus::InProgress);

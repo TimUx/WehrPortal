@@ -4,6 +4,7 @@ namespace Modules\Atemschutz\src\Services;
 
 use App\Services\OrganizationSettings;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Schema;
 use Modules\Atemschutz\src\Models\Operation;
 use Modules\Atemschutz\src\Models\Team;
 
@@ -14,7 +15,11 @@ class AtemschutzPdf
 
     public function operation(Operation $operation): string
     {
-        $operation->load(['teams.members', 'teams.readings.member', 'teams.warnings.acknowledger', 'starter', 'report']);
+        $relations = ['teams.members', 'teams.readings.member', 'teams.warnings.acknowledger', 'starter', 'report'];
+        if (config('locations.enabled') && Schema::hasColumn('as_operations', 'ext_location_id')) {
+            $relations[] = 'location';
+        }
+        $operation->load($relations);
 
         return Pdf::loadView('atemschutz::pdf.operation', [
             'operation' => $operation, 'org' => $this->org->name(),

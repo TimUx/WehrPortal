@@ -4,11 +4,16 @@ use App\Livewire\Dashboard\Home;
 use App\Models\Module;
 use App\Models\User;
 use App\Services\MemberRemoval;
+use Extensions\Locations\Models\Location;
+use Extensions\Locations\Services\StandardRoleAssignments;
 use Illuminate\Database\QueryException;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Modules\Einsatzbericht\src\Services\ReportService;
 use Modules\Expositionen\src\Livewire\CrewForm;
@@ -27,26 +32,50 @@ beforeEach(function () {
     Notification::fake();
     $this->travelTo(Carbon::parse('2027-06-01 12:00', 'Europe/Berlin'));
 
-    $this->officer = User::factory()->create(['name' => 'Erika Exposition']);
-    $this->officer->moduleAccess()->create(['module' => 'expositionen', 'role' => 'expositionsbeauftragter']);
-    $this->leader = User::factory()->create(['name' => 'Bernd Blaulicht']);
+    $this->admin = User::factory()->admin()->create();
+    $this->north = Location::create(['name' => 'Wache Nord', 'slug' => 'exposure-nord']);
+    $this->officer = User::factory()->create(['name' => 'Erika Exposition', 'ext_location_id' => $this->north->id]);
+    $this->leader = User::factory()->create(['name' => 'Bernd Blaulicht', 'ext_location_id' => $this->north->id]);
     $this->leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
-    $this->leader->moduleAccess()->create(['module' => 'expositionen']);
-    $this->hanna = User::factory()->create(['name' => 'Hanna Hydrant']);
-    $this->fritz = User::factory()->create(['name' => 'Fritz Feuer']);
+    $this->hanna = User::factory()->create(['name' => 'Hanna Hydrant', 'ext_location_id' => $this->north->id]);
+    $this->fritz = User::factory()->create(['name' => 'Fritz Feuer', 'ext_location_id' => $this->north->id]);
     foreach ([$this->hanna, $this->fritz] as $u) {
         $u->moduleAccess()->create(['module' => 'expositionen']);
     }
+    $roles = app(StandardRoleAssignments::class);
+    $roles->grant($this->admin, $this->officer->id, 'wehrfuehrung', $this->north->id, null, 'Datenschutzverwaltung');
+    $roles->grant($this->admin, $this->leader->id, 'wehrfuehrung', $this->north->id, null, 'Einsatzbericht und Datenschutz');
+    $this->officer->refresh();
+    $this->leader->refresh();
 
     // A Kellerbrand two days ago: Hanna under Atemschutz, Fritz as Maschinist
     $reports = app(ReportService::class);
+    session()->put('ext_location_id', $this->north->id);
+    $this->actingAs($this->leader);
     $this->report = $reports->create($this->leader, now()->subDays(2));
     $reports->update($this->leader, $this->report, ['keyword' => 'FEU 2', 'category' => 'brand_mittel']);
     $reports->start($this->leader, $this->report->refresh());
-    $hlf = $reports->addVehicle($this->leader, $this->report, Vehicle::factory()->create(['is_active' => true])->id);
+    $hlf = $reports->addVehicle($this->leader, $this->report, Vehicle::factory()->create([
+        'is_active' => true,
+        'ext_location_id' => $this->north->id,
+    ])->id);
     $reports->assign($this->leader, $hlf, $this->hanna, 'angriffstrupp', true);
     $reports->assign($this->leader, $hlf, $this->fritz, 'maschinist');
     $this->report->refresh();
+    expect((int) $this->hanna->ext_location_id)->toBe((int) $this->north->id)
+        ->and((int) $this->report->ext_location_id)->toBe((int) $this->north->id)
+        ->and($this->report->crew()->where('user_id', $this->hanna->id)->exists())->toBeTrue();
+    auth()->logout();
+});
+
+test('locations activation adds the exposure location foreign key if it was initially unavailable', function () {
+    Schema::table('ex_exposures', fn (Blueprint $table) => $table->dropForeign('ex_exposures_ext_location_fk'));
+
+    $migration = require base_path('extensions/Locations/database/migrations/2027_01_05_000000_add_location_fk_to_exposures.php');
+    $migration->up();
+
+    expect(collect(Schema::getForeignKeys('ex_exposures'))
+        ->contains(fn (array $foreignKey) => $foreignKey['name'] === 'ex_exposures_ext_location_fk'))->toBeTrue();
 });
 
 $data = fn (array $extra = []) => ['occurred_on' => '2027-05-30', 'occasion' => 'Einsatz 2027/001 · FEU 2', 'activity' => 'innenangriff', 'activity_text' => 'Kellerbrand',
@@ -136,4 +165,63 @@ test('deleting a Kamerad keeps the exposure with the name, never moves it to som
 
     $e = Exposure::sole();
     expect($e->user_id)->toBeNull()->and($e->person_name)->toBe('Fritz Feuer')->and($e->recorded_by)->toBeNull();
+});
+
+test('local Wehrführung is limited to its Standort and legacy global exposure roles do not grant access', function () use ($data) {
+    $south = Location::create(['name' => 'Wache Süd', 'slug' => 'exposure-sued']);
+    $otherMember = User::factory()->create(['name' => 'Sven Süd', 'ext_location_id' => $south->id]);
+    $otherMember->moduleAccess()->create(['module' => 'expositionen']);
+    $localExposure = app(ExposureService::class)->record($this->hanna, $this->hanna, $data(), $this->report);
+    $otherExposure = app(ExposureService::class)->record($otherMember, $otherMember, $data(), null);
+
+    Livewire::actingAs($this->officer)->test(ExposureForm::class)
+        ->assertSee('Standort')
+        ->assertSee('Wache Nord')
+        ->assertSee('Hanna Hydrant');
+    Livewire::actingAs($this->officer)->test(Manage::class)
+        ->assertSee('Hanna Hydrant')
+        ->assertDontSee('Sven Süd');
+    $csv = $this->actingAs($this->officer)->get(route('expositionen.csv'))->assertOk()->getContent();
+    expect($csv)->toContain('Hanna Hydrant')->not->toContain('Sven Süd');
+    expect(fn () => app(ExposureService::class)->update($this->officer, $otherExposure, $data()))
+        ->toThrow(ValidationException::class);
+    expect(fn () => app(ExposureService::class)->record($this->officer, $otherMember, $data(['ext_location_id' => $this->north->id])))
+        ->toThrow(ValidationException::class);
+
+    $legacy = User::factory()->create(['name' => 'Lotta Altrolle', 'ext_location_id' => $this->north->id]);
+    $legacy->moduleAccess()->create(['module' => 'expositionen', 'role' => 'expositionsbeauftragter']);
+    expect(ExposureService::canManage($legacy))->toBeFalse();
+    $this->actingAs($legacy)->get(route('expositionen.manage'))->assertForbidden();
+
+    $incidentLeader = User::factory()->create(['name' => 'Lars Einsatzleiter', 'ext_location_id' => $this->north->id]);
+    $incidentLeader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
+    $incidentLeader->moduleAccess()->create(['module' => 'expositionen']);
+    expect(ExposureService::canPropose($incidentLeader, $this->report))->toBeFalse();
+    $this->actingAs($incidentLeader)->get(route('expositionen.crew', $this->report))->assertForbidden();
+
+    expect(ExposureService::managedExposures($this->officer)->pluck('id')->all())->toBe([$localExposure->id])
+        ->and(ExposureService::managedExposures($this->admin)->pluck('id')->all())->toContain($otherExposure->id);
+
+    expect(fn () => DB::table('ex_exposures')->where('id', $localExposure->id)->update(['ext_location_id' => $south->id]))
+        ->toThrow(QueryException::class);
+});
+
+test('historical exposures without a Standort remain visible only to the involved member and global managers', function () {
+    $historical = Exposure::create([
+        'user_id' => $this->hanna->id,
+        'person_name' => $this->hanna->name,
+        'occurred_on' => '2027-05-30',
+        'occasion' => 'Historischer Eintrag ohne Standort',
+        'activity' => ['kind' => 'innenangriff', 'text' => null],
+        'substances' => ['Unbekannter Stoff'],
+        'status' => 'recorded',
+        'recorded_by' => $this->hanna->id,
+        'retain_until' => '2067-05-30',
+    ]);
+
+    expect(ExposureService::canView($this->hanna, $historical))->toBeTrue()
+        ->and(ExposureService::canView($this->officer, $historical))->toBeFalse()
+        ->and(ExposureService::canView($this->admin, $historical))->toBeTrue()
+        ->and(ExposureService::managedExposures($this->officer)->whereKey($historical->id)->exists())->toBeFalse()
+        ->and(ExposureService::managedExposures($this->admin)->whereKey($historical->id)->exists())->toBeTrue();
 });

@@ -8,6 +8,7 @@ use App\Services\ModuleRegistry;
 use Extensions\Vereinsverwaltung\Models\Association;
 use Extensions\Vereinsverwaltung\Models\Member;
 use Extensions\Vereinsverwaltung\Models\MembershipApplication;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -310,7 +311,7 @@ class MembershipService
         return Member::query()->withoutGlobalScopes()->where('association_id', $association->id)->findOrFail($memberId);
     }
 
-    /** @return \Illuminate\Database\Eloquent\Collection<int, User> */
+    /** @return Collection<int, User> */
     public function personnelForAssociation(Association $association)
     {
         return User::query()->withoutGlobalScopes()->where('is_active', true)

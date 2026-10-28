@@ -2,6 +2,7 @@
 
 namespace Modules\Fahrtenbuch\src\Livewire;
 
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Modules\Fahrtenbuch\src\Models\Fueling;
@@ -12,6 +13,7 @@ use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 /** The Fahrtenbuch of one vehicle and year: trips with gaps, fuel stops, consumption, export */
 class VehicleLog extends Component
 {
+    #[Locked]
     public Vehicle $vehicle;
 
     #[Url(as: 'jahr')]
@@ -27,6 +29,7 @@ class VehicleLog extends Component
 
     public function render(LogbookService $logbook)
     {
+        abort_unless(LogbookService::canAccessVehicle(auth()->user(), $this->vehicle), 404);
         $trips = $logbook->yearTrips($this->vehicle, $this->year, withVoided: true);
         $valid = $trips->whereNull('voided_at');
         $fuel = Fueling::with('user')->where('vehicle_id', $this->vehicle->id)->get()
@@ -43,7 +46,7 @@ class VehicleLog extends Component
             'lastKm' => $logbook->lastKm($this->vehicle),
             'years' => Trip::where('vehicle_id', $this->vehicle->id)->selectRaw("distinct extract(year from started_at at time zone 'Europe/Berlin')::int as y")->pluck('y')
                 ->push(now('Europe/Berlin')->year)->unique()->sortDesc()->values(),
-            'canManage' => LogbookService::canManage(auth()->user()),
+            'canManage' => LogbookService::canManageVehicle(auth()->user(), $this->vehicle),
         ]);
     }
 }

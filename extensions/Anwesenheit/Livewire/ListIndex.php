@@ -27,7 +27,7 @@ class ListIndex extends Component
     {
         $service = app(AttendanceService::class);
         $user = auth()->user();
-        $query = $service->visibleTo($user)->with(['leader', 'creator'])->withCount('files');
+        $query = $service->visibleTo($user)->with(['leader', 'creator', 'group'])->withCount('files');
 
         if (in_array($this->status, ['draft', 'submitted'], true)) {
             $query->where('status', $this->status);

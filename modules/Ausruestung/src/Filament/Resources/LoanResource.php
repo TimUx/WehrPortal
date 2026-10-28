@@ -19,6 +19,7 @@ use Modules\Ausruestung\src\Filament\Resources\LoanResource\Pages;
 use Modules\Ausruestung\src\Filament\Support\EquipmentActions;
 use Modules\Ausruestung\src\Models\Equipment;
 use Modules\Ausruestung\src\Models\Loan;
+use Modules\Ausruestung\src\Services\EquipmentService;
 use Modules\Ausruestung\src\Services\LoanService;
 
 /** Who has which item until when, and the reservations */
@@ -50,9 +51,24 @@ class LoanResource extends Resource
         return false;
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $locationIds = EquipmentService::equipmentManagementScope($user);
+
+        return $locationIds === null ? $query : ($locationIds === []
+            ? $query->whereRaw('1 = 0')
+            : $query->whereHas('equipment', fn (Builder $equipment) => $equipment->whereIn('ext_location_id', $locationIds)));
+    }
+
     public static function getNavigationBadge(): ?string
     {
-        $overdue = Loan::where('status', LoanStatus::Active->value)->where('due_at', '<', now())->count();
+        $overdue = static::getEloquentQuery()->where('status', LoanStatus::Active->value)->where('due_at', '<', now())->count();
 
         return $overdue > 0 ? (string) $overdue : null;
     }
@@ -90,7 +106,7 @@ class LoanResource extends Resource
                 Actions\Action::make('handOut')
                     ->label('Ausgeben')
                     ->icon('heroicon-o-arrow-right-circle')
-                    ->visible(fn (Loan $record) => $record->status === LoanStatus::Reserved)
+                    ->visible(fn (Loan $record) => $record->status === LoanStatus::Reserved && self::canManageLoanEquipment($record))
                     ->requiresConfirmation()
                     ->action(function (Loan $record, Actions\Action $action) {
                         EquipmentActions::attempt($action, fn () => app(LoanService::class)->handOut($record, auth()->user()));
@@ -99,7 +115,7 @@ class LoanResource extends Resource
                 Actions\Action::make('return')
                     ->label('Zurücknehmen')
                     ->icon('heroicon-o-arrow-uturn-left')
-                    ->visible(fn (Loan $record) => $record->status === LoanStatus::Active)
+                    ->visible(fn (Loan $record) => $record->status === LoanStatus::Active && self::canManageLoanEquipment($record))
                     ->schema([
                         Forms\Components\Textarea::make('damage')->label('Schaden festgestellt?')->rows(2)
                             ->helperText('Leer lassen, wenn alles in Ordnung ist. Sonst wird ein Schaden angelegt und das Gerät gesperrt.'),
@@ -113,7 +129,7 @@ class LoanResource extends Resource
                     ->icon('heroicon-o-x-mark')
                     ->color('danger')
                     ->requiresConfirmation()
-                    ->visible(fn (Loan $record) => $record->status === LoanStatus::Reserved)
+                    ->visible(fn (Loan $record) => $record->status === LoanStatus::Reserved && self::canManageLoanEquipment($record))
                     ->action(fn (Loan $record) => app(LoanService::class)->cancel($record, auth()->user())),
             ]);
     }
@@ -127,7 +143,7 @@ class LoanResource extends Resource
             ->color('gray')
             ->schema(array_filter([
                 $equipment ? null : Forms\Components\Select::make('equipment_id')->label('Gerät')
-                    ->options(fn () => Equipment::whereIn('status', [EquipmentStatus::Available->value, EquipmentStatus::Loaned->value])
+                    ->options(fn () => EquipmentService::managedEquipmentFor(auth()->user())->whereIn('status', [EquipmentStatus::Available->value, EquipmentStatus::Loaned->value])
                         ->orderBy('code')->get()->mapWithKeys(fn (Equipment $e) => [$e->id => $e->code.' – '.$e->name]))
                     ->searchable()->required(),
                 Forms\Components\Select::make('user_id')->label('Für')->options(fn () => EquipmentActions::members())->searchable()->required(),
@@ -145,6 +161,15 @@ class LoanResource extends Resource
                 ));
                 Notification::make()->title('Reserviert')->success()->send();
             });
+    }
+
+    private static function canManageLoanEquipment(Loan $loan): bool
+    {
+        $user = auth()->user();
+        $equipment = $loan->getRelationValue('equipment');
+
+        return $user instanceof User && $equipment instanceof Equipment
+            && EquipmentService::canManageEquipment($user, $equipment);
     }
 
     public static function getPages(): array

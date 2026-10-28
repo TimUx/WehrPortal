@@ -39,9 +39,13 @@ Route::prefix('finanzen')->name('finanzen.')
             return $response;
         })->whereNumber('receipt')->name('receipt');
 
-        // Kassenwart, Wehrführung and admins: all Buchungen, Jahresabschluss and export
+        // The Buchung list scopes Wehrführung to their assigned Standorte.
         Route::middleware('can:finanzen-review')->group(function () {
             Route::get('/buchungen', fn () => view('finanzen::pages.entries'))->name('entries');
+        });
+
+        // Consolidated annual close and exports remain global.
+        Route::middleware('can:finanzen-review-global')->group(function () {
             Route::get('/jahresabschluss', function () {
                 abort_unless(FinanceService::reportEnabled(), 404);
 
@@ -68,9 +72,13 @@ Route::prefix('finanzen')->name('finanzen.')
                 ->whereNumber('year')->name('export.zip');
         });
 
-        // Kassenwart and admins: book directly, Kostenstellen and budgets
+        // Kassenwart and admins: book directly and manage the shared cost-center catalog.
         Route::middleware('can:finanzen-manage')->group(function () {
             Route::get('/buchen', fn () => view('finanzen::pages.form', ['entry' => null, 'direct' => true]))->name('book');
+        });
+
+        // Wehrführung manages only the budgets assigned to their own Standort.
+        Route::middleware('can:finanzen-budget')->group(function () {
             Route::get('/budget', fn () => view('finanzen::pages.budget'))->name('budget');
         });
     });

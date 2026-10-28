@@ -5,6 +5,7 @@ namespace Extensions\Locations\Filament\Resources\LocationResource\RelationManag
 use App\Models\Group;
 use App\Models\User;
 use Extensions\Locations\Models\Location;
+use Extensions\Locations\Scopes\LocationScope;
 use Extensions\Locations\Services\LocationAccess;
 use Filament\Actions;
 use Filament\Forms;
@@ -46,11 +47,12 @@ class MembersRelationManager extends RelationManager
             ->headerActions([
                 Actions\AttachAction::make()
                     ->label('Person hinzufügen')
-                    ->preloadRecordSelect()
+                    ->recordSelectOptionsQuery(fn ($query) => $query->withoutGlobalScope(LocationScope::class)->where('users.is_active', true))
                     ->schema(fn (Actions\AttachAction $action): array => [
                         $action->getRecordSelect(),
                         Forms\Components\Select::make('role')->label('Rolle')->options(['member' => 'Mitglied', 'admin' => 'Standort-Admin'])->default('member')->required(),
-                    ]),
+                    ])
+                    ->after(fn () => app(LocationAccess::class)->forget()),
             ])
             ->recordActions([
                 Actions\Action::make('toggleAdmin')

@@ -36,7 +36,7 @@ Route::middleware(['auth', 'active', 'module:einsatzbericht'])->group(function (
 
         // The QR code big, for others to scan from this screen
         Route::get('/{report}/qr', function (Report $report) {
-            abort_unless(ReportService::canLead(auth()->user()), 403);
+            abort_unless(ReportService::canLeadReport(auth()->user(), $report), 403);
 
             return view('einsatzbericht::pages.qr', ['report' => $report, 'qr' => ExternalAccess::qr($report, 600), 'url' => ExternalAccess::url($report)]);
         })->whereNumber('report')->name('qr');
@@ -53,11 +53,19 @@ Route::middleware(['auth', 'active', 'module:einsatzbericht'])->group(function (
 
         // The full report only for Einsatzleiter and Wehrführung (data of third parties)
         Route::middleware('can:einsatzbericht-lead')->group(function () {
-            Route::get('/{report}', fn (Report $report) => view('einsatzbericht::pages.report', compact('report')))->whereNumber('report')->name('show');
-            Route::get('/{report}/druck', fn (Report $report) => view('einsatzbericht::pages.print', [
-                'report' => $report->load(['vehicles.crew.user', 'commander', 'closer', 'releaser', 'materials', 'messages.user', 'messages.photos', 'messages.externalUnit', 'externalUnits.statuses']),
-                'strength' => ReportService::reportStrength($report),
-            ]))->whereNumber('report')->name('print');
+            Route::get('/{report}', function (Report $report) {
+                abort_unless(ReportService::canLeadReport(auth()->user(), $report), 403);
+
+                return view('einsatzbericht::pages.report', compact('report'));
+            })->whereNumber('report')->name('show');
+            Route::get('/{report}/druck', function (Report $report) {
+                abort_unless(ReportService::canLeadReport(auth()->user(), $report), 403);
+
+                return view('einsatzbericht::pages.print', [
+                    'report' => $report->load(['vehicles.crew.user', 'commander', 'closer', 'releaser', 'materials', 'messages.user', 'messages.photos', 'messages.externalUnit', 'externalUnits.statuses']),
+                    'strength' => ReportService::reportStrength($report),
+                ]);
+            })->whereNumber('report')->name('print');
         });
 
         Route::middleware('can:einsatzbericht-release')->group(function () {

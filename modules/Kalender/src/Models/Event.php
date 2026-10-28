@@ -6,14 +6,21 @@ use App\Models\Group;
 use App\Models\MemberFunction;
 use App\Models\Place;
 use App\Models\User;
+use Extensions\Locations\Models\Location;
+use Extensions\Locations\Support\LocationAssignable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Schema;
 use Modules\Kalender\src\Support\Audience;
 
-class Event extends Model
+/**
+ * @property int|null $ext_location_id
+ * @property string|null $managed_by
+ */
+class Event extends Model implements LocationAssignable
 {
     public const TYPES = [
         'uebung' => 'Übung',
@@ -41,11 +48,16 @@ class Event extends Model
     protected $fillable = [
         'title', 'type', 'starts_at', 'ends_at', 'all_day', 'location', 'partners', 'description', 'rsvp', 'rsvp_deadline',
         'min_participants', 'is_public', 'reminder_sent_at', 'series_id', 'source_id', 'external_uid', 'cancelled_at', 'created_by',
-        'place_id', 'dress_code_ids', 'managed_by',
+        'place_id', 'dress_code_ids', 'managed_by', 'ext_location_id',
     ];
 
     /** Modules that keep events in sync, and where to change them */
-    public const MANAGED_BY = ['uebungsdienste' => 'Übungsdienstplaner', 'schichtplan' => 'Schichtplan', 'fuehrerscheine' => 'Führerscheine'];
+    public const MANAGED_BY = [
+        'uebungsdienste' => 'Übungsdienstplaner',
+        'schichtplan' => 'Schichtplan',
+        'fuehrerscheine' => 'Führerscheine',
+        'fahrzeuge' => 'Fahrzeugverwaltung',
+    ];
 
     protected function casts(): array
     {
@@ -66,6 +78,29 @@ class Event extends Model
     public function groups(): BelongsToMany
     {
         return $this->belongsToMany(Group::class, 'kal_event_group', 'event_id', 'group_id');
+    }
+
+    public function locations(): BelongsToMany
+    {
+        return $this->belongsToMany(Location::class, 'kal_event_location', 'event_id', 'location_id');
+    }
+
+    public function canAssignLocation(User $user, int $locationId): bool
+    {
+        return $user->canManageKalenderLocations([$locationId]) || isset(self::MANAGED_BY[$this->managed_by]);
+    }
+
+    /** @return list<int> */
+    public function locationIds(): array
+    {
+        if (config('locations.enabled') && Schema::hasTable('kal_event_location')) {
+            $ids = $this->locations()->pluck('x_locations.id')->map(fn ($id) => (int) $id)->all();
+            if ($ids !== []) {
+                return $ids;
+            }
+        }
+
+        return $this->ext_location_id === null ? [] : [(int) $this->ext_location_id];
     }
 
     /** Funktionen of the target group (each includes its sub-functions) */
@@ -106,7 +141,25 @@ class Event extends Model
      */
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
-        return $user->canManageKalender() ? $query : Audience::scope($query, $user);
+        if ($user->canManageKalender()) {
+            return $query;
+        }
+
+        $locationIds = $user->standardRoleLocationIds('kalender', ['terminverwalter']);
+        if ($locationIds !== []) {
+            return $query->where(function (Builder $query) use ($locationIds, $user) {
+                $query->where(function (Builder $query) use ($locationIds) {
+                    $query->whereIn('kal_events.ext_location_id', $locationIds);
+                    if (config('locations.enabled') && Schema::hasTable('kal_event_location')) {
+                        $query->orWhereExists(fn ($locations) => $locations->selectRaw('1')->from('kal_event_location')
+                            ->whereColumn('kal_event_location.event_id', 'kal_events.id')
+                            ->whereIn('kal_event_location.location_id', $locationIds));
+                    }
+                })->orWhere(fn (Builder $query) => Audience::scope($query, $user));
+            });
+        }
+
+        return Audience::scope($query, $user);
     }
 
     public function scopePublic(Builder $query): Builder

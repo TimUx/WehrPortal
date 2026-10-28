@@ -19,7 +19,7 @@ class YearReport extends Component
 
     public function boot(): void
     {
-        abort_unless(FinanceService::canReview(auth()->user()), 403);
+        abort_unless(FinanceService::canReviewGlobally(auth()->user()), 403);
         abort_unless(FinanceService::reportEnabled(), 404);
     }
 

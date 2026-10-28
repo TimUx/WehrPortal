@@ -3,9 +3,11 @@
 use App\Livewire\Dashboard\Home;
 use App\Models\Module;
 use App\Models\User;
+use Extensions\Locations\Models\Location;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
@@ -76,6 +78,56 @@ test('status: bedingt einsatzbereit needs a note; außer Dienst is no longer boo
     expect(Vehicle::active()->pluck('id'))->not->toContain($this->mtw->id)
         ->and($this->f->states(collect([$this->mtw->fresh()]))->first()['label'])->toBe('Außer Dienst');
     expect(fn () => $this->f->setStatus($this->hanna, $this->hlf, 'ready', null))->toThrow(ValidationException::class);
+});
+
+test('vehicles can be deleted only when there is no booking or trip history', function () {
+    $this->f->deleteVehicle($this->wart, $this->hlf);
+    expect(Vehicle::find($this->hlf->id))->toBeNull();
+
+    $booking = bookMtw($this->hanna, 'tomorrow 10:00', 'tomorrow 11:00');
+    expect(fn () => $this->f->deleteVehicle($this->wart, $this->mtw))
+        ->toThrow(ValidationException::class, 'Buchungen oder Fahrtenbucheinträge');
+    expect($booking->fresh())->not->toBeNull();
+
+    $tripVehicle = Vehicle::factory()->create(['name' => 'LF 10']);
+    DB::table('ft_trips')->insert([
+        'vehicle_id' => $tripVehicle->id,
+        'driver_id' => $this->wart->id,
+        'started_at' => now(),
+        'start_km' => 100,
+        'origin' => 'Gerätehaus',
+        'purpose' => 'service',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    expect(fn () => $this->f->deleteVehicle($this->wart, $tripVehicle))
+        ->toThrow(ValidationException::class, 'Buchungen oder Fahrtenbucheinträge');
+
+    $fuelVehicle = Vehicle::factory()->create(['name' => 'LF 20']);
+    DB::table('ft_fuelings')->insert([
+        'vehicle_id' => $fuelVehicle->id,
+        'fueled_at' => now(),
+        'liters' => 25,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    expect(fn () => $this->f->deleteVehicle($this->wart, $fuelVehicle))
+        ->toThrow(ValidationException::class, 'Buchungen oder Fahrtenbucheinträge');
+});
+
+test('vehicle management shows and changes the organizational Standort', function () {
+    $other = Location::create(['name' => 'Wache Nord', 'slug' => 'wache-nord']);
+    $admin = User::factory()->admin()->create();
+
+    $this->f->saveVehicle($admin, $this->hlf, [
+        'name' => 'HLF 20',
+        'ext_location_id' => $other->id,
+    ]);
+
+    expect($this->hlf->fresh()->ext_location_id)->toBe($other->id);
+    $this->actingAs($admin)->get(route('fahrzeuge.show', $this->hlf))->assertOk()->assertSee('Wache Nord');
+    $this->actingAs($admin)->get(route('fahrzeuge.index'))->assertOk()->assertSee('Wache Nord');
 });
 
 test('a Werkstatt downtime blocks bookings in the Fahrzeugbuchung and tells who booked', function () {

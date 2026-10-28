@@ -23,6 +23,7 @@ class Station extends Model
         return $this->belongsTo(User::class, 'lead_user_id');
     }
 
+    /** @return BelongsTo<Plan, $this> */
     public function plan(): BelongsTo
     {
         return $this->belongsTo(Plan::class, 'plan_id');

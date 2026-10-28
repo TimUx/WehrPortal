@@ -72,6 +72,7 @@ class VehicleDetail extends Component
 
     public function mount(): void
     {
+        abort_unless(FleetService::canViewVehicle(auth()->user(), $this->vehicle), 404);
         $this->flash = session('fahrzeuge.flash');
         $this->status = Profile::where('vehicle_id', $this->vehicle->id)->value('status') ?? 'ready';
         $this->resetDowntime();
@@ -91,6 +92,24 @@ class VehicleDetail extends Component
     public function recommission(FleetService $fleet): void
     {
         $this->run(fn () => $fleet->recommission(auth()->user(), $this->vehicle), 'Wieder in Dienst gestellt.');
+    }
+
+    public function deleteVehicle(FleetService $fleet)
+    {
+        $this->resetErrorBag();
+        try {
+            $fleet->deleteVehicle(auth()->user(), $this->vehicle);
+        } catch (ValidationException $e) {
+            foreach ($e->errors() as $field => $messages) {
+                $this->addError($field, $messages[0]);
+            }
+
+            return null;
+        }
+
+        session()->flash('fahrzeuge.flash', 'Fahrzeug gelöscht.');
+
+        return redirect()->route('fahrzeuge.index');
     }
 
     public function addDowntime(FleetService $fleet): void
@@ -282,8 +301,9 @@ class VehicleDetail extends Component
     {
         $profile = Profile::firstOrNew(['vehicle_id' => $this->vehicle->id]);
         $modules = app(ModuleRegistry::class);
+        $this->vehicle->loadMissing('standort');
         $equipment = $profile->location_id && $modules->isActive('ausruestung')
-            ? Equipment::inService()->where('location_id', $profile->location_id)->get()
+            ? Equipment::inService()->where('location_id', $profile->location_id)->where('ext_location_id', $this->vehicle->ext_location_id)->get()
             : null;
 
         return view('fahrzeuge::livewire.vehicle-detail', [
@@ -295,7 +315,7 @@ class VehicleDetail extends Component
             'events' => StatusEvent::with('user')->where('vehicle_id', $this->vehicle->id)->latest('created_at')->limit(15)->get(),
             'einsaetze' => $fleet->einsatzHistory($this->vehicle),
             'einsatzThisYear' => $fleet->einsatzHistory($this->vehicle, 1000)->filter(fn ($e) => str_starts_with((string) $e->alarmed_at, (string) now('Europe/Berlin')->year))->count(),
-            'assignment' => $fleet->runningAssignments()->firstWhere('vehicle_id', $this->vehicle->id),
+            'assignment' => $fleet->runningAssignments([$this->vehicle->id])->first(),
             'bookings' => $modules->isActive('fahrzeugbuchung')
                 ? Booking::visible()->with('user')->where('vehicle_id', $this->vehicle->id)->where('ends_at', '>', now())->orderBy('starts_at')->limit(10)->get()
                 : null,

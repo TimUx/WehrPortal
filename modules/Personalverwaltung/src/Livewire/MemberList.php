@@ -84,21 +84,26 @@ class MemberList extends Component
         $manager = auth()->user();
         $year = (int) now('Europe/Berlin')->year;
         $term = trim($this->search);
+        $scope = PersonnelService::scopeOf($manager);
+        $scopeRestricted = PersonnelService::isGroupScopeRestricted($manager);
         $members = PersonnelService::visibleMembers($manager)->with([
-            'groups' => fn ($query) => $query->when(Group::locationsAvailable(), fn ($query) => $query->with('location')),
+            'groups' => fn ($query) => $query
+                ->when($scopeRestricted, fn ($query) => $query->withoutGlobalScopes()->whereIn('groups.id', $scope))
+                ->when(Group::locationsAvailable(), fn ($query) => $query->with('location')),
             'functions.parent',
         ])
             ->when($term !== '', fn ($q) => $q->where(fn ($w) => $w->where('name', 'ilike', '%'.$term.'%')->orWhere('email', 'ilike', '%'.$term.'%')))
-            ->when($this->groupId !== '', fn ($q) => $q->whereHas('groups', fn ($g) => $g->where('groups.id', (int) $this->groupId)))
+            ->when($this->groupId !== '', fn ($q) => $q->whereHas('groups', fn ($g) => $g
+                ->when($scopeRestricted, fn ($g) => $g->withoutGlobalScopes()->whereIn('groups.id', $scope))
+                ->where('groups.id', (int) $this->groupId)))
             ->when(in_array($this->status, ['active', 'inactive', 'left'], true), fn ($q) => $q->where('status', $this->status))
             ->orderBy('name')->paginate(50);
 
-        $scope = PersonnelService::scopeOf($manager);
         $withAttendance = PersonnelService::attendanceAvailable();
 
         return view('personalverwaltung::livewire.member-list', [
             'members' => $members,
-            'groups' => Group::options(fn ($q) => $q->when($scope !== [], fn ($q) => $q->whereIn('id', $scope))),
+            'groups' => PersonnelService::groupOptions($manager),
             'year' => $year,
             'attendance' => $withAttendance ? $members->getCollection()->mapWithKeys(fn (User $m) => [$m->id => $personnel->attendance($m, $year)]) : collect(),
             'due' => $personnel->dueHonors($manager, $year)->groupBy(fn ($row) => $row['user']->id),

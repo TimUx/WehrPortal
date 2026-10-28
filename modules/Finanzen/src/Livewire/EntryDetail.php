@@ -84,16 +84,22 @@ class EntryDetail extends Component
     public function render()
     {
         $user = auth()->user();
-        $entry = $this->entry->load(['costCenter', 'submitter', 'decider', 'payer']);
+        $relations = ['costCenter', 'submitter', 'decider', 'payer'];
+        if (FinanceService::locationsEnabled()) {
+            $relations[] = 'location';
+        }
+        $entry = $this->entry->load($relations);
+        $canReviewEntry = FinanceService::canReviewAt($user, FinanceService::locationsEnabled() ? $entry->location_id : null);
 
         return view('finanzen::livewire.entry-detail', [
             'receipts' => $entry->receipts()->get(['id', 'entry_id', 'name', 'mime', 'size']),
-            'canDecide' => FinanceService::canReview($user) && $entry->status === 'submitted' && ($entry->submitted_by !== $user->id || $user->is_admin) && ! FinanceService::isClosed($entry->year),
+            'canDecide' => $canReviewEntry && $entry->status === 'submitted' && ($entry->submitted_by !== $user->id || $user->is_admin) && ! FinanceService::isClosed($entry->year),
             'canPay' => FinanceService::canManage($user) && $entry->status === 'approved' && ! FinanceService::isClosed($entry->year),
             'canEdit' => FinanceService::canEdit($user, $entry),
             'closed' => FinanceService::isClosed($entry->year),
+            'locationsEnabled' => FinanceService::locationsEnabled(),
             // Who changed what, for Kassenwart and Wehrführung
-            'history' => FinanceService::canReview($user)
+            'history' => $canReviewEntry
                 ? ActivityLog::with('user')->where('subject_type', Entry::class)->where('subject_id', $entry->id)->latest('id')->limit(20)->get()
                 : collect(),
         ]);

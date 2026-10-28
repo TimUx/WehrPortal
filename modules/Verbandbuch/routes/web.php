@@ -26,9 +26,9 @@ Route::middleware(['auth', 'active', 'module:verbandbuch'])->group(function () {
                 ->header('Cache-Control', 'no-store');
         })->whereNumber('entry')->name('print');
 
-        // The whole book of a year, for Sicherheitsbeauftragte, Wehrführung and admins
+        // The caller's Standort book for local Wehrführung; global book for GBI/SBI and admins.
         Route::get('/jahr/{year}/druck', function (int $year, VerbandbuchService $service) {
-            $entries = Entry::where('year', $year)->orderBy('number')->get();
+            $entries = VerbandbuchService::managedEntries(auth()->user())->where('year', $year)->orderBy('number')->get();
             $entries->each(fn (Entry $entry) => $service->log($entry, auth()->user(), 'printed'));
 
             return response()->view('verbandbuch::pages.print', ['entries' => $entries, 'title' => 'Verbandbuch '.$year, 'year' => $year, 'service' => $service])

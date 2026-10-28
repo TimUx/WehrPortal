@@ -3,6 +3,7 @@
 namespace Modules\Expositionen\src\Models;
 
 use App\Models\User;
+use Extensions\Locations\Models\Location;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\MassPrunable;
 use Illuminate\Database\Eloquent\Model;
@@ -42,7 +43,7 @@ class Exposure extends Model
 
     protected $table = 'ex_exposures';
 
-    protected $fillable = ['user_id', 'person_name', 'report_id', 'occurred_on', 'occasion', 'activity', 'substances', 'duration_minutes', 'routes',
+    protected $fillable = ['user_id', 'person_name', 'report_id', 'ext_location_id', 'occurred_on', 'occasion', 'activity', 'substances', 'duration_minutes', 'routes',
         'protection', 'notes', 'status', 'reported_on', 'zed_reference', 'recorded_by', 'retain_until'];
 
     protected function casts(): array
@@ -59,6 +60,11 @@ class Exposure extends Model
     public function report(): BelongsTo
     {
         return $this->belongsTo(Report::class);
+    }
+
+    public function organizationalLocation(): BelongsTo
+    {
+        return $this->belongsTo(Location::class, 'ext_location_id');
     }
 
     public function events(): HasMany

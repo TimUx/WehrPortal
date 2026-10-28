@@ -204,7 +204,7 @@ class MaterialImport
     }
 
     /** @param array<string, mixed> $row
-     *  @return array<string, mixed>
+     * @return array<string, mixed>
      */
     private function normalize(array $row): array
     {
@@ -261,7 +261,7 @@ class MaterialImport
     }
 
     /** @param array<string, mixed> $row
-     *  @return array<string, mixed>
+     * @return array<string, mixed>
      */
     private function complete(array $row): array
     {

@@ -76,7 +76,7 @@ class SituationLog extends Component
     {
         return view('einsatzbericht::livewire.situation-log', [
             'messages' => $this->report->messages()->with(['user', 'externalUnit', 'photos:id,message_id'])->get(),
-            'lead' => ReportService::canLead(auth()->user()),
+            'lead' => ReportService::canLeadReport(auth()->user(), $this->report),
             'running' => $this->report->isRunning(),
         ]);
     }

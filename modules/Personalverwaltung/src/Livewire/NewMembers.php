@@ -2,7 +2,6 @@
 
 namespace Modules\Personalverwaltung\src\Livewire;
 
-use App\Models\Group;
 use App\Models\User;
 use App\Services\Invitation;
 use App\Support\QrCode;
@@ -49,14 +48,20 @@ class NewMembers extends Component
             return;
         }
         $link = $invitation->createForScreen($member, auth()->user());
-        $this->invite = ['id' => $member->id, 'name' => $member->name, 'url' => $link['url'], 'until' => $link['expires_at']->setTimezone('Europe/Berlin')->format('d.m.Y H:i')];
+        $this->invite = [
+            'id' => $member->id,
+            'name' => $member->name,
+            'url' => $link['url'],
+            'until' => $link['expires_at']?->setTimezone('Europe/Berlin')->format('d.m.Y H:i'),
+            'method' => $link['method'],
+        ];
         $this->member = ['name' => '', 'email' => '', 'group_ids' => [], 'joined_at' => '', 'rank' => '', 'gender' => ''];
         $this->flash = $member->name.' ist angelegt. Zeig den QR-Code zum Scannen oder schick die Einladung per Mail.';
     }
 
     public function mailInvite(Invitation $invitation): void
     {
-        $member = User::findOrFail($this->invite['id'] ?? 0);
+        $member = User::withoutGlobalScopes()->findOrFail($this->invite['id'] ?? 0);
         abort_unless(PersonnelService::mayView(auth()->user(), $member), 403);
         $invitation->send($member, auth()->user());
         $this->flash = 'Einladung an '.$member->email.' geschickt.';
@@ -91,10 +96,9 @@ class NewMembers extends Component
                 $this->addError('import', collect($e->errors())->flatten()->first());
             }
         }
-        $scope = PersonnelService::scopeOf(auth()->user());
 
         return view('personalverwaltung::livewire.new-members', [
-            'groups' => Group::options(fn ($q) => $q->when($scope !== [], fn ($q) => $q->whereIn('id', $scope))),
+            'groups' => PersonnelService::groupOptions(auth()->user()),
             'qr' => $this->invite ? QrCode::dataUri($this->invite['url'], 260) : null,
             'rows' => collect($rows),
         ]);

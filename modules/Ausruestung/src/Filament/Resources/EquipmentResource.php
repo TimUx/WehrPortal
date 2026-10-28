@@ -2,6 +2,10 @@
 
 namespace Modules\Ausruestung\src\Filament\Resources;
 
+use App\Models\User;
+use Extensions\Locations\Models\Location as Standort;
+use Extensions\Locations\Services\LocationAccess;
+use Extensions\Locations\Services\LocationContext;
 use Filament\Actions;
 use Filament\Forms;
 use Filament\Infolists\Components\TextEntry;
@@ -13,6 +17,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Modules\Ausruestung\src\Enums\EquipmentStatus;
@@ -44,9 +49,37 @@ class EquipmentResource extends Resource
 
     protected static ?int $navigationSort = 10;
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $locationIds = EquipmentService::equipmentManagementScope($user);
+
+        return $locationIds === null ? $query : ($locationIds === []
+            ? $query->whereRaw('1 = 0')
+            : $query->whereIn('ext_location_id', $locationIds));
+    }
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()?->canManageAusruestung() ?? false;
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        $user = auth()->user();
+
+        return $user instanceof User && $record instanceof Equipment
+            && EquipmentService::canManageEquipment($user, $record);
+    }
+
     public static function form(Schema $schema): Schema
     {
-        return $schema->components([
+        $components = [
             Section::make('Gerät')
                 ->schema([
                     Forms\Components\TextInput::make('name')->label('Bezeichnung')->required()->maxLength(255)->columnSpan(2),
@@ -89,10 +122,17 @@ class EquipmentResource extends Resource
                 ->columns(['default' => 1, 'md' => 3])
                 ->columnSpanFull(),
 
-            Section::make('Standort')
+            Section::make('Lagerort und Beladung')
                 ->schema([
-                    Forms\Components\Select::make('location_id')->label('Standort / Fahrzeug')
-                        ->options(fn () => Location::orderBy('sort_order')->orderBy('name')->pluck('name', 'id'))
+                    Forms\Components\Select::make('location_id')->label('Lagerort / Fahrzeug')
+                        ->options(fn (Get $get) => Location::query()
+                            ->when(
+                                config('locations.enabled', false),
+                                fn (Builder $query) => $query
+                                    ->whereIn('ext_location_id', EquipmentService::manageableLocationIds(auth()->user()))
+                                    ->where('ext_location_id', $get('ext_location_id')),
+                            )
+                            ->orderBy('sort_order')->orderBy('name')->pluck('name', 'id'))
                         ->searchable()->live()
                         ->afterStateUpdated(fn (Set $set) => $set('compartment_id', null)),
                     Forms\Components\Select::make('compartment_id')->label('Geräteraum / Fach')
@@ -106,45 +146,92 @@ class EquipmentResource extends Resource
                 ])
                 ->columns(['default' => 1, 'md' => 3])
                 ->columnSpanFull(),
-        ]);
+        ];
+
+        if (config('locations.enabled', false)) {
+            $components[] = Section::make('Organisatorischer Standort')
+                ->schema([
+                    Forms\Components\Select::make('ext_location_id')
+                        ->label('Standort')
+                        ->options(fn () => self::standortOptions())
+                        ->default(function () {
+                            $options = self::standortOptions();
+                            $current = app(LocationContext::class)->forUser(auth()->user())['current'];
+
+                            return $current !== null && isset($options[$current]) ? $current : array_key_first($options);
+                        })
+                        ->dehydrated()
+                        ->required()
+                        ->searchable(),
+                ])
+                ->columnSpanFull();
+        }
+
+        return $schema->components($components);
     }
 
     public static function table(Table $table): Table
     {
         $item = fn ($record) => $record;
+        $columns = [
+            Tables\Columns\TextColumn::make('code')->label('Code')->fontFamily('mono')->searchable()->sortable(),
+            Tables\Columns\TextColumn::make('name')->label('Bezeichnung')->searchable(['name', 'serial_number', 'barcode', 'rfid', 'manufacturer', 'model'])->sortable()
+                ->description(fn (Equipment $record) => collect([$record->manufacturer, $record->model, $record->serial_number ? 'SN '.$record->serial_number : null])->filter()->implode(' · ')),
+            Tables\Columns\TextColumn::make('category.name')->label('Kategorie')->placeholder('–')->toggleable(),
+            Tables\Columns\TextColumn::make('place')->label('Lagerort')->state(fn (Equipment $record) => $record->placeLabel()),
+            Tables\Columns\TextColumn::make('status')->label('Status')->badge()
+                ->formatStateUsing(fn (EquipmentStatus $state) => $state->label())
+                ->color(fn (EquipmentStatus $state) => $state->color()),
+            Tables\Columns\TextColumn::make('next_inspection_at')->label('Nächste Prüfung')->date('d.m.Y')->sortable()->placeholder('–')
+                ->color(fn (Equipment $record) => $record->inspectionOverdue() ? 'danger' : ($record->next_inspection_at?->lte(today()->addDays(30)) ? 'warning' : null)),
+            Tables\Columns\TextColumn::make('lifetime_end')->label('Lebensdauer bis')
+                ->state(fn (Equipment $record) => $record->lifetimeEndsAt()?->format('d.m.Y'))
+                ->color(fn (Equipment $record) => $record->lifetimeExpired() ? 'danger' : null)
+                ->placeholder('–')->toggleable(),
+        ];
+        if (config('locations.enabled', false)) {
+            $columns[] = Tables\Columns\TextColumn::make('standort.name')->label('Standort')->placeholder('–');
+        }
+
+        $filters = [
+            Tables\Filters\SelectFilter::make('category_id')->label('Kategorie')
+                ->options(fn () => Category::orderBy('sort_order')->pluck('name', 'id'))->multiple(),
+            Tables\Filters\SelectFilter::make('location_id')->label('Lagerort / Fahrzeug')
+                ->options(fn () => Location::query()
+                    ->when(config('locations.enabled', false), fn (Builder $query) => $query->whereIn(
+                        'ext_location_id',
+                        EquipmentService::manageableLocationIds(auth()->user()),
+                    ))
+                    ->orderBy('sort_order')->pluck('name', 'id'))->multiple(),
+        ];
+        if (config('locations.enabled', false)) {
+            $filters[] = Tables\Filters\SelectFilter::make('ext_location_id')->label('Standort')
+                ->options(fn () => Standort::query()
+                    ->whereIn('id', app(LocationAccess::class)->visibleLocationIds(auth()->user()))
+                    ->when(
+                        ($scope = EquipmentService::equipmentManagementScope(auth()->user())) !== null,
+                        fn (Builder $query) => $query->whereIn('id', $scope),
+                    )
+                    ->orderBy('sort_order')->orderBy('name')->pluck('name', 'id'))->multiple();
+        }
+        array_push(
+            $filters,
+            Tables\Filters\SelectFilter::make('status')->label('Status')->options(EquipmentStatus::options())->multiple(),
+            Tables\Filters\Filter::make('in_service')->label('Ohne ausgesonderte')->default()
+                ->query(fn (Builder $query) => $query->inService()),
+            Tables\Filters\Filter::make('inspection_due')->label('Prüfung in 30 Tagen fällig')
+                ->query(fn (Builder $query) => $query->inspectionDue(30)),
+            Tables\Filters\Filter::make('lifetime_expired')->label('Lebensdauer abgelaufen')
+                ->query(fn (Builder $query) => static::whereLifetimeEndsBefore($query, today()->addDay())),
+        );
 
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['category', 'location', 'compartment.location']))
-            ->columns([
-                Tables\Columns\TextColumn::make('code')->label('Code')->fontFamily('mono')->searchable()->sortable(),
-                Tables\Columns\TextColumn::make('name')->label('Bezeichnung')->searchable(['name', 'serial_number', 'barcode', 'rfid', 'manufacturer', 'model'])->sortable()
-                    ->description(fn (Equipment $record) => collect([$record->manufacturer, $record->model, $record->serial_number ? 'SN '.$record->serial_number : null])->filter()->implode(' · ')),
-                Tables\Columns\TextColumn::make('category.name')->label('Kategorie')->placeholder('–')->toggleable(),
-                Tables\Columns\TextColumn::make('place')->label('Standort')->state(fn (Equipment $record) => $record->placeLabel()),
-                Tables\Columns\TextColumn::make('status')->label('Status')->badge()
-                    ->formatStateUsing(fn (EquipmentStatus $state) => $state->label())
-                    ->color(fn (EquipmentStatus $state) => $state->color()),
-                Tables\Columns\TextColumn::make('next_inspection_at')->label('Nächste Prüfung')->date('d.m.Y')->sortable()->placeholder('–')
-                    ->color(fn (Equipment $record) => $record->inspectionOverdue() ? 'danger' : ($record->next_inspection_at?->lte(today()->addDays(30)) ? 'warning' : null)),
-                Tables\Columns\TextColumn::make('lifetime_end')->label('Lebensdauer bis')
-                    ->state(fn (Equipment $record) => $record->lifetimeEndsAt()?->format('d.m.Y'))
-                    ->color(fn (Equipment $record) => $record->lifetimeExpired() ? 'danger' : null)
-                    ->placeholder('–')->toggleable(),
-            ])
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(config('locations.enabled', false)
+                ? ['category', 'location', 'compartment.location', 'standort']
+                : ['category', 'location', 'compartment.location']))
+            ->columns($columns)
             ->defaultSort('code')
-            ->filters([
-                Tables\Filters\SelectFilter::make('category_id')->label('Kategorie')
-                    ->options(fn () => Category::orderBy('sort_order')->pluck('name', 'id'))->multiple(),
-                Tables\Filters\SelectFilter::make('location_id')->label('Standort')
-                    ->options(fn () => Location::orderBy('sort_order')->pluck('name', 'id'))->multiple(),
-                Tables\Filters\SelectFilter::make('status')->label('Status')->options(EquipmentStatus::options())->multiple(),
-                Tables\Filters\Filter::make('in_service')->label('Ohne ausgesonderte')->default()
-                    ->query(fn (Builder $query) => $query->inService()),
-                Tables\Filters\Filter::make('inspection_due')->label('Prüfung in 30 Tagen fällig')
-                    ->query(fn (Builder $query) => $query->inspectionDue(30)),
-                Tables\Filters\Filter::make('lifetime_expired')->label('Lebensdauer abgelaufen')
-                    ->query(fn (Builder $query) => static::whereLifetimeEndsBefore($query, today()->addDay())),
-            ], layout: Tables\Enums\FiltersLayout::AboveContentCollapsible)
+            ->filters($filters, layout: Tables\Enums\FiltersLayout::AboveContentCollapsible)
             ->filtersFormColumns(['default' => 1, 'sm' => 2, 'lg' => 3])
             ->actions([
                 Actions\EditAction::make()->label('Öffnen'),
@@ -169,16 +256,23 @@ class EquipmentResource extends Resource
                         ])
                         ->action(function (Collection $records, array $data) {
                             foreach ($records->reject(fn (Equipment $e) => $e->status === EquipmentStatus::Retired) as $equipment) {
-                                app(EquipmentService::class)->recordInspection($equipment, auth()->user(), Carbon::parse($data['inspected_at']), true, $data['notes'] ?? null);
+                                $service = app(EquipmentService::class);
+                                $service->assertCanManageEquipment(auth()->user(), $equipment);
+                                $service->recordInspection($equipment, auth()->user(), Carbon::parse($data['inspected_at']), true, $data['notes'] ?? null);
                             }
                         })
                         ->deselectRecordsAfterCompletion(),
                     Actions\BulkAction::make('move')
-                        ->label('Standort ändern')
+                        ->label('Lagerort ändern')
                         ->icon('heroicon-o-map-pin')
                         ->schema([
-                            Forms\Components\Select::make('location_id')->label('Standort / Fahrzeug')
-                                ->options(fn () => Location::orderBy('sort_order')->pluck('name', 'id'))->required()->live(),
+                            Forms\Components\Select::make('location_id')->label('Lagerort / Fahrzeug')
+                                ->options(fn () => Location::query()
+                                    ->when(config('locations.enabled', false), fn (Builder $query) => $query->whereIn(
+                                        'ext_location_id',
+                                        EquipmentService::manageableLocationIds(auth()->user()),
+                                    ))
+                                    ->orderBy('sort_order')->pluck('name', 'id'))->required()->live(),
                             Forms\Components\Select::make('compartment_id')->label('Geräteraum / Fach')
                                 ->options(fn (Get $get) => Compartment::where('location_id', $get('location_id'))->orderBy('sort_order')->pluck('name', 'id')),
                         ])
@@ -188,6 +282,28 @@ class EquipmentResource extends Resource
                             }
                         })
                         ->deselectRecordsAfterCompletion(),
+                    ...(config('locations.enabled', false) ? [
+                        Actions\BulkAction::make('moveStandort')
+                            ->label('Standort ändern')
+                            ->icon('heroicon-o-map-pin')
+                            ->schema([
+                                Forms\Components\Select::make('ext_location_id')->label('Standort')
+                                    ->options(fn () => Standort::query()
+                                        ->whereIn('id', app(LocationAccess::class)->visibleLocationIds(auth()->user()))
+                                        ->when(
+                                            ($scope = EquipmentService::equipmentManagementScope(auth()->user())) !== null,
+                                            fn (Builder $query) => $query->whereIn('id', $scope),
+                                        )
+                                        ->orderBy('sort_order')->orderBy('name')->pluck('name', 'id'))
+                                    ->required(),
+                            ])
+                            ->action(function (Collection $records, array $data) {
+                                foreach ($records as $equipment) {
+                                    app(EquipmentService::class)->moveStandort($equipment, auth()->user(), (int) $data['ext_location_id']);
+                                }
+                            })
+                            ->deselectRecordsAfterCompletion(),
+                    ] : []),
                 ]),
             ]);
     }
@@ -204,6 +320,22 @@ class EquipmentResource extends Resource
     private static function categoryValue(mixed $categoryId, string $field): mixed
     {
         return $categoryId ? Category::whereKey($categoryId)->value($field) : null;
+    }
+
+    /** @return array<int, string> */
+    private static function standortOptions(): array
+    {
+        $user = auth()->user();
+        if (! $user) {
+            return [];
+        }
+        $query = Standort::query()->whereIn('id', app(LocationAccess::class)->visibleLocationIds($user));
+        $scope = EquipmentService::equipmentManagementScope($user);
+        if ($scope !== null) {
+            $query->whereIn('id', $scope);
+        }
+
+        return $query->orderBy('sort_order')->orderBy('name')->pluck('name', 'id')->all();
     }
 
     public static function getRelations(): array

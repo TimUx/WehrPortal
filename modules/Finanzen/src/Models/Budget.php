@@ -10,7 +10,7 @@ class Budget extends Model
 {
     protected $table = 'fin_budgets';
 
-    protected $fillable = ['cost_center_id', 'year', 'amount_cents', 'notes'];
+    protected $fillable = ['cost_center_id', 'year', 'location_id', 'amount_cents', 'notes'];
 
     protected function casts(): array
     {

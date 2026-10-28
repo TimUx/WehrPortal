@@ -46,7 +46,7 @@ class ListShow extends Component
 
     public function render()
     {
-        $list = AttendanceList::with(['leader', 'creator', 'participants', 'files'])->findOrFail($this->listId);
+        $list = AttendanceList::with(['leader', 'creator', 'participants', 'files', 'group'])->findOrFail($this->listId);
         $user = auth()->user();
         abort_unless(AttendanceService::canSee($user, $list), 403);
 

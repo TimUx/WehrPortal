@@ -25,6 +25,7 @@ use Modules\Personalverwaltung\src\Notifications\PersonalDataChangedNotification
 use Modules\Personalverwaltung\src\Services\PersonnelService;
 
 beforeEach(function () {
+    config(['locations.enabled' => false]);
     Module::whereIn('key', ['personalverwaltung', 'kalender'])->update(['is_active' => true]);
     Cache::forget('modules_active_keys');
     $this->travelTo(Carbon::parse('2026-06-10 12:00', 'Europe/Berlin'));
@@ -134,7 +135,7 @@ test('Dienstbeteiligung from the Kalender attendance: only Dienste meant for the
     Livewire::actingAs($this->manager)->test(Attendance::class)->assertSee('1 / 2')->assertSee('50 %')
         ->set('types', ['uebung', 'veranstaltung'])->assertSee('2 / 3');
     $csv = $this->actingAs($this->manager)->get(route('personalverwaltung.attendance.csv', ['jahr' => 2026]))->assertOk()->getContent();
-    expect($csv)->toContain('"Hanna Hydrant";"Einsatzabteilung (Hauptstandort)";2;1;50');
+    expect($csv)->toContain('"Hanna Hydrant";Einsatzabteilung;2;1;50');
 });
 
 test('the Dienstausweis is kept; one running out shows on the start page', function () {

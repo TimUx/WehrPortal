@@ -3,6 +3,7 @@
 namespace Modules\Atemschutz\src\Livewire;
 
 use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Modules\Atemschutz\src\Models\Operation;
 use Modules\Atemschutz\src\Models\Team;
@@ -19,6 +20,7 @@ use Modules\Atemschutz\src\Services\ReadinessService;
  */
 class Board extends Component
 {
+    #[Locked]
     public Operation $operation;
 
     public string $teamName = '';
@@ -43,6 +45,7 @@ class Board extends Component
 
     public function mount(): void
     {
+        abort_unless(MonitorService::canMonitorOperation(auth()->user(), $this->operation), 403);
         $this->teamName = $this->suggestName();
     }
 

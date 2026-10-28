@@ -3,6 +3,7 @@
 use App\Services\OrganizationSettings;
 use Illuminate\Support\Facades\Route;
 use Modules\Ausruestung\src\Models\Equipment;
+use Modules\Ausruestung\src\Services\EquipmentService;
 use Modules\Ausruestung\src\Support\PublicScan;
 
 // Geräteinfo without login, when a Gerätewart switched it on: what matters at the device, nothing more
@@ -29,7 +30,11 @@ Route::prefix('ausruestung')->name('ausruestung.')
 
             return view('ausruestung::pages.stocktake');
         })->name('stocktake');
-        Route::get('/geraete/{equipment}', fn (Equipment $equipment) => view('ausruestung::pages.show', compact('equipment')))
+        Route::get('/geraete/{equipment}', function (Equipment $equipment) {
+            abort_unless(EquipmentService::canViewEquipment(auth()->user(), $equipment), 404);
+
+            return view('ausruestung::pages.show', compact('equipment'));
+        })
             ->whereNumber('equipment')
             ->name('show');
     });

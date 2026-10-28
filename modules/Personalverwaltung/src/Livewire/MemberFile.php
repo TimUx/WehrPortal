@@ -50,12 +50,20 @@ class MemberFile extends Component
     {
         abort_unless(PersonnelService::mayRead(auth()->user(), $this->member), 403);
         $personnel->syncHistory($this->member);
-        $profile = MemberProfile::find($this->member->id);
-        $this->idCard = ['number' => (string) $profile?->id_card_number, 'valid_until' => (string) $profile?->id_card_valid_until?->toDateString(), 'birth_place' => (string) $profile?->birth_place];
         $this->honor['awarded_on'] = PersonnelService::today()->toDateString();
-        $m = $this->member;
-        $this->data = ['street' => (string) $m->street, 'postal_code' => (string) $m->postal_code, 'city' => (string) $m->city,
-            'birth_date' => (string) $m->birth_date?->toDateString(), 'phone' => (string) $m->phone];
+        if (PersonnelService::mayView(auth()->user(), $this->member)) {
+            $profile = MemberProfile::find($this->member->id);
+            $this->idCard = [
+                'number' => (string) $profile?->id_card_number,
+                'valid_until' => (string) $profile?->id_card_valid_until?->toDateString(),
+                'birth_place' => (string) $profile?->birth_place,
+            ];
+            $m = $this->member;
+            $this->data = [
+                'street' => (string) $m->street, 'postal_code' => (string) $m->postal_code, 'city' => (string) $m->city,
+                'birth_date' => (string) $m->birth_date?->toDateString(), 'phone' => (string) $m->phone,
+            ];
+        }
     }
 
     public function savePersonalData(PersonnelService $personnel): void
@@ -135,7 +143,11 @@ class MemberFile extends Component
         abort_unless(PersonnelService::mayView(auth()->user(), $this->member), 403);
         $this->run(function () use ($invitation) {
             $link = $invitation->createForScreen($this->member, auth()->user());
-            $this->invite = ['url' => $link['url'], 'until' => $link['expires_at']->setTimezone('Europe/Berlin')->format('d.m.Y H:i')];
+            $this->invite = [
+                'url' => $link['url'],
+                'until' => $link['expires_at']?->setTimezone('Europe/Berlin')->format('d.m.Y H:i'),
+                'method' => $link['method'],
+            ];
         }, 'Einladung erstellt.');
     }
 
@@ -192,7 +204,17 @@ class MemberFile extends Component
 
     public function render(PersonnelService $personnel)
     {
-        $member = $this->member->load(['groups', 'functions.parent']);
+        $member = $this->member->load(['functions.parent']);
+        $member->setRelation('groups', PersonnelService::visibleGroups(auth()->user(), $member));
+        $locations = collect();
+        if (config('locations.enabled')) {
+            $member->load(['locations', 'location']);
+            $locationScope = PersonnelService::locationScopeIds(auth()->user());
+            $memberLocations = $member->locations->when($locationScope !== [], fn ($items) => $items->whereIn('id', $locationScope));
+            $primaryLocation = $member->location && ($locationScope === [] || in_array($member->location->id, $locationScope, true))
+                ? $member->location->name : null;
+            $locations = $memberLocations->pluck('name')->push($primaryLocation)->filter()->unique()->values();
+        }
         $associations = app(AssociationRegistry::class);
         $year = (int) now('Europe/Berlin')->year;
 
@@ -208,6 +230,7 @@ class MemberFile extends Component
             'year' => $year,
             'isAdmin' => auth()->user()->is_admin,
             'canEdit' => PersonnelService::mayView(auth()->user(), $member),
+            'locations' => $locations,
             'inviteQr' => $this->invite ? QrCode::dataUri($this->invite['url'], 220) : null,
             'guardians' => $member->guardians()->get(),
             'fields' => PersonnelService::activeFields(),

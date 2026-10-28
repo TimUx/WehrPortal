@@ -5,6 +5,7 @@ namespace Modules\Ausruestung\src\Services;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Modules\Ausruestung\src\Enums\EquipmentStatus;
 use Modules\Ausruestung\src\Models\Equipment;
 use Modules\Ausruestung\src\Models\Recall;
@@ -39,6 +40,12 @@ class RecallService
     /** Locks every newly matching item; returns how many were added */
     public function apply(Recall $recall, ?User $by = null): int
     {
+        if ($by !== null && ! EquipmentService::canManageGlobal($by)) {
+            throw ValidationException::withMessages([
+                'recall' => 'Nur globale Gerätewarte dürfen Rückrufdefinitionen anwenden.',
+            ]);
+        }
+
         if (! $recall->isOpen()) {
             return 0;
         }
@@ -54,6 +61,7 @@ class RecallService
 
         if ($new->isNotEmpty()) {
             $this->mailer->toManagers(new RecallMatchedNotification($recall, $new));
+            $this->notifyLocationManagers($recall, $new);
         }
 
         return $new->count();
@@ -68,12 +76,17 @@ class RecallService
             ->each(function (Recall $recall) use ($equipment) {
                 DB::transaction(fn () => $this->lock($recall, $equipment, null));
                 $this->mailer->toManagers(new RecallMatchedNotification($recall, collect([$equipment])));
+                $this->notifyLocationManagers($recall, collect([$equipment]));
             });
     }
 
     /** The recall is dealt with for this item (checked, repaired, exchanged …) */
     public function resolve(Recall $recall, Equipment $equipment, ?User $by, ?string $resolution = null): void
     {
+        if ($by !== null) {
+            $this->equipment->assertCanManageEquipment($by, $equipment);
+        }
+
         DB::transaction(function () use ($recall, $equipment, $by, $resolution) {
             $pivot = DB::table('ar_recall_equipment')->where('recall_id', $recall->id)->where('equipment_id', $equipment->id)->first();
 
@@ -96,6 +109,12 @@ class RecallService
 
     public function close(Recall $recall, ?User $by): void
     {
+        if ($by !== null && ! EquipmentService::canManageGlobal($by)) {
+            throw ValidationException::withMessages([
+                'recall' => 'Nur globale Gerätewarte dürfen einen Rückruf schließen.',
+            ]);
+        }
+
         foreach ($recall->equipment()->wherePivotNull('resolved_at')->get() as $equipment) {
             $this->resolve($recall, $equipment, $by, 'Rückruf geschlossen');
         }
@@ -113,6 +132,18 @@ class RecallService
         $recall->equipment()->attach($equipment->id, ['previous_status' => $previous]);
         $equipment->updateQuietly(['status' => EquipmentStatus::Locked]);
         $this->equipment->log($equipment, $by, 'recall', 'Gesperrt wegen Rückruf „'.$recall->title.'“');
+    }
+
+    private function notifyLocationManagers(Recall $recall, Collection $equipment): void
+    {
+        $equipment->groupBy(fn (Equipment $item) => $item->getAttribute('ext_location_id'))
+            ->each(function (Collection $items, int|string|null $locationId) use ($recall) {
+                if ($locationId === null || $locationId === '') {
+                    return;
+                }
+
+                $this->mailer->toLocationManagers(new RecallMatchedNotification($recall, $items), (int) $locationId);
+            });
     }
 
     /** Serial numbers compare numerically when both bounds are numbers, otherwise in natural order */

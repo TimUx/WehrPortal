@@ -1,13 +1,13 @@
 <?php
 
 use App\Livewire\Dashboard\Home;
-use App\Models\Group;
 use App\Models\Module;
 use App\Models\User;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\LocationAccess;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Modules\Kalender\src\Models\Event;
@@ -90,29 +90,31 @@ test('new services default to the planner’s Standort and can target several St
     Cache::forget('modules_active_keys');
     $otherLocation = Location::create(['name' => 'Wache Beispielort', 'slug' => 'wache-beispielort']);
     $otherGroup = $otherLocation->groups()->create(['name' => 'Einsatzabteilung']);
-    \Illuminate\Support\Facades\DB::table('x_location_user')->insert([
+    DB::table('x_location_user')->insert([
         'location_id' => $otherLocation->id, 'user_id' => $this->leader->id, 'role' => 'member',
     ]);
     app(LocationAccess::class)->forget($this->leader);
     $otherMember = User::factory()->create(['name' => 'Tina Beispiel']);
     $otherMember->groups()->attach($otherGroup);
     $otherMember->moduleAccess()->create(['module' => 'kalender']);
-    \Illuminate\Support\Facades\DB::table('x_location_user')->insert([
+    DB::table('x_location_user')->insert([
         'location_id' => $otherLocation->id, 'user_id' => $otherMember->id, 'role' => 'member',
     ]);
     app(LocationAccess::class)->forget($otherMember);
 
     Livewire::actingAs($this->leader)->test(ServiceForm::class)
         ->assertSet('targetLocationIds', [(string) $this->locationId])
-        ->assertSet('targetGroupIds', [])
+        ->assertSet('targetGroupIds', [(string) $this->placeGroup->id])
         ->set('targetLocationIds', [(string) $this->locationId, (string) $otherLocation->id])
+        ->set('targetGroupIds', [(string) $this->placeGroup->id, (string) $otherGroup->id])
         ->set('date', '2027-04-06')->set('time', '19:00')
         ->call('save')->assertRedirect();
 
     $service = Service::whereDate('date', '2027-04-06')->sole();
     expect($service->group_ids)->toEqualCanonicalizing([$this->placeGroup->id, $otherGroup->id]);
     $event = Event::findOrFail($service->event_id);
-    expect(\Illuminate\Support\Facades\DB::table('kal_events')->where('id', $event->id)->value('ext_location_id'))->toBeNull()
+    expect(DB::table('kal_events')->where('id', $event->id)->value('ext_location_id'))->toBe($this->locationId)
+        ->and($event->locationIds())->toEqualCanonicalizing([$this->locationId, $otherLocation->id])
         ->and(Event::visibleTo($otherMember)->whereKey($event->id)->exists())->toBeTrue();
     app(EventService::class)->respond($event, $otherMember, 'yes');
     expect($event->responses()->where('user_id', $otherMember->id)->value('status'))->toBe('yes');
@@ -126,6 +128,45 @@ test('new services default to the planner’s Standort and can target several St
         ->call('save')->assertHasErrors('plan');
 
     expect(Service::whereDate('date', '2027-04-13')->exists())->toBeFalse();
+});
+
+test('youth and children wardens can plan only their groups, while Gemeindejugendwart can choose several sites', function () {
+    $location = Location::findOrFail($this->locationId);
+    $youthGroup = $location->groups()->create(['name' => 'Jugendfeuerwehr']);
+    $childrenGroup = $location->groups()->create(['name' => 'Kinderfeuerwehr']);
+    $otherLocation = Location::create(['name' => 'Wache Beispielort', 'slug' => 'wache-beispielort']);
+    $otherYouthGroup = $otherLocation->groups()->create(['name' => 'Jugendfeuerwehr']);
+
+    $youthWarden = User::factory()->create(['name' => 'Jana Jugendwart', 'ext_location_id' => $this->locationId]);
+    $youthWarden->moduleAccess()->create(['module' => 'uebungsdienste', 'role' => 'jugendwart']);
+    $youthForm = Livewire::actingAs($youthWarden)->test(ServiceForm::class);
+    $youthForm->assertSet('targetLocationIds', [(string) $this->locationId])
+        ->assertSet('targetGroupIds', [(string) $youthGroup->id])
+        ->assertSee($youthGroup->displayName())
+        ->assertDontSee($childrenGroup->displayName())
+        ->assertDontSee($this->placeGroup->displayName())
+        ->set('date', '2027-04-06')->set('time', '19:00')->call('save')->assertRedirect();
+    expect(Service::whereDate('date', '2027-04-06')->sole()->group_ids)->toBe([$youthGroup->id]);
+
+    $childrenWarden = User::factory()->create(['name' => 'Karla Kinderwart', 'ext_location_id' => $this->locationId]);
+    $childrenWarden->moduleAccess()->create(['module' => 'uebungsdienste', 'role' => 'kinderwart']);
+    Livewire::actingAs($childrenWarden)->test(ServiceForm::class)
+        ->assertSet('targetGroupIds', [(string) $childrenGroup->id])
+        ->assertSee($childrenGroup->displayName())
+        ->assertDontSee($youthGroup->displayName());
+
+    $globalYouthWarden = User::factory()->create(['name' => 'Gisela Gemeindejugendwart', 'ext_location_id' => $this->locationId]);
+    $globalYouthWarden->moduleAccess()->create(['module' => 'uebungsdienste', 'role' => 'gemeindejugendwart']);
+    Livewire::actingAs($globalYouthWarden)->test(ServiceForm::class)
+        ->assertViewHas('targetLocations', fn ($options) => $options->has($this->locationId) && $options->has($otherLocation->id))
+        ->set('targetLocationIds', [(string) $this->locationId, (string) $otherLocation->id])
+        ->assertSee($youthGroup->displayName())
+        ->assertSee($otherYouthGroup->displayName())
+        ->assertDontSee($childrenGroup->displayName())
+        ->set('targetGroupIds', [(string) $youthGroup->id, (string) $otherYouthGroup->id])
+        ->set('date', '2027-04-13')->set('time', '19:00')->call('save')->assertRedirect();
+
+    expect(Service::whereDate('date', '2027-04-13')->sole()->group_ids)->toEqualCanonicalizing([$youthGroup->id, $otherYouthGroup->id]);
 });
 
 test('the plan shows RSVP totals for linked Übungsdienste', function () {

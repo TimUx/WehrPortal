@@ -387,6 +387,7 @@ it('retains global admin access to every template including unassigned personal 
 it('preserves template prefill behavior when Locations is off', function () {
     config(['locations.enabled' => false]);
     $member = $this->creator->refresh();
+    $member->moduleAccess()->create(['module' => 'anwesenheit']);
     $this->actingAs($member);
     $service = app(AttendanceService::class);
     expect(array_column($service->prefillOptions($member), 'key'))->toContain('tpl:'.$this->template)

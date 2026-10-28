@@ -2,6 +2,9 @@
 
 namespace Modules\Fahrzeugbuchung\src\Filament\Resources;
 
+use Extensions\Locations\Models\Location as Standort;
+use Extensions\Locations\Services\LocationAccess;
+use Extensions\Locations\Services\LocationContext;
 use Filament\Actions;
 use Filament\Forms;
 use Filament\Resources\Resource;
@@ -32,7 +35,7 @@ class VehicleResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema->schema([
+        $fields = [
             Forms\Components\TextInput::make('name')
                 ->label('Name')
                 ->required()
@@ -68,33 +71,54 @@ class VehicleResource extends Resource
                 ->label('Reihenfolge')
                 ->numeric()
                 ->default(0),
-        ]);
+        ];
+
+        if (config('locations.enabled', false)) {
+            $fields[] = Forms\Components\Select::make('ext_location_id')
+                ->label('Standort')
+                ->options(fn () => Standort::query()
+                    ->whereIn('id', app(LocationAccess::class)->visibleLocationIds(auth()->user()))
+                    ->orderBy('sort_order')->orderBy('name')->pluck('name', 'id'))
+                ->default(fn () => app(LocationContext::class)->forUser(auth()->user())['current'])
+                ->required()
+                ->searchable();
+        }
+
+        return $schema->schema($fields);
     }
 
     public static function table(Table $table): Table
     {
+        $columns = [
+            Tables\Columns\ColorColumn::make('color')
+                ->label(''),
+
+            Tables\Columns\TextColumn::make('name')
+                ->label('Name')
+                ->searchable()
+                ->sortable(),
+
+            Tables\Columns\TextColumn::make('short_name')
+                ->label('Kurzname')
+                ->placeholder('–'),
+
+            Tables\Columns\IconColumn::make('is_active')
+                ->label('Aktiv')
+                ->boolean(),
+
+            Tables\Columns\TextColumn::make('sort_order')
+                ->label('Reihenfolge')
+                ->sortable(),
+        ];
+        if (config('locations.enabled', false)) {
+            $columns[] = Tables\Columns\TextColumn::make('standort.name')
+                ->label('Standort')
+                ->placeholder('–');
+        }
+
         return $table
-            ->columns([
-                Tables\Columns\ColorColumn::make('color')
-                    ->label(''),
-
-                Tables\Columns\TextColumn::make('name')
-                    ->label('Name')
-                    ->searchable()
-                    ->sortable(),
-
-                Tables\Columns\TextColumn::make('short_name')
-                    ->label('Kurzname')
-                    ->placeholder('–'),
-
-                Tables\Columns\IconColumn::make('is_active')
-                    ->label('Aktiv')
-                    ->boolean(),
-
-                Tables\Columns\TextColumn::make('sort_order')
-                    ->label('Reihenfolge')
-                    ->sortable(),
-            ])
+            ->modifyQueryUsing(fn ($query) => config('locations.enabled', false) ? $query->with('standort') : $query)
+            ->columns($columns)
             ->defaultSort('sort_order')
             ->reorderable('sort_order')
             ->actions([

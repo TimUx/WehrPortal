@@ -7,6 +7,7 @@
             <div>
                 <h1 class="text-xl font-bold text-gray-900">{{ $plan->title }}</h1>
                 <p class="text-sm text-gray-500">{{ $plan->timeLabel() }}@if($plan->location) · {{ $plan->location }}@endif</p>
+                @if($showSite && $plan->site)<p class="text-sm text-gray-500">Standort: {{ $plan->site->name }}</p>@endif
                 <p class="text-sm {{ $open ? 'text-green-700' : 'text-gray-600' }}">
                     @if($open) Eintragen bis {{ $plan->signupDeadline()->copy()->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }} Uhr{{ $plan->needs_approval ? ' · Eintragungen werden bestätigt' : '' }}{{ $plan->max_shifts ? ' · höchstens '.$plan->max_shifts.' Schicht'.($plan->max_shifts === 1 ? '' : 'en').' je Person' : '' }}
                     @else Die Eintragung ist geschlossen.@endif

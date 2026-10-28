@@ -8,7 +8,7 @@
     <a href="{{ route('atemschutz.index') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Übersicht</a>
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-            <p class="text-sm text-gray-500">{{ \Modules\Atemschutz\src\Models\Operation::KINDS[$operation->kind] }} · seit {{ $operation->started_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }}@if($operation->report) · Einsatz {{ $operation->report->number }}@endif</p>
+            <p class="text-sm text-gray-500">{{ \Modules\Atemschutz\src\Models\Operation::KINDS[$operation->kind] }} · seit {{ $operation->started_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }}@if($operation->report) · Einsatz {{ $operation->report->number }}@endif @if(config('locations.enabled') && $operation->ext_location_id)· {{ $operation->location?->name }}@endif</p>
             <h1 class="text-xl font-bold text-gray-900">{{ $operation->title }}</h1>
         </div>
         <div class="flex flex-wrap items-center gap-3 text-sm">

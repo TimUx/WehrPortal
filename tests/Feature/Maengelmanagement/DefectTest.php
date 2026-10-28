@@ -2,15 +2,22 @@
 
 use App\Models\Module;
 use App\Models\User;
+use Extensions\Locations\Models\Location;
+use Extensions\Locations\Services\StandardRoleAssignments;
 use Filament\Facades\Filament;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
+use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 use Modules\Maengelmanagement\src\Enums\DefectStatus;
 use Modules\Maengelmanagement\src\Enums\Urgency;
 use Modules\Maengelmanagement\src\Filament\Resources\DefectResource\Pages\EditDefect;
 use Modules\Maengelmanagement\src\Filament\Resources\DefectResource\Pages\ListDefects;
+use Modules\Maengelmanagement\src\Filament\Resources\DeviceResource;
 use Modules\Maengelmanagement\src\Livewire\DefectDetail;
 use Modules\Maengelmanagement\src\Livewire\ReportForm;
 use Modules\Maengelmanagement\src\Models\Defect;
@@ -145,6 +152,123 @@ test('every member sees all defects and their detail page', function () {
 
     $this->actingAs($this->member)->get('/maengelmanagement')->assertOk()->assertSee('Schlauchtrommel klemmt');
     $this->actingAs($this->member)->get("/maengelmanagement/{$defect->id}")->assertOk()->assertSee('Klara Kübel')->assertSee('Verlauf');
+});
+
+test('location members only see defects at accessible sites', function () {
+    config(['locations.enabled' => true]);
+    $north = Location::create(['name' => 'Wache Nord', 'slug' => 'mangel-nord']);
+    $south = Location::create(['name' => 'Wache Süd', 'slug' => 'mangel-sued']);
+    $this->member->forceFill(['ext_location_id' => $north->id])->save();
+    $other = User::factory()->create(['name' => 'Klara Kübel', 'ext_location_id' => $south->id]);
+    $other->moduleAccess()->create(['module' => 'maengelmanagement']);
+    $northDefect = Defect::create([
+        'location' => 'Nordhalle', 'title' => 'Nordmangel', 'reporter_id' => $this->member->id,
+        'ext_location_id' => $north->id,
+    ]);
+    $southDefect = Defect::create([
+        'location' => 'Südhalle', 'title' => 'Südmangel', 'reporter_id' => $other->id,
+        'ext_location_id' => $south->id,
+    ]);
+
+    $this->actingAs($this->member)->get('/maengelmanagement')
+        ->assertOk()->assertSee('Nordmangel')->assertDontSee('Südmangel');
+    $this->actingAs($this->member)->get("/maengelmanagement/{$northDefect->id}")->assertOk();
+    $this->actingAs($this->member)->get("/maengelmanagement/{$southDefect->id}")->assertNotFound();
+});
+
+test('standard-role managers can edit defects only at their assigned site', function () {
+    config(['locations.enabled' => true]);
+    $north = Location::create(['name' => 'Wache Nord', 'slug' => 'mangel-manager-nord']);
+    $south = Location::create(['name' => 'Wache Süd', 'slug' => 'mangel-manager-sued']);
+    $admin = User::factory()->admin()->create();
+    $this->manager->moduleAccess()->delete();
+    $northManager = User::factory()->create(['ext_location_id' => $north->id]);
+    $southManager = User::factory()->create(['ext_location_id' => $south->id]);
+    $roles = app(StandardRoleAssignments::class);
+    $roles->grant($admin, $northManager->id, 'wehrfuehrung', $north->id, null, 'Standortleitung');
+    $roles->grant($admin, $southManager->id, 'geraetewart', $south->id, null, 'Gerätewart');
+    $defect = Defect::create([
+        'location' => 'Nordhalle', 'title' => 'Mangel am Nordstandort', 'reporter_id' => $this->member->id,
+        'ext_location_id' => $north->id,
+    ]);
+
+    expect($northManager->canManageMaengel())->toBeTrue()
+        ->and(DefectService::canEdit($northManager, $defect))->toBeTrue()
+        ->and(DefectService::canEdit($southManager, $defect))->toBeFalse();
+    expect(fn () => app(DefectService::class)->setStatus($defect, $southManager, DefectStatus::Resolved))
+        ->toThrow(ValidationException::class);
+    expect(app(DefectService::class)->managers($north->id)->pluck('id')->all())
+        ->toContain($northManager->id)->not->toContain($southManager->id);
+
+    $reporter = User::factory()->create(['ext_location_id' => $north->id]);
+    $reporter->moduleAccess()->create(['module' => 'maengelmanagement']);
+    $northDevice = Device::create(['name' => 'Meldegerät Nord', 'ext_location_id' => $north->id]);
+    Notification::fake();
+    $this->actingAs($reporter);
+    app(DefectService::class)->report($reporter, [
+        'device_id' => $northDevice->id,
+        'title' => 'Mangel am Nordstandort',
+        'urgency' => 'high',
+    ]);
+    Notification::assertSentTo($northManager, DefectReportedNotification::class);
+    Notification::assertNotSentTo($southManager, DefectReportedNotification::class);
+});
+
+test('a report cannot reference a vehicle outside the reporters accessible sites', function () {
+    config(['locations.enabled' => true]);
+    $north = Location::create(['name' => 'Wache Nord', 'slug' => 'mangel-fremdfahrzeug-nord']);
+    $south = Location::create(['name' => 'Wache Süd', 'slug' => 'mangel-fremdfahrzeug-sued']);
+    $reporter = User::factory()->create(['ext_location_id' => $north->id]);
+    $reporter->moduleAccess()->create(['module' => 'maengelmanagement']);
+    $vehicle = Vehicle::factory()->create(['ext_location_id' => $south->id]);
+    $this->actingAs($reporter);
+
+    expect(fn () => app(DefectService::class)->report($reporter, [
+        'vehicle_id' => $vehicle->id,
+        'title' => 'Fremdes Fahrzeug',
+        'urgency' => 'high',
+    ]))->toThrow(ValidationException::class);
+    expect(Defect::where('title', 'Fremdes Fahrzeug')->exists())->toBeFalse();
+});
+
+test('a report inherits the location of an accessible selected vehicle', function () {
+    config(['locations.enabled' => true]);
+    $north = Location::create(['name' => 'Wache Nord', 'slug' => 'mangel-fahrzeug-nord']);
+    $south = Location::create(['name' => 'Wache Süd', 'slug' => 'mangel-fahrzeug-sued']);
+    $reporter = User::factory()->create(['ext_location_id' => $north->id]);
+    $reporter->moduleAccess()->create(['module' => 'maengelmanagement']);
+    DB::table('x_location_user')->insert(['location_id' => $south->id, 'user_id' => $reporter->id, 'role' => 'member']);
+    $vehicle = Vehicle::factory()->create(['ext_location_id' => $south->id]);
+    $this->actingAs($reporter);
+
+    $defect = app(DefectService::class)->report($reporter, [
+        'vehicle_id' => $vehicle->id,
+        'title' => 'Mangel am Südstandort',
+        'urgency' => 'high',
+    ]);
+
+    expect($defect->ext_location_id)->toBe($south->id);
+});
+
+test('local standard-role managers manage only devices at their assigned site', function () {
+    config(['locations.enabled' => true]);
+    $north = Location::create(['name' => 'Wache Nord', 'slug' => 'mangel-katalog-nord']);
+    $south = Location::create(['name' => 'Wache Süd', 'slug' => 'mangel-katalog-sued']);
+    $admin = User::factory()->admin()->create();
+    $manager = User::factory()->create(['ext_location_id' => $north->id]);
+    app(StandardRoleAssignments::class)->grant($admin, $manager->id, 'geraetewart', $north->id, null, 'Gerätewart');
+    DB::table('x_location_user')->insert(['location_id' => $south->id, 'user_id' => $manager->id, 'role' => 'member']);
+    $northDevice = Device::create(['name' => 'Nordgerät', 'ext_location_id' => $north->id]);
+    $southDevice = Device::create(['name' => 'Südgerät', 'ext_location_id' => $south->id]);
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+    $this->actingAs($manager);
+    expect($manager->canManageMaengel())->toBeTrue()
+        ->and(DeviceResource::canAccess())->toBeTrue()
+        ->and(DeviceResource::getEloquentQuery()->pluck('id')->all())->toBe([$northDevice->id]);
+    expect(fn () => Device::create(['name' => 'Fremdgerät', 'ext_location_id' => $south->id]))
+        ->toThrow(AuthorizationException::class);
+    expect(Device::find($southDevice->id))->not->toBeNull();
 });
 
 test('members can comment and the reporter is told', function () {

@@ -4,7 +4,6 @@ namespace Modules\Fahrzeuge\src\Livewire;
 
 use Livewire\Attributes\Url;
 use Livewire\Component;
-use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 use Modules\Fahrzeuge\src\Models\Deadline;
 use Modules\Fahrzeuge\src\Models\Profile;
 use Modules\Fahrzeuge\src\Services\FleetService;
@@ -20,7 +19,9 @@ class Fleet extends Component
 
     public function render(FleetService $fleet)
     {
-        $vehicles = Vehicle::query()->when(! $this->showDecommissioned, fn ($q) => $q->where('is_active', true))->orderBy('sort_order')->orderBy('name')->get();
+        $user = auth()->user();
+        $locationIds = FleetService::vehicleLocationScope($user);
+        $vehicles = FleetService::vehiclesFor($user)->with('standort')->when(! $this->showDecommissioned, fn ($q) => $q->where('is_active', true))->orderBy('sort_order')->orderBy('name')->get();
         $profiles = Profile::whereIn('vehicle_id', $vehicles->pluck('id'))->get()->keyBy('vehicle_id');
         if ($this->category !== '') {
             $vehicles = $vehicles->filter(fn ($v) => ($profiles[$v->id]?->category ?? '') === $this->category)->values();
@@ -31,9 +32,10 @@ class Fleet extends Component
             'vehicles' => $vehicles,
             'profiles' => $profiles,
             'states' => $fleet->states($vehicles),
-            'assignments' => $fleet->runningAssignments(),
+            'assignments' => $fleet->runningAssignments($vehicles->pluck('id')->all()),
             'defects' => $fleet->openDefects($vehicles->pluck('id')->all()),
-            'deadlines' => Deadline::active()->with('vehicle')->whereHas('vehicle', fn ($q) => $q->where('is_active', true))
+            'deadlines' => Deadline::active()->with('vehicle')->whereHas('vehicle', fn ($q) => $q->where('is_active', true)
+                ->when($locationIds !== null, fn ($q) => $q->whereIn('ext_location_id', $locationIds)))
                 ->where('due_on', '<=', $limit)->orderBy('due_on')->get(),
             'canManage' => FleetService::canManage(auth()->user()),
         ]);

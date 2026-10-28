@@ -2,9 +2,13 @@
 
 use App\Models\Module;
 use App\Models\User;
+use Extensions\Locations\Models\Location as Standort;
+use Extensions\Locations\Models\StandardRoleAssignment;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Modules\Ausruestung\src\Enums\EquipmentStatus;
 use Modules\Ausruestung\src\Enums\LoanStatus;
@@ -34,6 +38,7 @@ use Modules\Ausruestung\src\Services\RecallService;
 require_once __DIR__.'/Helpers.php';
 
 beforeEach(function () {
+    config(['locations.enabled' => false]);
     activateAusruestung();
     Notification::fake();
     $this->warden = ausruestungMember('geraetewart');
@@ -207,4 +212,51 @@ test('every sub-list of an item, a recall and a location renders', function () {
     foreach (['/admin/ausruestung/geraete', '/admin/ausruestung/geraete/'.$this->helmet->id.'/bearbeiten', '/admin/ausruestung/ausleihe', '/admin/ausruestung/schaeden', '/admin/ausruestung/rueckrufe', '/admin/ausruestung/rueckrufe/'.$recall->id.'/bearbeiten', '/admin/ausruestung/kategorien', '/admin/ausruestung/standorte', '/admin/ausruestung/standorte/'.$hlf->id.'/bearbeiten', '/admin/ausruestung/beladeplan'] as $url) {
         $this->get($url)->assertOk();
     }
+});
+
+test('storage places are scoped to a Standort and cannot move while equipment remains assigned', function () {
+    config(['locations.enabled' => true]);
+    $admin = User::factory()->admin()->create();
+    $north = Standort::create(['name' => 'Wache Nord', 'slug' => 'lager-nord']);
+    $south = Standort::create(['name' => 'Wache Süd', 'slug' => 'lager-sued']);
+    $manager = User::factory()->create(['ext_location_id' => $north->id]);
+    DB::table('x_location_user')->insertOrIgnore([
+        'location_id' => $north->id,
+        'user_id' => $manager->id,
+        'role' => 'member',
+    ]);
+    StandardRoleAssignment::create([
+        'user_id' => $manager->id,
+        'profile' => 'geraetewart',
+        'location_id' => $north->id,
+        'group_id' => null,
+        'granted_by' => $admin->id,
+        'granted_at' => now(),
+        'reason' => 'Lagerverwaltung',
+    ]);
+
+    $this->actingAs($admin);
+    $northStorage = Location::create(['name' => 'Nordlager', 'kind' => Location::ROOM, 'ext_location_id' => $north->id]);
+    $southStorage = Location::create(['name' => 'Südlager', 'kind' => Location::ROOM, 'ext_location_id' => $south->id]);
+    $legacy = DB::table('ar_locations')->insertGetId(['name' => 'Altbestand', 'kind' => Location::ROOM]);
+
+    $this->actingAs($manager);
+    expect(Location::pluck('name')->all())->toBe(['Nordlager']);
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    $this->get('/admin/ausruestung/standorte')->assertOk()->assertSee('Nordlager')->assertDontSee('Südlager')->assertDontSee('Altbestand');
+
+    $this->actingAs($admin);
+    expect(Location::find($legacy))->not->toBeNull();
+    Location::withoutGlobalScopes()->findOrFail($legacy)->forceFill(['ext_location_id' => $north->id])->save();
+    expect(Location::findOrFail($legacy)->ext_location_id)->toBe($north->id);
+    expect(fn () => equipment(['ext_location_id' => $north->id, 'location_id' => $southStorage->id]))
+        ->toThrow(ValidationException::class, 'muss zum organisatorischen Standort');
+    $helmet = equipment(['ext_location_id' => $north->id, 'location_id' => $northStorage->id]);
+
+    $northStorage->forceFill(['ext_location_id' => $south->id]);
+    expect(fn () => $northStorage->save())->toThrow(ValidationException::class, 'Verschiebe zuerst alle Geräte');
+
+    $helmet->forceFill(['location_id' => null])->save();
+    $northStorage->refresh()->forceFill(['ext_location_id' => $south->id])->save();
+    expect($northStorage->refresh()->ext_location_id)->toBe($south->id);
 });

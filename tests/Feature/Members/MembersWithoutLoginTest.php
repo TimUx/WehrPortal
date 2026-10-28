@@ -97,6 +97,7 @@ test('the Erziehungsberechtigten of a child without e-mail still get the Kalende
 });
 
 test('Personalverwalter create members without e-mail; the import keeps needing one', function () {
+    config(['locations.enabled' => false]);
     $pv = User::factory()->create();
     $pv->moduleAccess()->create(['module' => 'personalverwaltung', 'role' => 'personalverwalter']);
     $service = app(PersonnelService::class);

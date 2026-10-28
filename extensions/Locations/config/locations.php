@@ -6,17 +6,21 @@ use App\Models\User;
 use Extensions\Vereinsverwaltung\Models\Member;
 use Modules\Ausruestung\src\Models\Category;
 use Modules\Ausruestung\src\Models\Equipment;
+use Modules\Ausruestung\src\Models\Location as EquipmentLocation;
 use Modules\Einsatzbericht\src\Models\Report;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 use Modules\Kalender\src\Models\Event;
+use Modules\Kalender\src\Models\Poll;
 use Modules\Kleiderkammer\src\Models\Item;
 use Modules\Maengelmanagement\src\Models\Defect;
+use Modules\Maengelmanagement\src\Models\Device as DefectDevice;
+use Modules\Schichtplan\src\Models\Plan;
 
 return [
     // false: the extension is not loaded at all (no scopes, no admin pages)
     'enabled' => (bool) env('LOCATIONS_ENABLED', true),
 
-    // Explicit CLI summaries only; no existing module views or raw-object authorization.
+    // Opt-in for bounded leadership projections in the portal and CLI; no raw-object or module-view authorization.
     'leadership_enabled' => (bool) env('LOCATIONS_LEADERSHIP_ENABLED', false),
 
     // Stock quantities only; this does not certify a module-wide Kleiderkammer adapter.
@@ -39,10 +43,14 @@ return [
         Member::class,
         Vehicle::class,
         Equipment::class,
+        EquipmentLocation::class,
         Category::class,
         Item::class,
         Report::class,
         Defect::class,
+        DefectDevice::class,
         Event::class,
+        Poll::class,
+        Plan::class,
     ],
 ];

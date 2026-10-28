@@ -81,6 +81,11 @@ class LeadershipAssignments
             return false;
         }
 
+        if (in_array($capability, self::PROFILES['buergermeister'], true)
+            && app(StandardRoleAssignments::class)->hasGlobalProfile($user, 'buergermeister')) {
+            return true;
+        }
+
         return DB::table('x_leadership_assignments as grants')
             ->join('x_locations as location', 'location.id', '=', 'grants.location_id')
             ->where('location.is_active', true)->where('grants.location_id', $locationId)

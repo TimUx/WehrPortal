@@ -17,6 +17,12 @@ class SessionDetail extends Component
 
     public string $signature = '';
 
+    public function mount(Session $session): void
+    {
+        abort_unless(InstructionService::canManageSession(auth()->user(), $session), 403);
+        $this->session = $session;
+    }
+
     public function boot(): void
     {
         abort_unless(InstructionService::canManage(auth()->user()), 403);

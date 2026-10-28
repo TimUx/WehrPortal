@@ -2,6 +2,7 @@
 
 namespace Modules\Fahrtenbuch\src\Livewire;
 
+use App\Support\FileResponse;
 use App\Support\Money;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
@@ -55,7 +56,8 @@ class FuelForm extends Component
     public function save(LogbookService $logbook)
     {
         $this->resetErrorBag();
-        $this->validate(['receipt' => ['nullable', 'file', 'max:10240', 'mimes:jpg,jpeg,png,webp,pdf']], ['receipt.*' => 'Bitte ein Foto oder eine PDF bis 10 MB.']);
+        $extensions = array_diff(FileResponse::allowedExtensions(false), ['gif']);
+        $this->validate(['receipt' => ['nullable', 'file', 'max:10240', 'extensions:'.implode(',', $extensions)]], ['receipt.*' => 'Bitte ein Foto oder eine PDF bis 10 MB.']);
         $cost = trim($this->cost) === '' ? null : Money::parse($this->cost);
         if (trim($this->cost) !== '' && $cost === null) {
             $this->addError('cost', 'Bitte den Betrag angeben, z. B. 112,40.');
@@ -81,6 +83,11 @@ class FuelForm extends Component
 
     public function render()
     {
-        return view('fahrtenbuch::livewire.fuel-form', ['vehicles' => Vehicle::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get()]);
+        $selectedVehicle = $this->vehicleId !== '' ? Vehicle::find((int) $this->vehicleId) : null;
+
+        return view('fahrtenbuch::livewire.fuel-form', [
+            'vehicles' => Vehicle::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(),
+            'selectedVehicle' => $selectedVehicle,
+        ]);
     }
 }

@@ -105,7 +105,10 @@ class ClothingStockAccess extends StockAccess
 
     public function isGlobal(?User $actor): bool
     {
-        return $this->eligible($actor) && app(LocationModuleRoles::class)->isGlobalAdmin($actor);
+        return $this->eligible($actor) && (
+            app(LocationModuleRoles::class)->isGlobalAdmin($actor)
+            || app(StandardRoleAssignments::class)->hasGlobalModuleRole($actor, 'kleiderkammer', 'bestand')
+        );
     }
 
     /** @return Builder<Stock> */

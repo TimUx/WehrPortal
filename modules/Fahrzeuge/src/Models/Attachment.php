@@ -16,6 +16,7 @@ class Attachment extends Model
 
     protected $hidden = ['data'];
 
+    /** @return BelongsTo<Record, $this> */
     public function record(): BelongsTo
     {
         return $this->belongsTo(Record::class);

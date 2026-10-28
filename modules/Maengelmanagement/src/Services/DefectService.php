@@ -12,10 +12,12 @@ use Modules\Ausruestung\src\Enums\DamageStatus;
 use Modules\Ausruestung\src\Models\Damage;
 use Modules\Ausruestung\src\Models\Equipment;
 use Modules\Ausruestung\src\Services\EquipmentService;
+use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 use Modules\Maengelmanagement\src\Enums\DefectStatus;
 use Modules\Maengelmanagement\src\Enums\Urgency;
 use Modules\Maengelmanagement\src\Models\Defect;
 use Modules\Maengelmanagement\src\Models\DefectEvent;
+use Modules\Maengelmanagement\src\Models\Device;
 use Modules\Maengelmanagement\src\Notifications\DefectDigestNotification;
 use Modules\Maengelmanagement\src\Notifications\DefectReportedNotification;
 use Modules\Maengelmanagement\src\Notifications\DefectUpdatedNotification;
@@ -35,13 +37,35 @@ class DefectService
      */
     public function report(User $reporter, array $data, array $photoPaths = []): Defect
     {
-        $equipment = ! empty($data['equipment_id']) && empty($data['device_id']) && empty($data['vehicle_id']) && app(ModuleRegistry::class)->isActive('ausruestung')
-            ? Equipment::find((int) $data['equipment_id']) : null;
-        $defect = DB::transaction(function () use ($reporter, $data, $photoPaths, $equipment) {
+        $device = null;
+        $vehicle = null;
+        $equipment = null;
+
+        if (! empty($data['device_id'])) {
+            $device = Device::active()->find((int) $data['device_id']);
+            if (! $device) {
+                throw ValidationException::withMessages(['device_id' => 'Das ausgewählte Objekt ist nicht verfügbar.']);
+            }
+        } elseif (! empty($data['vehicle_id'])) {
+            $vehicle = Vehicle::query()->where('is_active', true)->find((int) $data['vehicle_id']);
+            if (! $vehicle) {
+                throw ValidationException::withMessages(['vehicle_id' => 'Das ausgewählte Fahrzeug ist nicht verfügbar.']);
+            }
+        } elseif (! empty($data['equipment_id'])) {
+            if (! app(ModuleRegistry::class)->isActive('ausruestung')
+                || ! ($equipment = Equipment::find((int) $data['equipment_id']))) {
+                throw ValidationException::withMessages(['equipment_id' => 'Das ausgewählte Gerät ist nicht verfügbar.']);
+            }
+        }
+
+        $defect = DB::transaction(function () use ($reporter, $data, $photoPaths, $device, $vehicle, $equipment) {
             $defect = Defect::create([
                 'equipment_id' => $equipment?->id,
-                'device_id' => $data['device_id'] ?? null,
-                'vehicle_id' => empty($data['device_id']) ? ($data['vehicle_id'] ?? null) : null,
+                'device_id' => $device?->id,
+                'vehicle_id' => $vehicle?->id,
+                'ext_location_id' => $device?->getAttribute('ext_location_id')
+                    ?? $vehicle?->getAttribute('ext_location_id')
+                    ?? $equipment?->getAttribute('ext_location_id'),
                 'location' => $data['location'] ?? null,
                 'title' => $data['title'],
                 'description' => $data['description'] ?? null,
@@ -65,10 +89,12 @@ class DefectService
             return $defect;
         });
 
-        $this->managers()
+        $locationId = $this->locationId($defect);
+        $this->managers($locationId)
             ->reject(fn (User $manager) => $manager->is($reporter))
             ->each(fn (User $manager) => $this->send($manager, new DefectReportedNotification($defect)));
-        if ($defect->assignee && ! $defect->assignee->is($reporter) && ! $this->managers()->contains('id', $defect->assigned_to)) {
+        if ($defect->assignee && ! $defect->assignee->is($reporter)
+            && ! $this->managers($locationId)->contains('id', $defect->assigned_to)) {
             $this->send($defect->assignee, new DefectUpdatedNotification($defect, 'Dir wurde ein Mangel zugewiesen', $reporter));
         }
         if ($equipment) {
@@ -81,7 +107,8 @@ class DefectService
     /** Verantwortliche and whoever the defect is assigned to work on it */
     public static function canEdit(User $user, Defect $defect): bool
     {
-        return $user->canManageMaengel() || ($user->is_active && $defect->assigned_to === $user->id);
+        return $user->canManageMaengelAt(self::locationId($defect))
+            || ($user->is_active && $defect->assigned_to === $user->id);
     }
 
     /** A Rückfrage to the reporter: it stays open (and visible) until they answer */
@@ -134,7 +161,7 @@ class DefectService
             $this->storePhotos($defect, $event, $photoPaths);
             $defect->update(['status' => DefectStatus::Open, 'resolved_at' => null, 'reminded_at' => null]);
         });
-        $to = $defect->assignee ? collect([$defect->assignee]) : $this->managers();
+        $to = $defect->assignee ? collect([$defect->assignee]) : $this->managers(self::locationId($defect));
         $to->reject(fn (User $u) => $u->is($by))->each(fn (User $u) => $this->send($u, new DefectUpdatedNotification($defect, 'Doch nicht behoben', $by, $reason)));
         if ($defect->equipment_id) {
             $this->damageInAusruestung($defect, $by, 'wieder geöffnet: ');
@@ -164,7 +191,10 @@ class DefectService
         }
         $defects = Defect::with(['device', 'vehicle', 'assignee'])->whereIn('id', $ids)
             ->orderByRaw("case urgency when 'critical' then 0 when 'high' then 1 when 'medium' then 2 else 3 end")->get();
-        $this->managers()->each(fn (User $u) => $this->send($u, new DefectDigestNotification($defects)));
+        $defects->groupBy('ext_location_id')->each(function ($locationDefects, $locationId): void {
+            $this->managers($locationId === '' ? null : (int) $locationId)
+                ->each(fn (User $user) => $this->send($user, new DefectDigestNotification($locationDefects)));
+        });
 
         return $defects->count();
     }
@@ -175,7 +205,7 @@ class DefectService
         try {
             $equipment = Equipment::find($defect->equipment_id);
             if ($equipment && app(ModuleRegistry::class)->isActive('ausruestung')) {
-                $damage = app(EquipmentService::class)->reportDamage($equipment, $by, 'Mängelmanagement: '.$prefix.$defect->title.(filled($defect->description) ? ' – '.$defect->description : ''));
+                $damage = app(EquipmentService::class)->reportDamageFromDefect($by, $equipment, 'Mängelmanagement: '.$prefix.$defect->title.(filled($defect->description) ? ' – '.$defect->description : ''));
                 $defect->update(['ar_damage_id' => $damage->id]);
             }
         } catch (Throwable $e) {
@@ -199,6 +229,7 @@ class DefectService
 
     public function setStatus(Defect $defect, User $by, DefectStatus $status, ?string $note = null): void
     {
+        $this->assertCanEdit($by, $defect);
         if ($defect->status === $status && blank($note)) {
             return;
         }
@@ -224,7 +255,7 @@ class DefectService
             try {
                 $damage = Damage::find($defect->ar_damage_id);
                 if ($damage && $damage->status->isOpen()) {
-                    app(EquipmentService::class)->updateDamage($damage, $by, DamageStatus::Repaired, 'im Mängelmanagement erledigt'.(filled($note) ? ': '.$note : ''));
+                    app(EquipmentService::class)->updateDamageFromDefect($damage, $by, DamageStatus::Repaired, 'im Mängelmanagement erledigt'.(filled($note) ? ': '.$note : ''));
                 }
             } catch (Throwable $e) {
                 report($e);
@@ -236,6 +267,7 @@ class DefectService
 
     public function setUrgency(Defect $defect, User $by, Urgency $urgency): void
     {
+        $this->assertCanEdit($by, $defect);
         if ($defect->urgency === $urgency) {
             return;
         }
@@ -247,6 +279,7 @@ class DefectService
 
     public function assign(Defect $defect, User $by, ?User $to): void
     {
+        $this->assertCanEdit($by, $defect);
         if ($defect->assigned_to === $to?->id) {
             return;
         }
@@ -260,14 +293,21 @@ class DefectService
         }
     }
 
-    /** Users who look after defects: holders of the role, or the admins if nobody holds it */
-    public function managers(): Collection
+    /** Users who look after defects at a Standort, or admins if nobody holds the role there. */
+    public function managers(?int $locationId = null): Collection
     {
-        $managers = User::active()
-            ->whereHas('moduleAccess', fn ($q) => $q->where('module', 'maengelmanagement')->where('role', 'verantwortlicher'))
-            ->get();
+        $managers = User::withoutGlobalScopes()->active()->get()
+            ->filter(fn (User $user) => $user->hasModuleRole('maengelmanagement', 'verantwortlicher', $locationId))
+            ->values();
 
         return $managers->isNotEmpty() ? $managers : User::active()->where('is_admin', true)->get();
+    }
+
+    private static function locationId(Defect $defect): ?int
+    {
+        $locationId = $defect->getAttribute('ext_location_id');
+
+        return $locationId === null ? null : (int) $locationId;
     }
 
     /** Reporter and assignee hear about changes made by someone else */

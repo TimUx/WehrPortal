@@ -8,7 +8,7 @@
 
     @if($saved)
         <div class="space-y-1 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-900">
-            <p class="font-semibold">Inventur {{ $saved->location_name }} abgeschlossen: {{ count($saved->found) }} gefunden, {{ count($saved->missing) }} fehlen{{ $saved->moved ? ', '.count($saved->moved).' hierher umgebucht' : '' }}.</p>
+            <p class="font-semibold">Inventur {{ $saved->location_name }}{{ $saved->standort ? ' · '.$saved->standort->name : '' }} abgeschlossen: {{ count($saved->found) }} gefunden, {{ count($saved->missing) }} fehlen{{ $saved->moved ? ', '.count($saved->moved).' hierher umgebucht' : '' }}.</p>
             @if($saved->missing)<p>Fehlt: {{ collect($saved->missing)->map(fn ($m) => $m['name'].' ('.$m['code'].')')->implode(', ') }}</p>@endif
         </div>
     @endif
@@ -18,6 +18,19 @@
         <option value="">Raum oder Fahrzeug wählen …</option>
         @foreach($locations as $l)<option value="{{ $l->id }}">{{ $l->name }}{{ $l->isVehicle() ? ' (Fahrzeug)' : '' }}</option>@endforeach
     </select>
+
+    @if($standorte->isNotEmpty())
+        @if($standorte->count() > 1)
+            <label class="block space-y-1 text-sm font-medium text-gray-700">
+                Standort der Inventur
+                <select wire:model.live="standortId" class="{{ $input }} w-full">
+                    @foreach($standorte as $standort)<option value="{{ $standort->id }}">{{ $standort->name }}</option>@endforeach
+                </select>
+            </label>
+        @else
+            <p class="text-sm text-gray-600">Standort: <strong>{{ $selectedStandort?->name }}</strong></p>
+        @endif
+    @endif
 
     @if($location)
         <form wire:submit="scan" class="space-y-2 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
@@ -67,7 +80,7 @@
         <section>
             <p class="mb-1 text-sm font-semibold text-gray-700">Letzte Inventuren</p>
             <ul class="space-y-0.5 text-xs text-gray-600">
-                @foreach($history as $h)<li>{{ $h->finished_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }} · {{ $h->location_name }} · {{ count($h->found) }}/{{ $h->expected }} gefunden{{ $h->missing ? ', fehlt: '.collect($h->missing)->pluck('name')->implode(', ') : '' }} · {{ $h->user?->name }}</li>@endforeach
+                @foreach($history as $h)<li>{{ $h->finished_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }} · {{ $h->location_name }}{{ $h->standort ? ' · '.$h->standort->name : '' }} · {{ count($h->found) }}/{{ $h->expected }} gefunden{{ $h->missing ? ', fehlt: '.collect($h->missing)->pluck('name')->implode(', ') : '' }} · {{ $h->user?->name }}</li>@endforeach
             </ul>
         </section>
     @endif

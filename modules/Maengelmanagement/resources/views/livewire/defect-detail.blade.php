@@ -10,7 +10,7 @@
     @endif
     @if($defect->question_open_at)
         <p class="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            @if($isReporter)<strong>Rückfrage an dich</strong> – bitte unten antworten (ein Foto hilft oft).@else<strong>Rückfrage offen</strong> seit {{ $defect->question_open_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }} – wartet auf {{ $defect->reporter->name }}.@endif
+            @if($isReporter)<strong>Rückfrage an dich</strong> – bitte unten antworten (ein Foto hilft oft).@else<strong>Rückfrage offen</strong> seit {{ $defect->question_open_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }} – wartet auf {{ $defect->reporter?->name ?? 'Unbekannt' }}.@endif
         </p>
     @endif
 
@@ -29,7 +29,10 @@
                 @elseif($defect->equipment_id && app(\App\Services\ModuleRegistry::class)->isActive('ausruestung') && auth()->user()->canUseModule('ausruestung'))<a href="{{ route('ausruestung.show', $defect->equipment_id) }}" class="underline">{{ $defect->subject() }}</a>
                 @else{{ $defect->subject() }}@endif
                 @if($defect->device) <span class="font-mono text-xs text-gray-500">{{ $defect->device->code }}</span>@endif</dd></div>
-            <div><dt class="text-gray-500">Gemeldet von</dt><dd class="text-gray-900">{{ $defect->reporter->name }}, {{ $defect->created_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }}</dd></div>
+            <div><dt class="text-gray-500">Gemeldet von</dt><dd class="text-gray-900">{{ $defect->reporter?->name ?? 'Unbekannt' }}, {{ $defect->created_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }}</dd></div>
+            @if(config('locations.enabled') && $defect->site)
+                <div><dt class="text-gray-500">Standort</dt><dd class="text-gray-900">{{ $defect->site->name }}</dd></div>
+            @endif
             <div><dt class="text-gray-500">Zuständig</dt><dd class="text-gray-900">{{ $defect->assignee?->name ?? 'Noch niemand' }}
                 @if($canManage && $defect->assigned_to !== auth()->id() && $defect->status->isActive())<button type="button" wire:click="takeOver" class="ml-2 text-xs text-fw-navy underline">übernehmen</button>@endif</dd></div>
             @if($defect->resolved_at)
@@ -92,7 +95,7 @@
         <div class="flex flex-wrap gap-2 text-sm">
             <button type="button" wire:click="$set('mode', 'comment')" class="rounded-full px-3 py-1 {{ $mode === 'comment' ? 'bg-fw-navy text-white' : 'bg-gray-100 text-gray-700' }}">{{ $isReporter && $defect->question_open_at ? 'Antworten' : 'Kommentar' }}</button>
             @if($canEdit && ! $isReporter && $defect->status->isActive())
-                <button type="button" wire:click="$set('mode', 'question')" class="rounded-full px-3 py-1 {{ $mode === 'question' ? 'bg-amber-600 text-white' : 'bg-gray-100 text-gray-700' }}">Rückfrage an {{ $defect->reporter->name }}</button>
+                <button type="button" wire:click="$set('mode', 'question')" class="rounded-full px-3 py-1 {{ $mode === 'question' ? 'bg-amber-600 text-white' : 'bg-gray-100 text-gray-700' }}">Rückfrage an {{ $defect->reporter?->name ?? 'Unbekannt' }}</button>
             @endif
             @if($canReopen)
                 <button type="button" wire:click="$set('mode', 'reopen')" class="rounded-full px-3 py-1 {{ $mode === 'reopen' ? 'bg-fw-red text-white' : 'bg-gray-100 text-gray-700' }}">Doch nicht behoben</button>

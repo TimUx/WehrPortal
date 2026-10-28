@@ -2,10 +2,13 @@
 
 use App\Models\ActivityLog;
 use App\Models\Module;
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\ServiceSettings;
+use Extensions\Locations\Models\Location;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Modules\Einsatzbericht\src\Filament\Pages\SettingsPage;
@@ -41,6 +44,75 @@ test('an alarm becomes a draft with keyword, message, address, coordinates and a
     // Logged as made by the system, not as a change of anyone
     expect(ActivityLog::where('subject_type', Report::class)->where('event', 'created')->sole()->user_id)->toBeNull()
         ->and(ActivityLog::where('subject_type', DiveraRequest::class)->exists())->toBeFalse();
+});
+
+test('alarms and test alarms use the configured active location', function () {
+    config(['locations.enabled' => true]);
+    $location = Location::create(['name' => 'Wache Nord', 'slug' => 'divera-nord']);
+    Setting::set('einsatzbericht_divera_location_id', (string) $location->id);
+
+    $this->postJson($this->url, $this->alarm)->assertOk();
+
+    expect(Report::sole()->ext_location_id)->toBe($location->id);
+
+    $entry = app(DiveraWebhook::class)->testAlarm([
+        'keyword' => 'FEU 1 – Test',
+        'message' => null,
+        'address' => null,
+        'latitude' => null,
+        'longitude' => null,
+        'test' => false,
+    ]);
+
+    expect($entry->status)->toBe('created')
+        ->and(Report::latest('id')->first()->ext_location_id)->toBe($location->id);
+});
+
+test('an unset webhook location falls back only when exactly one active location exists', function () {
+    config(['locations.enabled' => true]);
+    $location = Location::create(['name' => 'Wache Nord', 'slug' => 'divera-only']);
+    DB::table('x_locations')->where('id', '!=', $location->id)->update(['is_active' => false]);
+
+    $this->postJson($this->url, $this->alarm)->assertOk();
+
+    expect(DiveraRequest::sole()->status)->toBe('created')
+        ->and(Report::sole()->ext_location_id)->toBe($location->id);
+
+    Location::create(['name' => 'Wache Süd', 'slug' => 'divera-second']);
+    $this->postJson($this->url, [...$this->alarm, 'id' => 4712])->assertOk();
+
+    expect(DiveraRequest::latest('id')->first()->status)->toBe('error')
+        ->and(DiveraRequest::latest('id')->first()->message)->toContain('Standort für den DIVERA-Webhook')
+        ->and(Report::count())->toBe(1);
+});
+
+test('a configured inactive webhook location records an error instead of creating an unassigned report', function () {
+    config(['locations.enabled' => true]);
+    $location = Location::create(['name' => 'Wache Nord', 'slug' => 'divera-inactive']);
+    Setting::set('einsatzbericht_divera_location_id', (string) $location->id);
+    $location->update(['is_active' => false]);
+
+    $this->postJson($this->url, $this->alarm)->assertOk();
+
+    expect(DiveraRequest::sole()->status)->toBe('error')
+        ->and(DiveraRequest::sole()->message)->toContain('nicht mehr aktiv')
+        ->and(Report::count())->toBe(0);
+});
+
+test('the same alarm identifier is not attached across different configured locations', function () {
+    config(['locations.enabled' => true]);
+    $north = Location::create(['name' => 'Wache Nord', 'slug' => 'divera-north']);
+    $south = Location::create(['name' => 'Wache Süd', 'slug' => 'divera-south']);
+    Setting::set('einsatzbericht_divera_location_id', (string) $north->id);
+    $this->postJson($this->url, $this->alarm)->assertOk();
+
+    Setting::set('einsatzbericht_divera_location_id', (string) $south->id);
+    $this->postJson($this->url, $this->alarm)->assertOk();
+
+    expect(Report::count())->toBe(2)
+        ->and(Report::orderBy('id')->first()->ext_location_id)->toBe($north->id)
+        ->and(Report::latest('id')->first()->ext_location_id)->toBe($south->id)
+        ->and(DiveraRequest::latest('id')->first()->status)->toBe('created');
 });
 
 test('a re-alarm of the same Einsatz attaches to the existing draft', function () {
@@ -145,6 +217,29 @@ test('the Wehrführung switches the webhook, copies the address, sets mapping an
     $leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
     $this->actingAs($leader)->get('/admin/einsatzbericht/einstellungen')->assertForbidden();
     $this->actingAs($chief)->get('/admin/einsatzbericht/einstellungen')->assertOk()->assertSee('DIVERA 24/7 (Webhook)');
+});
+
+test('the webhook settings require an active location before enabling it', function () {
+    config(['locations.enabled' => true]);
+    $north = Location::create(['name' => 'Wache Nord', 'slug' => 'divera-settings-nord']);
+    Location::create(['name' => 'Wache Süd', 'slug' => 'divera-settings-sued']);
+    $admin = User::factory()->admin()->create();
+
+    Livewire::actingAs($admin)->test(SettingsPage::class)
+        ->assertSee('Standort des DIVERA-Webhooks')
+        ->set('diveraEnabled', true)
+        ->set('diveraLocationId', '')
+        ->call('saveDivera')
+        ->assertHasErrors(['diveraLocationId' => 'required']);
+
+    Livewire::actingAs($admin)->test(SettingsPage::class)
+        ->set('diveraEnabled', true)
+        ->set('diveraLocationId', (string) $north->id)
+        ->call('saveDivera')
+        ->assertHasNoErrors();
+
+    expect(DiveraWebhook::configuredLocationId())->toBe((string) $north->id)
+        ->and(DiveraWebhook::enabled())->toBeTrue();
 });
 
 test('the draft shows its DIVERA origin and message', function () {

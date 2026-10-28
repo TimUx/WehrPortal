@@ -6,6 +6,15 @@
     @endif
 
     <form wire:submit="save" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+        @if($locationsEnabled)
+            <label class="block text-sm font-medium text-gray-700">Standort <span class="text-red-600">*</span>
+                <select wire:model.live="locationId" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-fw-red focus:ring-fw-red">
+                    <option value="">– Standort wählen –</option>
+                    @foreach($locationOptions as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
+                </select>
+                @error('locationId')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+            </label>
+        @endif
         <div>
             <label for="sp-title" class="block text-sm font-medium text-gray-700 mb-1">Wofür? <span class="text-red-600">*</span></label>
             <input id="sp-title" type="text" wire:model="title" maxlength="150" placeholder="z. B. Dorffest – Pommesstand JF" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-fw-red focus:ring-fw-red">

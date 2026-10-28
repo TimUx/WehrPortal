@@ -73,7 +73,7 @@ class EntryDetail extends Component
     public function render(VerbandbuchService $service)
     {
         $user = auth()->user();
-        $manage = VerbandbuchService::canManage($user);
+        $manage = VerbandbuchService::canManageEntry($user, $this->entry);
 
         return view('verbandbuch::livewire.entry-detail', [
             'signatures' => $this->entry->signatures()->get(),

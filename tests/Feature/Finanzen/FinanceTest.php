@@ -4,9 +4,12 @@ use App\Livewire\Dashboard\Home;
 use App\Models\Module;
 use App\Models\User;
 use App\Support\Money;
+use Extensions\Locations\Models\Location;
+use Extensions\Locations\Services\StandardRoleAssignments;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
@@ -29,6 +32,7 @@ beforeEach(function () {
     Cache::forget('modules_active_keys');
     $this->travelTo(Carbon::parse('2027-05-10 12:00', 'Europe/Berlin'));
     Notification::fake();
+    $this->location = config('locations.enabled') ? Location::create(['name' => 'Wache Musterstadt', 'slug' => 'finanzen-musterstadt']) : null;
 
     $this->kasse = User::factory()->create(['name' => 'Klara Kübel']);
     $this->kasse->moduleAccess()->create(['module' => 'finanzen', 'role' => 'kassenwart']);
@@ -38,11 +42,68 @@ beforeEach(function () {
     $this->member->moduleAccess()->create(['module' => 'finanzen']);
     $this->other = User::factory()->create(['name' => 'Bernd Blaulicht']);
     $this->other->moduleAccess()->create(['module' => 'finanzen']);
+    if ($this->location) {
+        foreach ([$this->kasse, $this->chief, $this->member, $this->other] as $user) {
+            $user->forceFill(['ext_location_id' => $this->location->id])->save();
+        }
+    }
 
     $this->f = app(FinanceService::class);
     $this->jf = $this->f->saveCostCenter($this->kasse, null, ['name' => 'Jugendfeuerwehr', 'code' => '200']);
     $this->ea = $this->f->saveCostCenter($this->kasse, null, ['name' => 'Einsatzabteilung', 'code' => '100']);
-    $this->f->setBudget($this->kasse, $this->jf, 2027, 150000);
+    $this->f->setBudget($this->kasse, $this->jf, 2027, 150000, locationId: $this->location?->id);
+});
+
+test('finance entries, budgets and reviewer access are scoped to their Standort', function () {
+    if (! config('locations.enabled')) {
+        $this->markTestSkipped('Locations extension is disabled.');
+    }
+
+    $south = Location::create(['name' => 'Wache Südstadt', 'slug' => 'finanzen-suedstadt']);
+    $southMember = User::factory()->create(['name' => 'Sven Süd']);
+    $southMember->moduleAccess()->create(['module' => 'finanzen']);
+    $southMember->forceFill(['ext_location_id' => $south->id])->save();
+    $localChief = User::factory()->create(['name' => 'Wanda Wehrführung', 'ext_location_id' => $this->location->id]);
+    $southChief = User::factory()->create(['name' => 'Sabine Südleitung', 'ext_location_id' => $south->id]);
+    $admin = User::factory()->admin()->create();
+    app(StandardRoleAssignments::class)->grant($admin, $localChief->id, 'wehrfuehrung', $this->location->id, null, 'Standortleitung');
+    app(StandardRoleAssignments::class)->grant($admin, $southChief->id, 'wehrfuehrung', $south->id, null, 'Standortleitung');
+
+    $northEntry = expense($this->member);
+    $southEntry = $this->f->create($southMember, [
+        'cost_center_id' => $this->jf->id, 'title' => 'Süd Gerätehausbedarf', 'amount_cents' => 12300, 'booked_on' => '2027-05-08',
+    ], [UploadedFile::fake()->create('sued.pdf', 50, 'application/pdf')]);
+    $legacy = expense($this->member, files: [UploadedFile::fake()->create('altbestand.pdf', 50, 'application/pdf')]);
+    DB::table('fin_entries')->where('id', $legacy->id)->update(['location_id' => null]);
+    $legacy->refresh();
+
+    expect($northEntry->location_id)->toBe($this->location->id)
+        ->and($southEntry->location_id)->toBe($south->id)
+        ->and(FinanceService::canView($localChief, $northEntry))->toBeTrue()
+        ->and(FinanceService::canView($localChief, $southEntry))->toBeFalse()
+        ->and(FinanceService::canView($localChief, $legacy))->toBeFalse()
+        ->and(FinanceService::canView($this->member, $legacy))->toBeTrue();
+    Notification::assertSentTo($localChief, ExpenseSubmittedNotification::class);
+    Notification::assertSentTo($southChief, ExpenseSubmittedNotification::class);
+    expect($this->f->reviewers($this->location->id)->modelKeys())->toContain($localChief->id)
+        ->not->toContain($southChief->id);
+
+    Livewire::actingAs($localChief)->test(EntryList::class)
+        ->assertSee('Verpflegung Zeltlager')->assertDontSee('Süd Gerätehausbedarf')->assertDontSee('Altbestand ohne Standort');
+    $this->actingAs($localChief)->get(route('finanzen.entry', $southEntry))->assertForbidden();
+    $this->actingAs($localChief)->get('/finanzen/jahresabschluss')->assertForbidden();
+    expect(fn () => $this->f->decide($localChief, $southEntry, true))->toThrow(ValidationException::class);
+
+    $this->f->setBudget($this->kasse, $this->jf, 2027, 150000, locationId: $south->id);
+    expect($this->f->overview(2027, locationId: $this->location->id)->firstWhere(fn ($row) => $row['center']->is($this->jf))['budget'])->toBe(150000)
+        ->and($this->f->overview(2027, locationId: $south->id)->firstWhere(fn ($row) => $row['center']->is($this->jf))['budget'])->toBe(150000)
+        ->and($this->f->overview(2027)->firstWhere(fn ($row) => $row['center']->is($this->jf))['budget'])->toBe(300000);
+
+    Livewire::actingAs($localChief)->test(BudgetPlan::class)
+        ->assertSet('locationId', (string) $this->location->id)
+        ->set("amounts.{$this->jf->id}", '2.000,00')->call('saveBudgets')->assertSee('Budget 2027 gespeichert.')
+        ->assertDontSee('Einstellungen');
+    expect(fn () => $this->f->setBudget($localChief, $this->jf, 2027, 1000, locationId: $south->id))->toThrow(ValidationException::class);
 });
 
 function expense(User $by, int $cents = 2490, ?CostCenter $center = null, array $files = []): Entry
@@ -60,6 +121,7 @@ test('a Kamerad submits an Ausgabe with a photo; the reviewers are told, not him
     $this->travelBack();                       // Livewire's temporary uploads expire under time travel
 
     Livewire::actingAs($this->member)->test(EntryForm::class)
+        ->assertSet('locationId', $this->location ? (string) $this->location->id : '')
         ->set('title', 'Verpflegung Zeltlager')->set('amount', '24,90')->set('costCenterId', (string) $this->jf->id)
         ->set('uploads', [UploadedFile::fake()->image('bon.jpg', 2000, 1500)])
         ->call('save')
@@ -276,7 +338,9 @@ test('export: CSV for Excel and a ZIP of the Belege, named by Belegnummer; print
 
     $csv = app(FinanceExport::class)->csv(2027);
     expect($csv)->toStartWith("\u{FEFF}Belegnummer;Belegdatum")
-        ->toContain('2027-001;08.05.2027;Ausgabe;200;Jugendfeuerwehr;"Verpflegung Zeltlager";Edeka;-24,90')
+        ->toContain($this->location
+            ? '2027-001;08.05.2027;Ausgabe;200;Jugendfeuerwehr;"Wache Musterstadt";"Verpflegung Zeltlager";Edeka;-24,90'
+            : '2027-001;08.05.2027;Ausgabe;200;Jugendfeuerwehr;"Verpflegung Zeltlager";Edeka;-24,90')
         ->not->toContain('9,99');
 
     $this->actingAs($this->chief)->get('/finanzen/export/2027/buchungen.csv')->assertOk()->assertHeader('Content-Disposition', 'attachment; filename="Buchungen-2027.csv"');

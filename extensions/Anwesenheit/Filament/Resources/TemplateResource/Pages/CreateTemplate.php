@@ -13,7 +13,11 @@ class CreateTemplate extends CreateRecord
 
     protected function handleRecordCreation(array $data): Model
     {
-        abort_unless(AttendanceService::canManageAt(auth()->user(), isset($data['ext_location_id']) ? (int) $data['ext_location_id'] : null), 403);
+        $user = auth()->user();
+        $locationId = isset($data['ext_location_id']) ? (int) $data['ext_location_id'] : null;
+        $groupId = isset($data['group_id']) ? (int) $data['group_id'] : null;
+        abort_unless(AttendanceService::canManageGroupAt($user, $locationId, $groupId)
+            && app(AttendanceService::class)->canSelectGroup($user, $locationId, $groupId), 403);
 
         return parent::handleRecordCreation($data);
     }

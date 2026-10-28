@@ -1,7 +1,10 @@
 <?php
 
 use App\Models\User;
+use Extensions\Locations\Models\Location as Standort;
+use Extensions\Locations\Services\LocationAccess;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Validation\ValidationException;
 use Modules\Ausruestung\src\Enums\DamageStatus;
 use Modules\Ausruestung\src\Enums\EquipmentStatus;
 use Modules\Ausruestung\src\Models\Category;
@@ -107,6 +110,22 @@ test('moving an item is logged and a compartment sets its location', function ()
     expect($helmet->refresh()->location_id)->toBe($vehicle->id)
         ->and($helmet->placeLabel())->toBe('HLF 20 › G1')
         ->and($helmet->events()->where('type', 'move')->sole()->body)->toContain('HLF 20 › G1');
+});
+
+test('an item can be assigned to an accessible organizational Standort', function () {
+    $standort = Standort::create(['name' => 'Wache Nord', 'slug' => 'wache-nord']);
+    $standort->members()->attach($this->warden, ['role' => 'member']);
+    app(LocationAccess::class)->forget($this->warden);
+    $helmet = equipment();
+    $foreign = Standort::create(['name' => 'Wache Süd', 'slug' => 'wache-sued']);
+
+    expect(fn () => $this->service->moveStandort($helmet, $this->warden, $foreign->id))
+        ->toThrow(ValidationException::class, 'verwalten darfst');
+
+    $this->service->moveStandort($helmet, $this->warden, $standort->id);
+
+    expect($helmet->fresh()->standort->name)->toBe('Wache Nord')
+        ->and($helmet->events()->where('type', 'move')->latest('id')->value('body'))->toContain('Standort:');
 });
 
 test('Einsatz and Übung are kept as history', function () {

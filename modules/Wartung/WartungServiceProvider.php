@@ -81,8 +81,8 @@ class WartungServiceProvider extends ServiceProvider
             if (! WartungService::canPerform($user) || ! WartungService::ready()) {
                 return null;
             }
-            $overdue = Task::overdue()->count();
-            $open = Task::open()->count();
+            $overdue = WartungService::scopeTasksFor($user, Task::overdue())->count();
+            $open = WartungService::scopeTasksFor($user, Task::open())->count();
 
             return $open === 0 ? null : view('wartung::cards.due', compact('overdue', 'open'))->render();
         });

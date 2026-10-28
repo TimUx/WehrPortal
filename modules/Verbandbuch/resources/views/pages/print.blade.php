@@ -45,6 +45,7 @@
             <table>
                 <tr><th>Name der verletzten / beteiligten Person</th><td>{{ $entry->injured_name ?? '–' }}</td></tr>
                 <tr><th>Datum und Uhrzeit</th><td>{{ $time($entry->occurred_at) }}</td></tr>
+                @if($entry->organizationalLocation)<tr><th>Standort</th><td>{{ $entry->organizationalLocation->name }}</td></tr>@endif
                 <tr><th>Ort / Unternehmensteil</th><td>{{ $entry->location }} ({{ $entry->occasionLabel() }})</td></tr>
                 <tr><th>Hergang</th><td>{{ $entry->description }}</td></tr>
                 <tr><th>Art und Umfang der Verletzung</th><td>{{ $entry->injury ?? '–' }}</td></tr>

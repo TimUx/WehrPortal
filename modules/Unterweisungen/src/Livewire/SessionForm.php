@@ -43,7 +43,7 @@ class SessionForm extends Component
     public function updatedEventId(InstructionService $service): void
     {
         if ($this->eventId !== '') {
-            $this->userIds = array_values(array_unique([...$this->userIds, ...array_map('strval', $service->fromEvent((int) $this->eventId))]));
+            $this->userIds = array_values(array_unique([...$this->userIds, ...array_map('strval', $service->fromEvent(auth()->user(), (int) $this->eventId))]));
             $this->onlyRequired = false;
         }
     }
@@ -64,13 +64,13 @@ class SessionForm extends Component
 
     public function render()
     {
-        $topic = $this->form['topic_id'] !== '' ? Topic::find((int) $this->form['topic_id']) : null;
+        $topic = $this->form['topic_id'] !== '' ? InstructionService::topicsForManager(auth()->user())->find((int) $this->form['topic_id']) : null;
         $users = User::active()->with(['groups', 'functions'])->orderBy('name')->get();
 
         return view('unterweisungen::livewire.session-form', [
-            'topics' => Topic::where('is_active', true)->orderBy('name')->get(),
+            'topics' => InstructionService::topicsForManager(auth()->user())->where('is_active', true)->orderBy('name')->get(),
             'users' => $topic && $this->onlyRequired ? $users->filter(fn (User $u) => $topic->requiredFor($u) || in_array((string) $u->id, $this->userIds, true)) : $users,
-            'events' => app(ModuleRegistry::class)->isActive('kalender')
+            'events' => ! InstructionService::isAtemschutzOnlyManager(auth()->user()) && app(ModuleRegistry::class)->isActive('kalender')
                 ? Event::whereNull('source_id')->where('starts_at', '<=', now())->where('starts_at', '>=', now()->subDays(60))->orderByDesc('starts_at')->limit(30)->get() : collect(),
         ]);
     }

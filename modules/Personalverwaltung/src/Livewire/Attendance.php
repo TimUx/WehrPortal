@@ -26,8 +26,13 @@ class Attendance extends Component
     public function render(PersonnelService $personnel)
     {
         $types = array_values(array_intersect($this->types, array_keys(Event::TYPES)));
-        $rows = PersonnelService::visibleMembers(auth()->user())->where('status', 'active')->with('groups')->orderBy('name')->get()
-            ->map(fn (User $m) => ['user' => $m, ...$personnel->attendance($m, $this->year, $types)])
+        $manager = auth()->user();
+        $rows = PersonnelService::visibleMembers($manager)->where('status', 'active')->orderBy('name')->get()
+            ->map(function (User $member) use ($manager, $personnel, $types) {
+                $member->setRelation('groups', PersonnelService::visibleGroups($manager, $member));
+
+                return ['user' => $member, ...$personnel->attendance($member, $this->year, $types)];
+            })
             ->sortByDesc(fn ($r) => [$r['percent'] ?? -1, $r['attended']])->values();
 
         return view('personalverwaltung::livewire.attendance', [

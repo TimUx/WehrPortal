@@ -40,6 +40,7 @@ class Protocol extends Model
         return $this->belongsTo(Template::class);
     }
 
+    /** @return BelongsTo<Equipment, $this> */
     public function equipment(): BelongsTo
     {
         return $this->belongsTo(Equipment::class, 'equipment_id');

@@ -5,6 +5,8 @@ namespace Modules\Fahrzeugbuchung\src\Filament\Resources\VehicleResource\Pages;
 use Filament\Actions;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Modules\Fahrzeugbuchung\src\Filament\Resources\VehicleResource;
 
 class EditVehicle extends EditRecord
@@ -17,10 +19,12 @@ class EditVehicle extends EditRecord
             Actions\DeleteAction::make()
                 ->label('Löschen')
                 ->before(function (Actions\DeleteAction $action) {
-                    if ($this->record->bookings()->exists()) {
+                    $hasTrips = Schema::hasTable('ft_trips') && DB::table('ft_trips')->where('vehicle_id', $this->record->getKey())->exists();
+                    $hasFuelings = Schema::hasTable('ft_fuelings') && DB::table('ft_fuelings')->where('vehicle_id', $this->record->getKey())->exists();
+                    if ($this->record->bookings()->exists() || $hasTrips || $hasFuelings) {
                         Notification::make()
                             ->title('Fahrzeug kann nicht gelöscht werden')
-                            ->body('Es existieren Buchungen für dieses Fahrzeug. Deaktiviere es stattdessen.')
+                            ->body('Es existieren Buchungen oder Fahrtenbucheinträge für dieses Fahrzeug. Deaktiviere es stattdessen.')
                             ->danger()
                             ->send();
 

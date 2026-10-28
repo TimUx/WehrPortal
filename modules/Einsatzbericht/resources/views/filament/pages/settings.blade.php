@@ -65,6 +65,22 @@
                         <p class="eb-hint">Beim Einschalten wird eine geheime Adresse erzeugt.</p>
                     @endif
 
+                    @if($locationsEnabled)
+                        <label>
+                            <span class="eb-label">Standort des DIVERA-Webhooks</span>
+                            <x-filament::input.wrapper>
+                                <x-filament::input.select wire:model="diveraLocationId">
+                                    <option value="">Standort auswählen</option>
+                                    @foreach($locations as $id => $name)
+                                        <option value="{{ $id }}">{{ $name }}</option>
+                                    @endforeach
+                                </x-filament::input.select>
+                            </x-filament::input.wrapper>
+                            <p class="eb-hint">Jeder Alarm und Test-Alarm wird diesem Standort zugeordnet. Ist der Standort nicht mehr aktiv, wird der Request als Fehler protokolliert.</p>
+                            @error('diveraLocationId')<p class="eb-error">{{ $message }}</p>@enderror
+                        </label>
+                    @endif
+
                     <div>
                         <div class="eb-row" style="justify-content: space-between">
                             <span class="eb-label">Feldzuordnung</span>

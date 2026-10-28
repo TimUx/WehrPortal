@@ -11,6 +11,7 @@ use Filament\Tables\Table;
 use Modules\Ausruestung\src\Filament\Concerns\AusruestungArea;
 use Modules\Ausruestung\src\Filament\Resources\CategoryResource\Pages;
 use Modules\Ausruestung\src\Models\Category;
+use Modules\Ausruestung\src\Services\EquipmentService;
 
 /** Kinds of equipment with default service life and inspection interval */
 class CategoryResource extends Resource
@@ -32,6 +33,11 @@ class CategoryResource extends Resource
     protected static string|\UnitEnum|null $navigationGroup = 'Stammdaten';
 
     protected static ?int $navigationSort = 60;
+
+    public static function canAccess(): bool
+    {
+        return static::canAccessArea() && EquipmentService::canManageGlobal(auth()->user());
+    }
 
     public static function form(Schema $schema): Schema
     {

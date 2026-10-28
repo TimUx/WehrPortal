@@ -1,9 +1,10 @@
 <x-layouts.app title="Gefahrstoffdatenbank">
+    @php($pictograms = \Modules\Gefahrstoffe\src\Data\GhsPictograms::all())
     <div class="mx-auto max-w-4xl space-y-5" x-data="hazardousMaterials">
         <div class="flex flex-wrap items-start justify-between gap-3" x-data="referenceOffline">
             <div>
                 <h1 class="text-xl font-bold text-gray-900">Gefahrstoffdatenbank</h1>
-                <p class="mt-1 text-sm text-gray-600">Importierte Referenzdaten. Quelle und Datenstand stehen bei jedem Eintrag.</p>
+                <p class="mt-1 text-sm text-gray-600">Standortübergreifende Referenzdaten. Quelle und Datenstand stehen bei jedem importierten Eintrag.</p>
             </div>
             <button type="button" x-on:click="save()" :disabled="saving"
                 class="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-fw-navy disabled:opacity-50">
@@ -12,6 +13,26 @@
             <p class="basis-full text-sm text-gray-600" role="status" x-text="message"></p>
         </div>
 
+        <section aria-labelledby="ghs-heading" class="space-y-3">
+            <div>
+                <h2 id="ghs-heading" class="text-lg font-semibold text-gray-900">GHS-Gefahrenpiktogramme</h2>
+                <p class="mt-1 text-sm text-gray-600">Allgemeine Übersicht der neun standardisierten Piktogramme nach dem Global Harmonisierten System (GHS).</p>
+            </div>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                @foreach($pictograms as $pictogram)
+                    <article class="flex items-start gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm" aria-label="{{ $pictogram['code'] }}: {{ $pictogram['label'] }}">
+                        @include('gefahrstoffe::components.ghs-pictogram', ['code' => $pictogram['code']])
+                        <div class="min-w-0">
+                            <p class="font-semibold text-gray-900">{{ $pictogram['code'] }} · {{ $pictogram['label'] }}</p>
+                            <p class="mt-1 text-sm text-gray-600">{{ $pictogram['description'] }}</p>
+                        </div>
+                    </article>
+                @endforeach
+            </div>
+            <p class="text-xs text-gray-500">Die Übersicht dient der Orientierung und ersetzt weder Kennzeichnung noch Sicherheitsdatenblatt oder Einsatzbeurteilung.</p>
+        </section>
+
+        <h2 class="pt-2 text-lg font-semibold text-gray-900">Importierter Gefahrstoffkatalog</h2>
         <label class="block">
             <span class="sr-only">Gefahrstoff suchen</span>
             <input type="search" x-model.debounce.150ms="query" placeholder="UN-Nummer, Stoffname oder Synonym"

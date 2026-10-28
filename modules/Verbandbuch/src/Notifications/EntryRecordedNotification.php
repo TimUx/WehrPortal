@@ -8,7 +8,7 @@ use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Modules\Verbandbuch\src\Models\Entry;
 
-/** To Sicherheitsbeauftragte and Wehrführung: a new entry in the Verbandbuch. No health data in the mail. */
+/** To the responsible local Wehrführung and global GBI/admins: a new entry, without health details. */
 class EntryRecordedNotification extends Notification
 {
     use InApp;

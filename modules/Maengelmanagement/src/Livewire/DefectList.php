@@ -32,7 +32,11 @@ class DefectList extends Component
     public function render()
     {
         $userId = auth()->id();
-        $defects = Defect::with(['device', 'vehicle', 'equipment', 'reporter', 'assignee'])
+        $relations = ['device', 'vehicle', 'equipment', 'reporter', 'assignee'];
+        if (config('locations.enabled')) {
+            $relations[] = 'site';
+        }
+        $defects = Defect::with($relations)
             ->when($this->view === 'meine', fn ($q) => $q->where('reporter_id', $userId))
             ->when($this->view === 'mir', fn ($q) => $q->where('assigned_to', $userId))
             ->when($this->view === 'rueckfrage', fn ($q) => $q->whereNotNull('question_open_at'))

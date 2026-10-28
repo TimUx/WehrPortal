@@ -3,11 +3,16 @@
 namespace Modules\Fahrzeugbuchung\src\Models;
 
 use Database\Factories\VehicleFactory;
+use Extensions\Locations\Models\Location;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property int|null $ext_location_id
+ */
 class Vehicle extends Model
 {
     /** @use HasFactory<VehicleFactory> */
@@ -26,6 +31,7 @@ class Vehicle extends Model
         'description',
         'is_active',
         'sort_order',
+        'ext_location_id',
     ];
 
     protected function casts(): array
@@ -34,6 +40,12 @@ class Vehicle extends Model
             'is_active' => 'boolean',
             'sort_order' => 'integer',
         ];
+    }
+
+    /** The Standort (Locations extension) */
+    public function standort(): BelongsTo
+    {
+        return $this->belongsTo(Location::class, 'ext_location_id');
     }
 
     public function bookings(): HasMany

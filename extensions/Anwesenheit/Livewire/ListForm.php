@@ -45,6 +45,7 @@ class ListForm extends Component
             $this->listId = $list->id;
             $this->form = [
                 'title' => $list->title, 'kind' => $list->kind, 'ext_location_id' => $list->ext_location_id ? (string) $list->ext_location_id : '',
+                'group_id' => $list->group_id ? (string) $list->group_id : '',
                 'starts_at' => $list->starts_at?->timezone('Europe/Berlin')->format('Y-m-d\TH:i') ?? '',
                 'ends_at' => $list->ends_at?->timezone('Europe/Berlin')->format('Y-m-d\TH:i') ?? '',
                 'leader_id' => $list->leader_id ? (string) $list->leader_id : '', 'guests' => (string) $list->guests, 'notes' => (string) $list->notes,
@@ -57,6 +58,7 @@ class ListForm extends Component
 
         $this->form = [
             'title' => '', 'kind' => 'uebung', 'ext_location_id' => (string) ($service->defaultLocation($user) ?? ''),
+            'group_id' => (string) ($service->defaultGroup($user, $service->defaultLocation($user)) ?? ''),
             'starts_at' => '', 'ends_at' => '', 'leader_id' => '', 'guests' => '0', 'notes' => '',
             'recipients' => AttendanceService::defaultRecipients(), 'template_id' => null, 'source_event_id' => null,
         ];
@@ -72,7 +74,7 @@ class ListForm extends Component
 
         foreach ($data as $key => $value) {
             if ($value !== null && $value !== '') {
-                $this->form[$key] = is_int($value) && in_array($key, ['leader_id'], true) ? (string) $value : $value;
+                $this->form[$key] = is_int($value) && in_array($key, ['leader_id', 'group_id'], true) ? (string) $value : $value;
             }
         }
         if (! empty($data['leader_id'])) {
@@ -85,6 +87,15 @@ class ListForm extends Component
     {
         $file = AttendanceFile::where('list_id', $this->listId)->findOrFail($fileId);
         $service->removeFile(auth()->user(), $file);
+    }
+
+    public function updatedFormExtLocationId(): void
+    {
+        $service = app(AttendanceService::class);
+        $locationId = (int) ($this->form['ext_location_id'] ?? 0) ?: null;
+        $this->form['group_id'] = (string) ($service->defaultGroup(auth()->user(), $locationId) ?? '');
+        $this->form['leader_id'] = '';
+        $this->selected = [];
     }
 
     public function save(AttendanceService $service)
@@ -115,12 +126,15 @@ class ListForm extends Component
         $user = auth()->user();
         $service = app(AttendanceService::class);
         $locationId = (int) ($this->form['ext_location_id'] ?? 0) ?: null;
+        $groupId = (int) ($this->form['group_id'] ?? 0) ?: null;
         $list = $this->listId ? AttendanceList::with('files')->find($this->listId) : null;
 
         return view('anwesenheit::livewire.list-form', [
             'kinds' => config('anwesenheit.kinds'),
             'locations' => $service->locationsFor($user),
-            'members' => $service->members($locationId),
+            'groups' => $service->groupOptions($user, $locationId),
+            'locationsOn' => AttendanceService::locationsOn(),
+            'members' => $service->members($locationId, $groupId),
             'prefillOptions' => $list ? [] : $service->prefillOptions($user),
             'files' => $list?->files ?? collect(),
             'maxFiles' => config('anwesenheit.max_files'),

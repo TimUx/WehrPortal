@@ -47,10 +47,13 @@ class EquipmentActions
                     ->helperText('Nicht bestanden: Das Gerät wird als defekt gekennzeichnet und ein Schaden angelegt.'),
                 Forms\Components\Textarea::make('notes')->label('Bemerkung')->rows(2),
             ])
-            ->visible(fn ($record, $livewire) => $equipment($record, $livewire)->status !== EquipmentStatus::Retired)
+            ->visible(fn ($record, $livewire) => EquipmentService::canManageEquipment(auth()->user(), $equipment($record, $livewire))
+                && $equipment($record, $livewire)->status !== EquipmentStatus::Retired)
             ->action(function (array $data, $record, $livewire) use ($equipment) {
                 $item = $equipment($record, $livewire);
-                app(EquipmentService::class)->recordInspection($item, auth()->user(), Carbon::parse($data['inspected_at']), (bool) $data['passed'], $data['notes'] ?? null);
+                $service = app(EquipmentService::class);
+                $service->assertCanManageEquipment(auth()->user(), $item);
+                $service->recordInspection($item, auth()->user(), Carbon::parse($data['inspected_at']), (bool) $data['passed'], $data['notes'] ?? null);
 
                 Notification::make()
                     ->title($data['passed'] ? 'Prüfung eingetragen' : 'Prüfung nicht bestanden – Gerät gesperrt')
@@ -72,15 +75,20 @@ class EquipmentActions
                     ->native(false)->displayFormat('d.m.Y H:i')->seconds(false)->timezone('Europe/Berlin'),
                 Forms\Components\Textarea::make('notes')->label('Notiz')->rows(2),
             ])
-            ->visible(fn ($record, $livewire) => $equipment($record, $livewire)->status === EquipmentStatus::Available)
+            ->visible(fn ($record, $livewire) => EquipmentService::canManageEquipment(auth()->user(), $equipment($record, $livewire))
+                && $equipment($record, $livewire)->status === EquipmentStatus::Available)
             ->action(function (array $data, $record, $livewire, Action $action) use ($equipment) {
-                static::attempt($action, fn () => app(LoanService::class)->lend(
-                    $equipment($record, $livewire),
-                    User::findOrFail($data['user_id']),
-                    auth()->user(),
-                    Carbon::parse($data['due_at']),
-                    $data['notes'] ?? null,
-                ));
+                static::attempt($action, function () use ($data, $record, $livewire, $equipment) {
+                    $item = $equipment($record, $livewire);
+                    app(EquipmentService::class)->assertCanManageEquipment(auth()->user(), $item);
+                    app(LoanService::class)->lend(
+                        $item,
+                        User::findOrFail($data['user_id']),
+                        auth()->user(),
+                        Carbon::parse($data['due_at']),
+                        $data['notes'] ?? null,
+                    );
+                });
                 Notification::make()->title('Ausgeliehen')->success()->send();
             });
     }
@@ -114,7 +122,9 @@ class EquipmentActions
                 Forms\Components\Textarea::make('body')->label('Beschreibung')->rows(2)->placeholder('z. B. Einsatz 2026-117, Brand Scheune'),
             ])
             ->action(function (array $data, $record, $livewire) use ($equipment) {
-                app(EquipmentService::class)->log($equipment($record, $livewire), auth()->user(), $data['type'], $data['body'] ?? null, Carbon::parse($data['occurred_at']));
+                $item = $equipment($record, $livewire);
+                app(EquipmentService::class)->assertCanManageEquipment(auth()->user(), $item);
+                app(EquipmentService::class)->log($item, auth()->user(), $data['type'], $data['body'] ?? null, Carbon::parse($data['occurred_at']));
                 Notification::make()->title('Eingetragen')->success()->send();
             });
     }
@@ -128,9 +138,10 @@ class EquipmentActions
             ->requiresConfirmation()
             ->modalDescription('Das Gerät wird aus dem Bestand genommen. Die Daten und der Verlauf bleiben erhalten.')
             ->schema([Forms\Components\Textarea::make('note')->label('Grund')->rows(2)])
-            ->visible(fn ($record, $livewire) => ! in_array($equipment($record, $livewire)->status, [EquipmentStatus::Retired, EquipmentStatus::Loaned], true))
+            ->visible(fn ($record, $livewire) => EquipmentService::canManageEquipment(auth()->user(), $equipment($record, $livewire))
+                && ! in_array($equipment($record, $livewire)->status, [EquipmentStatus::Retired, EquipmentStatus::Loaned], true))
             ->action(function (array $data, $record, $livewire) use ($equipment) {
-                app(EquipmentService::class)->setStatus($equipment($record, $livewire), auth()->user(), EquipmentStatus::Retired, $data['note'] ?? null);
+                app(EquipmentService::class)->setManagedStatus(auth()->user(), $equipment($record, $livewire), EquipmentStatus::Retired, $data['note'] ?? null);
                 Notification::make()->title('Ausgesondert')->success()->send();
             });
     }
@@ -142,9 +153,10 @@ class EquipmentActions
             ->icon('heroicon-o-arrow-uturn-left')
             ->color('gray')
             ->requiresConfirmation()
-            ->visible(fn ($record, $livewire) => $equipment($record, $livewire)->status === EquipmentStatus::Retired)
+            ->visible(fn ($record, $livewire) => EquipmentService::canManageEquipment(auth()->user(), $equipment($record, $livewire))
+                && $equipment($record, $livewire)->status === EquipmentStatus::Retired)
             ->action(function ($record, $livewire) use ($equipment) {
-                app(EquipmentService::class)->setStatus($equipment($record, $livewire), auth()->user(), EquipmentStatus::Available);
+                app(EquipmentService::class)->setManagedStatus(auth()->user(), $equipment($record, $livewire), EquipmentStatus::Available);
                 Notification::make()->title('Wieder in Dienst')->success()->send();
             });
     }

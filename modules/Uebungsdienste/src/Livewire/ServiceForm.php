@@ -3,7 +3,6 @@
 namespace Modules\Uebungsdienste\src\Livewire;
 
 use App\Models\DressCode;
-use App\Models\Group;
 use App\Models\Place;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
@@ -57,9 +56,8 @@ class ServiceForm extends Component
             $this->dressCodeIds = array_map('strval', $service->dress_code_ids ?? []);
             if ($plan->locationsEnabled()) {
                 $this->targetLocationIds = $plan->targetIdsForGroups($service->group_ids ?? []);
-            } else {
-                $this->targetGroupIds = array_map('strval', $service->group_ids ?? []);
             }
+            $this->targetGroupIds = array_map('strval', $service->group_ids ?? []);
         } elseif ($first = Place::options()->keys()->first()) {
             // A new Dienst starts at the first saved place
             $this->placeId = (string) $first;
@@ -69,10 +67,19 @@ class ServiceForm extends Component
         if (! $service?->exists) {
             if ($plan->locationsEnabled()) {
                 $this->targetLocationIds = $plan->defaultTargetIds(auth()->user());
-            } else {
-                $this->targetGroupIds = $plan->defaultTargetIds(auth()->user());
             }
+            $this->targetGroupIds = $plan->defaultGroupIds(auth()->user(), array_map('intval', $this->targetLocationIds));
         }
+    }
+
+    public function updatedTargetLocationIds(ServicePlan $plan): void
+    {
+        if (! $plan->locationsEnabled()) {
+            return;
+        }
+
+        $allowedIds = $plan->groupOptions(auth()->user(), array_map('intval', $this->targetLocationIds))->keys()->all();
+        $this->targetGroupIds = array_values(array_intersect($this->targetGroupIds, $allowedIds));
     }
 
     public function updatedPlaceId(string $value): void
@@ -131,7 +138,7 @@ class ServiceForm extends Component
             'places' => Place::options(),
             'dressCodes' => DressCode::options(),
             'targetLocations' => $plan->locationOptions(auth()->user()),
-            'targetGroups' => Group::options(fn ($query) => $query->whereRaw('lower(name) = ?', ['einsatzabteilung'])),
+            'targetGroups' => $plan->groupOptions(auth()->user(), array_map('intval', $this->targetLocationIds)),
             'locationsEnabled' => $plan->locationsEnabled(),
             'inCalendar' => CalendarLink::available(),
         ]);

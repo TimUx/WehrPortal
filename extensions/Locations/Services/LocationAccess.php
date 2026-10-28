@@ -31,7 +31,7 @@ class LocationAccess
     /** @return list<int> Standorte a user belongs to (all of them for a global admin) */
     public function visibleLocationIds(User $user): array
     {
-        if ($this->isGlobalAdmin($user)) {
+        if ($this->isGlobalAdmin($user) || app(StandardRoleAssignments::class)->hasGlobalProfile($user, 'gemeindebrandinspektor')) {
             return Location::query()->pluck('id')->map(fn ($id) => (int) $id)->all();
         }
 

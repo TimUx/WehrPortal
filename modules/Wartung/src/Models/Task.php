@@ -19,11 +19,13 @@ class Task extends Model
         return ['due_on' => 'date', 'due_mailed_at' => 'datetime', 'overdue_mailed_at' => 'datetime'];
     }
 
+    /** @return BelongsTo<Template, $this> */
     public function template(): BelongsTo
     {
         return $this->belongsTo(Template::class);
     }
 
+    /** @return BelongsTo<Equipment, $this> */
     public function equipment(): BelongsTo
     {
         return $this->belongsTo(Equipment::class, 'equipment_id');

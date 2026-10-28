@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 use Modules\Ausruestung\src\Enums\EquipmentStatus;
 use Modules\Ausruestung\src\Services\RecallService;
 
@@ -22,6 +23,7 @@ class Equipment extends Model
         'manufactured_at', 'commissioned_at', 'purchased_at', 'purchase_price',
         'lifetime_years', 'inspection_interval_months', 'next_inspection_at',
         'location_id', 'compartment_id', 'status', 'notes', 'rfid', 'last_seen_at',
+        'ext_location_id',
     ];
 
     protected function casts(): array
@@ -84,6 +86,18 @@ class Equipment extends Model
             if ($equipment->compartment_id) {
                 $equipment->location_id = Compartment::whereKey($equipment->compartment_id)->value('location_id');
             }
+
+            $locationId = $equipment->getAttribute('location_id');
+            $standortId = $equipment->getAttribute('ext_location_id');
+            if (config('locations.enabled')
+                && ($equipment->isDirty('location_id') || $equipment->isDirty('ext_location_id'))
+                && $locationId
+                && $standortId
+                && (int) Location::withoutGlobalScopes()->whereKey($locationId)->value('ext_location_id') !== (int) $standortId) {
+                throw ValidationException::withMessages([
+                    'location_id' => 'Der Lagerort muss zum organisatorischen Standort des Geräts gehören.',
+                ]);
+            }
         });
     }
 
@@ -95,6 +109,12 @@ class Equipment extends Model
             ->max() ?? 0;
 
         return sprintf('AR-%04d', $highest + 1);
+    }
+
+    /** The Standort (Locations extension) */
+    public function standort(): BelongsTo
+    {
+        return $this->belongsTo(\Extensions\Locations\Models\Location::class, 'ext_location_id');
     }
 
     public function category(): BelongsTo
@@ -112,6 +132,7 @@ class Equipment extends Model
         return $this->belongsTo(Compartment::class, 'compartment_id');
     }
 
+    /** @return HasMany<Inspection, $this> */
     public function inspections(): HasMany
     {
         return $this->hasMany(Inspection::class, 'equipment_id')->latest('inspected_at')->latest('id');
@@ -122,6 +143,7 @@ class Equipment extends Model
         return $this->hasMany(Loan::class, 'equipment_id');
     }
 
+    /** @return HasMany<Damage, $this> */
     public function damages(): HasMany
     {
         return $this->hasMany(Damage::class, 'equipment_id');

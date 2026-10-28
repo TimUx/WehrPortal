@@ -10,6 +10,11 @@ trait AusruestungArea
 {
     public static function canAccess(): bool
     {
+        return static::canAccessArea();
+    }
+
+    protected static function canAccessArea(): bool
+    {
         return AusruestungDashboard::canAccess() && parent::canAccess();
     }
 

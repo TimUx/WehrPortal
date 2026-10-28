@@ -7,6 +7,7 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Modules\Schichtplan\src\Models\Assignment;
 use Modules\Schichtplan\src\Models\Plan;
+use Modules\Schichtplan\src\Services\PlanLocationAccess;
 use Modules\Schichtplan\src\Services\SignupService;
 
 /**
@@ -32,7 +33,7 @@ class SignupBoard extends Component
 
     private function canChoosePerson(): bool
     {
-        return auth()->user()->canManageSchichtplan();
+        return app(PlanLocationAccess::class)->canManage(auth()->user(), $this->plan->ext_location_id);
     }
 
     private function person(): ?User
@@ -62,7 +63,7 @@ class SignupBoard extends Component
     {
         $assignment = $this->plan->assignments()->findOrFail($assignmentId);
         $person = $this->person();
-        if (! auth()->user()->canManageSchichtplan() && $assignment->user_id !== $person?->id) {
+        if (! app(PlanLocationAccess::class)->canManage(auth()->user(), $this->plan->ext_location_id) && $assignment->user_id !== $person?->id) {
             $this->addError('signup', 'Austragen kann man nur die eigenen Schichten.');
 
             return;
@@ -105,7 +106,12 @@ class SignupBoard extends Component
     public function render(SignupService $signups)
     {
         $user = auth()->user();
-        $plan = $this->plan->load(['stations.lead', 'slots']);
+        $relations = ['stations.lead', 'slots'];
+        $showSite = app(PlanLocationAccess::class)->enabled();
+        if ($showSite) {
+            $relations[] = 'site';
+        }
+        $plan = $this->plan->load($relations);
         $assignments = $plan->assignments()->with('user')->get();
         $person = $this->person();
 
@@ -118,8 +124,9 @@ class SignupBoard extends Component
             'people' => $this->canChoosePerson() ? $signups->audience($plan) : collect(),
             'requests' => $assignments->filter(fn (Assignment $a) => $a->isRequested() && SignupService::canApprove($user, $a))->values(),
             'open' => $plan->signupOpen(),
-            'canManage' => $user->canManageSchichtplan(),
+            'canManage' => app(PlanLocationAccess::class)->canManage($user, $plan->ext_location_id),
             'canChoose' => $this->canChoosePerson(),
+            'showSite' => $showSite,
         ]);
     }
 }

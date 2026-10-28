@@ -96,23 +96,31 @@ class DefectResource extends Resource
 
     public static function table(Table $table): Table
     {
+        $columns = [
+            Tables\Columns\TextColumn::make('created_at')->label('Gemeldet')->dateTime('d.m.Y H:i')->timezone('Europe/Berlin')->sortable(),
+            Tables\Columns\TextColumn::make('title')->label('Mangel')->searchable()->limit(50),
+            Tables\Columns\TextColumn::make('subject')->label('Betrifft')->state(fn (Defect $record) => $record->subject()),
+            Tables\Columns\TextColumn::make('urgency')->label('Dringlichkeit')->badge()
+                ->formatStateUsing(fn (Urgency $state) => $state->label())
+                ->color(fn (Urgency $state) => $state->color())
+                ->sortable(),
+            Tables\Columns\TextColumn::make('status')->label('Status')->badge()
+                ->formatStateUsing(fn (DefectStatus $state) => $state->label())
+                ->color(fn (DefectStatus $state) => $state->color())
+                ->sortable(),
+            Tables\Columns\TextColumn::make('reporter.name')->label('Melder')->searchable(),
+            Tables\Columns\TextColumn::make('assignee.name')->label('Zuständig')->placeholder('–'),
+        ];
+        if (config('locations.enabled')) {
+            $columns[] = Tables\Columns\TextColumn::make('site.name')->label('Standort')->placeholder('Nicht zugeordnet')->sortable();
+        }
+
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['device', 'vehicle', 'reporter', 'assignee']))
-            ->columns([
-                Tables\Columns\TextColumn::make('created_at')->label('Gemeldet')->dateTime('d.m.Y H:i')->timezone('Europe/Berlin')->sortable(),
-                Tables\Columns\TextColumn::make('title')->label('Mangel')->searchable()->limit(50),
-                Tables\Columns\TextColumn::make('subject')->label('Betrifft')->state(fn (Defect $record) => $record->subject()),
-                Tables\Columns\TextColumn::make('urgency')->label('Dringlichkeit')->badge()
-                    ->formatStateUsing(fn (Urgency $state) => $state->label())
-                    ->color(fn (Urgency $state) => $state->color())
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('status')->label('Status')->badge()
-                    ->formatStateUsing(fn (DefectStatus $state) => $state->label())
-                    ->color(fn (DefectStatus $state) => $state->color())
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('reporter.name')->label('Melder')->searchable(),
-                Tables\Columns\TextColumn::make('assignee.name')->label('Zuständig')->placeholder('–'),
-            ])
+            ->modifyQueryUsing(fn ($query) => $query->with([
+                'device', 'vehicle', 'reporter', 'assignee',
+                ...(config('locations.enabled') ? ['site'] : []),
+            ]))
+            ->columns($columns)
             ->defaultSort('created_at', 'desc')
             ->filters([
                 Tables\Filters\SelectFilter::make('status')->label('Status')->options(DefectStatus::options())

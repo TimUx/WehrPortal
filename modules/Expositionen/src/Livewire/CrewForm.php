@@ -2,6 +2,8 @@
 
 namespace Modules\Expositionen\src\Livewire;
 
+use Extensions\Locations\Services\LocationContext;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Modules\Einsatzbericht\src\Models\Report;
@@ -21,7 +23,7 @@ class CrewForm extends Component
 
     public function mount(): void
     {
-        abort_unless(ExposureService::canPropose(auth()->user()), 403);
+        abort_unless(ExposureService::canPropose(auth()->user(), $this->report), 403);
         $this->form = $this->blankForm($this->report);
         // Preselected: who wore Atemschutz
         $this->crewIds = $this->report->crew()->where('breathing_apparatus', true)->pluck('user_id')->map(fn ($id) => (string) $id)->all();
@@ -43,9 +45,16 @@ class CrewForm extends Component
 
     public function render()
     {
+        $locations = config('locations.enabled') && Schema::hasTable('x_locations')
+            ? app(LocationContext::class)->forUser(auth()->user())['locations']
+            : collect();
+
         return view('expositionen::livewire.crew-form', [
             'crew' => $this->report->crew()->with('user')->get()->sortBy(fn ($c) => $c->user?->name)->values(),
-            'known' => Exposure::where('report_id', $this->report->id)->pluck('user_id')->all(),
+            'known' => Exposure::where('report_id', $this->report->id)
+                ->where('ext_location_id', $this->report->ext_location_id)->pluck('user_id')->all(),
+            'reportLocation' => $locations->firstWhere('id', (int) $this->report->ext_location_id),
+            'showLocations' => config('locations.enabled') && Schema::hasTable('x_locations'),
         ]);
     }
 }

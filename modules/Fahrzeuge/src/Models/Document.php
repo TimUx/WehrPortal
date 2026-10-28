@@ -26,6 +26,7 @@ class Document extends Model
         return ['valid_until' => 'date', 'internal' => 'boolean', 'size' => 'integer'];
     }
 
+    /** @return BelongsTo<Vehicle, $this> */
     public function vehicle(): BelongsTo
     {
         return $this->belongsTo(Vehicle::class);

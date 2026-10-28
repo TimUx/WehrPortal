@@ -6,8 +6,11 @@ use App\Filament\Concerns\IsModuleArea;
 use App\Filament\ModuleArea;
 use App\Models\Setting;
 use App\Models\User;
+use Extensions\Locations\Models\Location;
 use Filament\Pages\Page;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
 use Modules\Einsatzbericht\src\Models\DiveraRequest;
 use Modules\Einsatzbericht\src\Models\Report;
 use Modules\Einsatzbericht\src\Services\DiveraWebhook;
@@ -38,6 +41,8 @@ class SettingsPage extends Page implements ModuleArea
 
     public bool $diveraEnabled = false;
 
+    public ?string $diveraLocationId = null;
+
     /** @var array<string, string> */
     public array $mapping = [];
 
@@ -60,6 +65,13 @@ class SettingsPage extends Page implements ModuleArea
         $this->required = ReportService::required();
         $this->releasedOnly = ReportService::countedStatuses() === ['released'];
         $this->diveraEnabled = DiveraWebhook::enabled();
+        $this->diveraLocationId = DiveraWebhook::configuredLocationId();
+        if (config('locations.enabled') && $this->diveraLocationId === null) {
+            $locations = $this->locationOptions();
+            if ($locations->count() === 1) {
+                $this->diveraLocationId = (string) $locations->keys()->first();
+            }
+        }
         $this->mapping = DiveraWebhook::mapping();
         $this->filters = implode("\n", DiveraWebhook::filters());
     }
@@ -79,8 +91,15 @@ class SettingsPage extends Page implements ModuleArea
 
     public function saveDivera(): void
     {
-        $this->validate(['mapping.*' => ['nullable', 'string', 'max:255'], 'filters' => ['nullable', 'string', 'max:2000']]);
+        $rules = ['mapping.*' => ['nullable', 'string', 'max:255'], 'filters' => ['nullable', 'string', 'max:2000']];
+        if (config('locations.enabled')) {
+            $rules['diveraLocationId'] = $this->diveraEnabled
+                ? ['required', 'integer', Rule::exists('x_locations', 'id')->where('is_active', true)]
+                : ['nullable', 'integer'];
+        }
+        $this->validate($rules, ['diveraLocationId.required' => 'Bitte einen aktiven Standort für den DIVERA-Webhook auswählen.']);
         DiveraWebhook::setEnabled($this->diveraEnabled);
+        DiveraWebhook::setLocationId($this->diveraLocationId);
         DiveraWebhook::setMapping($this->mapping);
         DiveraWebhook::setFilters($this->filters);
         $this->mapping = DiveraWebhook::mapping();
@@ -131,8 +150,20 @@ class SettingsPage extends Page implements ModuleArea
             'fields' => Report::REQUIRABLE,
             'url' => DiveraWebhook::url(),
             'requests' => $requests,
+            'locationsEnabled' => config('locations.enabled'),
+            'locations' => $this->locationOptions(),
             // What the last request contained, to set the mapping by
             'latestFields' => $latest ? Arr::dot(DiveraWebhook::parse($latest)) : [],
         ];
+    }
+
+    /** @return Collection<int|string, string> */
+    private function locationOptions(): Collection
+    {
+        if (! config('locations.enabled')) {
+            return collect();
+        }
+
+        return Location::query()->active()->orderBy('name')->pluck('name', 'id');
     }
 }

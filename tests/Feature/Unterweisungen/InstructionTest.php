@@ -6,9 +6,11 @@ use App\Models\Module;
 use App\Models\User;
 use App\Services\BadgeRegistry;
 use App\Services\DriverRegistry;
+use Extensions\Locations\Services\StandardRoleAssignments;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Modules\Atemschutz\src\Models\Training;
 use Modules\Atemschutz\src\Models\Wearer;
@@ -22,6 +24,7 @@ use Modules\Unterweisungen\src\Livewire\SessionForm;
 use Modules\Unterweisungen\src\Livewire\Topics;
 use Modules\Unterweisungen\src\Models\Attendance;
 use Modules\Unterweisungen\src\Models\Session;
+use Modules\Unterweisungen\src\Models\SessionFile;
 use Modules\Unterweisungen\src\Models\Topic;
 use Modules\Unterweisungen\src\Notifications\InstructionDueNotification;
 use Modules\Unterweisungen\src\Services\InstructionService;
@@ -105,8 +108,43 @@ test('Einweisung on a vehicle: the Fahrtenbuch hints; participants from a Kalend
     $chief->moduleAccess()->create(['module' => 'kalender', 'role' => 'terminverwalter']);
     $event = app(EventService::class)->create(['title' => 'Fahrzeugeinweisung', 'type' => 'uebung', 'starts_at' => now()->subHours(3), 'ends_at' => now()->subHour()], [], $chief)->first();
     app(EventService::class)->setAttendance($event, $this->hanna, true, $chief);
-    expect($this->s->fromEvent($event->id))->toBe([$this->hanna->id]);
+    expect($this->s->fromEvent($this->boss, $event->id))->toBe([$this->hanna->id]);
 
-    $this->s->recordSession($this->boss, ['topic_id' => Topic::sole()->id, 'held_on' => '2027-06-01', 'instructor_name' => 'Ulla'], $this->s->fromEvent($event->id));
+    $this->s->recordSession($this->boss, ['topic_id' => Topic::sole()->id, 'held_on' => '2027-06-01', 'instructor_name' => 'Ulla'], $this->s->fromEvent($this->boss, $event->id));
     expect(app(DriverRegistry::class)->warning($this->hanna, $mtw->id))->toBeNull();
+});
+
+test('the global Atemschutzwart can manage only Atemschutz-Unterweisungen', function () {
+    config(['locations.enabled' => true]);
+    $admin = User::factory()->admin()->create();
+    $wart = User::factory()->create(['name' => 'Asta Atemschutzwart']);
+    app(StandardRoleAssignments::class)->grant($admin, $wart->id, 'atemschutzwart', null, null, 'Globale Atemschutzverantwortung');
+
+    $as = Topic::create(['name' => 'Atemschutz-Unterweisung', 'short' => 'AS-U', 'counts_as' => 'atemschutz']);
+    $uvv = Topic::create(['name' => 'Jährliche Unterweisung', 'short' => 'UVV', 'for_all' => true]);
+    $asSession = Session::create(['topic_id' => $as->id, 'held_on' => now()->toDateString(), 'instructor_name' => 'Asta', 'created_by' => $wart->id]);
+    $uvvSession = Session::create(['topic_id' => $uvv->id, 'held_on' => now()->toDateString(), 'instructor_name' => 'Ulla', 'created_by' => $this->boss->id]);
+    $file = SessionFile::create(['session_id' => $uvvSession->id, 'filename' => 'nachweis.pdf', 'mime' => 'application/pdf', 'size' => 3, 'data' => base64_encode('pdf')]);
+
+    expect($wart->canUseModule('unterweisungen'))->toBeTrue()
+        ->and(InstructionService::canManage($wart))->toBeTrue()
+        ->and(InstructionService::canManageTopic($wart, $as))->toBeTrue()
+        ->and(InstructionService::canManageTopic($wart, $uvv))->toBeFalse();
+
+    Livewire::actingAs($wart)->test(Topics::class)
+        ->assertSet('form.counts_as', 'atemschutz')
+        ->assertSee('Atemschutz-Unterweisung')->assertDontSee('Jährliche Unterweisung')
+        ->call('presets')->assertSee('Atemschutz-Unterweisung');
+    Livewire::actingAs($wart)->test(SessionForm::class)->assertSee('Atemschutz-Unterweisung')->assertDontSee('Jährliche Unterweisung');
+    Livewire::actingAs($wart)->test(Overview::class)->assertSee('AS-U')->assertDontSee('UVV');
+
+    expect(fn () => $this->s->saveTopic($wart, null, ['name' => 'Andere Unterweisung', 'kind' => 'unterweisung']))
+        ->toThrow(ValidationException::class);
+    expect(fn () => $this->s->recordSession($wart, ['topic_id' => $uvv->id, 'held_on' => now()->toDateString(), 'instructor_name' => 'Asta'], [$this->hanna->id]))
+        ->toThrow(ValidationException::class);
+
+    $this->actingAs($wart)->get(route('unterweisungen.session', $uvvSession))->assertForbidden();
+    $this->actingAs($wart)->get(route('unterweisungen.print', $uvvSession))->assertForbidden();
+    $this->actingAs($wart)->get(route('unterweisungen.file', $file))->assertForbidden();
+    $this->actingAs($wart)->get(route('unterweisungen.session', $asSession))->assertOk();
 });

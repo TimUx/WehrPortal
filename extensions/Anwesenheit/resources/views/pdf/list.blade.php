@@ -16,9 +16,10 @@
     <p class="muted">{{ $org }}</p>
     <h1>Anwesenheitsliste: {{ $list->title }}</h1>
     <table class="meta">
-        <tr><td>Art</td><td>{{ $list->kindLabel() }}</td><td>Leitung</td><td>{{ $list->leader?->name ?? '–' }}</td></tr>
-        <tr><td>Beginn</td><td>{{ $list->starts_at?->timezone('Europe/Berlin')->format('d.m.Y H:i') ?? '–' }}</td><td>Ende</td><td>{{ $list->ends_at?->timezone('Europe/Berlin')->format('d.m.Y H:i') ?? '–' }}</td></tr>
-        <tr><td>Dauer</td><td>{{ $list->durationLabel() }}</td><td>Teilnehmerzahl</td><td>{{ $list->participant_count }}@if($list->guests) (davon {{ $list->guests }} Gäste)@endif</td></tr>
+        <tr><td>Art</td><td>{{ $list->kindLabel() }}</td><td>Abteilung</td><td>{{ $list->group?->display_name ?? '–' }}</td></tr>
+        <tr><td>Leitung</td><td>{{ $list->leader?->name ?? '–' }}</td><td>Beginn</td><td>{{ $list->starts_at?->timezone('Europe/Berlin')->format('d.m.Y H:i') ?? '–' }}</td></tr>
+        <tr><td>Ende</td><td>{{ $list->ends_at?->timezone('Europe/Berlin')->format('d.m.Y H:i') ?? '–' }}</td><td>Dauer</td><td>{{ $list->durationLabel() }}</td></tr>
+        <tr><td>Teilnehmerzahl</td><td>{{ $list->participant_count }}@if($list->guests) (davon {{ $list->guests }} Gäste)@endif</td><td></td><td></td></tr>
     </table>
     <table>
         <thead><tr><th style="width:30px">Nr.</th><th>Name</th><th>Funktion</th></tr></thead>

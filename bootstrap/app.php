@@ -5,6 +5,7 @@ use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\NoIndex;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\ServeLinkPreview;
+use App\Services\AuthMethodRegistry;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -21,7 +22,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // No search engine or AI crawler may take up anything of the app
         $middleware->append(NoIndex::class);
         $middleware->append(SecurityHeaders::class);
-        $middleware->redirectGuestsTo('/anmelden');
+        $middleware->redirectGuestsTo(function (): string {
+            return app(AuthMethodRegistry::class)->magicLinkRestricted()
+                ? route('oidc.redirect')
+                : '/anmelden';
+        });
         // Before "auth" redirects a messenger's link preview to the login page
         $middleware->appendToGroup('web', ServeLinkPreview::class);
         $middleware->prependToPriorityList(AuthenticatesRequests::class, ServeLinkPreview::class);

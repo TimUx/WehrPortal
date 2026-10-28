@@ -4,6 +4,8 @@ use App\Livewire\Dashboard\Home;
 use App\Models\ActivityLog;
 use App\Models\Module;
 use App\Models\User;
+use Extensions\Locations\Models\Location;
+use Extensions\Locations\Services\StandardRoleAssignments;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
@@ -217,6 +219,63 @@ test('who may do what', function () {
 
     Livewire::actingAs($this->pruefer)->test(Home::class)->assertSee('1 Wartung offen');
     Livewire::actingAs($this->member)->test(Home::class)->assertDontSee('Wartung offen');
+});
+
+test('location-scoped Gerätewarte only manage and view maintenance at assigned locations', function () {
+    config(['locations.enabled' => true]);
+    $north = Location::create(['name' => 'Wache Nord', 'slug' => 'wartung-nord']);
+    $south = Location::create(['name' => 'Wache Süd', 'slug' => 'wartung-sued']);
+    $this->line->update(['ext_location_id' => $north->id]);
+    $this->later->update(['ext_location_id' => $south->id]);
+    $this->w->planAdHoc($this->gw, $this->later, $this->template, now('Europe/Berlin')->toDateString(), null, null);
+
+    $admin = User::factory()->admin()->create();
+    $localManager = User::factory()->create(['name' => 'Gerd Gerätewart Nord', 'ext_location_id' => $north->id]);
+    app(StandardRoleAssignments::class)->grant($admin, $localManager->id, 'geraetewart', $north->id, null, 'Wartung am Standort');
+
+    $northTask = Task::open()->where('equipment_id', $this->line->id)->firstOrFail();
+    $southTask = Task::open()->where('equipment_id', $this->later->id)->firstOrFail();
+    $southProtocol = $this->w->recordProtocol($this->gw, protocolData($southTask), signaturePng());
+
+    expect($localManager->canUseModule('wartung'))->toBeTrue()
+        ->and(WartungService::canManage($localManager))->toBeFalse()
+        ->and(WartungService::canManageOnEquipment($localManager, $this->line))->toBeTrue()
+        ->and(WartungService::canManageOnEquipment($localManager, $this->later))->toBeFalse()
+        ->and(WartungService::canPerformOnEquipment($localManager, $this->line))->toBeTrue()
+        ->and(WartungService::canPerformOnEquipment($localManager, $this->later))->toBeFalse()
+        ->and(WartungService::canViewProtocol($localManager, $southProtocol))->toBeFalse();
+
+    Livewire::actingAs($localManager)->test(Overview::class)->assertSee($this->line->code)->assertDontSee($this->later->code);
+    $this->actingAs($localManager)->get(route('wartung.device', $this->later))->assertNotFound();
+    $this->actingAs($localManager)->get(route('wartung.protocol', $southProtocol))->assertNotFound();
+    $this->actingAs($localManager)->get(route('wartung.protocol.pdf', $southProtocol))->assertNotFound();
+
+    expect(fn () => $this->w->planAdHoc($localManager, $this->later, null, now('Europe/Berlin')->toDateString(), null, 'Prüfung Süd'))
+        ->toThrow(ValidationException::class, 'Standort')
+        ->and(fn () => $this->w->saveTemplate($localManager, null, ['name' => 'Globale Vorlage', 'category_id' => $this->lines->id, 'interval_months' => 12,
+            'lead_days' => 30, 'checklist' => ['Prüfpunkt']]))->toThrow(ValidationException::class);
+
+    $northProtocol = $this->w->recordProtocol($localManager, protocolData($northTask), signaturePng());
+    $this->w->voidProtocol($localManager, $northProtocol, 'Falsches Gerät');
+    expect($northProtocol->fresh()->isVoided())->toBeTrue();
+
+    expect(fn () => $this->w->cancelTask($localManager, $southTask))->toThrow(ValidationException::class);
+
+    $this->w->planAdHoc($this->gw, $this->line, null, now('Europe/Berlin')->toDateString(), null, 'Folgeprüfung Nord');
+    $this->w->planAdHoc($this->gw, $this->later, null, now('Europe/Berlin')->toDateString(), null, 'Folgeprüfung Süd');
+    $this->gw->moduleAccess()->where('module', 'wartung')->delete();
+    expect($this->w->remind())->toBe(2);
+
+    Notification::assertSentTo($localManager, WartungDigestNotification::class, function ($notification, $channels, $notifiable) {
+        $content = implode(' ', $notification->toMail($notifiable)->introLines);
+
+        return str_contains($content, 'Folgeprüfung Nord') && ! str_contains($content, 'Folgeprüfung Süd');
+    });
+    Notification::assertSentTo($admin, WartungDigestNotification::class, function ($notification, $channels, $notifiable) {
+        $content = implode(' ', $notification->toMail($notifiable)->introLines);
+
+        return str_contains($content, 'Folgeprüfung Süd') && ! str_contains($content, 'Folgeprüfung Nord');
+    });
 });
 
 test('the pages and PDFs open; without the Ausrüstungsverwaltung there is a hint', function () {

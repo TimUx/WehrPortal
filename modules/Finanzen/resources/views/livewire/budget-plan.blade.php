@@ -6,22 +6,38 @@
             <h1 class="text-xl font-bold text-gray-900">{{ $budgetOn ? 'Budget & Kostenstellen' : 'Kostenstellen & Einstellungen' }}</h1>
             <p class="text-sm text-gray-500">@if($budgetOn)Für jede Kostenstelle den Betrag festlegen, der im Jahr ausgegeben werden darf.@else Kostenstellen, auf die Ausgaben eingereicht werden.@endif Unten: welche Teile des Moduls die Wehr nutzt.</p>
         </div>
-        @if($budgetOn)<select wire:model.live="year" class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-fw-red focus:ring-fw-red" aria-label="Jahr">
-            @foreach($years as $y)<option value="{{ $y }}">{{ $y }}</option>@endforeach
-        </select>@endif
+        <div class="flex flex-wrap gap-2">
+            @if($locationsEnabled)
+                <select wire:model.live="locationId" class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-fw-red focus:ring-fw-red" aria-label="Standort">
+                    <option value="">– Standort wählen –</option>
+                    @foreach($locations as $location)<option value="{{ $location->id }}">{{ $location->name }}</option>@endforeach
+                    @if($hasLegacyBudgets)<option value="legacy">Altbestand ohne Standort</option>@endif
+                </select>
+            @endif
+            @if($budgetOn)<select wire:model.live="year" class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-fw-red focus:ring-fw-red" aria-label="Jahr">
+                @foreach($years as $y)<option value="{{ $y }}">{{ $y }}</option>@endforeach
+            </select>@endif
+        </div>
     </div>
 
     @if($flash)<p class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{{ $flash }}</p>@endif
-    @foreach(['center', 'year', 'budget', 'name'] as $field)@error($field)<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{ $message }}</p>@enderror @endforeach
+    @foreach(['center', 'year', 'budget', 'name', 'locationId'] as $field)@error($field)<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{ $message }}</p>@enderror @endforeach
+    @if($locationsEnabled && $locationId === '')
+    <p class="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-900">Bitte wähle den Standort, dessen Budget du bearbeiten möchtest.</p>
+    @elseif($locationsEnabled && $locationId === 'legacy')
+    <p class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">Diese Budgets stammen aus der Zeit vor der Standortzuordnung. Sie bleiben bis zur manuellen Zuordnung unberührt.</p>
+    @endif
 
     {{-- Budget of the year --}}
     @if($budgetOn)
     <section>
-        <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <h2 class="text-sm font-semibold text-gray-700">Budget {{ $year }}{{ $closed ? ' (abgeschlossen)' : '' }}</h2>
-            @unless($closed)<button type="button" wire:click="copyPrevious" class="text-sm text-fw-navy underline">Budgets aus {{ $year - 1 }} übernehmen</button>@endunless
-        </div>
-        <form wire:submit="saveBudgets" class="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white shadow-sm">
+    <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h2 class="text-sm font-semibold text-gray-700">Budget {{ $year }}{{ $locationId !== '' && $locationId !== 'legacy' ? ' · '.($locations->firstWhere('id', (int) $locationId)?->name ?? '') : '' }}{{ $closed ? ' (abgeschlossen)' : '' }}</h2>
+        @if(! $closed && (! $locationsEnabled || (ctype_digit($locationId) && (int) $locationId > 0)))
+            <button type="button" wire:click="copyPrevious" class="text-sm text-fw-navy underline">Budgets aus {{ $year - 1 }} übernehmen</button>
+        @endif
+    </div>
+    <form wire:submit="saveBudgets" class="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white shadow-sm">
             @forelse($centers->where('is_active', true) as $c)
                 @php($row = $overview[$c->id] ?? null)
                 <div class="grid grid-cols-1 items-center gap-2 p-3 sm:grid-cols-[1fr_10rem]" wire:key="b-{{ $c->id }}">
@@ -35,7 +51,7 @@
             @empty
                 <p class="p-4 text-sm text-gray-500">Noch keine Kostenstellen – unten anlegen.</p>
             @endforelse
-            @if($centers->where('is_active', true)->isNotEmpty() && ! $closed)
+            @if($centers->where('is_active', true)->isNotEmpty() && ! $closed && (! $locationsEnabled || ($locationId !== '' && ($locationId !== 'legacy' || $canManage))))
                 <div class="p-3 text-right"><button type="submit" class="rounded-lg bg-fw-red px-4 py-2 text-sm font-semibold text-white hover:bg-fw-red-dark">Budget speichern</button></div>
             @endif
         </form>
@@ -43,6 +59,7 @@
     @endif
 
     {{-- Kostenstellen --}}
+    @if($canManage)
     <section class="space-y-2">
         <h2 class="text-sm font-semibold text-gray-700">Kostenstellen</h2>
         <form wire:submit="saveCenter" class="grid grid-cols-1 gap-2 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:grid-cols-[8rem_1fr]">
@@ -86,4 +103,5 @@
             <button type="submit" class="rounded-lg bg-fw-navy px-4 py-2 text-sm font-semibold text-white">Einstellungen speichern</button>
         </form>
     </section>
+    @endif
 </div>

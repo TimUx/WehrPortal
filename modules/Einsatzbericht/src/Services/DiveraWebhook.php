@@ -7,7 +7,9 @@ use App\Services\Geocoder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Modules\Einsatzbericht\src\Models\DiveraRequest;
 use Modules\Einsatzbericht\src\Models\Report;
@@ -114,6 +116,47 @@ class DiveraWebhook
         Setting::set('einsatzbericht_divera_filters', trim($filters));
     }
 
+    public static function configuredLocationId(): ?string
+    {
+        $id = Setting::get('einsatzbericht_divera_location_id');
+
+        return filled($id) ? (string) $id : null;
+    }
+
+    public static function setLocationId(?string $locationId): void
+    {
+        if (config('locations.enabled')) {
+            Setting::set('einsatzbericht_divera_location_id', $locationId ?? '');
+        }
+    }
+
+    private static function targetLocationId(): ?int
+    {
+        if (! config('locations.enabled')) {
+            return null;
+        }
+        if (! Schema::hasTable('x_locations') || ! Schema::hasColumn('eb_reports', 'ext_location_id')) {
+            throw new \RuntimeException('Der Standortschutz für DIVERA ist noch nicht migriert.');
+        }
+
+        $configured = self::configuredLocationId();
+        if ($configured !== null) {
+            $id = filter_var($configured, FILTER_VALIDATE_INT);
+            if (! $id || ! DB::table('x_locations')->where('id', $id)->where('is_active', true)->exists()) {
+                throw new \RuntimeException('Der für DIVERA gewählte Standort ist nicht mehr aktiv. Bitte Standort in den Einstellungen neu auswählen.');
+            }
+
+            return (int) $id;
+        }
+
+        $activeIds = DB::table('x_locations')->where('is_active', true)->orderBy('id')->pluck('id');
+        if ($activeIds->count() === 1) {
+            return (int) $activeIds->first();
+        }
+
+        throw new \RuntimeException('Bitte wählen Sie in den Einsatzbericht-Einstellungen einen Standort für den DIVERA-Webhook.');
+    }
+
     // ─── requests ────────────────────────────────────────────────────────────
 
     /** Stores the request unchanged; processing comes afterwards */
@@ -200,7 +243,8 @@ class DiveraWebhook
                 return;
             }
 
-            if ($existing = $this->sameAlarm($fields)) {
+            $locationId = self::targetLocationId();
+            if ($existing = $this->sameAlarm($fields, $locationId)) {
                 $entry->update(['status' => 'attached', 'report_id' => $existing->id, 'message' => 'Nachalarmierung zu '.$existing->number]);
 
                 return;
@@ -213,6 +257,7 @@ class DiveraWebhook
                 'latitude' => $fields['latitude'],
                 'longitude' => $fields['longitude'],
                 'divera_id' => $fields['external_id'],
+                'ext_location_id' => $locationId,
             ], $entry->received_at);
 
             $entry->update(['status' => 'created', 'report_id' => $report->id, 'message' => 'Einsatz '.$report->number]);
@@ -303,13 +348,17 @@ class DiveraWebhook
     }
 
     /** The same alarm: same DIVERA id, or without id the same keyword and address shortly before */
-    private function sameAlarm(array $fields): ?Report
+    private function sameAlarm(array $fields, ?int $locationId): ?Report
     {
+        $query = config('locations.enabled')
+            ? Report::withoutGlobalScopes()->where('ext_location_id', $locationId)
+            : Report::query();
+
         if ($fields['external_id'] !== null) {
-            return Report::where('source', 'divera')->where('divera_id', $fields['external_id'])->first();
+            return $query->where('source', 'divera')->where('divera_id', $fields['external_id'])->first();
         }
 
-        return Report::where('source', 'divera')->whereNull('divera_id')
+        return $query->where('source', 'divera')->whereNull('divera_id')
             ->where('created_at', '>=', now()->subMinutes(self::SAME_ALARM_MINUTES))
             ->where('keyword', $fields['keyword'])->where('address', $fields['address'])
             ->latest('id')->first();

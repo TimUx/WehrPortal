@@ -10,6 +10,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Modules\Einsatzbericht\src\Models\CrewMember;
 use Modules\Einsatzbericht\src\Models\Material;
@@ -24,6 +25,7 @@ use Modules\Wasserkarte\src\Services\WaterService;
 /** One Einsatzbericht: all blocks of the paper form, vehicles with crew and Stärke, closing and release */
 class ReportEditor extends Component
 {
+    #[Locked]
     public Report $report;
 
     /** @var array<string, mixed> the report fields as typed (times as Y-m-d\TH:i Berlin) */
@@ -61,7 +63,7 @@ class ReportEditor extends Component
 
     public function mount(): void
     {
-        abort_unless(ReportService::canLead(auth()->user()), 403);
+        abort_unless(ReportService::canLeadReport(auth()->user(), $this->report), 403);
         $this->fillForm();
         $this->placesSession = (string) Str::uuid();
     }
@@ -113,6 +115,7 @@ class ReportEditor extends Component
     {
         $r = $this->report->refresh();
         $this->form = [
+            'number' => (string) $r->number,
             ...collect(self::TEXT)->mapWithKeys(fn ($f) => [$f => (string) $r->{$f}])->all(),
             ...collect(array_keys(Report::TIMES))->mapWithKeys(fn ($f) => [$f => self::local($r->{$f})])->all(),
             'rescued' => (string) $r->rescued, 'injured' => (string) $r->injured, 'dead' => (string) $r->dead,
@@ -138,6 +141,7 @@ class ReportEditor extends Component
     private function persist(ReportService $reports): bool
     {
         $this->validateAndJump([
+            'form.number' => ['required', 'string', 'max:20', 'regex:/^\d{4}\/\d{3,}(?:-\d+)?$/'],
             'form.keyword' => ['nullable', 'string', 'max:150'],
             'form.dispatch_number' => ['nullable', 'string', 'max:50'],
             'form.address' => ['nullable', 'string', 'max:255'],
@@ -147,12 +151,17 @@ class ReportEditor extends Component
             'form.dead' => ['nullable', 'integer', 'min:0', 'max:9999'],
             'form.commander_id' => ['nullable', 'exists:users,id'],
             ...collect(array_keys(Report::TIMES))->mapWithKeys(fn ($f) => ["form.$f" => ['nullable', 'date_format:Y-m-d\TH:i']])->all(),
-        ], ['*.date_format' => 'Bitte Datum und Uhrzeit angeben.', '*.integer' => 'Bitte eine Zahl angeben.']);
+        ], [
+            '*.date_format' => 'Bitte Datum und Uhrzeit angeben.',
+            '*.integer' => 'Bitte eine Zahl angeben.',
+            'form.number.regex' => 'Die laufende Nummer muss das Format JJJJ/001 haben.',
+        ]);
         if ($this->getErrorBag()->isNotEmpty()) {
             return false;
         }
 
         $data = [
+            'number' => trim($this->form['number']),
             ...collect(self::TEXT)->mapWithKeys(fn ($f) => [$f => $this->form[$f] ?? null])->all(),
             ...collect(array_keys(Report::TIMES))->mapWithKeys(fn ($f) => [$f => self::parse($this->form[$f] ?? null)])->all(),
             'rescued' => (int) ($this->form['rescued'] ?: 0), 'injured' => (int) ($this->form['injured'] ?: 0), 'dead' => (int) ($this->form['dead'] ?: 0),
@@ -358,13 +367,24 @@ class ReportEditor extends Component
 
     public function render()
     {
-        $report = $this->report->load(['vehicles.crew.user', 'commander', 'closer', 'releaser', 'materials']);
+        $report = $this->report->load(['vehicles.crew.user', 'vehicles.vehicle', 'commander', 'closer', 'releaser', 'materials']);
         $user = auth()->user();
         $assigned = $report->vehicles->flatMap->crew->pluck('user_id')->all();
+        $crewOptions = $report->vehicles->mapWithKeys(function (ReportVehicle $reportVehicle) {
+            $locationId = $reportVehicle->vehicle?->getAttribute('ext_location_id');
+            $people = User::active()
+                ->when(config('locations.enabled') && $locationId !== null, fn ($query) => $query->where(function ($members) use ($locationId) {
+                    $members->where('ext_location_id', $locationId)
+                        ->orWhereHas('locations', fn ($locations) => $locations->whereKey($locationId));
+                }))
+                ->orderBy('name')->get(['id', 'name']);
+
+            return [$reportVehicle->id => $people];
+        });
 
         return view('einsatzbericht::livewire.report-editor', [
             'canEdit' => ReportService::canEdit($user, $report),
-            'canRelease' => ReportService::canRelease($user),
+            'canRelease' => ReportService::canReleaseReport($user, $report),
             'required' => ReportService::required(),
             'missing' => in_array($report->status, Report::OPEN, true) ? app(ReportService::class)->missing($report) : [],
             'canSuggest' => app(AddressSuggestions::class)->available(),
@@ -374,6 +394,7 @@ class ReportEditor extends Component
             'parentReport' => $report->parent,
             'seal' => $report->status === 'released' ? ReportService::sealIntact($report) : null,
             'strength' => ReportService::reportStrength($report),
+            'crewOptions' => $crewOptions,
             'vehicleOptions' => Vehicle::active()->whereNotIn('id', $report->vehicles->pluck('vehicle_id')->filter())->pluck('name', 'id'),
             'hasStandby' => $report->vehicles->contains('is_standby', true),
             'externalUnits' => $report->externalUnits()->with('statuses')->get(),

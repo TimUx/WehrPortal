@@ -13,6 +13,7 @@ use Modules\Schichtplan\src\Models\Slot;
 use Modules\Schichtplan\src\Models\Station;
 use Modules\Schichtplan\src\Models\Template;
 use Modules\Schichtplan\src\Services\CalendarLink;
+use Modules\Schichtplan\src\Services\PlanLocationAccess;
 use Modules\Schichtplan\src\Services\PlanMailer;
 use Modules\Schichtplan\src\Services\PlanService;
 use Modules\Schichtplan\src\Services\ShiftPlanner;
@@ -40,6 +41,8 @@ class PlanEditor extends Component
     public int $maxConsecutive = 2;
 
     public ?int $groupId = null;
+
+    public ?int $locationId = null;
 
     // Stations
     public string $newStationName = '';
@@ -84,6 +87,7 @@ class PlanEditor extends Component
         $this->shiftMinutes = $this->plan->shift_minutes;
         $this->maxConsecutive = $this->plan->max_consecutive;
         $this->groupId = $this->plan->group_id;
+        $this->locationId = $this->plan->ext_location_id ? (int) $this->plan->ext_location_id : null;
         $this->addGroupId ??= $this->plan->group_id;
         $this->fillSignup($this->plan);
 
@@ -99,10 +103,23 @@ class PlanEditor extends Component
             ]])->all();
     }
 
+    private function authorizeManager(): void
+    {
+        $this->authorize('manage', $this->plan);
+    }
+
     // ─── settings ────────────────────────────────────────────────────────────
 
-    public function saveSettings(PlanService $plans): void
+    public function updatedLocationId(PlanLocationAccess $locations): void
     {
+        $allowed = $locations->groupOptions($this->locationId)->keys()->map(fn ($id) => (string) $id)->all();
+        $this->groupId = in_array((string) $this->groupId, $allowed, true) ? $this->groupId : null;
+        $this->audienceGroups = array_values(array_intersect($this->audienceGroups, $allowed));
+    }
+
+    public function saveSettings(PlanService $plans, PlanLocationAccess $locations): void
+    {
+        $this->authorizeManager();
         $this->validate([
             'title' => ['required', 'string', 'max:150'],
             'location' => ['nullable', 'string', 'max:150'],
@@ -112,6 +129,9 @@ class PlanEditor extends Component
             'shiftMinutes' => ['required', 'integer', 'min:15', 'max:720'],
             'maxConsecutive' => ['required', 'integer', 'min:1', 'max:24'],
             'groupId' => ['nullable', 'exists:groups,id'],
+            'locationId' => $locations->enabled()
+                ? ['required', 'integer', 'in:'.implode(',', array_keys($locations->locationOptions(auth()->user())->all()))]
+                : ['nullable'],
             ...$this->signupRules(),
         ]);
 
@@ -126,11 +146,18 @@ class PlanEditor extends Component
                 'shift_minutes' => $this->shiftMinutes,
                 'max_consecutive' => $this->maxConsecutive,
                 'group_id' => $this->groupId,
+                'ext_location_id' => $this->locationId,
                 ...$this->signupData(),
-            ]);
+            ], auth()->user());
         } catch (ValidationException $e) {
             foreach ($e->errors() as $field => $messages) {
-                $this->addError(in_array($field, ['signup', 'signupUntil', 'maxShifts'], true) ? $field : 'shiftMinutes', $messages[0]);
+                $target = match (true) {
+                    $field === 'locationId' => 'locationId',
+                    $field === 'groupId' => 'groupId',
+                    in_array($field, ['signup', 'signupUntil', 'maxShifts'], true) => $field,
+                    default => 'shiftMinutes',
+                };
+                $this->addError($target, $messages[0]);
             }
 
             return;
@@ -144,6 +171,7 @@ class PlanEditor extends Component
 
     public function addStation(PlanService $plans): void
     {
+        $this->authorizeManager();
         $this->validate([
             'newStationName' => ['required', 'string', 'max:100'],
             'newStationCapacity' => ['required', 'integer', 'min:1', 'max:20'],
@@ -156,6 +184,7 @@ class PlanEditor extends Component
 
     public function saveStation(int $stationId, PlanService $plans): void
     {
+        $this->authorizeManager();
         $station = $this->plan->stations()->findOrFail($stationId);
         $this->validate([
             "stationEdits.$stationId.name" => ['required', 'string', 'max:100'],
@@ -168,6 +197,7 @@ class PlanEditor extends Component
 
     public function saveStationLead(int $stationId, PlanService $plans): void
     {
+        $this->authorizeManager();
         $station = $this->plan->stations()->findOrFail($stationId);
         $userId = (int) ($this->stationLeads[$stationId] ?? 0) ?: null;
 
@@ -183,12 +213,14 @@ class PlanEditor extends Component
 
     public function removeStation(int $stationId, PlanService $plans): void
     {
+        $this->authorizeManager();
         $plans->removeStation($this->plan->stations()->findOrFail($stationId));
         $this->fillFromPlan();
     }
 
     public function applyTemplate(PlanService $plans): void
     {
+        $this->authorizeManager();
         if ($this->templateId) {
             $plans->applyTemplate($this->plan, Template::findOrFail($this->templateId));
             $this->templateId = null;
@@ -198,6 +230,7 @@ class PlanEditor extends Component
 
     public function saveTemplate(PlanService $plans): void
     {
+        $this->authorizeManager();
         $this->validate(['templateName' => ['required', 'string', 'max:100']], ['templateName.required' => 'Wie soll die Vorlage heißen?']);
         $plans->saveTemplate($this->plan, $this->templateName);
         $this->flash = 'Vorlage „'.trim($this->templateName).'“ gespeichert.';
@@ -208,6 +241,7 @@ class PlanEditor extends Component
 
     public function addParticipants(PlanService $plans): void
     {
+        $this->authorizeManager();
         $added = $plans->addParticipants($this->plan, array_map('intval', $this->addUserIds));
         $this->reset('addUserIds');
         $this->fillFromPlan();
@@ -216,8 +250,9 @@ class PlanEditor extends Component
 
     public function addGroup(PlanService $plans): void
     {
+        $this->authorizeManager();
         if ($this->addGroupId) {
-            $added = $plans->addGroup($this->plan, Group::findOrFail($this->addGroupId));
+            $added = $plans->addGroup($this->plan, Group::withoutGlobalScopes()->findOrFail($this->addGroupId));
             $this->fillFromPlan();
             $this->flash = $added.' Teilnehmer aus der Abteilung hinzugefügt.';
         }
@@ -225,12 +260,14 @@ class PlanEditor extends Component
 
     public function removeParticipant(int $userId, PlanService $plans): void
     {
+        $this->authorizeManager();
         $plans->removeParticipant($this->plan, $userId);
         $this->fillFromPlan();
     }
 
     public function saveAvailability(int $userId, PlanService $plans): void
     {
+        $this->authorizeManager();
         try {
             $plans->setAvailability(
                 $this->plan, $userId,
@@ -250,12 +287,14 @@ class PlanEditor extends Component
 
     public function distribute(ShiftPlanner $planner): void
     {
+        $this->authorizeManager();
         $planner->fill($this->plan);
         $this->flash = 'Plan gefüllt. Von Hand gesetzte Plätze (Schloss) sind geblieben.';
     }
 
     public function setSeat(int $slotId, int $stationId, ?int $currentUserId, $newUserId, PlanService $plans): void
     {
+        $this->authorizeManager();
         try {
             $plans->setSeat(
                 $this->plan,
@@ -271,11 +310,13 @@ class PlanEditor extends Component
 
     public function toggleLock(int $assignmentId, PlanService $plans): void
     {
+        $this->authorizeManager();
         $plans->toggleLock($this->plan->assignments()->findOrFail($assignmentId));
     }
 
     public function clearAll(): void
     {
+        $this->authorizeManager();
         $this->plan->assignments()->delete();
         $this->flash = 'Alle Einteilungen entfernt.';
     }
@@ -284,6 +325,7 @@ class PlanEditor extends Component
 
     public function publish(PlanMailer $mailer): void
     {
+        $this->authorizeManager();
         $sent = $mailer->publish($this->plan);
         $this->plan->refresh();
         $this->flash = ($this->plan->isSelfSignup()
@@ -293,6 +335,7 @@ class PlanEditor extends Component
 
     public function sendMail(PlanMailer $mailer): void
     {
+        $this->authorizeManager();
         $sent = $mailer->send($this->plan);
         $this->plan->refresh();
         $this->flash = 'Per E-Mail an '.$sent.' Kameraden geschickt.';
@@ -300,20 +343,25 @@ class PlanEditor extends Component
 
     public function delete()
     {
+        $this->authorizeManager();
         app(CalendarLink::class)->detach($this->plan);
         $this->plan->delete();
 
         return redirect()->route('schichtplan.index');
     }
 
-    public function render(PlanService $plans)
+    public function render(PlanService $plans, PlanLocationAccess $locations)
     {
-        $plan = $this->plan->load(['stations.lead', 'slots', 'participants.user.groups']);
+        $relations = ['stations.lead', 'slots', 'participants.user.groups'];
+        if ($locations->enabled()) {
+            $relations[] = 'site';
+        }
+        $plan = $this->plan->load($relations);
         $assignments = $plan->assignments()->with('user')->get();
 
         $participantIds = $plan->participants->pluck('user_id');
-        $candidates = User::active()->with('groups')->whereNotIn('id', $participantIds)->orderBy('name')->get()
-            ->filter(fn (User $u) => $u->canUseModule('schichtplan'));
+        $candidates = User::query()->withoutGlobalScopes()->active()->with('groups')->whereNotIn('id', $participantIds)->orderBy('name')->get()
+            ->filter(fn (User $u) => $u->canUseModule('schichtplan') && $locations->isMemberAt($u, $plan->ext_location_id));
 
         return view('schichtplan::livewire.plan-editor', [
             'stations' => $plan->stations,
@@ -326,11 +374,13 @@ class PlanEditor extends Component
             'candidates' => $candidates,
             // Stationsverantwortung: participants first, then everyone else with access
             'leadOptions' => $plan->participants->pluck('user')->sortBy('name')->concat($candidates)->unique('id')->pluck('name', 'id'),
-            'groups' => Group::options(),
+            'groups' => $locations->groupOptions($this->locationId),
+            'locationOptions' => $locations->locationOptions(auth()->user()),
+            'locationsEnabled' => $locations->enabled(),
             'templates' => Template::orderBy('name')->pluck('name', 'id'),
             'stats' => $plans->stats($plan),
             'requests' => $assignments->filter->isRequested()->count(),
-            ...$this->signupOptions(),
+            ...$this->signupOptions($locations),
         ]);
     }
 }

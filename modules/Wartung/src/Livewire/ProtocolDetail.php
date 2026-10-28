@@ -18,6 +18,7 @@ class ProtocolDetail extends Component
 
     public function mount(): void
     {
+        abort_unless(WartungService::canViewProtocol(auth()->user(), $this->protocol), 404);
         $this->flash = session('wartung.flash');
     }
 
@@ -39,10 +40,14 @@ class ProtocolDetail extends Component
 
     public function render(WartungService $service)
     {
+        abort_unless(WartungService::canViewProtocol(auth()->user(), $this->protocol), 404);
+
         return view('wartung::livewire.protocol-detail', [
             'attachments' => $this->protocol->attachments()->get(['id', 'protocol_id', 'name', 'mime', 'size']),
             'intact' => $service->verify($this->protocol),
-            'canManage' => WartungService::canManage(auth()->user()),
+            'canManage' => $this->protocol->equipment
+                ? WartungService::canManageOnEquipment(auth()->user(), $this->protocol->equipment)
+                : WartungService::canManage(auth()->user()),
         ]);
     }
 }

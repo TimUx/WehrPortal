@@ -13,14 +13,15 @@ class Overview extends Component
     public function render(LogbookService $logbook)
     {
         $vehicles = Vehicle::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
-        $open = Trip::open()->with('driver')->whereIn('vehicle_id', $vehicles->pluck('id'))->get()->keyBy('vehicle_id');
+        $vehicleIds = $vehicles->modelKeys();
+        $open = Trip::open()->with('driver')->whereIn('vehicle_id', $vehicleIds)->get()->keyBy('vehicle_id');
 
         return view('fahrtenbuch::livewire.overview', [
             'vehicles' => $vehicles,
             'open' => $open,
             'km' => $vehicles->mapWithKeys(fn (Vehicle $v) => [$v->id => $logbook->lastKm($v)]),
-            'mine' => Trip::open()->with('vehicle')->where('driver_id', auth()->id())->get(),
-            'recent' => Trip::valid()->with(['vehicle', 'driver'])->whereNotNull('ended_at')->latest('ended_at')->limit(10)->get(),
+            'mine' => Trip::open()->with('vehicle')->where('driver_id', auth()->id())->whereIn('vehicle_id', $vehicleIds)->get(),
+            'recent' => Trip::valid()->with(['vehicle', 'driver'])->whereIn('vehicle_id', $vehicleIds)->whereNotNull('ended_at')->latest('ended_at')->limit(10)->get(),
         ]);
     }
 }

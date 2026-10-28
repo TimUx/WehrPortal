@@ -13,11 +13,14 @@ Route::middleware(['auth', 'active', 'module:atemschutz'])->group(function () {
         Route::get('/', fn () => view('atemschutz::pages.page', ['livewireComponent' => 'atemschutz.overview', 'title' => 'Atemschutzüberwachung']))->name('index');
 
         // The board of an Überwachung; ended ones stay readable for the Überwacher
-        Route::get('/ueberwachung/{operation}', fn (Operation $operation) => view('atemschutz::pages.board', compact('operation')))
-            ->whereNumber('operation')->middleware('can:atemschutz-monitor')->name('board');
+        Route::get('/ueberwachung/{operation}', function (Operation $operation) {
+            abort_unless(MonitorService::canMonitorOperation(auth()->user(), $operation), 403);
+
+            return view('atemschutz::pages.board', compact('operation'));
+        })->whereNumber('operation')->middleware('can:atemschutz-monitor')->name('board');
 
         Route::get('/ueberwachung/{operation}/pdf', function (Operation $operation, AtemschutzPdf $pdf) {
-            abort_unless(MonitorService::canMonitor(auth()->user()) || auth()->user()->can('einsatzbericht-lead'), 403);
+            abort_unless(MonitorService::canMonitorOperation(auth()->user(), $operation) || auth()->user()->can('einsatzbericht-lead'), 403);
 
             return response($pdf->operation($operation), 200, [
                 'Content-Type' => 'application/pdf',

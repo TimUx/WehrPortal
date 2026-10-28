@@ -3,6 +3,9 @@
 use App\Livewire\Dashboard\Home;
 use App\Models\Module;
 use App\Models\User;
+use Extensions\Locations\Models\Location;
+use Extensions\Locations\Services\LocationAccess;
+use Extensions\Locations\Services\StandardRoleAssignments;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -11,6 +14,7 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Modules\Einsatzbericht\src\Services\ReportService;
 use Modules\Fahrtenbuch\src\Livewire\FuelForm;
+use Modules\Fahrtenbuch\src\Livewire\Overview;
 use Modules\Fahrtenbuch\src\Livewire\TripForm;
 use Modules\Fahrtenbuch\src\Models\Fueling;
 use Modules\Fahrtenbuch\src\Models\Trip;
@@ -21,6 +25,7 @@ use Modules\Fahrzeugbuchung\src\Services\BookingService;
 use Modules\Fahrzeuge\src\Models\Profile;
 
 beforeEach(function () {
+    config(['locations.enabled' => true]);
     Module::whereIn('key', ['fahrtenbuch', 'fahrzeugbuchung', 'fahrzeuge', 'einsatzbericht'])->update(['is_active' => true]);
     Cache::forget('modules_active_keys');
     Notification::fake();
@@ -172,4 +177,89 @@ test('open trips: reminder after hours, start page card, overview and the Fahrze
     $this->actingAs($this->hanna)->get(route('fahrtenbuch.index'))->assertOk()->assertSee('Du bist mit MTW unterwegs')->assertSee('Unterwegs: Hanna Hydrant')->assertDontSee('Kiosk');
     $this->actingAs($this->hanna)->get(route('fahrzeuge.show', $this->mtw))->assertOk()->assertSee('Fahrtenbuch '.now('Europe/Berlin')->year)->assertSee('1 Fahrten');
     expect($trip->fresh()->reminded_at)->not->toBeNull();
+});
+
+test('Fahrtenbuch access and driver choices follow the vehicle Standort', function () {
+    $north = Location::create(['name' => 'Wache Nord', 'slug' => 'fahrtenbuch-nord']);
+    $south = Location::create(['name' => 'Wache Süd', 'slug' => 'fahrtenbuch-sued']);
+    $this->hanna->update(['ext_location_id' => $north->id]);
+    $this->bernd->update(['ext_location_id' => $south->id]);
+    $this->bernd->moduleAccess()->create(['module' => 'fahrtenbuch']);
+    app(LocationAccess::class)->forget();
+
+    $northVehicle = Vehicle::factory()->create(['name' => 'HLF Nord', 'is_active' => true, 'ext_location_id' => $north->id]);
+    $southVehicle = Vehicle::factory()->create(['name' => 'HLF Süd', 'is_active' => true, 'ext_location_id' => $south->id]);
+    $trip = $this->l->start($this->bernd, tripData(['vehicle_id' => $southVehicle->id, 'driver_id' => $this->bernd->id, 'start_km' => 1000]));
+    $fueling = Fueling::create([
+        'vehicle_id' => $southVehicle->id, 'user_id' => $this->bernd->id, 'fueled_at' => now(), 'km' => 1000,
+        'liters' => 10, 'cost_cents' => 1000, 'fuel' => 'diesel', 'full_tank' => true,
+        'receipt' => base64_encode('%PDF-1.4 test'), 'receipt_mime' => 'application/pdf',
+    ]);
+
+    expect(LogbookService::canAccessVehicle($this->hanna, $northVehicle))->toBeTrue()
+        ->and(LogbookService::canAccessVehicle($this->hanna, $southVehicle))->toBeFalse();
+
+    Livewire::actingAs($this->hanna)->test(Overview::class)
+        ->assertSee('HLF Nord')->assertSee('Wache Nord')->assertDontSee('HLF Süd')->assertDontSee('Wache Süd');
+    Livewire::actingAs($this->hanna)->withQueryParams(['fahrzeug' => $northVehicle->id])->test(TripForm::class)
+        ->assertSee('Hanna Hydrant')->assertDontSee('Bernd Blaulicht');
+
+    $this->actingAs($this->hanna)->get(route('fahrtenbuch.trip', ['fahrt' => $trip->id]))->assertNotFound();
+    $this->actingAs($this->hanna)->get(route('fahrtenbuch.receipt', $fueling))->assertNotFound();
+    $this->actingAs($this->hanna)->get(route('fahrtenbuch.vehicle', $southVehicle))->assertNotFound();
+
+    expect(fn () => $this->l->end($this->hanna, $trip, [
+        'ended_at' => now()->format('Y-m-d\TH:i'), 'end_km' => 1005, 'destination' => 'Gerätehaus',
+    ]))->toThrow(ValidationException::class, 'anderen Standort');
+
+    auth()->login(User::factory()->admin()->create());
+    expect(fn () => $this->l->start($this->hanna, tripData([
+        'vehicle_id' => $northVehicle->id, 'driver_id' => $this->bernd->id, 'start_km' => 2000,
+    ])))->toThrow(ValidationException::class, 'Standort des Fahrzeugs');
+});
+
+test('local Wehrführung manages only trips and exports for its assigned Standort', function () {
+    $north = Location::create(['name' => 'Wache Nord', 'slug' => 'fahrtenbuch-leitung-nord']);
+    $south = Location::create(['name' => 'Wache Süd', 'slug' => 'fahrtenbuch-leitung-sued']);
+    $leader = User::factory()->create(['name' => 'Wilma Wehrführung', 'ext_location_id' => $north->id]);
+    $south->members()->attach($leader->id, ['role' => 'member']);
+    $this->hanna->update(['ext_location_id' => $north->id]);
+    $this->bernd->update(['ext_location_id' => $south->id]);
+    $this->bernd->moduleAccess()->create(['module' => 'fahrtenbuch']);
+    app(StandardRoleAssignments::class)->grant(
+        User::factory()->admin()->create(),
+        $leader->id,
+        'wehrfuehrung',
+        $north->id,
+        null,
+        'Standortbezogene Fahrtenbuchverwaltung',
+    );
+
+    $northVehicle = Vehicle::factory()->create(['name' => 'HLF Nord', 'is_active' => true, 'ext_location_id' => $north->id]);
+    $southVehicle = Vehicle::factory()->create(['name' => 'HLF Süd', 'is_active' => true, 'ext_location_id' => $south->id]);
+    $startedAt = now('Europe/Berlin')->subHours(4)->format('Y-m-d\TH:i');
+    $endedAt = now('Europe/Berlin')->subHours(3)->format('Y-m-d\TH:i');
+    $northTrip = $this->l->record($this->hanna, tripData([
+        'vehicle_id' => $northVehicle->id, 'started_at' => $startedAt, 'ended_at' => $endedAt, 'start_km' => 100, 'end_km' => 120, 'destination' => 'Wache Nord',
+    ]));
+    $southTrip = $this->l->record($this->bernd, tripData([
+        'vehicle_id' => $southVehicle->id, 'driver_id' => $this->bernd->id, 'started_at' => $startedAt, 'ended_at' => $endedAt, 'start_km' => 200, 'end_km' => 240, 'destination' => 'Wache Süd',
+    ]));
+    $year = now('Europe/Berlin')->year;
+
+    expect(LogbookService::canManage($leader))->toBeTrue()
+        ->and(LogbookService::canManageVehicle($leader, $northVehicle))->toBeTrue()
+        ->and(LogbookService::canManageVehicle($leader, $southVehicle))->toBeFalse()
+        ->and($this->l->statistics($year, $leader)->pluck('vehicle.id')->all())->toBe([$northVehicle->id]);
+
+    Livewire::actingAs($leader)->withQueryParams(['fahrt' => $northTrip->id, 'korrigieren' => 1])->test(TripForm::class)
+        ->assertSet('mode', 'correct');
+    Livewire::actingAs($leader)->withQueryParams(['fahrt' => $southTrip->id, 'korrigieren' => 1])->test(TripForm::class)
+        ->assertSet('mode', 'view');
+
+    $this->actingAs($leader)->get(route('fahrtenbuch.export.trips', [$northVehicle, $year]))->assertOk();
+    $this->actingAs($leader)->get(route('fahrtenbuch.export.trips', [$southVehicle, $year]))->assertForbidden();
+    $this->l->void($leader, $northTrip, 'Doppelt erfasst');
+    expect(fn () => $this->l->void($leader, $southTrip, 'Doppelt erfasst'))
+        ->toThrow(ValidationException::class, 'zuständige Wehrführungen');
 });

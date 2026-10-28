@@ -22,6 +22,11 @@
                         {{ $method->label() }}
                     </a>
                 @endforeach
+                @if($authMethods->magicLinkRestricted() && ! ($localLogin ?? false))
+                    <a href="{{ route('oidc.local') }}" class="mt-4 block text-center text-sm text-fw-navy underline">
+                        Lokale Anmeldung für Systemadmins
+                    </a>
+                @endif
             </div>
         </div>
     </div>

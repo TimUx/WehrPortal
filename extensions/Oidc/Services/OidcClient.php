@@ -74,7 +74,7 @@ class OidcClient
      *
      * @return array{url: string, flow: array<string, mixed>}
      */
-    public function authorizationRequest(): array
+    public function authorizationRequest(?string $loginHint = null): array
     {
         $discovery = $this->discovery();
 
@@ -83,7 +83,7 @@ class OidcClient
         $verifier = Base64UrlSafe::encodeUnpadded(random_bytes(48));
         $challenge = Base64UrlSafe::encodeUnpadded(hash('sha256', $verifier, true));
 
-        $query = http_build_query([
+        $parameters = [
             'response_type' => 'code',
             'client_id' => $this->settings->clientId(),
             'redirect_uri' => $this->settings->redirectUri(),
@@ -92,7 +92,11 @@ class OidcClient
             'nonce' => $nonce,
             'code_challenge' => $challenge,
             'code_challenge_method' => 'S256',
-        ], '', '&', PHP_QUERY_RFC3986);
+        ];
+        if ($loginHint !== null && filter_var($loginHint, FILTER_VALIDATE_EMAIL) !== false) {
+            $parameters['login_hint'] = $loginHint;
+        }
+        $query = http_build_query($parameters, '', '&', PHP_QUERY_RFC3986);
 
         $endpoint = $discovery['authorization_endpoint'];
 

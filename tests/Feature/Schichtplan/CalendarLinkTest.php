@@ -3,15 +3,20 @@
 use App\Models\Group;
 use App\Models\Module;
 use App\Models\User;
+use Extensions\Locations\Models\Location;
+use Extensions\Locations\Services\LocationAccess;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Modules\Kalender\src\Models\Event;
 use Modules\Kalender\src\Services\EventService;
 use Modules\Schichtplan\src\Livewire\PlanCreate;
 use Modules\Schichtplan\src\Livewire\PlanEditor;
 use Modules\Schichtplan\src\Models\Plan;
+use Modules\Schichtplan\src\Services\CalendarLink;
 use Modules\Schichtplan\src\Services\PlanMailer;
 use Modules\Schichtplan\src\Services\PlanService;
 
@@ -80,6 +85,37 @@ test('a planer plan is in the calendar of the people on it; an event deleted in 
     app(EventService::class)->delete($event);
     $this->plans->update($plan->refresh(), ['title' => 'Neu', 'starts_at' => $plan->starts_at, 'ends_at' => $plan->ends_at, 'shift_minutes' => 60]);
     expect(Event::count())->toBe(0);
+});
+
+test('calendar sync keeps the plan Standort and refuses audiences from another Standort', function () {
+    config(['locations.enabled' => true]);
+    $north = Location::create(['name' => 'Wache Nord', 'slug' => 'schichtplan-nord']);
+    $south = Location::create(['name' => 'Wache Süd', 'slug' => 'schichtplan-sued']);
+    DB::table('groups')->where('id', $this->youth->id)->update(['ext_location_id' => $north->id]);
+    $southGroup = $south->groups()->create(['name' => 'Jugendfeuerwehr']);
+    DB::table('users')->where('id', $this->hanna->id)->update(['ext_location_id' => $north->id]);
+    $this->hanna->refresh();
+    app(LocationAccess::class)->forget($this->hanna);
+    DB::table('x_location_user')->insert([
+        ['location_id' => $north->id, 'user_id' => $this->planer->id, 'role' => 'member'],
+        ['location_id' => $south->id, 'user_id' => $this->planer->id, 'role' => 'member'],
+    ]);
+    app(LocationAccess::class)->forget($this->planer);
+
+    $this->actingAs($this->planer);
+    $plan = linkedPlan();
+    app(PlanMailer::class)->publish($plan->refresh());
+    $event = Event::sole();
+
+    expect($event->ext_location_id)->toBe($north->id)
+        ->and($event->locationIds())->toBe([$north->id]);
+
+    $plan->forceFill(['audience_groups' => [$southGroup->id]])->save();
+    expect(fn () => app(CalendarLink::class)->sync($plan->refresh()))->toThrow(ValidationException::class);
+
+    expect($event->refresh()->ext_location_id)->toBe($north->id)
+        ->and($event->locationIds())->toBe([$north->id])
+        ->and($event->groups()->withoutGlobalScopes()->pluck('groups.id')->all())->toBe([$this->youth->id]);
 });
 
 test('"Schichtplan anlegen" on an event takes its data and links the plan; the event stays the Terminverwalter\'s', function () {

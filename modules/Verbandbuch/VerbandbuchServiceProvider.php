@@ -14,13 +14,12 @@ use Livewire\Livewire;
 use Modules\Verbandbuch\src\Livewire\EntryDetail;
 use Modules\Verbandbuch\src\Livewire\EntryForm;
 use Modules\Verbandbuch\src\Livewire\EntryList;
-use Modules\Verbandbuch\src\Models\Entry;
 use Modules\Verbandbuch\src\Services\VerbandbuchService;
 
 /**
  * Verbandbuch & Vorfälle: injuries, accidents and incidents in the Dienst, documented after
  * DGUV Information 204-021 and signed on the screen. Every Kamerad with access writes entries;
- * Sicherheitsbeauftragter and Wehrführung see all of them. Health data stays out of mails and the
+ * GBI/SBI and the responsible local Wehrführung manage entries. Health data stays out of mails and the
  * activity log and is deleted after the retention time.
  */
 class VerbandbuchServiceProvider extends ServiceProvider
@@ -59,7 +58,7 @@ class VerbandbuchServiceProvider extends ServiceProvider
 
         // Start page: accidents with a doctor's visit that still need the Unfallanzeige
         app(DashboardRegistry::class)->register('verbandbuch', 'report', function (User $user) {
-            $count = VerbandbuchService::canManage($user) ? Entry::awaitingReport()->count() : 0;
+            $count = VerbandbuchService::canManage($user) ? VerbandbuchService::managedEntries($user)->awaitingReport()->count() : 0;
 
             return $count === 0 ? null : view('verbandbuch::cards.report', compact('count'))->render();
         });

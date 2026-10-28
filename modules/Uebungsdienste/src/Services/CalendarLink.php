@@ -5,7 +5,6 @@ namespace Modules\Uebungsdienste\src\Services;
 use App\Models\User;
 use App\Services\ModuleRegistry;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Schema;
 use Modules\Kalender\src\Models\Event;
 use Modules\Kalender\src\Services\EventService;
 use Modules\Uebungsdienste\src\Models\Service;
@@ -48,17 +47,13 @@ class CalendarLink
             'dress_code_ids' => $service->dress_code_ids ?: null, 'description' => null, 'rsvp' => true, 'managed_by' => 'uebungsdienste',
         ];
         $groups = array_map('intval', $service->group_ids ?? []);
+        $locationIds = app(ServicePlan::class)->targetIdsForGroups($groups, $by);
         $events = app(EventService::class);
 
         if ($event = $service->event_id ? Event::find($service->event_id) : null) {
-            $events->update($event, $data, $groups, false, [], [], $by);
+            $events->update($event, $data, $groups, false, [], [], $by, locationIds: $locationIds);
         } else {
-            $event = $events->create($data, $groups, $by)->first();
-        }
-
-        // These events are shared across selected Standorte; their target groups still restrict visibility.
-        if (Schema::hasColumn('kal_events', 'ext_location_id')) {
-            $event->forceFill(['ext_location_id' => null])->saveQuietly();
+            $event = $events->create($data, $groups, $by, locationIds: $locationIds)->first();
         }
 
         $service->forceFill(['event_id' => $event->id, 'calendar_synced_at' => now()])->saveQuietly();

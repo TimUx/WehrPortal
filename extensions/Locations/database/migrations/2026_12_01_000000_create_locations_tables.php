@@ -10,7 +10,7 @@ return new class extends Migration
     /** Application tables with an optional Standort. */
     private const TABLES = [
         'users', 'groups', 'member_functions', 'vehicles', 'ar_equipment', 'ar_categories',
-        'kk_items', 'eb_reports', 'mm_defects', 'kal_events', 'x_vv_members',
+        'kk_items', 'eb_reports', 'mm_defects', 'mm_devices', 'kal_events', 'x_vv_members',
     ];
 
     public function up(): void
