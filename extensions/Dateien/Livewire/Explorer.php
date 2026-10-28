@@ -313,6 +313,7 @@ class Explorer extends Component
             'user' => $subjects['users'],
             'group' => $subjects['groups'],
             'department' => $subjects['departments'],
+            default => throw new \LogicException('Unsupported permission subject type.'),
         };
         abort_unless($list->contains('id', (int) $this->subjectId), 403);
         $this->service()->setPermission($this->user(), $target, $this->subjectType, (int) $this->subjectId, $this->permissionLevel ?: null);
