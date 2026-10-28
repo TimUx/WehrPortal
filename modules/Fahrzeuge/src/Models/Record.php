@@ -31,6 +31,7 @@ class Record extends Model
         return ['checklist' => 'array', 'signed_at' => 'datetime', 'done_on' => 'date', 'mileage_km' => 'integer', 'cost_cents' => 'integer'];
     }
 
+    /** @return BelongsTo<Vehicle, $this> */
     public function vehicle(): BelongsTo
     {
         return $this->belongsTo(Vehicle::class);

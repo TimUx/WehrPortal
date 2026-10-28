@@ -49,9 +49,12 @@ class PlanMailer
 
     private function recipients(Plan $plan): Collection
     {
+        $locations = app(PlanLocationAccess::class);
+
         return $plan->participants()->with('user')->get()->pluck('user')
             ->concat($plan->stations()->with('lead')->get()->pluck('lead'))
-            ->filter()->unique('id')->values();
+            ->filter(fn (?User $user) => $user && $locations->isMemberAt($user, $plan->ext_location_id))
+            ->unique('id')->values();
     }
 
     private function tell(Collection $users, callable $notification): int

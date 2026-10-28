@@ -38,7 +38,7 @@ class ProtocolList extends Component
     public function render(WartungService $service)
     {
         $term = trim($this->search);
-        $protocols = Protocol::query()
+        $protocols = WartungService::scopeProtocolsFor(auth()->user(), Protocol::query())
             ->when($this->year, fn ($q) => $q->where('year', $this->year))
             ->when($this->result === 'voided', fn ($q) => $q->whereNotNull('voided_at'), fn ($q) => $q->when($this->result !== '', fn ($q) => $q->where('result', $this->result)))
             ->when($term !== '', fn ($q) => $q->where(fn ($q) => $q->where('equipment_code', 'ilike', '%'.$term.'%')->orWhere('equipment_name', 'ilike', '%'.$term.'%')
@@ -48,8 +48,8 @@ class ProtocolList extends Component
 
         return view('wartung::livewire.protocol-list', [
             'protocols' => $protocols,
-            'years' => Protocol::query()->distinct()->orderByDesc('year')->pluck('year')->push(WartungService::today()->year)->unique()->sortDesc()->values(),
-            'totals' => $this->year ? $service->yearTotals($this->year) : null,
+            'years' => WartungService::scopeProtocolsFor(auth()->user(), Protocol::query())->distinct()->orderByDesc('year')->pluck('year')->push(WartungService::today()->year)->unique()->sortDesc()->values(),
+            'totals' => $this->year ? $service->yearTotals($this->year, auth()->user()) : null,
         ]);
     }
 }

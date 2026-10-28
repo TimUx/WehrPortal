@@ -49,7 +49,7 @@ class Template extends Model
         return $query->where('is_active', true);
     }
 
-    /** All devices in service this template applies to */
+    /** @return Builder<Equipment> All devices in service this template applies to. */
     public function devices(): Builder
     {
         $picked = $this->equipment()->pluck('ar_equipment.id');

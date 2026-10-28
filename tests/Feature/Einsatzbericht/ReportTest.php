@@ -5,6 +5,8 @@ use App\Livewire\Dashboard\Home;
 use App\Models\ActivityLog;
 use App\Models\Module;
 use App\Models\User;
+use Extensions\Locations\Models\Location;
+use Extensions\Locations\Services\StandardRoleAssignments;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
@@ -18,6 +20,7 @@ use Modules\Einsatzbericht\src\Livewire\Statistics;
 use Modules\Einsatzbericht\src\Models\Report;
 use Modules\Einsatzbericht\src\Notifications\ReportStatusNotification;
 use Modules\Einsatzbericht\src\Services\ReportService;
+use Modules\Einsatzbericht\src\Services\SituationService;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 
 beforeEach(function () {
@@ -73,6 +76,76 @@ test('only Einsatzleiter, Wehrführung and admins open reports; Kameraden get th
     $this->actingAs($this->tim)->get('/personalakte')->assertOk()->assertDontSee('Meine Einsätze');   // no module access: no Einsätze on the Profil
 });
 
+test('local Wehrführung only manages reports at assigned locations, including running situation reports', function () {
+    config(['locations.enabled' => true]);
+    $admin = User::factory()->admin()->create();
+    $localChief = User::factory()->create(['name' => 'Nina Nord', 'ext_location_id' => null]);
+    $north = Location::create(['name' => 'Wache Nord', 'slug' => 'report-nord']);
+    $south = Location::create(['name' => 'Wache Süd', 'slug' => 'report-sued']);
+    $localChief->forceFill(['ext_location_id' => $north->id])->save();
+    $south->members()->attach($localChief->id, ['role' => 'member']);
+    app(StandardRoleAssignments::class)->grant($admin, $localChief->id, 'wehrfuehrung', $north->id, null, 'Standortleitung');
+    $southChief = User::factory()->create(['name' => 'Berta Süd', 'ext_location_id' => $south->id]);
+    app(StandardRoleAssignments::class)->grant($admin, $southChief->id, 'wehrfuehrung', $south->id, null, 'Standortleitung Süd');
+
+    $northReport = $this->r->create($this->leader);
+    $northReport->forceFill(['ext_location_id' => $north->id])->save();
+    $southReport = $this->r->create($this->leader);
+    $southReport->forceFill(['ext_location_id' => $south->id, 'status' => 'active'])->save();
+    $unassignedReport = $this->r->create($this->leader);
+
+    expect(ReportService::canLeadReport($localChief, $northReport->refresh()))->toBeTrue()
+        ->and(ReportService::canReleaseReport($localChief, $northReport->refresh()))->toBeTrue()
+        ->and(ReportService::canLeadReport($localChief, $southReport->refresh()))->toBeFalse()
+        ->and(ReportService::canReleaseReport($localChief, $southReport->refresh()))->toBeFalse()
+        ->and(ReportService::canLeadReport($localChief, $unassignedReport->refresh()))->toBeFalse()
+        ->and(SituationService::canSee($localChief, $southReport->refresh()))->toBeFalse();
+
+    $this->actingAs($localChief)->get('/einsatzbericht/'.$northReport->id)->assertOk();
+    $this->actingAs($localChief)->get('/einsatzbericht/'.$southReport->id)->assertNotFound();
+    expect(Report::query()->pluck('id')->all())->toBe([$northReport->id]);
+    $unscopedSouth = Report::withoutGlobalScopes()->findOrFail($southReport->id);
+    expect(fn () => $this->r->update($localChief, $unscopedSouth, ['keyword' => 'FEU 1']))
+        ->toThrow(ValidationException::class);
+
+    Notification::fake();
+    ReportService::setRequired([]);
+    $this->r->close($this->leader, Report::withoutGlobalScopes()->findOrFail($northReport->id));
+    Notification::assertSentTo($localChief, ReportStatusNotification::class);
+    Notification::assertNotSentTo($southChief, ReportStatusNotification::class);
+
+    $this->r->release($localChief, Report::findOrFail($northReport->id));
+    expect(Report::withoutGlobalScopes()->findOrFail($northReport->id)->status)->toBe('released');
+});
+
+test('local Wehrführung creates reports at its assigned location with globally unique numbers', function () {
+    config(['locations.enabled' => true]);
+    $admin = User::factory()->admin()->create();
+    $localChief = User::factory()->create(['name' => 'Nina Nord', 'ext_location_id' => null]);
+    $north = Location::create(['name' => 'Wache Nord', 'slug' => 'report-create-nord']);
+    $localChief->forceFill(['ext_location_id' => $north->id])->save();
+    app(StandardRoleAssignments::class)->grant($admin, $localChief->id, 'wehrfuehrung', $north->id, null, 'Standortleitung Nord');
+
+    $report = $this->r->create($localChief);
+
+    expect((int) $report->getAttribute('ext_location_id'))->toBe((int) $north->id)
+        ->and(ReportService::canLeadReport($localChief, $report))->toBeTrue();
+
+    $side = $this->r->createSide($localChief, $report, 'Löschzug');
+    expect((int) $side->getAttribute('ext_location_id'))->toBe((int) $north->id)
+        ->and($side->number)->toBe($report->number.'-1');
+
+    $globalReport = $this->r->create($this->leader);
+    expect($globalReport->number)->toBe('2027/002');
+
+    $this->actingAs($localChief);
+    $nextReport = $this->r->create($localChief);
+    expect((int) $nextReport->getAttribute('ext_location_id'))->toBe((int) $north->id)
+        ->and($nextReport->number)->toBe('2027/003');
+
+    $this->actingAs($localChief)->get('/einsatzbericht/'.$report->id)->assertOk();
+});
+
 test('new reports get running numbers per year', function () {
     expect($this->r->create($this->leader)->number)->toBe('2027/001')
         ->and($this->r->create($this->leader)->number)->toBe('2027/002')
@@ -80,6 +153,23 @@ test('new reports get running numbers per year', function () {
     expect(fn () => $this->r->create($this->member))->toThrow(ValidationException::class);
 
     Livewire::actingAs($this->leader)->test(ReportList::class)->call('create')->assertRedirect(route('einsatzbericht.show', Report::latest('id')->first()));
+});
+
+test('the suggested report number can be changed to a missed number', function () {
+    $report = $this->r->create($this->leader);
+    $existing = $this->r->create($this->leader);
+
+    Livewire::actingAs($this->leader)->test(ReportEditor::class, ['report' => $existing])
+        ->set('form.number', '2027/005')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($existing->fresh()->number)->toBe('2027/005');
+
+    Livewire::actingAs($this->leader)->test(ReportEditor::class, ['report' => $existing])
+        ->set('form.number', $report->number)
+        ->call('save')
+        ->assertHasErrors('report');
 });
 
 // ─── crew and Stärke ─────────────────────────────────────────────────────────
@@ -132,6 +222,25 @@ test('the editor saves the blocks, vehicles and crew', function () {
     expect($report->keyword)->toBe('TH 1')->and($report->category)->toBe('th')->and($report->rescued)->toBe(1)->and($report->police)->toBeTrue()
         ->and($report->arrived_at->setTimezone('Europe/Berlin')->format('Y-m-d H:i'))->toBe('2027-05-10 20:10')
         ->and($report->crew()->sole()->breathing_apparatus)->toBeTrue();
+});
+
+test('crew options and assignment are restricted to the vehicle Standort', function () {
+    $location = Location::create(['name' => 'Wache Nord', 'slug' => 'wache-nord']);
+    $otherLocation = Location::create(['name' => 'Wache Süd', 'slug' => 'wache-sued']);
+    $admin = User::factory()->admin()->create();
+    $vehicle = Vehicle::factory()->create(['name' => 'HLF Nord', 'ext_location_id' => $location->id]);
+    $local = User::factory()->create(['name' => 'Nina Nord', 'ext_location_id' => $location->id]);
+    $foreign = User::factory()->create(['name' => 'Bernd Süd', 'ext_location_id' => $otherLocation->id]);
+    $report = $this->r->create($admin);
+    $reportVehicle = $this->r->addVehicle($admin, $report, $vehicle->id);
+
+    $editor = Livewire::actingAs($admin)->test(ReportEditor::class, ['report' => $report]);
+    $crewSelect = explode('</select>', explode('wire:model="newCrew.'.$reportVehicle->id.'.user"', $editor->html(), 2)[1], 2)[0];
+    expect($crewSelect)->toContain('Nina Nord')->not->toContain('Bernd Süd');
+
+    expect(fn () => $this->r->assign($admin, $reportVehicle, $foreign))
+        ->toThrow(ValidationException::class, 'desselben Standorts');
+    expect($this->r->assign($admin, $reportVehicle, $local)->user_id)->toBe($local->id);
 });
 
 test('saving reports "Gespeichert" and jumps to the first empty mandatory field', function () {

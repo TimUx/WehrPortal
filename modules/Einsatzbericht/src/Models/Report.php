@@ -7,7 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/** One Einsatz: Entwurf → abgeschlossen (by the Einsatzleiter) → freigegeben (by the Wehrführung) */
+/**
+ * @property int|null $ext_location_id
+ *
+ * One Einsatz: Entwurf → abgeschlossen (by the Einsatzleiter) → freigegeben (by the Wehrführung)
+ */
 class Report extends Model
 {
     public const STATUSES = ['draft' => 'Entwurf', 'active' => 'Aktuell', 'closed' => 'Abgeschlossen', 'released' => 'Freigegeben'];
@@ -77,6 +81,7 @@ class Report extends Model
         ];
     }
 
+    /** @return HasMany<ReportVehicle, $this> */
     public function vehicles(): HasMany
     {
         return $this->hasMany(ReportVehicle::class, 'report_id')->orderBy('is_standby')->orderBy('sort_order')->orderBy('id');

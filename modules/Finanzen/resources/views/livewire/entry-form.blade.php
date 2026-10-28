@@ -6,7 +6,7 @@
         </h1>
         <p class="text-sm text-gray-500">
             @if($direct) Einnahmen und bereits bezahlte Ausgaben direkt buchen – ohne Genehmigung.
-            @elseif(! $entry) Du hast etwas für die Wehr ausgelegt oder brauchst eine Freigabe? Beleg fotografieren, Betrag und Kostenstelle angeben – Kassenwart und Wehrführung prüfen und genehmigen, der Kassenwart zahlt aus.
+            @elseif(! $entry) Du hast etwas für die Wehr ausgelegt oder brauchst eine Freigabe? Beleg fotografieren, Betrag, Standort und Kostenstelle angeben – Kassenwart und Wehrführung am Standort prüfen und genehmigen, der Kassenwart zahlt aus.
             @endif
         </p>
     </div>
@@ -33,6 +33,16 @@
         </div>
         @error('amount')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
         @error('booked_on')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
+        @if($locationsEnabled)
+            <label class="block text-sm text-gray-700">Standort
+                <select wire:model="locationId" @disabled(! $canManage) class="{{ $input }}">
+                    <option value="">– bitte wählen –</option>
+                    @foreach($locations as $location)<option value="{{ $location->id }}">{{ $location->name }}</option>@endforeach
+                </select>
+                @unless($canManage)<span class="mt-1 block text-xs text-gray-500">Vorausgewählt ist dein Stammstandort.</span>@endunless
+            </label>
+            @error('location_id')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
+        @endif
         <label class="block text-sm text-gray-700">Kostenstelle
             <select wire:model="costCenterId" class="{{ $input }}">
                 <option value="">– bitte wählen –</option>

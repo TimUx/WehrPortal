@@ -6,7 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/** One Unterweisung that was held: topic, day, who instructed, who took part and signed */
+/**
+ * @property-read Topic $topic
+ *
+ * One Unterweisung that was held: topic, day, who instructed, who took part and signed.
+ */
 class Session extends Model
 {
     protected $table = 'uw_sessions';

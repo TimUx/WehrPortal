@@ -18,7 +18,7 @@ Route::middleware(['auth', 'active', 'module:unterweisungen'])->group(function (
         // A document: for the Beauftragte and the participants
         Route::get('/dokument/{file}', function (SessionFile $file) {
             $mine = DB::table('uw_attendances')->where('session_id', $file->session_id)->where('user_id', auth()->id())->exists();
-            abort_unless(InstructionService::canManage(auth()->user()) || $mine, 403);
+            abort_unless(InstructionService::canManageSession(auth()->user(), Session::findOrFail($file->session_id)) || $mine, 403);
 
             return FileResponse::make(base64_decode(SessionFile::whereKey($file->id)->value('data')), $file->filename);
         })->whereNumber('file')->name('file');
@@ -29,9 +29,13 @@ Route::middleware(['auth', 'active', 'module:unterweisungen'])->group(function (
             Route::get('/durchfuehren', fn () => $page('unterweisungen.session-form', 'Unterweisung durchführen'))->name('new');
             Route::get('/durchgefuehrt/{session}', fn (Session $session) => $page('unterweisungen.session-detail', $session->topic->name, ['session' => $session]))->whereNumber('session')->name('session');
             // The Nachweis with the signatures, for the file and the Unfallkasse
-            Route::get('/durchgefuehrt/{session}/nachweis', fn (Session $session) => view('unterweisungen::pages.print', [
-                'session' => $session->load('topic'), 'attendances' => $session->attendances()->with('user')->get()->sortBy(fn ($a) => $a->user?->name)->values(),
-            ]))->whereNumber('session')->name('print');
+            Route::get('/durchgefuehrt/{session}/nachweis', function (Session $session) {
+                abort_unless(InstructionService::canManageSession(auth()->user(), $session), 403);
+
+                return view('unterweisungen::pages.print', [
+                    'session' => $session->load('topic'), 'attendances' => $session->attendances()->with('user')->get()->sortBy(fn ($a) => $a->user?->name)->values(),
+                ]);
+            })->whereNumber('session')->name('print');
         });
     });
 });

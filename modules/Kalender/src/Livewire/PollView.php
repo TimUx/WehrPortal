@@ -6,6 +6,7 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Modules\Kalender\src\Models\Poll;
 use Modules\Kalender\src\Models\PollVote;
+use Modules\Kalender\src\Services\CalendarLocationAccess;
 use Modules\Kalender\src\Services\PollService;
 
 /**
@@ -85,7 +86,9 @@ class PollView extends Component
         return view('kalender::livewire.poll-view', [
             'results' => $polls->results($this->poll),
             'canVote' => $this->poll->isOpen() && $polls->audience($this->poll)->contains('id', $user->id),
-            'manager' => $user->canManageKalender(),
+            'manager' => $user->canManageKalender()
+                || (app(CalendarLocationAccess::class)->enabled()
+                    && $user->canManageKalenderLocations($this->poll->locationIds())),
         ]);
     }
 }

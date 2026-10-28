@@ -46,7 +46,7 @@ test('the Vereinsvorstand is not the Übungsdienstplaner audience', function () 
 
 test('unlocking someone outside the Wehrführung needs a confirmation on the module list', function () {
     $page = Livewire::actingAs($this->admin)->test(ModuleMembers::class, ['module' => 'uebungsdienste'])
-        ->assertSee('Außerhalb der Zielgruppe „Wehrführung“')
+        ->assertSee('Außerhalb der Zielgruppe „Übungsdienstleitung“')
         ->assertTableActionVisible('grant_outside', $this->hanna)
         ->assertTableActionVisible('grant_outside', $this->bernd)
         ->assertTableActionHidden('grant_outside', $this->leader);

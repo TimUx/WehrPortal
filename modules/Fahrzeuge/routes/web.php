@@ -16,13 +16,22 @@ Route::prefix('fahrzeuge')->name('fahrzeuge.')
         Route::get('/fristen', fn () => view('fahrzeuge::pages.page', ['livewireComponent' => 'fahrzeuge.deadlines', 'title' => 'Fristen']))->name('deadlines');
         Route::get('/neu', fn () => view('fahrzeuge::pages.page', ['livewireComponent' => 'fahrzeuge.vehicle-form', 'title' => 'Neues Fahrzeug']))
             ->middleware('can:fahrzeuge-manage')->name('create');
-        Route::get('/{vehicle}', fn (Vehicle $vehicle) => view('fahrzeuge::pages.page', ['livewireComponent' => 'fahrzeuge.vehicle-detail', 'title' => $vehicle->name, 'params' => ['vehicle' => $vehicle]]))
+        Route::get('/{vehicle}', function (Vehicle $vehicle) {
+            abort_unless(FleetService::canViewVehicle(auth()->user(), $vehicle), 404);
+
+            return view('fahrzeuge::pages.page', ['livewireComponent' => 'fahrzeuge.vehicle-detail', 'title' => $vehicle->name, 'params' => ['vehicle' => $vehicle]]);
+        })
             ->whereNumber('vehicle')->name('show');
-        Route::get('/{vehicle}/bearbeiten', fn (Vehicle $vehicle) => view('fahrzeuge::pages.page', ['livewireComponent' => 'fahrzeuge.vehicle-form', 'title' => $vehicle->name.' bearbeiten', 'params' => ['vehicle' => $vehicle]]))
+        Route::get('/{vehicle}/bearbeiten', function (Vehicle $vehicle) {
+            abort_unless(FleetService::canManageVehicle(auth()->user(), $vehicle), 403);
+
+            return view('fahrzeuge::pages.page', ['livewireComponent' => 'fahrzeuge.vehicle-form', 'title' => $vehicle->name.' bearbeiten', 'params' => ['vehicle' => $vehicle]]);
+        })
             ->whereNumber('vehicle')->middleware('can:fahrzeuge-manage')->name('edit');
 
         // Photo, versioned by ?v= so it can be cached for long
         Route::get('/{vehicle}/foto', function (Vehicle $vehicle) {
+            abort_unless(FleetService::canViewVehicle(auth()->user(), $vehicle), 404);
             $photo = Profile::where('vehicle_id', $vehicle->id)->value('photo');
             abort_unless($photo, 404);
 
@@ -30,11 +39,17 @@ Route::prefix('fahrzeuge')->name('fahrzeuge.')
         })->whereNumber('vehicle')->name('photo');
 
         // QR label for the vehicle: a scan opens the Fahrzeugakte (with "Mangel melden")
-        Route::get('/{vehicle}/etikett', fn (Vehicle $vehicle) => view('fahrzeuge::pages.label', ['vehicle' => $vehicle,
-            'profile' => Profile::firstOrNew(['vehicle_id' => $vehicle->id])]))->whereNumber('vehicle')->middleware('can:fahrzeuge-manage')->name('label');
+        Route::get('/{vehicle}/etikett', function (Vehicle $vehicle) {
+            abort_unless(FleetService::canManageVehicle(auth()->user(), $vehicle), 403);
+
+            return view('fahrzeuge::pages.label', ['vehicle' => $vehicle, 'profile' => Profile::firstOrNew(['vehicle_id' => $vehicle->id])]);
+        })->whereNumber('vehicle')->middleware('can:fahrzeuge-manage')->name('label');
 
         Route::get('/pruefprotokoll/{record}', function (Record $record) {
-            return view('fahrzeuge::pages.record', ['record' => $record->load('vehicle', 'creator', 'deadline'),
+            $vehicle = Vehicle::withoutGlobalScopes()->findOrFail($record->vehicle_id);
+            abort_unless(FleetService::canViewVehicle(auth()->user(), $vehicle), 404);
+
+            return view('fahrzeuge::pages.record', ['record' => $record->load('creator', 'deadline')->setRelation('vehicle', $vehicle),
                 'profile' => Profile::firstOrNew(['vehicle_id' => $record->vehicle_id])]);
         })->whereNumber('record')->name('record');
 
@@ -44,6 +59,12 @@ Route::prefix('fahrzeuge')->name('fahrzeuge.')
             return FileResponse::make(base64_decode($document->data), $document->name);
         })->whereNumber('document')->name('document');
 
-        Route::get('/anhaenge/{attachment}', fn (Attachment $attachment) => FileResponse::make(base64_decode($attachment->data), $attachment->name))
+        Route::get('/anhaenge/{attachment}', function (Attachment $attachment) {
+            $record = Record::withoutGlobalScopes()->findOrFail($attachment->record_id);
+            $vehicle = Vehicle::withoutGlobalScopes()->findOrFail($record->vehicle_id);
+            abort_unless(FleetService::canViewVehicle(auth()->user(), $vehicle), 404);
+
+            return FileResponse::make(base64_decode($attachment->data), $attachment->name);
+        })
             ->whereNumber('attachment')->name('attachment');
     });

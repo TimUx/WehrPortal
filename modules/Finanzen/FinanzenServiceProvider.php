@@ -21,9 +21,9 @@ use Modules\Finanzen\src\Services\FinanceExport;
 use Modules\Finanzen\src\Services\FinanceService;
 
 /**
- * Budget & Finanzen: budgets per Kostenstelle and year, Ausgaben with Beleg and approval, Einnahmen,
- * Jahresabschluss and export. Everyone with access sees the budget status; Kassenwart and
- * Wehrführung approve, the Kassenwart books and pays.
+ * Budget & Finanzen: budgets per Standort, Kostenstelle and year, Ausgaben with Beleg and approval,
+ * Einnahmen, consolidated Jahresabschluss and export. Kassenwart has global access; local Wehrführung
+ * reviews only the Standorte assigned to their profile.
  */
 class FinanzenServiceProvider extends ServiceProvider
 {
@@ -45,6 +45,8 @@ class FinanzenServiceProvider extends ServiceProvider
 
         Gate::define('finanzen-manage', fn (User $user) => FinanceService::canManage($user));
         Gate::define('finanzen-review', fn (User $user) => FinanceService::canReview($user));
+        Gate::define('finanzen-review-global', fn (User $user) => FinanceService::canReviewGlobally($user));
+        Gate::define('finanzen-budget', fn (User $user) => FinanceService::canManageBudgetPage($user));
 
         foreach (['overview' => Overview::class, 'entry-form' => EntryForm::class, 'entry-detail' => EntryDetail::class, 'entry-list' => EntryList::class,
             'budget-plan' => BudgetPlan::class, 'year-report' => YearReport::class] as $name => $class) {
@@ -63,7 +65,9 @@ class FinanzenServiceProvider extends ServiceProvider
         // Start page: what waits for the reviewers, the Kassenwart and the own Ausgaben
         app(DashboardRegistry::class)->register('finanzen', 'todo', function (User $user) {
             $todo = [
-                'review' => FinanceService::canReview($user) ? Entry::where('status', 'submitted')->where('submitted_by', '!=', $user->id)->count() : 0,
+                'review' => FinanceService::canReview($user)
+                    ? FinanceService::scopeReviewEntries($user, Entry::query())->where('status', 'submitted')->where('submitted_by', '!=', $user->id)->count()
+                    : 0,
                 'pay' => FinanceService::canManage($user) ? Entry::where('status', 'approved')->count() : 0,
                 'own' => Entry::where('submitted_by', $user->id)->whereIn('status', ['submitted', 'approved'])->count(),
             ];
@@ -76,8 +80,8 @@ class FinanzenServiceProvider extends ServiceProvider
             'tabs' => [
                 ModuleNav::tab(FinanceService::canSeeOverview($u) ? 'Übersicht' : 'Meine Ausgaben', 'finanzen.index', ['finanzen.entry', 'finanzen.edit']),
                 FinanceService::canReview($u) ? ModuleNav::tab('Buchungen', 'finanzen.entries', ['finanzen.book']) : null,
-                FinanceService::canManage($u) ? ModuleNav::tab(FinanceService::budgetEnabled() ? 'Budget & Kostenstellen' : 'Kostenstellen & Einstellungen', 'finanzen.budget') : null,
-                FinanceService::canReview($u) && FinanceService::reportEnabled() ? ModuleNav::tab('Jahresabschluss', 'finanzen.report') : null,
+                FinanceService::canManageBudgetPage($u) ? ModuleNav::tab(FinanceService::budgetEnabled() ? 'Budget & Kostenstellen' : 'Kostenstellen & Einstellungen', 'finanzen.budget') : null,
+                FinanceService::canReviewGlobally($u) && FinanceService::reportEnabled() ? ModuleNav::tab('Jahresabschluss', 'finanzen.report') : null,
             ],
         ]);
     }

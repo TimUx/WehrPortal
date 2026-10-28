@@ -22,8 +22,9 @@
                 <label class="block text-sm text-gray-700">Fahrzeug
                     <select wire:model.live="vehicleId" @disabled($mode === 'correct') class="{{ $input }}">
                         <option value="">– bitte wählen –</option>
-                        @foreach($vehicles as $v)<option value="{{ $v->id }}">{{ $v->name }}</option>@endforeach
+                        @foreach($vehicles as $v)<option value="{{ $v->id }}">{{ $v->name }}{{ $v->standort ? ' ('.$v->standort->name.')' : '' }}</option>@endforeach
                     </select>
+                    @if($selectedVehicle?->standort)<span class="text-xs text-gray-500">Standort: {{ $selectedVehicle->standort->name }}</span>@endif
                 </label>
                 <label class="block text-sm text-gray-700">Fahrer
                     <select wire:model.live="driverId" class="{{ $input }}">@foreach($drivers as $d)<option value="{{ $d->id }}">{{ $d->name }}</option>@endforeach</select>

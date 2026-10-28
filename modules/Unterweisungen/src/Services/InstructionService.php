@@ -6,6 +6,8 @@ use App\Models\User;
 use App\Services\ModuleRegistry;
 use App\Support\FileResponse;
 use App\Support\SignatureImage;
+use Extensions\Locations\Services\StandardRoleAssignments;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
@@ -37,13 +39,64 @@ class InstructionService
 
     public static function canManage(User $user): bool
     {
-        return $user->is_active && $user->canUseModule(self::MODULE)
-            && ($user->is_admin || $user->hasModuleRole(self::MODULE, 'unterweisungsbeauftragter'));
+        return self::canManageAll($user) || self::isAtemschutzOnlyManager($user);
     }
 
+    public static function canManageAll(User $user): bool
+    {
+        return $user->is_active && $user->canUseModule(self::MODULE)
+            && ($user->is_admin
+                || $user->moduleAccess()->where('module', self::MODULE)->where('role', 'unterweisungsbeauftragter')->exists()
+                || app(StandardRoleAssignments::class)->hasGlobalProfile($user, 'gemeindebrandinspektor'));
+    }
+
+    public static function isAtemschutzOnlyManager(User $user): bool
+    {
+        return config('locations.enabled')
+            && $user->is_active
+            && $user->canUseModule(self::MODULE)
+            && $user->canUseModule('atemschutz')
+            && ! self::canManageAll($user)
+            && app(StandardRoleAssignments::class)->hasGlobalProfile($user, 'atemschutzwart');
+    }
+
+    public static function canManageTopic(User $user, Topic $topic): bool
+    {
+        return self::canManage($user)
+            && (! self::isAtemschutzOnlyManager($user) || $topic->counts_as === 'atemschutz');
+    }
+
+    public static function canManageSession(User $user, Session $session): bool
+    {
+        return self::canManage($user) && self::canManageTopic($user, $session->topic);
+    }
+
+    /** @return Builder<Topic> */
+    public static function topicsForManager(User $user): Builder
+    {
+        return Topic::query()->when(
+            self::isAtemschutzOnlyManager($user),
+            fn (Builder $query) => $query->where('counts_as', 'atemschutz'),
+        );
+    }
+
+    /** @return Builder<Session> */
+    public static function sessionsForManager(User $user): Builder
+    {
+        return Session::query()->when(
+            self::isAtemschutzOnlyManager($user),
+            fn (Builder $query) => $query->whereHas('topic', fn (Builder $topics) => $topics->where('counts_as', 'atemschutz')),
+        );
+    }
+
+    /** @return EloquentCollection<int, User> */
     public function managers(): EloquentCollection
     {
-        $managers = User::active()->whereHas('moduleAccess', fn ($q) => $q->where('module', self::MODULE)->where('role', 'unterweisungsbeauftragter'))->get();
+        $atemschutzwartIds = app(StandardRoleAssignments::class)->activeGlobalProfileUserIds('atemschutzwart');
+        $managers = User::active()->where(function ($query) use ($atemschutzwartIds) {
+            $query->whereHas('moduleAccess', fn ($q) => $q->where('module', self::MODULE)->where('role', 'unterweisungsbeauftragter'))
+                ->orWhereIn('id', $atemschutzwartIds);
+        })->get()->filter(fn (User $user) => self::canManage($user))->values();
 
         return $managers->isNotEmpty() ? $managers : User::active()->where('is_admin', true)->get();
     }
@@ -53,6 +106,9 @@ class InstructionService
     public function saveTopic(User $by, ?Topic $topic, array $data): Topic
     {
         $this->assertManager($by);
+        if ($topic && ! self::canManageTopic($by, $topic)) {
+            throw ValidationException::withMessages(['topic_name' => 'Diese Art darfst du nicht verwalten.']);
+        }
         $name = trim((string) ($data['name'] ?? ''));
         $months = filled($data['interval_months'] ?? null) ? (int) $data['interval_months'] : null;
         $errors = array_filter([
@@ -60,6 +116,9 @@ class InstructionService
             'topic_kind' => array_key_exists($data['kind'] ?? '', Topic::KINDS) ? null : 'Bitte Unterweisung oder Einweisung wählen.',
             'topic_interval' => $months !== null && ($months < 1 || $months > 120) ? 'Das Intervall liegt zwischen 1 und 120 Monaten (leer = einmalig).' : null,
         ]);
+        if (self::isAtemschutzOnlyManager($by) && ($data['counts_as'] ?? null) !== 'atemschutz') {
+            $errors['topic_access'] = 'Atemschutzwarte dürfen nur Atemschutz-Unterweisungen verwalten.';
+        }
         if ($errors) {
             throw ValidationException::withMessages($errors);
         }
@@ -80,7 +139,10 @@ class InstructionService
     {
         $this->assertManager($by);
         $added = 0;
-        foreach (Topic::PRESETS as [$name, $short, $kind, $months, $all, $countsAs]) {
+        $presets = self::isAtemschutzOnlyManager($by)
+            ? array_filter(Topic::PRESETS, fn ($preset) => $preset[5] === 'atemschutz')
+            : Topic::PRESETS;
+        foreach ($presets as [$name, $short, $kind, $months, $all, $countsAs]) {
             if (! Topic::where('name', $name)->exists()) {
                 Topic::create(['name' => $name, 'short' => $short, 'kind' => $kind, 'interval_months' => $months, 'for_all' => $all, 'counts_as' => $countsAs]);
                 $added++;
@@ -103,6 +165,9 @@ class InstructionService
     {
         $this->assertManager($by);
         $topic = Topic::find((int) ($data['topic_id'] ?? 0));
+        if ($topic && ! self::canManageTopic($by, $topic)) {
+            throw ValidationException::withMessages(['session_topic' => 'Diese Art darfst du nicht verwalten.']);
+        }
         $date = filled($data['held_on'] ?? null) ? rescue(fn () => Carbon::createFromFormat('!Y-m-d', $data['held_on']), null, false) : null;
         $users = User::whereIn('id', array_map('intval', $userIds))->get();
         $errors = array_filter([
@@ -141,7 +206,11 @@ class InstructionService
     /** The participant signs: passed around on the tablet (Beauftragter) or on their own phone */
     public function sign(User $by, Attendance $attendance, string $dataUrl): void
     {
-        if (! self::canManage($by) && $attendance->user_id !== $by->id) {
+        $manager = self::canManage($by);
+        if ($manager && ! self::canManageSession($by, $attendance->session) && $attendance->user_id !== $by->id) {
+            throw ValidationException::withMessages(['signature' => 'Diese Unterweisung darfst du nicht verwalten.']);
+        }
+        if (! $manager && $attendance->user_id !== $by->id) {
             throw ValidationException::withMessages(['signature' => 'Unterschreiben kann nur der Teilnehmer selbst.']);
         }
         if ($attendance->signed_at) {
@@ -151,8 +220,10 @@ class InstructionService
     }
 
     /** Kameraden who were present at a Kalender event – to take over as participants */
-    public function fromEvent(int $eventId): array
+    public function fromEvent(User $by, int $eventId): array
     {
+        $this->assertManager($by);
+        abort_if(self::isAtemschutzOnlyManager($by), 403);
         if (! app(ModuleRegistry::class)->isActive('kalender')) {
             return [];
         }
@@ -202,11 +273,19 @@ class InstructionService
             ->filter(fn ($row) => $row['required'] || $row['last'])->values();
     }
 
-    /** @return array{users: EloquentCollection, topics: EloquentCollection, cells: array} active Kameraden × active kinds */
-    public function matrix(?int $groupId = null): array
+    /**
+     * @return array{
+     *     users: EloquentCollection<int, User>,
+     *     topics: EloquentCollection<int, Topic>,
+     *     cells: array<int, array<int, array{required: bool, state: string, last: ?Carbon, until: ?Carbon}>>
+     * } active Kameraden × active kinds
+     */
+    public function matrix(?int $groupId = null, ?User $manager = null): array
     {
+        /** @var EloquentCollection<int, User> $users */
         $users = User::active()->with(['groups', 'functions'])->when($groupId, fn ($q) => $q->whereHas('groups', fn ($g) => $g->whereKey($groupId)))->orderBy('name')->get();
-        $topics = Topic::where('is_active', true)->orderBy('name')->get();
+        /** @var EloquentCollection<int, Topic> $topics */
+        $topics = ($manager ? self::topicsForManager($manager) : Topic::query())->where('is_active', true)->orderBy('name')->get();
         $last = $this->lastDates($users->pluck('id')->all());
         $cells = [];
         foreach ($users as $u) {
@@ -224,7 +303,8 @@ class InstructionService
         if (! app(ModuleRegistry::class)->isActive(self::MODULE)) {
             return 0;
         }
-        $digest = collect();
+        $digest = [];
+        $remindedCount = 0;
         $m = $this->matrix();
         foreach ($m['users'] as $user) {
             $lines = [];
@@ -240,18 +320,32 @@ class InstructionService
                     continue;
                 }
                 $attendance->update(['reminded_on' => $cell['until']]);
-                $lines[] = $topic->label().($cell['state'] === 'expired' ? ' abgelaufen am ' : ' läuft ab am ').$cell['until']->format('d.m.Y');
+                $topicLine = $topic->label().($cell['state'] === 'expired' ? ' abgelaufen am ' : ' läuft ab am ').$cell['until']->format('d.m.Y');
+                $lines[] = $topicLine;
+                $digest[$topic->id][] = $user->name.': '.$topicLine;
             }
             if ($lines) {
                 $this->notify(collect([$user]), new InstructionDueNotification($lines));
-                $digest->push($user->name.': '.implode(', ', $lines));
+                $remindedCount++;
             }
         }
-        if ($digest->isNotEmpty()) {
-            $this->notify($this->managers(), new InstructionDueNotification($digest->all(), true));
+        if ($digest !== []) {
+            $topics = Topic::whereIn('id', array_keys($digest))->get()->keyBy('id');
+            foreach ($this->managers() as $manager) {
+                $managerLines = [];
+                foreach ($digest as $topicId => $lines) {
+                    $topic = $topics[$topicId] ?? null;
+                    if ($topic && self::canManageTopic($manager, $topic)) {
+                        array_push($managerLines, ...$lines);
+                    }
+                }
+                if ($managerLines !== []) {
+                    $this->notify(collect([$manager]), new InstructionDueNotification($managerLines, true));
+                }
+            }
         }
 
-        return $digest->count();
+        return $remindedCount;
     }
 
     // ─── for other modules ───────────────────────────────────────────────────

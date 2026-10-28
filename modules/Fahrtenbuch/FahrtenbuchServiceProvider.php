@@ -70,7 +70,8 @@ class FahrtenbuchServiceProvider extends ServiceProvider
 
         // Start page: the own open trip, to end it with one tap
         app(DashboardRegistry::class)->register('fahrtenbuch', 'open', function (User $user) {
-            $trip = LogbookService::canView($user) ? Trip::open()->with('vehicle')->where('driver_id', $user->id)->latest('started_at')->first() : null;
+            $trip = LogbookService::canView($user) ? Trip::open()->with('vehicle')->where('driver_id', $user->id)
+                ->whereHas('vehicle')->latest('started_at')->first() : null;
 
             return $trip ? view('fahrtenbuch::cards.open', compact('trip'))->render() : null;
         });

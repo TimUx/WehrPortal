@@ -3,18 +3,17 @@
 namespace Extensions\Vereinsverwaltung;
 
 use App\Models\User;
-use App\Services\ModuleRegistry;
 use App\Services\AssociationRegistry;
+use App\Services\ModuleRegistry;
 use App\Support\ModuleNav;
-use Extensions\Vereinsverwaltung\Http\Controllers\MembershipApplicationController;
 use Extensions\Vereinsverwaltung\Filament\VereinPlugin;
 use Extensions\Vereinsverwaltung\Livewire\Board;
 use Extensions\Vereinsverwaltung\Services\AssociationAccess;
 use Extensions\Vereinsverwaltung\Services\MembershipService;
+use Filament\Facades\Filament;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Filament\Facades\Filament;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;

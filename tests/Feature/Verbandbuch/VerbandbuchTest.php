@@ -4,6 +4,8 @@ use App\Livewire\Dashboard\Home;
 use App\Models\ActivityLog;
 use App\Models\Module;
 use App\Models\User;
+use Extensions\Locations\Models\Location;
+use Extensions\Locations\Services\StandardRoleAssignments;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -20,20 +22,25 @@ use Modules\Verbandbuch\src\Notifications\EntryRecordedNotification;
 use Modules\Verbandbuch\src\Services\VerbandbuchService;
 
 beforeEach(function () {
+    config(['locations.enabled' => true]);
     Module::where('key', 'verbandbuch')->update(['is_active' => true]);
     Cache::forget('modules_active_keys');
     Notification::fake();
 
-    $this->safety = User::factory()->create(['name' => 'Sigrid Sicher']);
-    $this->safety->moduleAccess()->create(['module' => 'verbandbuch', 'role' => 'sicherheitsbeauftragter']);
+    $this->admin = User::factory()->admin()->create();
+    $this->north = Location::create(['name' => 'Wache Nord', 'slug' => 'verbandbuch-nord']);
+    $this->south = Location::create(['name' => 'Wache Süd', 'slug' => 'verbandbuch-sued']);
+    $this->safety = User::factory()->create(['name' => 'Sigrid Sicher', 'ext_location_id' => $this->north->id]);
     $this->chief = User::factory()->create(['name' => 'Wilma Wehrführer']);
-    $this->chief->moduleAccess()->create(['module' => 'verbandbuch', 'role' => 'wehrführung']);
-    $this->helper = User::factory()->create(['name' => 'Bernd Blaulicht']);
+    $this->helper = User::factory()->create(['name' => 'Bernd Blaulicht', 'ext_location_id' => $this->north->id]);
     $this->helper->moduleAccess()->create(['module' => 'verbandbuch']);
-    $this->hurt = User::factory()->create(['name' => 'Hanna Hydrant']);
+    $this->hurt = User::factory()->create(['name' => 'Hanna Hydrant', 'ext_location_id' => $this->north->id]);
     $this->hurt->moduleAccess()->create(['module' => 'verbandbuch']);
-    $this->other = User::factory()->create(['name' => 'Otto Ortsbrand']);
+    $this->other = User::factory()->create(['name' => 'Otto Ortsbrand', 'ext_location_id' => $this->south->id]);
     $this->other->moduleAccess()->create(['module' => 'verbandbuch']);
+    $this->roles = app(StandardRoleAssignments::class);
+    $this->roles->grant($this->admin, $this->safety->id, 'wehrfuehrung', $this->north->id, null, 'Örtliche Verantwortung');
+    $this->roles->grant($this->admin, $this->chief->id, 'gemeindebrandinspektor', null, null, 'Gemeindeweite Leitung');
 
     $this->vb = app(VerbandbuchService::class);
 });
@@ -130,7 +137,7 @@ test('the Livewire form writes and signs the entry', function () {
 test('only the managers and the people in an entry can see it', function () {
     $entry = injuryEntry($this->helper);
 
-    foreach ([$this->safety, $this->chief, $this->helper, $this->hurt] as $user) {
+    foreach ([$this->admin, $this->safety, $this->chief, $this->helper, $this->hurt] as $user) {
         $this->actingAs($user)->get(route('verbandbuch.show', $entry))->assertOk()->assertSee('Quetschung linker Zeigefinger');
     }
     $this->actingAs($this->other)->get(route('verbandbuch.show', $entry))->assertForbidden();
@@ -148,11 +155,48 @@ test('only the managers and the people in an entry can see it', function () {
     expect($entry->accessLogs()->pluck('action')->all())->toContain('created', 'viewed', 'printed');
 });
 
+test('local Wehrführung is limited to its immutable Standort while GBI and involved people retain access', function () {
+    $northEntry = injuryEntry($this->helper);
+    $southEntry = injuryEntry($this->other, ['description' => 'Sturz an der südlichen Wache.']);
+    $southLeader = User::factory()->create(['name' => 'Sven Süd', 'ext_location_id' => $this->south->id]);
+    app(StandardRoleAssignments::class)->grant($this->admin, $southLeader->id, 'wehrfuehrung', $this->south->id, null, 'Örtliche Verantwortung');
+    $legacyLeader = User::factory()->create(['name' => 'Lena Legacy']);
+    $legacyLeader->moduleAccess()->create(['module' => 'verbandbuch', 'role' => 'wehrführung']);
+
+    expect(VerbandbuchService::canManageEntry($this->safety, $northEntry))->toBeTrue()
+        ->and(VerbandbuchService::canManageEntry($this->safety, $southEntry))->toBeFalse()
+        ->and(VerbandbuchService::canManageEntry($southLeader, $southEntry))->toBeTrue()
+        ->and(VerbandbuchService::canManageEntry($southLeader, $northEntry))->toBeFalse()
+        ->and(VerbandbuchService::canManageEntry($legacyLeader, $northEntry))->toBeFalse()
+        ->and(VerbandbuchService::canManageEntry($this->chief, $southEntry))->toBeTrue()
+        ->and(VerbandbuchService::canManageEntry($this->admin, $southEntry))->toBeTrue();
+
+    Livewire::actingAs($this->safety)->test(EntryList::class)
+        ->assertSee($northEntry->code())->assertDontSee($southEntry->code());
+    Livewire::actingAs($southLeader)->test(EntryList::class)
+        ->assertSee($southEntry->code())->assertDontSee($northEntry->code());
+
+    $this->actingAs($this->safety)->get(route('verbandbuch.show', $southEntry))->assertForbidden();
+    $this->actingAs($this->safety)->get(route('verbandbuch.print-year', $southEntry->year))
+        ->assertOk()->assertDontSee('Sturz an der südlichen Wache');
+    expect(fn () => $this->vb->markReported($this->safety, $southEntry, now('Europe/Berlin')->toDateString(), null))
+        ->toThrow(ValidationException::class);
+
+    DB::statement('ALTER TABLE vb_entries DISABLE TRIGGER vb_entries_protect');
+    DB::table('vb_entries')->where('id', $northEntry->id)->update(['ext_location_id' => null]);
+    DB::statement('ALTER TABLE vb_entries ENABLE TRIGGER vb_entries_protect');
+    $historical = $northEntry->fresh();
+    expect(VerbandbuchService::canManageEntry($this->safety, $historical))->toBeFalse()
+        ->and(VerbandbuchService::canManageEntry($this->chief, $historical))->toBeTrue()
+        ->and(VerbandbuchService::canView($this->helper, $historical))->toBeTrue();
+});
+
 test('a signed entry cannot be changed or deleted, not even in the database; Nachträge are chained', function () {
     $entry = injuryEntry($this->helper);
 
     // Each in a savepoint: a failed statement would otherwise abort the test's transaction
     expect(fn () => DB::transaction(fn () => DB::table('vb_entries')->where('id', $entry->id)->update(['location' => 'Woanders'])))->toThrow(QueryException::class)
+        ->and(fn () => DB::transaction(fn () => DB::table('vb_entries')->where('id', $entry->id)->update(['ext_location_id' => $this->south->id])))->toThrow(QueryException::class)
         ->and(fn () => DB::transaction(fn () => DB::table('vb_entries')->where('id', $entry->id)->delete()))->toThrow(QueryException::class)
         ->and(fn () => DB::transaction(fn () => Signature::where('entry_id', $entry->id)->update(['name' => 'Jemand'])))->toThrow(QueryException::class);
 

@@ -15,6 +15,19 @@
         <label class="block text-sm font-medium text-gray-700">Ort<input type="text" wire:model="location" list="wehrportal-places" maxlength="150" class="mt-1 {{ $input }}"></label>
         <label class="block text-sm font-medium text-gray-700">Beschreibung<textarea wire:model="description" rows="2" maxlength="5000" class="mt-1 {{ $input }}"></textarea></label>
 
+        @if($locations->isNotEmpty())
+            <div>
+                <p class="text-sm font-medium text-gray-700 mb-1">Standorte <span class="text-red-600">*</span></p>
+                <div class="flex flex-wrap gap-3">
+                    @foreach($locations as $id => $name)
+                        <label class="inline-flex items-center gap-1.5 text-sm text-gray-700"><input type="checkbox" value="{{ $id }}" wire:model.live="locationIds" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> {{ $name }}</label>
+                    @endforeach
+                </div>
+                @error('locationIds')<span class="text-sm text-red-600">{{ $message }}</span>@enderror
+                @error('locationIds.*')<span class="text-sm text-red-600">{{ $message }}</span>@enderror
+            </div>
+        @endif
+
         <div class="space-y-2">
             <p class="text-sm font-medium text-gray-700">Terminvorschläge</p>
             @foreach($options as $i => $o)
@@ -37,7 +50,7 @@
         <label class="block text-sm font-medium text-gray-700">Antworten bis (optional; zwei Tage vorher werden alle ohne Antwort erinnert)<input type="datetime-local" wire:model="deadline" class="mt-1 {{ $input }}"></label>
 
         <div>
-            <p class="text-sm font-medium text-gray-700 mb-1">Für (leer = alle Kameraden mit Kalender)</p>
+            <p class="text-sm font-medium text-gray-700 mb-1">Für (leer = alle Kameraden der ausgewählten Standorte)</p>
             <div class="flex flex-wrap gap-3">
                 @foreach($groups as $id => $name)<label class="inline-flex items-center gap-1.5 text-sm text-gray-700"><input type="checkbox" value="{{ $id }}" wire:model="groupIds" class="rounded"> {{ $name }}</label>@endforeach
             </div>

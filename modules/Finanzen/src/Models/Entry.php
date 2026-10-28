@@ -4,6 +4,7 @@ namespace Modules\Finanzen\src\Models;
 
 use App\Models\User;
 use App\Support\Money;
+use Extensions\Locations\Models\Location;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,6 +12,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * A Buchung with Belegnummer: an Ausgabe (a Kamerad submits it, Kassenwart or Wehrführung approve
  * it, the Kassenwart pays it) or an Einnahme (booked by the Kassenwart).
+ *
+ * @property int|null $location_id
+ * @property-read Location|null $location
  */
 class Entry extends Model
 {
@@ -24,7 +28,7 @@ class Entry extends Model
     protected $table = 'fin_entries';
 
     protected $fillable = ['year', 'number', 'kind', 'status', 'cost_center_id', 'title', 'description', 'vendor', 'amount_cents', 'booked_on',
-        'submitted_by', 'decided_by', 'decided_at', 'decision_comment', 'paid_by', 'paid_at', 'payment_note'];
+        'location_id', 'submitted_by', 'decided_by', 'decided_at', 'decision_comment', 'paid_by', 'paid_at', 'payment_note'];
 
     protected function casts(): array
     {
@@ -34,6 +38,11 @@ class Entry extends Model
     public function costCenter(): BelongsTo
     {
         return $this->belongsTo(CostCenter::class);
+    }
+
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(Location::class, 'location_id');
     }
 
     public function submitter(): BelongsTo

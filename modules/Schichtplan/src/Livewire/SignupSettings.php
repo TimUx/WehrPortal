@@ -2,9 +2,9 @@
 
 namespace Modules\Schichtplan\src\Livewire;
 
-use App\Models\Group;
 use App\Models\MemberFunction;
 use Modules\Schichtplan\src\Models\Plan;
+use Modules\Schichtplan\src\Services\PlanLocationAccess;
 
 /** The self sign-up settings of a plan, shared by "Neuer Plan" and the editor */
 trait SignupSettings
@@ -53,10 +53,10 @@ trait SignupSettings
         $this->audienceFunctions = array_map('strval', $plan->audience_functions ?? []);
     }
 
-    protected function signupOptions(): array
+    protected function signupOptions(PlanLocationAccess $locations): array
     {
         return [
-            'audienceGroupOptions' => Group::options(),
+            'audienceGroupOptions' => $locations->groupOptions($this->locationId),
             'audienceFunctionOptions' => MemberFunction::with('parent')->orderBy('sort_order')->orderBy('name')->get()
                 ->mapWithKeys(fn (MemberFunction $f) => [$f->id => $f->fullLabel()])->sort(),
         ];

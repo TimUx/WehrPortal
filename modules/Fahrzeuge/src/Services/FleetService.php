@@ -2,17 +2,24 @@
 
 namespace Modules\Fahrzeuge\src\Services;
 
+use App\Models\Module;
 use App\Models\User;
 use App\Services\ImageResizer;
 use App\Services\ModuleRegistry;
 use App\Support\Money;
 use App\Support\SignatureImage;
 use Carbon\CarbonInterface;
+use Extensions\Locations\Models\Location as Standort;
+use Extensions\Locations\Services\LocationAccess;
+use Extensions\Locations\Services\LocationContext;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Modules\Ausruestung\src\Models\Location;
 use Modules\Einsatzbericht\src\Models\ReportVehicle;
@@ -57,7 +64,51 @@ class FleetService
     /** Fahrzeugwart and admins: profiles, status, Werkstatt, deadlines and documentation */
     public static function canManage(User $user): bool
     {
-        return self::canView($user) && ($user->is_admin || $user->hasModuleRole(self::MODULE, 'fahrzeugwart'));
+        return self::canView($user) && ($user->is_admin || (
+            $user->hasAnyModuleRole(self::MODULE, 'fahrzeugwart') && self::vehicleLocationScope($user) !== []
+        ));
+    }
+
+    public static function canViewVehicle(User $user, Vehicle $vehicle): bool
+    {
+        if (! self::canView($user)) {
+            return false;
+        }
+
+        $locationIds = self::vehicleLocationScope($user);
+
+        return $locationIds === null || in_array((int) $vehicle->getAttribute('ext_location_id'), $locationIds, true);
+    }
+
+    public static function canManageVehicle(User $user, Vehicle $vehicle): bool
+    {
+        return self::canViewVehicle($user, $vehicle)
+            && ($user->is_admin || $user->hasModuleRole(self::MODULE, 'fahrzeugwart', $vehicle->getAttribute('ext_location_id') ? (int) $vehicle->getAttribute('ext_location_id') : null));
+    }
+
+    /** @return Builder<Vehicle> */
+    public static function vehiclesFor(User $user): Builder
+    {
+        $locationIds = self::vehicleLocationScope($user);
+
+        return Vehicle::query()->when($locationIds !== null, fn (Builder $query) => $query->whereIn('ext_location_id', $locationIds));
+    }
+
+    /** @return list<int>|null Null means the user has an existing unscoped module grant. */
+    public static function vehicleLocationScope(User $user): ?array
+    {
+        if ($user->is_admin
+            || $user->hasModuleRole(self::MODULE, 'fahrzeugwart')
+            || $user->moduleAccess()->where('module', self::MODULE)->exists()
+            || Module::where('key', self::MODULE)->where('auto_assign', true)->exists()) {
+            return null;
+        }
+
+        if (! config('locations.enabled', false)) {
+            return [];
+        }
+
+        return $user->standardRoleLocationIds(self::MODULE, ['fahrzeugwart']);
     }
 
     public function managers(): EloquentCollection
@@ -87,7 +138,7 @@ class FleetService
      */
     public function saveVehicle(User $by, ?Vehicle $vehicle, array $data, ?UploadedFile $photo = null): Vehicle
     {
-        $this->assertManager($by);
+        $this->assertManager($by, $vehicle);
         $errors = [];
         $name = $this->text($data['name'] ?? null, 255);
         if ($name === null) {
@@ -130,14 +181,33 @@ class FleetService
         if ($locationId && ! Location::whereKey($locationId)->exists()) {
             $errors['location_id'] = 'Diesen Standort gibt es nicht.';
         }
+        $standortId = filled($data['ext_location_id'] ?? null)
+            ? (int) $data['ext_location_id']
+            : ($vehicle?->getAttribute('ext_location_id') ? (int) $vehicle->getAttribute('ext_location_id') : null);
+        if (config('locations.enabled', false)) {
+            $visibleLocationIds = app(LocationAccess::class)->visibleLocationIds($by);
+            $standortId ??= app(LocationContext::class)->forUser($by)['current'];
+            $roleLocationIds = self::vehicleLocationScope($by);
+            if ($roleLocationIds !== null && ! in_array($standortId, $roleLocationIds, true) && ! filled($data['ext_location_id'] ?? null)) {
+                $standortId = $roleLocationIds[0] ?? null;
+            }
+            if (! $standortId || ! in_array($standortId, $visibleLocationIds, true) || ! Standort::query()->whereKey($standortId)->exists()) {
+                $errors['ext_location_id'] = 'Bitte einen Standort auswählen, auf den du Zugriff hast.';
+            } elseif (! self::canManageLocation($by, $standortId)) {
+                $errors['ext_location_id'] = 'Du darfst Fahrzeuge nur an deinen zugewiesenen Standorten verwalten.';
+            }
+        }
         if ($errors) {
             throw ValidationException::withMessages($errors);
         }
 
         $photoData = $photo ? base64_encode($this->images->toWebp($photo->getRealPath(), 1600, 'photo')) : null;
 
-        return DB::transaction(function () use ($vehicle, $data, $name, $color, $category, $numbers, $hours, $firstRegistration, $locationId, $photoData, $purchasedOn, $warrantyUntil, $price, $replacementYear, $replacementCost) {
+        return DB::transaction(function () use ($vehicle, $data, $name, $color, $category, $numbers, $hours, $firstRegistration, $locationId, $standortId, $photoData, $purchasedOn, $warrantyUntil, $price, $replacementYear, $replacementCost) {
             $vehicle ??= new Vehicle(['is_active' => true]);
+            if ($standortId !== null) {
+                $vehicle->forceFill(['ext_location_id' => $standortId]);
+            }
             $vehicle->fill([
                 'name' => $name, 'short_name' => $this->text($data['short_name'] ?? null, 255), 'color' => $color,
                 'description' => $this->text($data['description'] ?? null, 2000), 'sort_order' => (int) ($data['sort_order'] ?? $vehicle->sort_order ?? 0),
@@ -165,9 +235,40 @@ class FleetService
         });
     }
 
+    /** Delete only unused vehicles; booking and trip records are retained as history. */
+    public function deleteVehicle(User $by, Vehicle $vehicle): void
+    {
+        $this->assertManager($by, $vehicle);
+
+        try {
+            DB::transaction(function () use ($by, $vehicle) {
+                $locked = Vehicle::query()->whereKey($vehicle->getKey())->lockForUpdate()->firstOrFail();
+                $this->assertManager($by, $locked);
+                $hasTrips = Schema::hasTable('ft_trips') && DB::table('ft_trips')->where('vehicle_id', $locked->getKey())->exists();
+                $hasFuelings = Schema::hasTable('ft_fuelings') && DB::table('ft_fuelings')->where('vehicle_id', $locked->getKey())->exists();
+
+                if ($locked->bookings()->exists() || $hasTrips || $hasFuelings) {
+                    throw ValidationException::withMessages([
+                        'fahrzeuge' => 'Das Fahrzeug hat bereits Buchungen oder Fahrtenbucheinträge und kann deshalb nicht gelöscht werden. Du kannst es stattdessen außer Dienst stellen.',
+                    ]);
+                }
+
+                $locked->delete();
+            });
+        } catch (QueryException $exception) {
+            if ($exception->getCode() !== '23503') {
+                throw $exception;
+            }
+
+            throw ValidationException::withMessages([
+                'fahrzeuge' => 'Das Fahrzeug wird bereits in anderen Datensätzen verwendet und kann deshalb nicht gelöscht werden. Du kannst es stattdessen außer Dienst stellen.',
+            ]);
+        }
+    }
+
     public function removePhoto(User $by, Vehicle $vehicle): void
     {
-        $this->assertManager($by);
+        $this->assertManager($by, $vehicle);
         Profile::where('vehicle_id', $vehicle->id)->update(['photo' => null, 'photo_updated_at' => null]);
     }
 
@@ -175,7 +276,7 @@ class FleetService
 
     public function setStatus(User $by, Vehicle $vehicle, string $status, ?string $note): void
     {
-        $this->assertManager($by);
+        $this->assertManager($by, $vehicle);
         if (! array_key_exists($status, Profile::STATUSES)) {
             throw ValidationException::withMessages(['status' => 'Bitte einen Status wählen.']);
         }
@@ -199,14 +300,14 @@ class FleetService
     /** Außer Dienst: no longer bookable, not offered in the Einsatzbericht; the history stays */
     public function decommission(User $by, Vehicle $vehicle, ?string $note): void
     {
-        $this->assertManager($by);
+        $this->assertManager($by, $vehicle);
         $vehicle->update(['is_active' => false]);
         StatusEvent::create(['vehicle_id' => $vehicle->id, 'status' => 'decommissioned', 'note' => $this->text($note, 300), 'user_id' => $by->id]);
     }
 
     public function recommission(User $by, Vehicle $vehicle): void
     {
-        $this->assertManager($by);
+        $this->assertManager($by, $vehicle);
         $vehicle->update(['is_active' => true]);
         StatusEvent::create(['vehicle_id' => $vehicle->id, 'status' => 'recommissioned', 'user_id' => $by->id]);
     }
@@ -219,7 +320,7 @@ class FleetService
      */
     public function addDowntime(User $by, Vehicle $vehicle, string $startsAt, ?string $endsAt, string $reason): Collection
     {
-        $this->assertManager($by);
+        $this->assertManager($by, $vehicle);
         $errors = [];
         $start = $this->time($startsAt, 'downtime_starts_at', $errors);
         $end = filled($endsAt) ? $this->time($endsAt, 'downtime_ends_at', $errors) : null;
@@ -251,7 +352,8 @@ class FleetService
     /** Back from the Werkstatt: a running downtime ends now, a planned one is removed */
     public function endDowntime(User $by, Downtime $downtime): void
     {
-        $this->assertManager($by);
+        $vehicle = $this->targetVehicle((int) $downtime->vehicle_id);
+        $this->assertManager($by, $vehicle);
         if ($downtime->starts_at->isFuture()) {
             $downtime->delete();
 
@@ -261,7 +363,6 @@ class FleetService
             $downtime->update(['ends_at' => now()]);
         }
 
-        $vehicle = $downtime->vehicle;
         $stillDown = Downtime::where('vehicle_id', $vehicle->id)->overlapping(now(), now()->addSecond())->exists();
         if (! $stillDown && $this->profile($vehicle)->status === 'unavailable') {
             $this->setStatus($by, $vehicle, 'ready', null);
@@ -280,7 +381,10 @@ class FleetService
     /** @param  array{title: string, interval_months?: ?int, due_on: string, lead_days?: ?int, notes?: ?string, steps?: string|list<string>}  $data */
     public function saveDeadline(User $by, Vehicle $vehicle, ?Deadline $deadline, array $data): Deadline
     {
-        $this->assertManager($by);
+        $this->assertManager($by, $vehicle);
+        if ($deadline && (int) $deadline->vehicle_id !== (int) $vehicle->id) {
+            throw ValidationException::withMessages(['deadline' => 'Die Frist gehört nicht zu diesem Fahrzeug.']);
+        }
         $errors = [];
         $title = $this->text($data['title'] ?? null, 150);
         if ($title === null) {
@@ -317,7 +421,7 @@ class FleetService
 
     public function deleteDeadline(User $by, Deadline $deadline): void
     {
-        $this->assertManager($by);
+        $this->assertManager($by, $this->targetVehicle((int) $deadline->vehicle_id));
         $deadline->records()->exists() ? $deadline->update(['is_active' => false]) : $deadline->delete();
         $this->syncCalendar($deadline);
     }
@@ -341,7 +445,8 @@ class FleetService
                 $vehicle = $deadline->vehicle()->first();
                 $eventId = app(EventService::class)->create(['title' => ($vehicle?->name ?? 'Fahrzeug').': '.$deadline->title, 'type' => 'wartung', 'all_day' => true,
                     'starts_at' => $start, 'ends_at' => $start->copy()->addDay(), 'managed_by' => self::MODULE,
-                    'description' => 'Frist aus der Fahrzeugverwaltung – erledigt wird sie im Fahrzeugprofil.'], [], null, null, false, $this->managers()->pluck('id')->all())
+                    'description' => 'Frist aus der Fahrzeugverwaltung – erledigt wird sie im Fahrzeugprofil.'], [], null, null, false, $this->managers()->pluck('id')->all(),
+                    locationIds: $vehicle?->ext_location_id ? [(int) $vehicle->ext_location_id] : [])
                     ->first()?->id;
             }
             if ($deadline->exists && $deadline->event_id !== $eventId) {
@@ -364,7 +469,7 @@ class FleetService
      */
     public function recordWork(User $by, Vehicle $vehicle, array $data, array $files = []): Record
     {
-        $this->assertManager($by);
+        $this->assertManager($by, $vehicle);
         $errors = [];
         $deadline = filled($data['deadline_id'] ?? null) ? Deadline::where('vehicle_id', $vehicle->id)->find((int) $data['deadline_id']) : null;
         $kind = (string) ($data['kind'] ?? ($deadline ? 'inspection' : ''));
@@ -515,7 +620,8 @@ class FleetService
      */
     public function submitToFinance(User $by, Record $record, ?int $costCenterId, array $files = []): int
     {
-        $this->assertManager($by);
+        $vehicle = $this->targetVehicle((int) $record->vehicle_id);
+        $this->assertManager($by, $vehicle);
         if (! app(ModuleRegistry::class)->isActive('finanzen') || ! $by->canUseModule('finanzen')) {
             throw ValidationException::withMessages(['record_finance' => 'Die Finanzen sind nicht eingeschaltet.']);
         }
@@ -524,7 +630,7 @@ class FleetService
         }
         try {
             $entry = app(FinanceService::class)->create($by, [
-                'cost_center_id' => $costCenterId, 'title' => $record->vehicle->name.': '.$record->title, 'vendor' => $record->provider,
+                'cost_center_id' => $costCenterId, 'title' => $vehicle->name.': '.$record->title, 'vendor' => $record->provider,
                 'amount_cents' => $record->cost_cents, 'booked_on' => $record->done_on->toDateString(),
                 'description' => trim(($record->invoice_number ? 'Rechnung '.$record->invoice_number.'. ' : '').'Aus der Fahrzeugverwaltung ('.$record->kindLabel().').'),
             ], $files);
@@ -541,7 +647,7 @@ class FleetService
     /** @param  array{kind: string, title?: ?string, valid_until?: ?string, internal?: bool}  $data */
     public function addDocument(User $by, Vehicle $vehicle, array $data, UploadedFile $file): Document
     {
-        $this->assertManager($by);
+        $this->assertManager($by, $vehicle);
         $errors = [];
         $kind = (string) ($data['kind'] ?? '');
         if (! array_key_exists($kind, Document::KINDS)) {
@@ -564,13 +670,19 @@ class FleetService
 
     public function deleteDocument(User $by, Document $document): void
     {
-        $this->assertManager($by);
+        $this->assertManager($by, $this->targetVehicle((int) $document->vehicle_id));
         $document->delete();
     }
 
     public static function canSeeDocument(User $user, Document $document): bool
     {
-        return $document->internal ? self::canManage($user) : self::canView($user);
+        $vehicle = Vehicle::withoutGlobalScopes()->find($document->vehicle_id);
+        if (! $vehicle) {
+            return false;
+        }
+
+        return self::canViewVehicle($user, $vehicle)
+            && (! $document->internal || self::canManageVehicle($user, $vehicle));
     }
 
     /**
@@ -578,11 +690,13 @@ class FleetService
      *
      * @param  string  $filter  overdue | upcoming (next 90 days) | all
      */
-    public function deadlines(string $filter = 'upcoming', ?int $vehicleId = null): EloquentCollection
+    public function deadlines(string $filter = 'upcoming', ?int $vehicleId = null, ?User $user = null): EloquentCollection
     {
         $today = self::today();
+        $locationIds = $user ? self::vehicleLocationScope($user) : null;
 
         return Deadline::active()->with('vehicle')->whereHas('vehicle', fn ($q) => $q->where('is_active', true))
+            ->when($locationIds !== null, fn ($q) => $q->whereHas('vehicle', fn ($vehicle) => $vehicle->whereIn('ext_location_id', $locationIds)))
             ->when($vehicleId, fn ($q) => $q->where('vehicle_id', $vehicleId))
             ->when($filter === 'overdue', fn ($q) => $q->where('due_on', '<', $today->toDateString()))
             ->when($filter === 'upcoming', fn ($q) => $q->where('due_on', '<=', $today->copy()->addDays(90)->toDateString()))
@@ -612,7 +726,7 @@ class FleetService
         $now = now();
         $profiles = Profile::whereIn('vehicle_id', $ids)->get()->keyBy('vehicle_id');
         $downtimes = Downtime::whereIn('vehicle_id', $ids)->overlapping($now, $now->copy()->addSecond())->get()->keyBy('vehicle_id');
-        $einsatz = $this->runningAssignments()->keyBy('vehicle_id');
+        $einsatz = $this->runningAssignments($ids)->keyBy('vehicle_id');
         $bookings = app(ModuleRegistry::class)->isActive('fahrzeugbuchung')
             ? Booking::active()->with('user')->whereIn('vehicle_id', $ids)->where('starts_at', '<=', $now)->where('ends_at', '>', $now)->get()->keyBy('vehicle_id')
             : collect();
@@ -638,15 +752,16 @@ class FleetService
     /**
      * Vehicles out at a running Einsatz (Einsatzbericht): left the station, not yet back.
      *
-     * @return Collection<int, array{vehicle_id: ?int, name: string, report_id: int, number: string, keyword: ?string, departed_at: ?Carbon, crew: int}>
+     * @return Collection<int, array{vehicle_id: ?int, name: string, report_id: int, number: string, keyword: ?string, departed_at: ?Carbon, crew: int<0, max>}>
      */
-    public function runningAssignments(): Collection
+    public function runningAssignments(?array $vehicleIds = null): Collection
     {
         if (! app(ModuleRegistry::class)->isActive('einsatzbericht')) {
             return collect();
         }
 
         return ReportVehicle::with('report')->withCount('crew')->where('is_standby', false)->whereNull('returned_at')
+            ->when($vehicleIds !== null, fn ($q) => $q->whereIn('vehicle_id', $vehicleIds))
             ->whereHas('report', fn ($q) => $q->where('status', 'active')->whereNull('ended_at'))
             ->get()
             ->map(fn (ReportVehicle $rv) => ['vehicle_id' => $rv->vehicle_id, 'name' => $rv->name, 'report_id' => $rv->report_id, 'number' => $rv->report->number,
@@ -754,9 +869,19 @@ class FleetService
         return $value === '' ? null : mb_substr($value, 0, $max);
     }
 
-    private function assertManager(User $user): void
+    private static function canManageLocation(User $user, int $locationId): bool
     {
-        if (! self::canManage($user)) {
+        return self::canManage($user) && ($user->is_admin || $user->hasModuleRole(self::MODULE, 'fahrzeugwart', $locationId));
+    }
+
+    private function targetVehicle(int $vehicleId): Vehicle
+    {
+        return Vehicle::withoutGlobalScopes()->findOrFail($vehicleId);
+    }
+
+    private function assertManager(User $user, ?Vehicle $vehicle = null): void
+    {
+        if (! self::canManage($user) || ($vehicle && ! self::canManageVehicle($user, Vehicle::withoutGlobalScopes()->find($vehicle->id) ?? $vehicle))) {
             throw ValidationException::withMessages(['fahrzeuge' => 'Das dürfen nur Fahrzeugwarte und Admins.']);
         }
     }

@@ -2,7 +2,11 @@
 
 namespace Modules\Ausruestung\src\Services;
 
+use App\Models\Module;
 use App\Models\User;
+use Extensions\Locations\Models\Location as Standort;
+use Extensions\Locations\Services\LocationAccess;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -19,6 +23,121 @@ class EquipmentService
 {
     public function __construct(private readonly AusruestungMailer $mailer) {}
 
+    public static function canViewEquipment(User $user, Equipment $equipment): bool
+    {
+        if (! $user->is_active || ! $user->canUseModule('ausruestung')) {
+            return false;
+        }
+
+        $locationIds = self::equipmentLocationScope($user);
+
+        return $locationIds === null || in_array((int) $equipment->getAttribute('ext_location_id'), $locationIds, true);
+    }
+
+    public static function canManageEquipment(User $user, Equipment $equipment): bool
+    {
+        return self::canViewEquipment($user, $equipment)
+            && ($user->is_admin || $user->hasModuleRole(
+                'ausruestung',
+                'geraetewart',
+                $equipment->getAttribute('ext_location_id') ? (int) $equipment->getAttribute('ext_location_id') : null,
+            ));
+    }
+
+    public static function canManage(User $user): bool
+    {
+        return $user->is_active && $user->canUseModule('ausruestung') && ($user->is_admin
+            || $user->hasModuleRole('ausruestung', 'geraetewart')
+            || ($user->standardRoleLocationIds('ausruestung', ['geraetewart']) !== [] && self::equipmentLocationScope($user) !== []));
+    }
+
+    public static function canManageGlobal(?User $user): bool
+    {
+        return $user !== null && self::canManage($user)
+            && ($user->is_admin || $user->hasModuleRole('ausruestung', 'geraetewart') || ! config('locations.enabled', false));
+    }
+
+    /** @return Builder<Equipment> */
+    public static function equipmentFor(User $user): Builder
+    {
+        $locationIds = self::equipmentLocationScope($user);
+        $query = Equipment::query();
+        if ($locationIds === []) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $locationIds === null ? $query : $query->whereIn('ext_location_id', $locationIds);
+    }
+
+    /** @return list<int>|null Null means an unrestricted global Gerätewart; an empty list denies access. */
+    public static function equipmentManagementScope(User $user): ?array
+    {
+        if (! self::canManage($user)) {
+            return [];
+        }
+
+        return self::canManageGlobal($user) ? null : self::manageableLocationIds($user);
+    }
+
+    /** @return Builder<Equipment> */
+    public static function managedEquipmentFor(User $user): Builder
+    {
+        $locationIds = self::equipmentManagementScope($user);
+        $query = Equipment::query();
+        if ($locationIds === []) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $locationIds === null ? $query : $query->whereIn('ext_location_id', $locationIds);
+    }
+
+    /** @return list<int>|null Null preserves existing unrestricted module grants. */
+    public static function equipmentLocationScope(User $user): ?array
+    {
+        if ($user->is_admin
+            || $user->hasModuleRole('ausruestung', 'geraetewart')
+            || $user->moduleAccess()->where('module', 'ausruestung')->exists()
+            || Module::where('key', 'ausruestung')->where('auto_assign', true)->exists()) {
+            return null;
+        }
+        if (! config('locations.enabled', false)) {
+            return [];
+        }
+
+        return $user->standardRoleLocationIds('ausruestung', ['geraetewart']);
+    }
+
+    public static function canManageLocation(User $user, int $standortId): bool
+    {
+        return self::canManage($user) && ($user->is_admin || $user->hasModuleRole('ausruestung', 'geraetewart', $standortId));
+    }
+
+    /** @return list<int> */
+    public static function manageableLocationIds(User $user): array
+    {
+        if (! self::canManage($user)) {
+            return [];
+        }
+
+        if (config('locations.enabled', false)
+            && ! $user->is_admin
+            && ! $user->hasModuleRole('ausruestung', 'geraetewart')) {
+            return $user->standardRoleLocationIds('ausruestung', ['geraetewart']);
+        }
+
+        return config('locations.enabled', false)
+            ? Standort::query()->pluck('id')->map(fn ($id) => (int) $id)->all()
+            : [];
+    }
+
+    public function assertCanManageEquipment(User $by, Equipment $equipment): void
+    {
+        $target = Equipment::withoutGlobalScopes()->findOrFail($equipment->id);
+        if (! self::canManageEquipment($by, $target)) {
+            throw ValidationException::withMessages(['equipment' => 'Du darfst dieses Gerät an dem Standort nicht verwalten.']);
+        }
+    }
+
     public function log(Equipment $equipment, ?User $by, string $type, ?string $body = null, ?Carbon $at = null, ?float $cost = null): EquipmentEvent
     {
         return $equipment->events()->create([
@@ -33,7 +152,8 @@ class EquipmentService
     /** Reinigung or Wartung by a Gerätewart, with its costs, in the Bestandsverlauf */
     public function logWork(Equipment $equipment, User $by, string $type, ?string $body, Carbon $at, ?float $cost): EquipmentEvent
     {
-        if (! $by->canManageAusruestung() || ! in_array($type, EquipmentEvent::WORK_TYPES, true)) {
+        $this->assertCanManageEquipment($by, $equipment);
+        if (! in_array($type, EquipmentEvent::WORK_TYPES, true)) {
             throw ValidationException::withMessages(['workType' => 'Reinigungen und Wartungen tragen die Gerätewarte ein.']);
         }
         if ($cost !== null && ($cost < 0 || $cost > 1_000_000)) {
@@ -46,15 +166,13 @@ class EquipmentService
     /** Give the item an RFID/NFC tag (or remove it); a tag belongs to one item only */
     public function setTag(Equipment $equipment, User $by, ?string $tag): void
     {
-        if (! $by->canManageAusruestung()) {
-            throw ValidationException::withMessages(['tag' => 'Tags ordnen die Gerätewarte zu.']);
-        }
+        $this->assertCanManageEquipment($by, $equipment);
         $tag = Equipment::normalizeTag($tag);
         if ($tag !== null && mb_strlen($tag) > 64) {
             throw ValidationException::withMessages(['tag' => 'Der Tag ist zu lang.']);
         }
-        if ($tag !== null && ($other = Equipment::where('rfid', $tag)->whereKeyNot($equipment->id)->first())) {
-            throw ValidationException::withMessages(['tag' => 'Dieser Tag gehört schon zu „'.$other->name.'“ ('.$other->code.').']);
+        if ($tag !== null && Equipment::withoutGlobalScopes()->where('rfid', $tag)->whereKeyNot($equipment->id)->exists()) {
+            throw ValidationException::withMessages(['tag' => 'Dieser Tag ist bereits einem Gerät zugeordnet.']);
         }
         if ($tag === $equipment->rfid) {
             return;
@@ -88,8 +206,17 @@ class EquipmentService
         $this->log($equipment, $by, 'status', $from->label().' → '.$status->label().(filled($note) ? ': '.$note : ''));
     }
 
+    public function setManagedStatus(User $by, Equipment $equipment, EquipmentStatus $status, ?string $note = null): void
+    {
+        $this->assertCanManageEquipment($by, $equipment);
+        $this->setStatus($equipment, $by, $status, $note);
+    }
+
     public function move(Equipment $equipment, ?User $by, ?int $locationId, ?int $compartmentId): void
     {
+        if ($by) {
+            $this->assertCanManageEquipment($by, $equipment);
+        }
         $before = $equipment->placeLabel();
         $equipment->update(['location_id' => $locationId, 'compartment_id' => $compartmentId]);
         $after = $equipment->refresh()->placeLabel();
@@ -99,8 +226,42 @@ class EquipmentService
         }
     }
 
+    /** Move the item to an organizational Standort, separately from its physical storage place. */
+    public function moveStandort(Equipment $equipment, User $by, int $standortId): void
+    {
+        $this->assertCanManageEquipment($by, $equipment);
+
+        $visibleIds = app(LocationAccess::class)->visibleLocationIds($by);
+        $standort = Standort::query()->whereKey($standortId)->whereIn('id', $visibleIds)->first();
+        if (! $standort || ! self::canManageLocation($by, $standortId)) {
+            throw ValidationException::withMessages(['ext_location_id' => 'Bitte einen Standort auswählen, den du verwalten darfst.']);
+        }
+
+        if ((int) $equipment->getAttribute('ext_location_id') === (int) $standort->getKey()) {
+            return;
+        }
+
+        $before = $equipment->standort()->value('name') ?? 'ohne Standort';
+        $equipment->forceFill(['ext_location_id' => $standort->getKey()])->save();
+        $this->log($equipment, $by, 'move', 'Standort: '.$before.' → '.$standort->getAttribute('name'));
+    }
+
     /** A passed inspection sets the next due date; a failed one takes the item out of service with a damage report */
     public function recordInspection(Equipment $equipment, ?User $by, Carbon $inspectedAt, bool $passed, ?string $notes = null): Inspection
+    {
+        if ($by) {
+            $this->assertCanManageEquipment($by, $equipment);
+        }
+
+        return $this->applyInspection($equipment, $by, $inspectedAt, $passed, $notes);
+    }
+
+    public function recordInspectionFromMaintenance(User $by, Equipment $equipment, Carbon $inspectedAt, bool $passed, ?string $notes = null): Inspection
+    {
+        return $this->applyInspection($equipment, $by, $inspectedAt, $passed, $notes);
+    }
+
+    private function applyInspection(Equipment $equipment, ?User $by, Carbon $inspectedAt, bool $passed, ?string $notes): Inspection
     {
         return DB::transaction(function () use ($equipment, $by, $inspectedAt, $passed, $notes) {
             $months = $equipment->inspectionIntervalMonths();
@@ -118,7 +279,7 @@ class EquipmentService
             $this->log($equipment, $by, 'inspection', ($passed ? 'Bestanden' : 'Nicht bestanden').($nextDue ? ', nächste Prüfung '.$nextDue->format('d.m.Y') : '').(filled($notes) ? ': '.$notes : ''), $inspectedAt->copy()->setTimeFrom(now()));
 
             if (! $passed) {
-                $this->reportDamage($equipment, $by, 'Prüfung nicht bestanden'.(filled($notes) ? ': '.$notes : ''));
+                $this->createDamage($equipment, $by, 'Prüfung nicht bestanden'.(filled($notes) ? ': '.$notes : ''));
             }
 
             return $inspection;
@@ -126,6 +287,25 @@ class EquipmentService
     }
 
     public function reportDamage(Equipment $equipment, ?User $by, string $description): Damage
+    {
+        if ($by && ! self::canViewEquipment($by, Equipment::withoutGlobalScopes()->findOrFail($equipment->id))) {
+            throw ValidationException::withMessages(['equipment' => 'Du darfst dieses Gerät an dem Standort nicht aufrufen.']);
+        }
+
+        return $this->createDamage($equipment, $by, $description);
+    }
+
+    public function reportDamageFromMaintenance(User $by, Equipment $equipment, string $description): Damage
+    {
+        return $this->createDamage($equipment, $by, $description);
+    }
+
+    public function reportDamageFromDefect(User $by, Equipment $equipment, string $description): Damage
+    {
+        return $this->createDamage($equipment, $by, $description);
+    }
+
+    private function createDamage(Equipment $equipment, ?User $by, string $description): Damage
     {
         $damage = DB::transaction(function () use ($equipment, $by, $description) {
             $damage = $equipment->damages()->create([
@@ -141,13 +321,34 @@ class EquipmentService
         });
 
         $this->mailer->toManagers(new DamageReportedNotification($damage), except: $by);
+        $locationId = $equipment->getAttribute('ext_location_id');
+        if ($locationId !== null) {
+            $this->mailer->toLocationManagers(new DamageReportedNotification($damage), (int) $locationId, except: $by);
+        }
 
         return $damage;
     }
 
     public function updateDamage(Damage $damage, ?User $by, DamageStatus $status, ?string $notes = null, ?float $cost = null): void
     {
-        DB::transaction(function () use ($damage, $by, $status, $notes, $cost) {
+        $equipment = Equipment::withoutGlobalScopes()->findOrFail($damage->equipment_id);
+        if ($by) {
+            $this->assertCanManageEquipment($by, $equipment);
+        }
+
+        $this->applyDamageUpdate($damage, $equipment, $by, $status, $notes, $cost);
+    }
+
+    public function updateDamageFromDefect(Damage $damage, User $by, DamageStatus $status, ?string $notes = null): void
+    {
+        $equipment = Equipment::withoutGlobalScopes()->findOrFail($damage->equipment_id);
+
+        $this->applyDamageUpdate($damage, $equipment, $by, $status, $notes, null);
+    }
+
+    private function applyDamageUpdate(Damage $damage, Equipment $equipment, ?User $by, DamageStatus $status, ?string $notes, ?float $cost): void
+    {
+        DB::transaction(function () use ($damage, $equipment, $by, $status, $notes, $cost) {
             $damage->update([
                 'status' => $status,
                 'repair_notes' => filled($notes) ? $notes : $damage->repair_notes,
@@ -155,13 +356,13 @@ class EquipmentService
                 'resolved_at' => $status->isOpen() ? null : now(),
             ]);
 
-            $equipment = $damage->equipment;
             $this->log($equipment, $by, 'repair', $status->label().(filled($notes) ? ': '.$notes : ''));
 
             match ($status) {
                 DamageStatus::InRepair => $this->takeOutOfService($equipment, $by, EquipmentStatus::InRepair),
                 DamageStatus::Scrapped => $this->setStatus($equipment, $by, EquipmentStatus::Retired, 'nach Schaden ausgesondert'),
-                DamageStatus::Repaired => $equipment->damages()->get()->contains(fn (Damage $d) => $d->status->isOpen())
+                DamageStatus::Repaired => $equipment->damages()
+                    ->whereIn('status', [DamageStatus::Open->value, DamageStatus::InRepair->value])->exists()
                     ? null
                     : $this->backInService($equipment, $by),
                 default => null,

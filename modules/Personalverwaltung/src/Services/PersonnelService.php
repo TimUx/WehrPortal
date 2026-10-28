@@ -11,12 +11,14 @@ use App\Services\ModuleRegistry;
 use App\Services\OrganizationSettings;
 use App\Support\Csv;
 use App\Support\FireRanks;
+use Extensions\Locations\Services\StandardRoleAssignments;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Modules\Kalender\src\Models\Event;
 use Modules\Kalender\src\Models\Response;
@@ -53,35 +55,93 @@ class PersonnelService
     /** How the Dienstzeit is counted (Jugendfeuerwehr) */
     private const RULES_KEY = 'personalverwaltung.service_rules';
 
+    /** Standard profiles whose Personalverwaltung access is limited to matching Abteilungen. */
+    private const GROUP_MANAGER_ROLES = ['jugendwart', 'kinderwart', 'gemeindejugendwart', 'gemeindekinderwart'];
+
     public static function today(): Carbon
     {
         return Carbon::parse(now('Europe/Berlin')->toDateString());
+    }
+
+    private function assertCanConfigure(User $user): void
+    {
+        if (! self::canConfigure($user)) {
+            throw ValidationException::withMessages(['personal' => 'Diese Einstellungen dürfen nur Admins und die globale Wehrführung ändern.']);
+        }
     }
 
     // ─── access ──────────────────────────────────────────────────────────────
 
     public static function canManage(User $user): bool
     {
-        return $user->is_active && $user->canUseModule(self::MODULE)
-            && ($user->is_admin || $user->hasModuleRole(self::MODULE, 'personalverwalter'));
+        if (! $user->is_active || ! $user->canUseModule(self::MODULE)) {
+            return false;
+        }
+        if (! config('locations.enabled')) {
+            return $user->is_admin || $user->hasModuleRole(self::MODULE, 'personalverwalter');
+        }
+
+        return self::isGlobalManager($user) || self::managedLocationIds($user) !== [] || self::managedGroupIds($user) !== [];
     }
 
     /** @return list<int> the Abteilungen a Personalverwalter is limited to; empty = all */
     public static function scopeOf(User $user): array
     {
-        if ($user->is_admin) {
+        if (self::isGlobalManager($user)) {
             return [];
         }
 
-        return DB::table('pm_scopes')->where('user_id', $user->id)->pluck('group_id')->map(fn ($id) => (int) $id)->all();
+        $locations = self::managedLocationIds($user);
+        if (config('locations.enabled')) {
+            $groups = self::managedGroupIds($user);
+            if ($locations !== [] && Schema::hasTable('groups')) {
+                $groups = [...$groups, ...DB::table('groups')->whereIn('ext_location_id', $locations)->pluck('id')->map(fn ($id) => (int) $id)->all()];
+            }
+
+            return array_values(array_unique($groups));
+        }
+
+        return self::legacyScopeOf($user);
     }
 
     /** The Kameraden whose file $manager may open */
     public static function visibleMembers(User $manager): Builder
     {
-        $scope = self::scopeOf($manager);
+        $members = User::withoutGlobalScopes();
+        if (! config('locations.enabled')) {
+            $scope = self::legacyScopeOf($manager);
 
-        return User::query()->when($scope !== [], fn ($q) => $q->whereHas('groups', fn ($g) => $g->whereIn('groups.id', $scope)));
+            return $members->when($scope !== [], fn ($q) => $q->whereHas('groups', fn ($g) => $g->whereIn('groups.id', $scope)));
+        }
+        if (self::isGlobalManager($manager)) {
+            return $members;
+        }
+
+        $locations = self::managedLocationIds($manager);
+        $groups = self::managedGroupIds($manager);
+        if ($locations === [] && $groups === []) {
+            return $members->whereRaw('1 = 0');
+        }
+
+        return $members->where(function ($query) use ($locations, $groups) {
+            if ($locations !== []) {
+                $query->whereIn('ext_location_id', $locations)
+                    ->when(Schema::hasTable('x_location_user'), fn ($query) => $query->orWhereExists(
+                        fn ($membership) => $membership->selectRaw('1')->from('x_location_user')
+                            ->whereColumn('x_location_user.user_id', 'users.id')->whereIn('location_id', $locations),
+                    ));
+            }
+
+            if ($groups !== []) {
+                $query->when($locations !== [], fn ($query) => $query->orWhereExists(
+                    fn ($membership) => $membership->selectRaw('1')->from('group_user')
+                        ->whereColumn('group_user.user_id', 'users.id')->whereIn('group_id', $groups),
+                ), fn ($query) => $query->whereExists(
+                    fn ($membership) => $membership->selectRaw('1')->from('group_user')
+                        ->whereColumn('group_user.user_id', 'users.id')->whereIn('group_id', $groups),
+                ));
+            }
+        });
     }
 
     /** Edits the file of $member (Personalverwalter within their Abteilungen) */
@@ -93,12 +153,130 @@ class PersonnelService
     /** Personaleinsicht: may look at the files (e.g. the Wehrführung), without changing anything or seeing personal data */
     public static function canView(User $user): bool
     {
-        return self::canManage($user) || ($user->is_active && $user->canUseModule(self::MODULE) && $user->hasModuleRole(self::MODULE, 'personaleinsicht'));
+        if (self::canManage($user)) {
+            return true;
+        }
+        if (! $user->is_active || ! $user->canUseModule(self::MODULE) || ! $user->hasModuleRole(self::MODULE, 'personaleinsicht')) {
+            return false;
+        }
+
+        return ! config('locations.enabled');
     }
 
     public static function mayRead(User $viewer, User $member): bool
     {
         return self::canView($viewer) && self::visibleMembers($viewer)->whereKey($member->id)->exists();
+    }
+
+    public static function canConfigure(User $user): bool
+    {
+        return self::canManage($user) && (! config('locations.enabled') || self::isGlobalManager($user));
+    }
+
+    public static function isGroupScopeRestricted(User $user): bool
+    {
+        if (self::isGlobalManager($user)) {
+            return false;
+        }
+
+        return self::managedLocationIds($user) !== [] || self::managedGroupIds($user) !== []
+            || (! config('locations.enabled') && self::legacyScopeOf($user) !== []);
+    }
+
+    /** Group choices available to this manager, bypassing the model scope only for exact assigned IDs. */
+    public static function groupOptions(User $manager): array
+    {
+        if (! self::isGroupScopeRestricted($manager)) {
+            return Group::options();
+        }
+
+        $query = Group::withoutGlobalScopes()->whereIn('id', self::scopeOf($manager));
+        if (Group::locationsAvailable()) {
+            $query->with('location');
+        }
+
+        return $query->orderBy('sort_order')->orderBy('name')->get()
+            ->mapWithKeys(fn (Group $group) => [$group->getKey() => $group->displayName()])
+            ->all();
+    }
+
+    /** The groups a manager may display on a member's file and reports. */
+    public static function visibleGroups(User $manager, User $member): EloquentCollection
+    {
+        $groups = $member->groups();
+        if (self::isGroupScopeRestricted($manager)) {
+            $groups->withoutGlobalScopes()->whereIn('groups.id', self::scopeOf($manager));
+        }
+        if (Group::locationsAvailable()) {
+            $groups->with('location');
+        }
+
+        return $groups->get();
+    }
+
+    /** @return list<int> */
+    public static function locationScopeIds(User $manager): array
+    {
+        if (! config('locations.enabled') || self::isGlobalManager($manager)) {
+            return [];
+        }
+
+        $locations = self::managedLocationIds($manager);
+        $groups = self::managedGroupIds($manager);
+        if ($groups !== []) {
+            $locations = [...$locations, ...DB::table('groups')->whereIn('id', $groups)->whereNotNull('ext_location_id')
+                ->pluck('ext_location_id')->map(fn ($id) => (int) $id)->all()];
+        }
+
+        return array_values(array_unique($locations));
+    }
+
+    private static function isGlobalManager(User $user): bool
+    {
+        return $user->is_admin || app(StandardRoleAssignments::class)->hasGlobalProfile($user, 'gemeindebrandinspektor');
+    }
+
+    /** @return list<int> */
+    private static function managedLocationIds(User $user): array
+    {
+        if (! config('locations.enabled') || ! Schema::hasTable('x_standard_role_assignments')) {
+            return [];
+        }
+
+        return app(StandardRoleAssignments::class)->locationWideIds($user, self::MODULE, ['personalverwalter']);
+    }
+
+    /** @return list<int> */
+    private static function managedGroupIds(User $user): array
+    {
+        if (! config('locations.enabled') || ! Schema::hasTable('x_standard_role_assignments')) {
+            return [];
+        }
+
+        return app(StandardRoleAssignments::class)->groupIds($user, self::MODULE, ['personalverwalter']);
+    }
+
+    public static function canManageHonorTypes(User $user): bool
+    {
+        if (! self::canManage($user)) {
+            return false;
+        }
+        if (! config('locations.enabled')) {
+            return true;
+        }
+
+        return self::isGlobalManager($user)
+            || app(StandardRoleAssignments::class)->locationWideIds($user, self::MODULE, ['personalverwalter']) !== [];
+    }
+
+    /** @return list<int> */
+    private static function legacyScopeOf(User $user): array
+    {
+        if (! Schema::hasTable('pm_scopes')) {
+            return [];
+        }
+
+        return DB::table('pm_scopes')->where('user_id', $user->id)->pluck('group_id')->map(fn ($id) => (int) $id)->all();
     }
 
     // ─── new members ─────────────────────────────────────────────────────────
@@ -164,7 +342,7 @@ class PersonnelService
             $get = fn (string $f) => isset($col[$f]) ? trim((string) ($cells[$col[$f]] ?? '')) : '';
             $name = $get('name') !== '' ? $get('name') : trim($get('first').' '.$get('last'));
             $email = mb_strtolower($get('email'));
-            $existing = $email !== '' ? User::whereRaw('lower(email) = ?', [$email])->first() : null;
+            $existing = $email !== '' ? User::withoutGlobalScopes()->whereRaw('lower(email) = ?', [$email])->first() : null;
             $date = fn (string $v) => collect(['!d.m.Y', '!Y-m-d'])->map(fn ($f) => rescue(fn () => Carbon::createFromFormat($f, $v), null, false))->filter()->first()?->toDateString();
             $gender = match (mb_strtolower(mb_substr($get('gender'), 0, 1))) {
                 'm' => 'male', 'w', 'f' => 'female', 'd' => 'diverse', default => null
@@ -199,7 +377,7 @@ class PersonnelService
                 $this->createMember($by, $row['data']);
                 $result['created']++;
             } elseif ($row['action'] === 'update') {
-                $member = User::whereRaw('lower(email) = ?', [$row['email']])->sole();
+                $member = User::withoutGlobalScopes()->whereRaw('lower(email) = ?', [$row['email']])->sole();
                 $clean = $this->memberData($by, $row['data'], $member);
                 DB::transaction(function () use ($member, $clean) {
                     $member->update(collect($clean)->except(['group_ids', 'email'])->filter(fn ($v) => $v !== null)->all());
@@ -229,13 +407,15 @@ class PersonnelService
             throw ValidationException::withMessages(['member_email' => 'Diese E-Mail-Adresse gehört schon einem Kameraden.']);
         }
         $groupIds = collect($data['group_ids'] ?? [])->map(fn ($id) => (int) $id);
+        $scope = self::scopeOf($by);
+        $scopeRestricted = self::isGroupScopeRestricted($by);
         foreach ($data['group_names'] ?? [] as $groupName) {
-            $group = Group::whereRaw('lower(name) = ?', [mb_strtolower($groupName)])->first()
+            $group = Group::withoutGlobalScopes()->whereRaw('lower(name) = ?', [mb_strtolower($groupName)])
+                ->when($scopeRestricted, fn ($query) => $query->whereIn('id', $scope))->first()
                 ?? throw ValidationException::withMessages(['member_groups' => 'Die Abteilung „'.$groupName.'“ gibt es nicht.']);
             $groupIds->push($group->id);
         }
-        $scope = self::scopeOf($by);
-        if ($scope !== [] && ($groupIds->isEmpty() || $groupIds->diff($scope)->isNotEmpty())) {
+        if ($scopeRestricted && ($groupIds->isEmpty() || $groupIds->diff($scope)->isNotEmpty())) {
             throw ValidationException::withMessages(['member_groups' => 'Bitte eine deiner Abteilungen wählen.']);
         }
         $date = fn ($v) => filled($v) ? rescue(fn () => Carbon::parse($v)->toDateString(), null, false) : null;
@@ -304,7 +484,7 @@ class PersonnelService
 
     public function saveSettings(User $by, array $data): void
     {
-        $this->assertManager($by);
+        $this->assertCanConfigure($by);
         Setting::set(self::SETTINGS_KEY, json_encode([
             'address' => (bool) ($data['address'] ?? false), 'birth_date' => (bool) ($data['birth_date'] ?? false),
             'phone' => (bool) ($data['phone'] ?? false), 'self_service' => (bool) ($data['self_service'] ?? false),
@@ -376,10 +556,33 @@ class PersonnelService
         return $changed;
     }
 
-    /** The Personalverwalter whose Abteilungen include the Kamerad (unlimited ones always); without any, the admins */
+    /** The Personalverwalter whose scope includes the Kamerad; without one, the admins */
     public function responsibleManagers(User $member): Collection
     {
-        $groups = $member->groups()->pluck('groups.id')->all();
+        $groups = $member->groups()->withoutGlobalScopes()->pluck('groups.id')->all();
+        if (config('locations.enabled')) {
+            $roleUserIds = [];
+            if (Schema::hasTable('x_standard_role_assignments')) {
+                $roleUserIds = DB::table('x_standard_role_assignments')->where('profile', 'wehrfuehrung')
+                    ->whereNull('group_id')->whereNull('revoked_at')->where('granted_at', '<=', now())
+                    ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+                    ->pluck('user_id')->all();
+                $roleUserIds = [...$roleUserIds, ...DB::table('x_standard_role_assignments')
+                    ->whereIn('profile', self::GROUP_MANAGER_ROLES)->whereNull('revoked_at')->where('granted_at', '<=', now())
+                    ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+                    ->pluck('user_id')->all()];
+            }
+            $managers = User::withoutGlobalScopes()->active()->whereKeyNot($member->id)
+                ->where(fn ($query) => $query->where('is_admin', true)
+                    ->orWhereHas('moduleAccess', fn ($access) => $access->where('module', self::MODULE)->where('role', 'personalverwalter'))
+                    ->orWhereIn('id', $roleUserIds))
+                ->get()
+                ->filter(fn (User $manager) => self::canManage($manager) && self::visibleMembers($manager)->whereKey($member->id)->exists())
+                ->values();
+
+            return $managers->isNotEmpty() ? $managers : User::withoutGlobalScopes()->active()->where('is_admin', true)->whereKeyNot($member->id)->get();
+        }
+
         $managers = User::active()->whereKeyNot($member->id)
             ->whereHas('moduleAccess', fn ($q) => $q->where('module', self::MODULE)->where('role', 'personalverwalter'))->get()
             ->filter(fn (User $m) => ($scope = self::scopeOf($m)) === [] || array_intersect($scope, $groups) !== [])->values();
@@ -413,8 +616,9 @@ class PersonnelService
         fwrite($out, "\xEF\xBB\xBF");
         Csv::put($out, ['Name', 'E-Mail', 'Abteilungen', ...(in_array('address', $fields, true) ? ['Straße', 'PLZ', 'Ort'] : []),
             ...(in_array('birth_date', $fields, true) ? ['Geburtsdatum'] : []), ...(in_array('phone', $fields, true) ? ['Mobilnummer'] : [])], ';');
-        foreach (self::visibleMembers($manager)->where('status', 'active')->with('groups')->orderBy('name')->get() as $m) {
-            Csv::put($out, [$m->name, $m->email, $m->groups->pluck('display_name')->implode(', '),
+        foreach (self::visibleMembers($manager)->where('status', 'active')->orderBy('name')->get() as $m) {
+            /** @var User $m */
+            Csv::put($out, [$m->name, $m->email, self::visibleGroups($manager, $m)->pluck('display_name')->implode(', '),
                 ...(in_array('address', $fields, true) ? [$m->street, $m->postal_code, $m->city] : []),
                 ...(in_array('birth_date', $fields, true) ? [$m->birth_date?->format('d.m.Y')] : []),
                 ...(in_array('phone', $fields, true) ? [$m->phone] : [])], ';');
@@ -433,7 +637,8 @@ class PersonnelService
      */
     public function syncHistory(User $user): int
     {
-        $user->loadMissing(['groups', 'functions.parent']);
+        $user->loadMissing(['functions.parent']);
+        $user->setRelation('groups', $user->groups()->withoutGlobalScopes()->get());
         $today = self::today();
         $changes = 0;
 
@@ -564,17 +769,17 @@ class PersonnelService
             ->when($ref, fn ($q) => $q->where('ref_id', $ref))->latest('id')->value('since');
 
         return match ($kind) {
-            'funktionen' => MemberFunction::with(['parent', 'users' => fn ($q) => $q->whereIn('users.id', $active)->orderBy('name')])->get()
+            'funktionen' => MemberFunction::with(['parent', 'users' => fn ($q) => $q->withoutGlobalScopes()->whereIn('users.id', $active)->orderBy('name')])->get()
                 ->filter(fn (MemberFunction $f) => $f->users->isNotEmpty())->sortBy(fn (MemberFunction $f) => $f->fullLabel())
                 ->flatMap(fn (MemberFunction $f) => $f->users->map(fn (User $u) => ['group' => $f->fullLabel(), 'name' => $u->name, 'detail' => $u->rank ?? '',
                     'date' => ($d = $since('function', $f->id, $u->id)) ? Carbon::parse($d) : null]))->values()->all(),
-            'dienstgrade' => User::whereIn('id', $active)->whereNotNull('rank')->orderBy('name')->get()
+            'dienstgrade' => User::withoutGlobalScopes()->whereIn('id', $active)->whereNotNull('rank')->orderBy('name')->get()
                 ->sortBy(fn (User $u) => [-(FireRanks::stepOf($u->rank) ?? -1), $u->name])
-                ->map(fn (User $u) => ['group' => $u->rank, 'name' => $u->name, 'detail' => $u->groups()->pluck('name')->implode(', '), 'date' => $u->rank_since])->values()->all(),
+                ->map(fn (User $u) => ['group' => $u->rank, 'name' => $u->name, 'detail' => self::visibleGroups($by, $u)->pluck('name')->implode(', '), 'date' => $u->rank_since])->values()->all(),
             'befoerderungen' => HistoryEntry::with('user')->where('kind', 'rank')->whereIn('user_id', $ids)
                 ->whereNotIn('id', HistoryEntry::where('kind', 'rank')->selectRaw('min(id)')->groupBy('user_id'))
                 ->whereBetween('since', [$from->toDateString(), $to->toDateString()])->orderBy('since')->get()
-                ->map(fn (HistoryEntry $e) => ['group' => $e->since->format('Y'), 'name' => $e->user?->name ?? '', 'detail' => $e->label, 'date' => $e->since])->all(),
+                ->map(fn (HistoryEntry $e) => ['group' => Carbon::parse($e->since)->format('Y'), 'name' => $e->user?->name ?? '', 'detail' => $e->label, 'date' => Carbon::parse($e->since)])->all(),
             'ehrungen' => Honor::with('user')->whereIn('user_id', $ids)->whereBetween('awarded_on', [$from->toDateString(), $to->toDateString()])->orderBy('awarded_on')->get()
                 ->map(fn (Honor $h) => ['group' => $h->title, 'name' => $h->user?->name ?? '', 'detail' => (string) $h->awarded_by, 'date' => $h->awarded_on])->all(),
             default => throw ValidationException::withMessages(['report' => 'Unbekannte Auswertung.']),
@@ -677,7 +882,7 @@ class PersonnelService
     /** @return int how many were added */
     public function addHonorPresets(User $by): int
     {
-        $this->assertManager($by);
+        $this->assertCanManageHonorTypes($by);
         $added = 0;
         foreach (self::HONOR_PRESETS as [$name, $years]) {
             if (! HonorType::where('name', $name)->exists()) {
@@ -702,7 +907,7 @@ class PersonnelService
 
     public function saveHonorType(User $by, ?HonorType $type, string $name, ?int $afterYears): HonorType
     {
-        $this->assertManager($by);
+        $this->assertCanManageHonorTypes($by);
         $name = trim($name);
         if ($name === '' || mb_strlen($name) > 150) {
             throw ValidationException::withMessages(['type_name' => 'Bitte einen Namen angeben (höchstens 150 Zeichen).']);
@@ -722,7 +927,7 @@ class PersonnelService
 
     public function deleteHonorType(User $by, HonorType $type): void
     {
-        $this->assertManager($by);
+        $this->assertCanManageHonorTypes($by);
         $type->delete();   // received Ehrungen keep their title
     }
 
@@ -774,7 +979,7 @@ class PersonnelService
 
     public function saveServiceRules(User $by, ?int $groupId, string $rule, int $age): void
     {
-        $this->assertManager($by);
+        $this->assertCanConfigure($by);
         if ($groupId !== null && ! Group::whereKey($groupId)->exists()) {
             throw ValidationException::withMessages(['rules' => 'Diese Abteilung gibt es nicht.']);
         }
@@ -865,9 +1070,10 @@ class PersonnelService
         $out = fopen('php://temp', 'r+');
         fwrite($out, "\xEF\xBB\xBF");
         Csv::put($out, ['Name', 'Abteilungen', 'Dienste', 'Anwesend', 'Dienstbeteiligung %'], ';');
-        foreach (self::visibleMembers($manager)->where('status', 'active')->with('groups')->orderBy('name')->get() as $member) {
+        foreach (self::visibleMembers($manager)->where('status', 'active')->orderBy('name')->get() as $member) {
+            /** @var User $member */
             $a = $this->attendance($member, $year, $types);
-            Csv::put($out, [$member->name, $member->groups->pluck('display_name')->implode(', '), $a['total'], $a['attended'], $a['percent'] ?? ''], ';');
+            Csv::put($out, [$member->name, self::visibleGroups($manager, $member)->pluck('display_name')->implode(', '), $a['total'], $a['attended'], $a['percent'] ?? ''], ';');
         }
         rewind($out);
 
@@ -1062,6 +1268,13 @@ class PersonnelService
     {
         if (! self::canManage($user)) {
             throw ValidationException::withMessages(['personal' => 'Das dürfen nur Personalverwalter und Admins.']);
+        }
+    }
+
+    private function assertCanManageHonorTypes(User $user): void
+    {
+        if (! self::canManageHonorTypes($user)) {
+            throw ValidationException::withMessages(['personal' => 'Ehrungsarten dürfen nur Personalverwalter mit standortweiter oder globaler Zuständigkeit ändern.']);
         }
     }
 

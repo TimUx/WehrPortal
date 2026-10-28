@@ -51,13 +51,13 @@
 
     <h2>Buchungen</h2>
     <table>
-        <thead><tr><th>Beleg</th><th>Datum</th><th>Kostenstelle</th><th>Bezeichnung</th><th>Status</th><th class="num">Einnahme</th><th class="num">Ausgabe</th></tr></thead>
+        <thead><tr><th>Beleg</th><th>Datum</th>@if(\Modules\Finanzen\src\Services\FinanceService::locationsEnabled())<th>Standort</th>@endif<th>Kostenstelle</th><th>Bezeichnung</th><th>Status</th><th class="num">Einnahme</th><th class="num">Ausgabe</th></tr></thead>
         <tbody>
             @forelse($entries as $e)
-                <tr><td>{{ $e->code() }}</td><td>{{ $e->booked_on->format('d.m.Y') }}</td><td>{{ $e->costCenter->name }}</td><td>{{ $e->title }}{{ $e->vendor ? ' ('.$e->vendor.')' : '' }}</td><td>{{ $e->statusLabel() }}</td>
+                <tr><td>{{ $e->code() }}</td><td>{{ $e->booked_on->format('d.m.Y') }}</td>@if(\Modules\Finanzen\src\Services\FinanceService::locationsEnabled())<td>{{ $e->location?->name ?? 'ohne Standort' }}</td>@endif<td>{{ $e->costCenter->name }}</td><td>{{ $e->title }}{{ $e->vendor ? ' ('.$e->vendor.')' : '' }}</td><td>{{ $e->statusLabel() }}</td>
                     <td class="num">{{ $e->isIncome() ? $e->amount() : '' }}</td><td class="num">{{ $e->isIncome() ? '' : $e->amount() }}</td></tr>
             @empty
-                <tr><td colspan="7">Keine Buchungen.</td></tr>
+                <tr><td colspan="{{ \Modules\Finanzen\src\Services\FinanceService::locationsEnabled() ? 8 : 7 }}">Keine Buchungen.</td></tr>
             @endforelse
         </tbody>
     </table>

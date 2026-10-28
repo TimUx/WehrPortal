@@ -21,6 +21,7 @@ class SituationMessage extends Model
         return ['important' => 'boolean'];
     }
 
+    /** @return BelongsTo<Report, $this> */
     public function report(): BelongsTo
     {
         return $this->belongsTo(Report::class, 'report_id');

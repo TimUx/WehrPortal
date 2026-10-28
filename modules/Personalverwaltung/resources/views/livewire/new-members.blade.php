@@ -6,7 +6,11 @@
         <section class="space-y-2 rounded-2xl border border-fw-navy bg-white p-4 text-center shadow-sm">
             <p class="text-sm font-semibold text-gray-900">Einladung für {{ $invite['name'] }}</p>
             <img src="{{ $qr }}" alt="QR-Code der Einladung" class="mx-auto h-56 w-56">
-            <p class="text-xs text-gray-500">Mit dem Handy scannen – angemeldet, ohne Passwort. Gilt bis {{ $invite['until'] }} Uhr und nur einmal.</p>
+            @if($invite['method'] === 'sso')
+                <p class="text-xs text-gray-500">Mit dem Handy scannen – die Anmeldung öffnet den Identitätsanbieter mit vorausgefüllter E-Mail-Adresse.</p>
+            @else
+                <p class="text-xs text-gray-500">Mit dem Handy scannen – angemeldet, ohne Passwort. Gilt bis {{ $invite['until'] }} Uhr und nur einmal.</p>
+            @endif
             <p class="break-all text-xs text-gray-600">{{ $invite['url'] }}</p>
             <button type="button" wire:click="mailInvite" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700">Per E-Mail schicken</button>
         </section>

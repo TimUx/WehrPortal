@@ -5,9 +5,11 @@ namespace Modules\Schichtplan\src\Services;
 use App\Models\Group;
 use App\Models\User;
 use App\Support\Csv;
+use Extensions\Locations\Models\Location;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Modules\Schichtplan\src\Models\Assignment;
 use Modules\Schichtplan\src\Models\Plan;
@@ -20,12 +22,44 @@ class PlanService
 {
     public const MAX_SLOTS = 96;
 
+    public function __construct(private readonly PlanLocationAccess $locations) {}
+
     /**
-     * @param  array{title: string, location?: ?string, starts_at: Carbon, ends_at: Carbon, shift_minutes: int, max_consecutive?: int, group_id?: ?int}  $data
+     * @param  array{title: string, location?: ?string, starts_at: Carbon, ends_at: Carbon, shift_minutes: int, max_consecutive?: int, group_id?: ?int, ext_location_id?: ?int, audience_groups?: list<int|string>}  $data
      */
     public function create(array $data, ?User $by): Plan
     {
         $this->assertTimes($data['starts_at'], $data['ends_at'], $data['shift_minutes']);
+
+        if ($this->locations->enabled()) {
+            $locationId = (int) ($data['ext_location_id'] ?? 0);
+            if ($locationId === 0) {
+                $groupIds = array_values(array_unique(array_filter([
+                    $data['group_id'] ?? null,
+                    ...array_map('intval', $data['audience_groups'] ?? []),
+                ])));
+                $groupLocationIds = $groupIds === []
+                    ? collect()
+                    : DB::table('groups')->join('x_locations', 'x_locations.id', '=', 'groups.ext_location_id')
+                        ->whereIn('groups.id', $groupIds)->where('x_locations.is_active', true)
+                        ->pluck('groups.ext_location_id')->map(fn ($id) => (int) $id)->unique()->values();
+                $locationId = $groupLocationIds->count() === 1
+                    ? $groupLocationIds->first()
+                    : ($by
+                        ? (int) ($this->locations->defaultLocationId($by) ?? 0)
+                        : (int) Location::default()->getKey());
+            }
+            if ($by) {
+                $this->locations->assertCanAssignLocation($by, $locationId ?: null);
+            }
+            $this->locations->assertPlanContentsAt($locationId ?: null, $data['group_id'] ?? null,
+                array_map('intval', $data['audience_groups'] ?? []));
+            $data['ext_location_id'] = $locationId;
+        } elseif (Schema::hasColumn('sp_plans', 'ext_location_id')) {
+            $data['ext_location_id'] = (int) Location::default()->getKey();
+        } else {
+            unset($data['ext_location_id']);
+        }
 
         $data = $this->signup($this->utc($data));
 
@@ -37,10 +71,29 @@ class PlanService
         });
     }
 
-    /** Changing the times or the shift length rebuilds the blocks, which clears the distribution */
-    public function update(Plan $plan, array $data): bool
+    /**
+     * Changing the times or the shift length rebuilds the blocks, which clears the distribution.
+     *
+     * @param  array{title: string, location?: ?string, starts_at: Carbon, ends_at: Carbon, shift_minutes: int, max_consecutive?: int, group_id?: ?int, ext_location_id?: ?int, audience_groups?: list<int|string>}  $data
+     */
+    public function update(Plan $plan, array $data, ?User $by = null): bool
     {
         $this->assertTimes($data['starts_at'], $data['ends_at'], $data['shift_minutes']);
+
+        if ($this->locations->enabled()) {
+            $locationId = (int) ($data['ext_location_id'] ?? $plan->ext_location_id ?? 0);
+            if ($by) {
+                $this->locations->assertCanAssignLocation($by, $locationId ?: null, (int) $plan->ext_location_id);
+            }
+            $participantsAndLeads = $plan->participants()->pluck('user_id')
+                ->concat($plan->stations()->whereNotNull('lead_user_id')->pluck('lead_user_id'))
+                ->map(fn ($id) => (int) $id)->all();
+            $this->locations->assertPlanContentsAt($locationId ?: null, $data['group_id'] ?? null,
+                array_map('intval', $data['audience_groups'] ?? []), $participantsAndLeads);
+            $data['ext_location_id'] = $locationId;
+        } else {
+            unset($data['ext_location_id']);
+        }
 
         $data = $this->signup($this->utc($data));
 
@@ -94,8 +147,12 @@ class PlanService
     /** Stationsverantwortung: anyone with access to the Schichtplan, also someone with shifts; null removes it */
     public function setStationLead(Station $station, ?int $userId): void
     {
+        $plan = $station->plan()->firstOrFail();
+        if ($userId) {
+            $this->locations->assertPlanContentsAt((int) $plan->ext_location_id, null, [], [$userId]);
+        }
         $station->update(['lead_user_id' => $userId ?: null]);
-        app(CalendarLink::class)->sync($station->plan()->first());
+        app(CalendarLink::class)->sync($plan);
     }
 
     public function removeStation(Station $station): void
@@ -121,12 +178,19 @@ class PlanService
     public function addParticipants(Plan $plan, iterable $userIds): int
     {
         $added = 0;
+        $userIds = collect($userIds)->map(fn ($id) => (int) $id)->unique()->values();
 
-        User::whereIn('id', collect($userIds)->all())->active()->get()
-            ->filter(fn (User $user) => $user->canUseModule('schichtplan'))
-            ->each(function (User $user) use ($plan, &$added) {
-                $added += $plan->participants()->firstOrCreate(['user_id' => $user->id])->wasRecentlyCreated ? 1 : 0;
-            });
+        $users = User::query()->withoutGlobalScopes()->whereIn('id', $userIds)->active()->get()
+            ->filter(fn (User $user) => $user->canUseModule('schichtplan'));
+        if ($users->contains(fn (User $user) => ! $this->locations->isMemberAt($user, $plan->ext_location_id))) {
+            throw ValidationException::withMessages([
+                'participants' => 'Teilnehmende müssen dem Standort des Plans angehören.',
+            ]);
+        }
+
+        $users->each(function (User $user) use ($plan, &$added) {
+            $added += $plan->participants()->firstOrCreate(['user_id' => $user->id])->wasRecentlyCreated ? 1 : 0;
+        });
         app(CalendarLink::class)->sync($plan);
 
         return $added;
@@ -134,6 +198,8 @@ class PlanService
 
     public function addGroup(Plan $plan, Group $group): int
     {
+        $this->locations->assertPlanContentsAt((int) $plan->ext_location_id, (int) $group->id);
+
         return $this->addParticipants($plan, $group->users()->pluck('users.id'));
     }
 
@@ -263,11 +329,15 @@ class PlanService
     public function csv(Plan $plan): string
     {
         $plan->load(['stations.lead', 'slots', 'participants.user']);
+        if ($this->locations->enabled()) {
+            $plan->load('site');
+        }
         $assignments = $plan->assignments()->with('user')->get();
 
         $out = fopen('php://temp', 'r+');
         fwrite($out, "\xEF\xBB\xBF");
-        Csv::put($out, [$plan->title, $plan->timeLabel(), (string) $plan->location], ';');
+        Csv::put($out, [$plan->title, $plan->timeLabel(), (string) $plan->location,
+            $this->locations->enabled() ? (string) $plan->site?->name : ''], ';');
         Csv::put($out, [], ';');
         Csv::put($out, ['Zeit', ...$plan->stations->pluck('name')->all()], ';');
         Csv::put($out, ['Verantwortlich', ...$plan->stations->map(fn (Station $s) => $s->lead?->name ?? '')->all()], ';');

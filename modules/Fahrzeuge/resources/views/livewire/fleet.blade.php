@@ -41,6 +41,7 @@
                 @endif
                 <span class="min-w-0 space-y-0.5">
                     <span class="block font-semibold text-gray-900">{{ $vehicle->name }}</span>
+                    @if(config('locations.enabled'))<span class="block truncate text-xs text-gray-600">{{ $vehicle->standort?->name ?? 'Ohne Standort' }}</span>@endif
                     <span class="block truncate text-xs text-gray-500">{{ collect([$profile?->call_sign, $profile?->license_plate])->filter()->implode(' · ') ?: ($profile?->categoryLabel() ?? '') }}</span>
                     @include('fahrzeuge::partials.state', ['state' => $state])
                     @if($state['detail'])<span class="block truncate text-xs text-gray-600">{{ $state['detail'] }}</span>@endif

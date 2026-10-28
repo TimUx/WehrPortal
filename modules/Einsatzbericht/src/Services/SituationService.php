@@ -27,7 +27,17 @@ class SituationService
 
     public static function canSee(User $user, Report $report): bool
     {
-        return ReportService::canLead($user) || ($user->is_active && $user->canUseModule('einsatzbericht') && $report->isRunning());
+        if (ReportService::canLeadReport($user, $report)) {
+            return true;
+        }
+
+        if ($user->hasAnyModuleRole('einsatzbericht', 'wehrführung')
+            && ! $user->hasModuleRole('einsatzbericht', 'wehrführung')
+            && ! $user->hasModuleRole('einsatzbericht', 'einsatzleiter')) {
+            return false;
+        }
+
+        return $user->is_active && $user->canUseModule('einsatzbericht') && $report->isRunning();
     }
 
     /** @param  list<UploadedFile>  $photos */
@@ -62,7 +72,7 @@ class SituationService
     /** Einsatzleiter and Wehrführung mark or unmark a message as important */
     public function toggleImportant(User $by, SituationMessage $message): void
     {
-        if (! ReportService::canLead($by)) {
+        if (! ReportService::canLeadReport($by, $message->report)) {
             throw ValidationException::withMessages(['message' => 'Wichtig markieren Einsatzleiter und Wehrführung.']);
         }
 
@@ -73,7 +83,7 @@ class SituationService
     public function delete(User $by, SituationMessage $message): void
     {
         $own = $message->user_id === $by->id && $message->report->isRunning();
-        if (! $own && ! ReportService::canLead($by)) {
+        if (! $own && ! ReportService::canLeadReport($by, $message->report)) {
             throw ValidationException::withMessages(['message' => 'Diese Meldung kannst du nicht löschen.']);
         }
 

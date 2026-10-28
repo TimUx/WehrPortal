@@ -10,6 +10,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property int|null $ext_location_id
+ */
 class Vehicle extends Model
 {
     /** @use HasFactory<VehicleFactory> */
@@ -28,6 +31,7 @@ class Vehicle extends Model
         'description',
         'is_active',
         'sort_order',
+        'ext_location_id',
     ];
 
     protected function casts(): array

@@ -77,6 +77,13 @@ class LocationModuleRoles
                 'user' => 'Diese Person ist im unveränderlichen Verlauf der Führungsprofile referenziert. Bitte stattdessen den Status „inaktiv“ oder „ausgetreten“ setzen. Historische Vergaben werden nicht übertragen.',
             ]);
         }
+        if (Schema::hasTable('x_standard_role_assignments')
+            && DB::table('x_standard_role_assignments')->where(fn (Builder $q) => $q
+                ->where('user_id', $user->id)->orWhere('granted_by', $user->id)->orWhere('revoked_by', $user->id))->exists()) {
+            throw ValidationException::withMessages([
+                'user' => 'Diese Person ist im unveränderlichen Verlauf der Standardrollen referenziert. Bitte stattdessen den Status „inaktiv“ oder „ausgetreten“ setzen. Historische Vergaben werden nicht übertragen.',
+            ]);
+        }
         if (Schema::hasTable('x_location_data_assignments')
             && DB::table('x_location_data_assignments')->where('assigned_by', $user->id)->exists()) {
             throw ValidationException::withMessages([

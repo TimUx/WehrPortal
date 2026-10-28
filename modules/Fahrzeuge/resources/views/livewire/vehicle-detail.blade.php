@@ -34,6 +34,7 @@
                 'Zul. Gesamtmasse' => $profile->gross_weight_kg ? number_format($profile->gross_weight_kg, 0, ',', '.').' kg' : null, 'Besatzung' => $profile->crew,
                 'Führerschein' => $profile->license_class, 'Löschwasser' => $profile->water_liters ? number_format($profile->water_liters, 0, ',', '.').' l' : null,
                 'Schaummittel' => $profile->foam_liters ? number_format($profile->foam_liters, 0, ',', '.').' l' : null, 'Pumpe' => $profile->pump,
+                'Standort' => config('locations.enabled') ? ($vehicle->standort?->name ?? 'Ohne Standort') : null,
                 'Kilometerstand' => $profile->mileage_km !== null ? number_format($profile->mileage_km, 0, ',', '.').' km'.($profile->mileage_on ? ' ('.$profile->mileage_on->format('d.m.Y').')' : '') : null,
                 'Betriebsstunden' => $profile->operating_hours !== null ? str_replace('.', ',', (string) $profile->operating_hours).' h' : null,
                 'Beschafft' => $profile->purchased_on?->format('d.m.Y'), 'Lieferant' => $profile->supplier,
@@ -96,6 +97,7 @@
     @if($canManage)
         <section class="{{ $card }}">
             <p class="text-sm font-semibold text-gray-900">Status</p>
+            <button type="button" wire:click="deleteVehicle" wire:confirm="{{ $vehicle->name }} endgültig löschen? Das ist nur möglich, wenn keine Buchungen oder Fahrtenbucheinträge vorhanden sind." class="text-xs text-red-700 underline">Fahrzeug löschen</button>
             @if($vehicle->is_active)
                 <div class="flex flex-wrap items-end gap-2">
                     <select wire:model="status" class="rounded-lg border border-gray-300 px-3 py-2 text-sm" aria-label="Status">

@@ -24,7 +24,7 @@ Route::middleware(['auth', 'active', 'module:personalverwaltung'])->group(functi
     // Personalakte → Persönliche Daten: self-service, while the Personalverwalter allow it
     // A Nachweis of the Diensthistorie: for the Personalverwalter of the Kamerad and the Kamerad
     Route::get('/personalakte/nachweis/{file}', function (HistoryFile $file) {
-        $owner = $file->entry->user;
+        $owner = User::withoutGlobalScopes()->findOrFail($file->entry->getAttribute('user_id'));
         abort_unless($owner->is(auth()->user()) || (PersonnelService::canManage(auth()->user()) && PersonnelService::mayView(auth()->user(), $owner)), 403);
         $data = HistoryFile::whereKey($file->id)->value('data');
 
@@ -36,7 +36,12 @@ Route::middleware(['auth', 'active', 'module:personalverwaltung'])->group(functi
         $page = fn (string $component, string $title, array $params = []) => view('personalverwaltung::pages.page', ['livewireComponent' => $component, 'title' => $title, 'params' => $params]);
 
         Route::get('/', fn () => $page('personalverwaltung.member-list', 'Personalverwaltung'))->name('index');
-        Route::get('/kamerad/{member}', fn (User $member) => $page('personalverwaltung.member-file', $member->name, ['member' => $member]))->whereNumber('member')->name('member');
+        Route::get('/kamerad/{member}', function (int $member) use ($page) {
+            $record = User::withoutGlobalScopes()->findOrFail($member);
+            abort_unless(PersonnelService::mayRead(auth()->user(), $record), 403);
+
+            return $page('personalverwaltung.member-file', $record->name, ['member' => $record]);
+        })->whereNumber('member')->name('member');
         Route::get('/aenderungswuensche', fn () => $page('personalverwaltung.change-requests', 'Änderungswünsche'))->name('requests')->middleware('can:personalverwaltung-manage');
         Route::get('/auswertungen', fn () => $page('personalverwaltung.reports', 'Auswertungen'))->name('reports');
         Route::get('/auswertungen.csv', function (PersonnelService $personnel) {

@@ -8,6 +8,7 @@
             <div>
                 <h1 class="text-xl font-bold text-gray-900">{{ $plan->title }}</h1>
                 <p class="text-sm text-gray-500">{{ $plan->timeLabel() }}@if($plan->location) · {{ $plan->location }}@endif</p>
+                @if($locationsEnabled && $plan->site)<p class="text-sm text-gray-500">Standort: {{ $plan->site->name }}</p>@endif
                 @include('schichtplan::partials.event-link', ['plan' => $plan])
                 <p class="mt-1 text-xs text-gray-500">
                     <span class="px-2 py-0.5 rounded-full font-semibold {{ $plan->isPublished() ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700' }}">{{ $plan->isPublished() ? 'Veröffentlicht' : 'Entwurf' }}</span>
@@ -44,6 +45,14 @@
                 <label class="block text-sm text-gray-700">Wofür<input type="text" wire:model="title" class="mt-1 w-full {{ $input }}"></label>
                 <label class="block text-sm text-gray-700">Ort<input type="text" wire:model="location" list="wehrportal-places" class="mt-1 w-full {{ $input }}"></label>
             </div>
+            @if($locationsEnabled)
+                <label class="block text-sm text-gray-700">Standort
+                    <select wire:model.live="locationId" class="mt-1 w-full {{ $input }}">
+                        @foreach($locationOptions as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
+                    </select>
+                    @error('locationId')<span class="mt-1 block text-sm text-red-600">{{ $message }}</span>@enderror
+                </label>
+            @endif
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <label class="block text-sm text-gray-700">Datum<input type="date" wire:model="date" class="mt-1 w-full {{ $input }}"></label>
                 <label class="block text-sm text-gray-700">Beginn<input type="time" wire:model="startTime" class="mt-1 w-full {{ $input }}"></label>

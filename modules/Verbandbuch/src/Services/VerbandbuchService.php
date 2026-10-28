@@ -4,11 +4,16 @@ namespace Modules\Verbandbuch\src\Services;
 
 use App\Models\User;
 use App\Support\SignatureImage;
+use Extensions\Locations\Services\LocationAccess;
+use Extensions\Locations\Services\LocationContext;
+use Extensions\Locations\Services\StandardRoleAssignments;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Modules\Verbandbuch\src\Models\AccessLog;
 use Modules\Verbandbuch\src\Models\Amendment;
@@ -21,7 +26,7 @@ use Throwable;
 /**
  * All changes of the Verbandbuch go through here:
  * 1. a Kamerad writes an entry and signs it on the screen (the injured person can sign too),
- * 2. Sicherheitsbeauftragter and Wehrführung are told – without health data in the mail,
+ * 2. the responsible local Wehrführung and global GBI/admins are told – without health data in the mail,
  * 3. the entry never changes; corrections are Nachträge, chained by hash,
  * 4. they note the Unfallanzeige, cancel a wrong entry with a reason, or keep one longer,
  * 5. five years after the year it was written, the entry is deleted with all it holds.
@@ -30,21 +35,69 @@ class VerbandbuchService
 {
     public const MODULE = 'verbandbuch';
 
-    public const MANAGER_ROLES = ['sicherheitsbeauftragter', 'wehrführung'];
+    public const MANAGER_ROLES = ['wehrführung'];
 
     // ─── who may do what ─────────────────────────────────────────────────────
 
-    /** Sicherheitsbeauftragter, Wehrführung and admins: every entry, Unfallanzeige, cancel, print the book */
+    /** Whether the user manages any book entries; object actions must use canManageEntry(). */
     public static function canManage(User $user): bool
     {
-        return $user->is_active && $user->canUseModule(self::MODULE)
-            && ($user->is_admin || collect(self::MANAGER_ROLES)->contains(fn ($role) => $user->hasModuleRole(self::MODULE, $role)));
+        if (! $user->is_active || ! $user->canUseModule(self::MODULE)) {
+            return false;
+        }
+        if ($user->is_admin || app(StandardRoleAssignments::class)->hasGlobalProfile($user, 'gemeindebrandinspektor')) {
+            return true;
+        }
+        if (! config('locations.enabled') || ! Schema::hasTable('x_locations')) {
+            return false;
+        }
+
+        return app(StandardRoleAssignments::class)->locationIds($user, self::MODULE, ['wehrführung']) !== [];
+    }
+
+    public static function canManageEntry(User $user, Entry $entry): bool
+    {
+        if (! $user->is_active || ! $user->canUseModule(self::MODULE)) {
+            return false;
+        }
+        if ($user->is_admin || app(StandardRoleAssignments::class)->hasGlobalProfile($user, 'gemeindebrandinspektor')) {
+            return true;
+        }
+        if (! config('locations.enabled') || ! Schema::hasTable('x_locations')) {
+            return false;
+        }
+
+        return $entry->ext_location_id !== null
+            && app(StandardRoleAssignments::class)->hasModuleRoleAt($user, self::MODULE, 'wehrführung', (int) $entry->ext_location_id);
+    }
+
+    /**
+     * Apply the same target-specific manager boundary to lists, counts, exports and print views.
+     *
+     * @return Builder<Entry>
+     */
+    public static function managedEntries(User $user): Builder
+    {
+        $query = Entry::query();
+        if ($user->is_admin || app(StandardRoleAssignments::class)->hasGlobalProfile($user, 'gemeindebrandinspektor')) {
+            return $query;
+        }
+        if (! self::canManage($user)) {
+            return $query->whereRaw('1 = 0');
+        }
+        if (! config('locations.enabled') || ! Schema::hasTable('x_locations')) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $locationIds = app(StandardRoleAssignments::class)->locationIds($user, self::MODULE, ['wehrführung']);
+
+        return $query->whereIn('ext_location_id', $locationIds);
     }
 
     /** Health data: only the managers and whoever is part of the entry */
     public static function canView(User $user, Entry $entry): bool
     {
-        if (self::canManage($user)) {
+        if (self::canManageEntry($user, $entry)) {
             return true;
         }
 
@@ -62,14 +115,32 @@ class VerbandbuchService
         return now('Europe/Berlin');
     }
 
-    /** Who is told about new entries; admins when nobody has a role */
-    public function managers(): EloquentCollection
+    /** Who may see this entry; global administrators/GBI plus the assigned local Wehrführung. */
+    public function managers(Entry $entry): EloquentCollection
     {
-        $managers = User::active()
-            ->whereHas('moduleAccess', fn ($q) => $q->where('module', self::MODULE)->whereIn('role', self::MANAGER_ROLES))
-            ->get();
+        $globalIds = User::withoutGlobalScopes()->active()->where('is_admin', true)->pluck('id')->all();
+        if (Schema::hasTable('x_standard_role_assignments')) {
+            $globalIds = [
+                ...$globalIds,
+                ...DB::table('x_standard_role_assignments')->where('profile', 'gemeindebrandinspektor')
+                    ->whereNull('location_id')->whereNull('group_id')->whereNull('revoked_at')
+                    ->where('granted_at', '<=', now())->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+                    ->pluck('user_id')->all(),
+            ];
+        }
 
-        return $managers->isNotEmpty() ? $managers : User::active()->where('is_admin', true)->get();
+        if ($entry->ext_location_id !== null && Schema::hasTable('x_standard_role_assignments')) {
+            $globalIds = [
+                ...$globalIds,
+                ...DB::table('x_standard_role_assignments')->where('profile', 'wehrfuehrung')->where('location_id', $entry->ext_location_id)
+                    ->whereNull('group_id')->whereNull('revoked_at')->where('granted_at', '<=', now())
+                    ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+                    ->pluck('user_id')->all(),
+            ];
+        }
+
+        return User::withoutGlobalScopes()->active()->whereIn('id', array_unique($globalIds))->get()
+            ->filter(fn (User $user) => self::canManageEntry($user, $entry))->values();
     }
 
     // ─── entries ─────────────────────────────────────────────────────────────
@@ -77,7 +148,7 @@ class VerbandbuchService
     /**
      * Write and sign an entry. Times are local (Europe/Berlin), as typed in the form.
      *
-     * @param  array{kind: string, occasion: string, occurred_at: string, location: string, injured_user_id?: ?int, injured_name?: ?string,
+     * @param  array{kind: string, occasion: string, occurred_at: string, location: string, ext_location_id?: int|string|null, injured_user_id?: ?int, injured_name?: ?string,
      *     description: string, injury?: ?string, witnesses?: ?string, first_aid_at?: ?string, first_aid_measures?: ?string,
      *     first_aider_user_id?: ?int, first_aider_name?: ?string, doctor_visited?: bool}  $data
      * @param  string  $signature  the recorder's signature as PNG data URL
@@ -85,7 +156,7 @@ class VerbandbuchService
      */
     public function create(User $by, array $data, string $signature, ?string $injuredSignature = null): Entry
     {
-        $clean = $this->validate($data);
+        $clean = $this->validate($data, $by);
         $signatures = ['recorder' => SignatureImage::fromDataUrl($signature, 'signature')];
         if (filled($injuredSignature)) {
             if ($clean['injured_name'] === null) {
@@ -123,8 +194,9 @@ class VerbandbuchService
             return $entry;
         });
 
-        $this->notify($this->managers()->reject(fn (User $u) => $u->is($by)), new EntryRecordedNotification($entry));
-        if ($entry->injured_user_id && $entry->injured_user_id !== $by->id && ! $this->managers()->contains('id', $entry->injured_user_id)) {
+        $managers = $this->managers($entry);
+        $this->notify($managers->reject(fn (User $u) => $u->is($by)), new EntryRecordedNotification($entry));
+        if ($entry->injured_user_id && $entry->injured_user_id !== $by->id && ! $managers->contains('id', $entry->injured_user_id)) {
             $this->notify(collect([$entry->injuredUser]), new EntryAboutYouNotification($entry));
         }
 
@@ -161,7 +233,7 @@ class VerbandbuchService
     /** The Unfallanzeige to the Unfallkasse went out (or isn't needed): note when and how */
     public function markReported(User $by, Entry $entry, string $date, ?string $note): void
     {
-        $this->assertManager($by);
+        $this->assertManager($by, $entry);
         $day = $this->parseDate($date, 'reported_at');
         if ($day->isAfter(self::now()->endOfDay())) {
             throw ValidationException::withMessages(['reported_at' => 'Das Datum liegt in der Zukunft.']);
@@ -174,7 +246,7 @@ class VerbandbuchService
     /** A wrong entry is cancelled, never deleted: it stays readable with the reason */
     public function void(User $by, Entry $entry, string $reason): void
     {
-        $this->assertManager($by);
+        $this->assertManager($by, $entry);
         $reason = trim($reason);
         if (mb_strlen($reason) < 5) {
             throw ValidationException::withMessages(['void_reason' => 'Bitte den Grund für die Stornierung angeben.']);
@@ -190,7 +262,7 @@ class VerbandbuchService
     /** Keep an entry beyond the retention time (e.g. while the Unfallkasse still has questions) */
     public function setHold(User $by, Entry $entry, bool $hold): void
     {
-        $this->assertManager($by);
+        $this->assertManager($by, $entry);
         if ($entry->hold === $hold) {
             return;
         }
@@ -233,7 +305,7 @@ class VerbandbuchService
     // ─── details ─────────────────────────────────────────────────────────────
 
     /** @return array<string, mixed> the entry's fields, checked; times as UTC Carbon */
-    private function validate(array $data): array
+    private function validate(array $data, User $by): array
     {
         $errors = [];
         $kind = (string) ($data['kind'] ?? '');
@@ -258,6 +330,20 @@ class VerbandbuchService
         $location = $this->text($data['location'] ?? null, 150);
         if ($location === null) {
             $errors['location'] = 'Bitte den Ort angeben (z. B. Gerätehaus, Einsatzstelle).';
+        }
+
+        $organizationalLocationId = null;
+        if (config('locations.enabled') && Schema::hasTable('x_locations')) {
+            $contextLocationId = app(LocationContext::class)->forUser($by)['current'];
+            $requestedLocationId = filter_var($data['ext_location_id'] ?? $contextLocationId, FILTER_VALIDATE_INT);
+            $visibleLocationIds = app(LocationAccess::class)->visibleLocationIds($by);
+            $validLocation = $requestedLocationId && in_array($requestedLocationId, $visibleLocationIds, true)
+                && DB::table('x_locations')->where('id', $requestedLocationId)->where('is_active', true)->exists();
+            if (! $validLocation) {
+                $errors['ext_location_id'] = 'Bitte einen aktiven Standort auswählen, dem du angehörst.';
+            } else {
+                $organizationalLocationId = $requestedLocationId;
+            }
         }
 
         [$injuredId, $injuredName] = $this->person($data['injured_user_id'] ?? null, $data['injured_name'] ?? null);
@@ -305,6 +391,7 @@ class VerbandbuchService
 
         return [
             'kind' => $kind, 'occasion' => $data['occasion'], 'occurred_at' => $occurred, 'location' => $location,
+            'ext_location_id' => $organizationalLocationId,
             'injured_user_id' => $injuredId, 'injured_name' => $injuredName, 'description' => $description,
             'injury' => $kind === 'incident' ? null : $injury, 'witnesses' => $this->text($data['witnesses'] ?? null, 2000),
             'first_aid_at' => $measures !== null ? $firstAidAt : null, 'first_aid_measures' => $measures,
@@ -375,10 +462,10 @@ class VerbandbuchService
         return $value === '' ? null : mb_substr($value, 0, $max);
     }
 
-    private function assertManager(User $user): void
+    private function assertManager(User $user, Entry $entry): void
     {
-        if (! self::canManage($user)) {
-            throw ValidationException::withMessages(['entry' => 'Das dürfen nur Sicherheitsbeauftragte, Wehrführung und Admins.']);
+        if (! self::canManageEntry($user, $entry)) {
+            throw ValidationException::withMessages(['entry' => 'Das dürfen nur die zuständige Wehrführung, GBI/SBI und Admins.']);
         }
     }
 

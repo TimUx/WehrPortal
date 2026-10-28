@@ -7,7 +7,6 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
-use Modules\Ausruestung\src\Models\Equipment;
 use Modules\Wartung\src\Models\Provider;
 use Modules\Wartung\src\Models\Qualification;
 use Modules\Wartung\src\Models\Task;
@@ -69,16 +68,17 @@ class ProtocolForm extends Component
     public function mount(): void
     {
         $this->performedOn = WartungService::today()->toDateString();
-        $task = request()->filled('aufgabe') ? Task::open()->with('template')->find((int) request('aufgabe')) : null;
+        $user = auth()->user();
+        $task = request()->filled('aufgabe') ? Task::open()->with(['template', 'equipment'])->find((int) request('aufgabe')) : null;
 
-        if ($task) {
+        if ($task?->equipment && WartungService::canPerformOnEquipment($user, $task->equipment)) {
             $this->taskId = $task->id;
             $this->equipmentId = (string) $task->equipment_id;
             $this->templateId = (string) ($task->template_id ?? '');
             $this->title = $task->template ? '' : (string) $task->notes;
             $this->providerId = (string) ($task->provider_id ?? '');
         } else {
-            $this->equipmentId = (string) (Equipment::inService()->find((int) request('geraet'))?->id ?? '');
+            $this->equipmentId = (string) (WartungService::performableEquipmentFor($user)->inService()->find((int) request('geraet'))?->id ?? '');
             $this->templateId = (string) (Template::active()->find((int) request('vorlage'))?->id ?? '');
         }
 
@@ -178,14 +178,20 @@ class ProtocolForm extends Component
 
     public function render()
     {
+        $user = auth()->user();
         $term = trim($this->equipmentSearch);
-        $equipment = $this->equipmentId !== '' ? Equipment::with('category')->find((int) $this->equipmentId) : null;
+        $equipment = $this->equipmentId !== ''
+            ? WartungService::performableEquipmentFor($user)->with('category')->find((int) $this->equipmentId) : null;
+        $task = $this->taskId ? Task::open()->with('equipment')->find($this->taskId) : null;
+        if (! $task?->equipment || ! WartungService::canPerformOnEquipment($user, $task->equipment)) {
+            $task = null;
+        }
 
         return view('wartung::livewire.protocol-form', [
-            'task' => $this->taskId ? Task::find($this->taskId) : null,
+            'task' => $task,
             'equipment' => $equipment,
             'template' => $this->template(),
-            'matches' => $equipment || $term === '' ? collect() : Equipment::inService()
+            'matches' => $equipment || $term === '' ? collect() : WartungService::performableEquipmentFor($user)->inService()
                 ->where(fn ($q) => $q->where('name', 'ilike', '%'.$term.'%')->orWhere('code', 'ilike', '%'.$term.'%')->orWhere('serial_number', 'ilike', '%'.$term.'%'))
                 ->orderBy('code')->limit(20)->get(),
             'templates' => Template::active()->orderBy('name')->get(['id', 'name']),

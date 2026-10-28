@@ -9,7 +9,7 @@ use Modules\Verbandbuch\src\Models\Entry;
 use Modules\Verbandbuch\src\Services\VerbandbuchService;
 
 /**
- * The entries: all of them for Sicherheitsbeauftragte, Wehrführung and admins, with filters;
+ * The entries: those within the user's management scope, with filters;
  * for everyone else the ones they are part of. $personal: only those where the Kamerad was hurt
  * (Personalakte).
  */
@@ -42,7 +42,7 @@ class EntryList extends Component
         $all = ! $this->personal && VerbandbuchService::canManage($user);
         $term = trim($this->search);
 
-        $query = Entry::query()
+        $query = ($all ? VerbandbuchService::managedEntries($user) : Entry::query())
             ->when($this->personal, fn ($q) => $q->where('injured_user_id', $user->id))
             ->when(! $this->personal && ! $all, fn ($q) => $q->involving($user))
             ->when($all && $this->status === 'report', fn ($q) => $q->awaitingReport())
@@ -57,8 +57,8 @@ class EntryList extends Component
         return view('verbandbuch::livewire.entry-list', [
             'entries' => $query->orderByDesc('occurred_at')->paginate(50),
             'all' => $all,
-            'years' => $all ? Entry::query()->distinct()->orderByDesc('year')->pluck('year') : collect(),
-            'awaiting' => $all ? Entry::awaitingReport()->count() : 0,
+            'years' => $all ? VerbandbuchService::managedEntries($user)->distinct()->orderByDesc('year')->pluck('year') : collect(),
+            'awaiting' => $all ? VerbandbuchService::managedEntries($user)->awaitingReport()->count() : 0,
         ]);
     }
 }

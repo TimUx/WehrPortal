@@ -40,6 +40,7 @@ class Deadline extends Model
             'due_mailed_at' => 'datetime', 'overdue_mailed_at' => 'datetime'];
     }
 
+    /** @return BelongsTo<Vehicle, $this> */
     public function vehicle(): BelongsTo
     {
         return $this->belongsTo(Vehicle::class);

@@ -15,7 +15,7 @@ Eigenständiges Modul für Übungen, Dienste und Besprechungen. Eine Liste brauc
 
 ## Funktionen
 
-- Übungsleiter (Auswahl), Teilnehmer (Mehrfachauswahl, nur Kameraden des Standorts), Beginn/Ende mit automatischer Dauer und Teilnehmerzahl.
+- Standort, genau eine zugeordnete Abteilung, Übungsleiter und Teilnehmende (nur aktive Kameraden der ausgewählten Abteilung), Beginn/Ende mit automatischer Dauer und Teilnehmerzahl.
 - Dateianhänge (max. 5 × 5 MB, Dateitypen wie überall über `FileResponse::allowedExtensions()`), Auslieferung nur über `FileResponse`.
 - PDF (dompdf) und E-Mail mit PDF und Anhängen. Empfänger: Adressen je Liste, sonst die instanzweiten Standard-Empfänger (Admin-Bereich → Anwesenheit → Einstellungen). Nur globale Admins ändern diesen Standard; Verwalter sehen ihn schreibgeschützt. Mailfehler werden gemeldet, nie geworfen.
 - Status: Entwurf → Abgegeben. Ersteller bearbeiten Entwürfe; Verwalter bearbeiten auch abgegebene Listen.
@@ -29,9 +29,11 @@ Eigenständiges Modul für Übungen, Dienste und Besprechungen. Eine Liste brauc
 | Kamerad mit Modulzugang | eigene Listen anlegen, Entwürfe bearbeiten, PDF/Mail |
 | Modulrolle `verwalter` | Listen und Vorlagen der zugewiesenen Standorte; Einstellungen schreibgeschützt |
 | Standort-Admin | Listen und Vorlagen nur der Standorte, an denen die Person Admin ist; Einstellungen schreibgeschützt |
+| Jugend-/Kinderwart | Listen und Vorlagen ausschließlich der passenden, ausdrücklich zugewiesenen Abteilung |
+| Gemeindejugend-/Gemeindekinderwart | Listen und Vorlagen der passenden Abteilungen standortübergreifend |
 | Globaler Admin | alle Daten aller Standorte, einschließlich instanzweiter Einstellungen |
 
-Listen und Vorlagen tragen `ext_location_id` und nutzen `LocationScope`/`AssignsLocation` der Locations-Erweiterung (nur aktiv bei `locations.enabled`). Teilnehmer und Leitung kommen aus dem Standort der Liste. Kalender-Vorbelegung wird nur angeboten, wenn das Kalender-Modul aktiv ist (Prüfung per `class_exists` und Modulstatus, ohne harte Kopplung).
+Listen und Vorlagen tragen `ext_location_id` und `group_id` und nutzen `LocationScope`/`AssignsLocation` der Locations-Erweiterung (nur aktiv bei `locations.enabled`). Teilnehmer und Leitung kommen aus der Abteilung der Liste. Historische Datensätze ohne Abteilungszuordnung werden nicht automatisch zugeordnet und geben Gruppenrollen keinen Zugriff. Kalender-Vorbelegung wird nur angeboten, wenn das Kalender-Modul aktiv ist (Prüfung per `class_exists` und Modulstatus, ohne harte Kopplung).
 
 **Optionale standortbezogene Rollen:** Nach ausdrücklicher Aktivierung mit `LOCATIONS_SCOPED_ROLE_MODULES=anwesenheit` gilt für Nicht-Admins ausschließlich eine gültige Standort-Modulrolle `verwalter` am Standort der Liste beziehungsweise Vorlage. Globale Altrollen und die bloße Standort-Adminrolle reichen dann nicht mehr zur fachlichen Verwaltung. Der globale Admin vergibt diese Rollen in der Standortverwaltung; alle Einzelheiten und die notwendige Vorbereitung stehen unter [Locations](LOCATIONS.md#standortbezogene-modulrollen-gestufte-umstellung). Ohne Aktivierung bleibt das bisherige Rollenmodell erhalten. Globale Admins behalten in beiden Modi alle Datenzugriffe.
 
@@ -43,7 +45,7 @@ Das Löschen einer Liste entfernt auch ihre zugehörigen Datei-Anhänge. Eine Vo
 
 ## Offline
 
-Das Formular nutzt die Offline-Erweiterung (`data-offline-draft="anwesenheit-list"`, Felder mit `data-offline-draft-field`): Titel, Art, Zeiten, Leitung, Gästezahl und die Teilnehmendenauswahl werden lokal gesichert, können wiederhergestellt oder verworfen werden und werden beim Absenden gelöscht. Standortwahl, Notizen, Empfänger und Dateien werden nicht lokal gesichert. Es werden keine Livewire-Requests nachgespielt; siehe [`OFFLINE.md`](OFFLINE.md).
+Das Formular nutzt die Offline-Erweiterung (`data-offline-draft="anwesenheit-list"`, Felder mit `data-offline-draft-field`): Titel, Art, Zeiten, Leitung, Gästezahl und die Teilnehmendenauswahl werden lokal gesichert, können wiederhergestellt oder verworfen werden und werden beim Absenden gelöscht. Standort- und Abteilungsauswahl, Notizen, Empfänger und Dateien werden nicht lokal gesichert. Es werden keine Livewire-Requests nachgespielt; siehe [`OFFLINE.md`](OFFLINE.md).
 
 ## Technik
 

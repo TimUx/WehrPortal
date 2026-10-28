@@ -27,6 +27,17 @@
         </div>
         @error('occurred_at')<p class="{{ $error }}">{{ $message }}</p>@enderror
         @error('occasion')<p class="{{ $error }}">{{ $message }}</p>@enderror
+        @if(config('locations.enabled'))
+            <label class="block text-sm text-gray-700">Standort
+                <select wire:model="organizationalLocationId" class="{{ $input }}" required>
+                    <option value="">– bitte wählen –</option>
+                    @foreach($locations as $organizationalLocation)
+                        <option value="{{ $organizationalLocation->id }}">{{ $organizationalLocation->name }}</option>
+                    @endforeach
+                </select>
+            </label>
+            @error('ext_location_id')<p class="{{ $error }}">{{ $message }}</p>@enderror
+        @endif
         <label class="block text-sm text-gray-700">Wo?<input type="text" wire:model="location" maxlength="150" placeholder="z. B. Gerätehaus Fahrzeughalle, Einsatzstelle Hauptstraße 12" class="{{ $input }}"></label>
         @error('location')<p class="{{ $error }}">{{ $message }}</p>@enderror
     </section>
@@ -73,7 +84,7 @@
             @error('first_aid_at')<p class="{{ $error }}">{{ $message }}</p>@enderror
             <label class="flex items-start gap-2 text-sm text-gray-700">
                 <input type="checkbox" wire:model="doctorVisited" class="mt-0.5 rounded text-fw-red focus:ring-fw-red">
-                <span>Arztbesuch oder Krankenhaus (z. B. Durchgangsarzt) – dann prüft der Sicherheitsbeauftragte, ob eine Unfallanzeige an die Unfallkasse nötig ist.</span>
+                <span>Arztbesuch oder Krankenhaus (z. B. Durchgangsarzt) – dann prüft die zuständige Wehrführung oder GBI/SBI, ob eine Unfallanzeige an die Unfallkasse nötig ist.</span>
             </label>
         </section>
     @endif
@@ -91,7 +102,7 @@
             </div>
             @error('injured_signature')<p class="{{ $error }}">{{ $message }}</p>@enderror
         @endif
-        <p class="text-xs text-gray-500">Gesundheitsdaten werden verschlüsselt gespeichert. Den Eintrag sehen nur du, die verletzte Person, der Ersthelfer, Sicherheitsbeauftragte und Wehrführung. Er wird {{ \Modules\Verbandbuch\src\Models\Entry::RETENTION_YEARS }} Jahre nach Ende des Jahres gelöscht (DGUV Vorschrift 1 § 24).</p>
+        <p class="text-xs text-gray-500">Gesundheitsdaten werden verschlüsselt gespeichert. Den Eintrag sehen nur du, die verletzte Person, der Ersthelfer, GBI/SBI, Admins und die zuständige Wehrführung. Er wird {{ \Modules\Verbandbuch\src\Models\Entry::RETENTION_YEARS }} Jahre nach Ende des Jahres gelöscht (DGUV Vorschrift 1 § 24).</p>
     </section>
 
     @error('entry')<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{ $message }}</p>@enderror

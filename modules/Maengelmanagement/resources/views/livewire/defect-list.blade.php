@@ -41,7 +41,8 @@
                             <p class="font-semibold text-gray-900 truncate">{{ $defect->title }}</p>
                             <p class="text-sm text-gray-500 mt-0.5 truncate">
                                 {{ $defect->subject() }}
-                                · {{ $defect->reporter->name }}
+                                @if(config('locations.enabled') && $defect->site) · {{ $defect->site->name }}@endif
+                                · {{ $defect->reporter?->name ?? 'Unbekannt' }}
                                 · {{ $defect->created_at->setTimezone('Europe/Berlin')->format('d.m.Y') }}
                                 @if($defect->photos_count > 0)· {{ $defect->photos_count }} Foto{{ $defect->photos_count > 1 ? 's' : '' }}@endif
                                 @if($defect->assignee)· zuständig: {{ $defect->assignee->name }}@endif

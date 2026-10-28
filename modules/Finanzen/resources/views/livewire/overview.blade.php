@@ -2,7 +2,7 @@
 <div class="space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-            <h1 class="text-xl font-bold text-gray-900">{{ ! $full ? 'Meine Ausgaben' : ($budgetOn ? 'Budget' : 'Finanzen') }} {{ $year }}</h1>
+            <h1 class="text-xl font-bold text-gray-900">{{ ! $full ? 'Meine Ausgaben' : ($budgetOn ? 'Budget' : 'Finanzen') }} {{ $year }}{{ $selectedLocation ? ' · '.$selectedLocation->name : '' }}</h1>
             <p class="text-sm text-gray-500">
                 @if(! $full)Was du für die Wehr ausgelegt und eingereicht hast, mit dem Stand der Bearbeitung.
                 @elseif($budgetOn)Wie viel jede Kostenstelle geplant hat und was davon schon ausgegeben ist{{ $canReview ? '' : ' – für alle Kameraden sichtbar' }}.
@@ -10,6 +10,14 @@
                 @if($closed) <strong>Das Jahr ist abgeschlossen.</strong>@endif</p>
         </div>
         <div class="flex items-center gap-2">
+            @if($locationsEnabled && $full && $locations->isNotEmpty())
+                <select wire:model.live="locationId" class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-fw-red focus:ring-fw-red" aria-label="Standort">
+                    @if(\Modules\Finanzen\src\Services\FinanceService::canReviewGlobally(auth()->user()) || \Modules\Finanzen\src\Services\FinanceService::settings()['public'])
+                        <option value="">Alle Standorte</option>
+                    @endif
+                    @foreach($locations as $location)<option value="{{ $location->id }}">{{ $location->name }}</option>@endforeach
+                </select>
+            @endif
             <select wire:model.live="year" class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-fw-red focus:ring-fw-red" aria-label="Jahr">
                 @foreach($years as $y)<option value="{{ $y }}">{{ $y }}</option>@endforeach
             </select>
@@ -69,7 +77,7 @@
                 <a href="{{ route('finanzen.entry', $entry) }}" class="flex flex-wrap items-center justify-between gap-2 p-3 text-sm hover:bg-gray-50" wire:key="m-{{ $entry->id }}">
                     <span class="min-w-0">
                         <span class="block font-medium text-gray-900">{{ $entry->title }}</span>
-                        <span class="block text-xs text-gray-500">{{ $entry->code() }} · {{ $entry->booked_on->format('d.m.Y') }} · {{ $entry->costCenter->name }}</span>
+                        <span class="block text-xs text-gray-500">{{ $entry->code() }} · {{ $entry->booked_on->format('d.m.Y') }} · {{ $entry->costCenter->name }}{{ $locationsEnabled && $entry->location ? ' · '.$entry->location->name : '' }}</span>
                     </span>
                     <span class="flex items-center gap-3"><span class="font-semibold">{{ $entry->amount() }}</span>@include('finanzen::partials.status', ['entry' => $entry])</span>
                 </a>
@@ -88,7 +96,7 @@
                 <div class="flex flex-wrap items-center justify-between gap-2 p-3 text-sm" wire:key="s-{{ $entry->id }}">
                     <span class="min-w-0">
                         <span class="block text-gray-900">{{ $entry->title }}</span>
-                        <span class="block text-xs text-gray-500">{{ $entry->booked_on->format('d.m.Y') }} · {{ $entry->costCenter->name }}{{ $entry->status === 'approved' ? ' · genehmigt, noch nicht bezahlt' : '' }}</span>
+                        <span class="block text-xs text-gray-500">{{ $entry->booked_on->format('d.m.Y') }} · {{ $entry->costCenter->name }}{{ $locationsEnabled && $entry->location ? ' · '.$entry->location->name : '' }}{{ $entry->status === 'approved' ? ' · genehmigt, noch nicht bezahlt' : '' }}</span>
                     </span>
                     <span class="font-medium text-gray-900">{{ $entry->amount() }}</span>
                 </div>

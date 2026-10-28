@@ -13,7 +13,7 @@
 
     @foreach($running as $op)
         <a href="{{ $canMonitor ? route('atemschutz.board', $op) : '#' }}" class="flex items-center justify-between gap-3 rounded-2xl border-2 border-fw-red bg-white p-4 shadow-sm">
-            <span><span class="block font-semibold text-gray-900">{{ $op->title }}</span><span class="text-xs text-gray-500">läuft seit {{ $op->started_at->setTimezone('Europe/Berlin')->format('H:i') }} · {{ $op->active_count }} Trupp{{ $op->active_count === 1 ? '' : 's' }} unter Atemschutz</span></span>
+            <span><span class="block font-semibold text-gray-900">{{ $op->title }}</span><span class="text-xs text-gray-500">läuft seit {{ $op->started_at->setTimezone('Europe/Berlin')->format('H:i') }} · {{ $op->active_count }} Trupp{{ $op->active_count === 1 ? '' : 's' }} unter Atemschutz {{ config('locations.enabled') && $op->ext_location_id ? '· '.$op->location?->name : '' }}</span></span>
             @if($canMonitor)<span class="rounded-lg bg-fw-red px-3 py-1.5 text-sm font-semibold text-white">Öffnen</span>@endif
         </a>
     @endforeach
@@ -35,7 +35,20 @@
                     </select>
                 </label>
             @endif
-            @foreach(['kind', 'report_id', 'operation'] as $field)@error($field)<p class="text-sm text-red-600">{{ $message }}</p>@enderror @endforeach
+            @if(config('locations.enabled') && $reportId === '')
+                <label class="block text-sm text-gray-700">Standort der Überwachung
+                    <select wire:model="locationId" class="{{ $input }}" required>
+                        <option value="">– Standort auswählen –</option>
+                        @foreach($locations as $location)<option value="{{ $location->id }}">{{ $location->name }}</option>@endforeach
+                    </select>
+                </label>
+                @if($locations->isEmpty())<p class="text-sm text-red-600">Dir ist kein aktiver Standort für eine Atemschutzüberwachung zugeordnet.</p>@endif
+            @elseif($reportId !== '' && $reportLocationId !== null)
+                <p class="text-sm text-gray-600">Standort wird aus dem Einsatzbericht übernommen.</p>
+            @elseif($reportId !== '')
+                <p class="text-sm text-red-600">Der verknüpfte Einsatzbericht hat keinen zugeordneten Standort.</p>
+            @endif
+            @foreach(['kind', 'report_id', 'location_id', 'operation'] as $field)@error($field)<p class="text-sm text-red-600">{{ $message }}</p>@enderror @endforeach
             <button type="submit" class="rounded-lg bg-fw-red px-5 py-2.5 text-sm font-semibold text-white hover:bg-fw-red-dark">Starten</button>
         </form>
 
@@ -56,7 +69,7 @@
                 <div class="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white shadow-sm">
                     @foreach($recent as $op)
                         <div class="flex items-center justify-between gap-3 p-3 text-sm" wire:key="r-{{ $op->id }}">
-                            <a href="{{ route('atemschutz.board', $op) }}" class="min-w-0"><span class="block text-gray-900">{{ $op->title }}</span><span class="text-xs text-gray-500">{{ $op->started_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }} · {{ $op->teams_count }} Trupps</span></a>
+                            <a href="{{ route('atemschutz.board', $op) }}" class="min-w-0"><span class="block text-gray-900">{{ $op->title }}</span><span class="text-xs text-gray-500">{{ $op->started_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }} · {{ $op->teams_count }} Trupps {{ config('locations.enabled') && $op->ext_location_id ? '· '.$op->location?->name : '' }}</span></a>
                             <a href="{{ route('atemschutz.pdf', $op) }}" target="_blank" class="shrink-0 text-xs text-fw-navy underline">PDF</a>
                         </div>
                     @endforeach

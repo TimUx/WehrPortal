@@ -3,6 +3,7 @@
 namespace Modules\Kalender\src\Livewire;
 
 use App\Models\User;
+use Extensions\Locations\Scopes\LocationScope;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Modules\Kalender\src\Models\Event;
@@ -86,7 +87,7 @@ class EventDetail extends Component
             'mine' => $responses->get($user->id),
             // Everyone the event is for, plus whoever was recorded without being in the audience
             'people' => $manager
-                ? $events->audience($this->event)->concat(User::whereIn('id', $responses->keys())->get())->unique('id')->sortBy('name')->values()
+                ? $events->audience($this->event)->concat(User::withoutGlobalScope(LocationScope::class)->whereIn('id', $responses->keys())->get())->unique('id')->sortBy('name')->values()
                 : collect(),
             'responses' => $responses,
             'summary' => $this->event->rsvp ? $events->summary($this->event) : null,

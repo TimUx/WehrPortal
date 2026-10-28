@@ -105,11 +105,12 @@ class MaengelmanagementServiceProvider extends ServiceProvider
                 return null;
             }
             $like = '%'.$term.'%';
+            $relations = config('locations.enabled') ? ['site'] : [];
 
-            return Device::active()->withCount(['defects' => fn ($q) => $q->active()])
+            return Device::active()->with($relations)->withCount(['defects' => fn ($q) => $q->active()])
                 ->where(fn ($q) => $q->where('code', 'ilike', $like)->orWhere('name', 'ilike', $like)->orWhere('location', 'ilike', $like))
                 ->orderBy('name')->limit(50)->get()
-                ->map(fn (Device $d) => ['title' => $d->label(), 'code' => $d->code, 'place' => $d->location,
+                ->map(fn (Device $d) => ['title' => $d->label().($d->site ? ' ('.$d->site->name.')' : ''), 'code' => $d->code, 'place' => $d->location,
                     'state' => $d->defects_count ? $d->defects_count.' offene'.($d->defects_count === 1 ? 'r Mangel' : ' Mängel') : 'keine Mängel',
                     'tone' => $d->defects_count ? 'amber' : 'green', 'url' => route('maengelmanagement.report', ['objekt' => $d->code])]);
         }, order: 60);

@@ -6,7 +6,11 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/** A Kamerad at an Unterweisung, with the signature on the screen */
+/**
+ * @property-read Session $session
+ *
+ * A Kamerad at an Unterweisung, with the signature on the screen.
+ */
 class Attendance extends Model
 {
     protected $table = 'uw_attendances';

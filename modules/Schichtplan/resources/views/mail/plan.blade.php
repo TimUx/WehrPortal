@@ -3,6 +3,9 @@
 
 {{ $firstTime ? 'der Schichtplan steht' : 'der Schichtplan wurde aktualisiert' }}: **{{ $plan->title }}**{{ $plan->location ? ', '.$plan->location : '' }}
 {{ $plan->timeLabel() }}
+@if($showSite && $plan->site)
+Standort: {{ $plan->site->name }}
+@endif
 
 @if($leading->isNotEmpty())
 **Du hast die Stationsverantwortung für: {{ $leading->implode(', ') }}** – über den ganzen Abend.

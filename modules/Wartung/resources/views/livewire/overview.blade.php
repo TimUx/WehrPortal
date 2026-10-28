@@ -44,8 +44,8 @@
                     </span>
                 </div>
                 <div class="flex items-center gap-3">
-                    @if($canPerform)<a href="{{ route('wartung.perform', ['aufgabe' => $task->id]) }}" class="rounded-lg bg-fw-navy px-3 py-1.5 text-xs font-semibold text-white">Durchführen</a>@endif
-                    @if($canManage)<button type="button" wire:click="cancelTask({{ $task->id }})" wire:confirm="Diese Wartung verwerfen? Sie kommt mit dem nächsten Intervall wieder." class="text-xs text-gray-500 underline">verwerfen</button>@endif
+                    @if($task->can_perform)<a href="{{ route('wartung.perform', ['aufgabe' => $task->id]) }}" class="rounded-lg bg-fw-navy px-3 py-1.5 text-xs font-semibold text-white">Durchführen</a>@endif
+                    @if($task->can_manage)<button type="button" wire:click="cancelTask({{ $task->id }})" wire:confirm="Diese Wartung verwerfen? Sie kommt mit dem nächsten Intervall wieder." class="text-xs text-gray-500 underline">verwerfen</button>@endif
                 </div>
             </div>
         @empty

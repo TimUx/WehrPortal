@@ -57,14 +57,19 @@ class ExpositionenServiceProvider extends ServiceProvider
         app(DashboardRegistry::class)->register('expositionen', 'attention', function (User $user) {
             $drafts = Exposure::where('user_id', $user->id)->where('status', 'draft')->count();
             $prompts = app(ExposureService::class)->openPrompts($user)->count();
-            $manage = ExposureService::canManage($user) ? Exposure::where('status', 'recorded')->count() : 0;
+            $manage = ExposureService::canManage($user) ? ExposureService::managedExposures($user)->where('status', 'recorded')->count() : 0;
 
             return $drafts + $prompts + $manage === 0 ? null : view('expositionen::cards.attention', compact('drafts', 'prompts', 'manage'))->render();
         });
 
         // Jahresbericht: exposures of the year
         app(AnnualReportRegistry::class)->register('expositionen', 'Gefahrstoff-Expositionen', function (int $year) {
-            $rows = Exposure::where('status', '!=', 'draft')->whereYear('occurred_on', $year)->get(['user_id', 'person_name', 'status']);
+            $user = auth()->user();
+            if (! $user || ! ExposureService::canManage($user)) {
+                return null;
+            }
+            $rows = ExposureService::managedExposures($user)->where('status', '!=', 'draft')
+                ->whereYear('occurred_on', $year)->get(['user_id', 'person_name', 'status']);
 
             return $rows->isEmpty() ? null : view('expositionen::annual.section', [
                 'total' => $rows->count(), 'people' => $rows->pluck('person_name')->unique()->count(), 'reported' => $rows->where('status', 'reported')->count(),

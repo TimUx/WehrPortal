@@ -19,6 +19,12 @@
     <div class="flex flex-wrap items-center gap-2">
         <button type="button" wire:click="$set('status', 'submitted')" class="rounded-full px-3 py-1.5 text-sm {{ $status === 'submitted' ? 'bg-amber-500 text-white' : 'border border-amber-300 bg-amber-50 text-amber-900' }}">Zu genehmigen ({{ $waiting }})</button>
         <select wire:model.live="year" class="{{ $select }}" aria-label="Jahr" @disabled($status === 'submitted')>@foreach($years as $y)<option value="{{ $y }}">{{ $y }}</option>@endforeach</select>
+        @if($locationsEnabled)
+            <select wire:model.live="locationId" class="{{ $select }}" aria-label="Standort">
+                @if(\Modules\Finanzen\src\Services\FinanceService::canReviewGlobally(auth()->user()))<option value="">Alle Standorte</option>@endif
+                @foreach($locations as $location)<option value="{{ $location->id }}">{{ $location->name }}</option>@endforeach
+            </select>
+        @endif
         <select wire:model.live="status" class="{{ $select }}" aria-label="Status">
             <option value="">Alle Status</option>
             @foreach(\Modules\Finanzen\src\Models\Entry::STATUSES as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
@@ -41,7 +47,7 @@
             <a href="{{ route('finanzen.entry', $entry) }}" class="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 p-3 text-sm hover:bg-gray-50" wire:key="e-{{ $entry->id }}">
                 <span class="min-w-0">
                     <span class="block font-medium text-gray-900">{{ $entry->title }}</span>
-                    <span class="block text-xs text-gray-500">{{ $entry->code() }} · {{ $entry->booked_on->format('d.m.Y') }} · {{ $entry->costCenter->name }}{{ $entry->submitter ? ' · '.$entry->submitter->name : '' }}{{ $entry->receipts_count ? '' : ' · ohne Beleg' }}</span>
+                    <span class="block text-xs text-gray-500">{{ $entry->code() }} · {{ $entry->booked_on->format('d.m.Y') }} · {{ $entry->costCenter->name }}{{ $locationsEnabled ? ' · '.($entry->location?->name ?? 'ohne Standort') : '' }}{{ $entry->submitter ? ' · '.$entry->submitter->name : '' }}{{ $entry->receipts_count ? '' : ' · ohne Beleg' }}</span>
                 </span>
                 <span class="flex flex-col items-end gap-1">
                     <span class="font-semibold {{ $entry->isIncome() ? 'text-green-700' : 'text-gray-900' }}">{{ $entry->isIncome() ? '+' : '' }}{{ $entry->amount() }}</span>

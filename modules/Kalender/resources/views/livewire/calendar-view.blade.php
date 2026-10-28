@@ -137,7 +137,7 @@
                                     <span class="text-xs font-semibold text-red-700">Abgesagt</span>
                                 @elseif($event->rsvp)
                                     <span class="text-xs {{ $mine?->status ? 'text-gray-600' : 'font-semibold text-fw-red' }}">{{ $mine?->status ? $mine->label() : 'Rückmeldung offen' }}</span>
-                                    @if($manager)
+                                    @if(auth()->user()->canManageKalender() || auth()->user()->canManageKalenderLocations($event->locationIds()))
                                         <span class="text-xs {{ $event->min_participants && $event->yes_count < $event->min_participants ? 'font-semibold text-red-700' : 'text-gray-500' }}">{{ $event->yes_count }}{{ $event->min_participants ? ' / '.$event->min_participants : '' }} Zusagen</span>
                                     @endif
                                 @endif

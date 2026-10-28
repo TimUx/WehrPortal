@@ -3,6 +3,8 @@
 namespace Modules\Expositionen\src\Livewire;
 
 use App\Models\User;
+use Extensions\Locations\Services\LocationContext;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -28,7 +30,7 @@ class ExposureForm extends Component
     {
         $me = auth()->user();
         if ($exposure?->exists) {
-            abort_unless($exposure->user_id === $me->id || ExposureService::canManage($me), 403);
+            abort_unless(ExposureService::canView($me, $exposure), 403);
             $this->exposureId = $exposure->id;
             $this->form = $this->formOf($exposure);
 
@@ -37,6 +39,15 @@ class ExposureForm extends Component
         $report = request()->filled('einsatz') ? Report::find(request()->integer('einsatz')) : null;
         $this->reportId = $report?->id;
         $this->form = $this->blankForm($report);
+        if (config('locations.enabled') && Schema::hasTable('x_locations')) {
+            $context = app(LocationContext::class)->forUser($me);
+            $locations = ExposureService::canManage($me) ? ExposureService::managedLocations($me) : $context['locations'];
+            $current = $report->ext_location_id ?? $context['current'];
+            if (! $locations->contains('id', $current)) {
+                $current = $locations->first()?->id;
+            }
+            $this->form['ext_location_id'] = (string) ($current ?? '');
+        }
         // Who wore Atemschutz in this Einsatz has it as protection already
         if ($report?->crew()->where('user_id', $me->id)->where('breathing_apparatus', true)->exists()) {
             $this->form['protection'] = ['atemschutz'];
@@ -81,11 +92,25 @@ class ExposureForm extends Component
     public function render()
     {
         $exposure = $this->exposureId ? Exposure::with(['events.user', 'user'])->find($this->exposureId) : null;
+        $user = auth()->user();
+        $canManage = ExposureService::canManage($user);
+        $showLocations = config('locations.enabled') && Schema::hasTable('x_locations');
+        $locations = $showLocations
+            ? ($canManage ? ExposureService::managedLocations($user) : app(LocationContext::class)->forUser($user)['locations'])
+            : collect();
+        $locationId = filter_var($this->form['ext_location_id'] ?? null, FILTER_VALIDATE_INT);
+        $report = $this->reportId ? Report::find($this->reportId) : null;
 
         return view('expositionen::livewire.exposure-form', [
             'exposure' => $exposure,
-            'canManage' => ExposureService::canManage(auth()->user()),
-            'members' => ! $exposure && ExposureService::canManage(auth()->user()) ? User::active()->orderBy('name')->get(['id', 'name']) : collect(),
+            'canManage' => $canManage,
+            'locations' => $locations,
+            'showLocations' => $showLocations,
+            'report' => $report,
+            'reportLocation' => $locations->firstWhere('id', (int) ($report->ext_location_id ?? 0)),
+            'members' => ! $exposure && $canManage
+                ? ExposureService::manageableMembers($user, is_int($locationId) ? $locationId : null)
+                : collect(),
         ]);
     }
 }

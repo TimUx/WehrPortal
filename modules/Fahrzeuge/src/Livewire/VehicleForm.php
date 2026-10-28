@@ -3,6 +3,9 @@
 namespace Modules\Fahrzeuge\src\Livewire;
 
 use App\Support\Money;
+use Extensions\Locations\Models\Location as Standort;
+use Extensions\Locations\Services\LocationAccess;
+use Extensions\Locations\Services\LocationContext;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -32,11 +35,20 @@ class VehicleForm extends Component
     public function mount(?Vehicle $vehicle = null): void
     {
         $this->vehicle = $vehicle?->exists ? $vehicle : null;
+        if ($this->vehicle) {
+            abort_unless(FleetService::canManageVehicle(auth()->user(), $this->vehicle), 403);
+        }
+        $roleLocationIds = FleetService::vehicleLocationScope(auth()->user());
+        $currentLocationId = config('locations.enabled', false) ? app(LocationContext::class)->forUser(auth()->user())['current'] : null;
+        if (! $this->vehicle && $roleLocationIds !== null && ! in_array($currentLocationId, $roleLocationIds, true)) {
+            $currentLocationId = $roleLocationIds[0] ?? null;
+        }
         $profile = $this->vehicle ? Profile::firstOrNew(['vehicle_id' => $this->vehicle->id]) : new Profile;
         $v = $this->vehicle;
         $this->form = [
             'name' => (string) $v?->name, 'short_name' => (string) $v?->short_name, 'color' => $v?->color ?? '#3b82f6', 'description' => (string) $v?->description,
             'sort_order' => (string) ($v?->sort_order ?? 0),
+            'ext_location_id' => (string) ($v?->getAttribute('ext_location_id') ?? $currentLocationId ?? ''),
             ...collect(['call_sign', 'license_plate', 'category', 'vehicle_type', 'chassis', 'body_builder', 'year_built', 'vin', 'gross_weight_kg', 'crew',
                 'license_class', 'water_liters', 'foam_liters', 'pump', 'notes', 'mileage_km', 'location_id', 'supplier', 'funding'])
                 ->mapWithKeys(fn ($f) => [$f => (string) ($profile->{$f} ?? '')])->all(),
@@ -88,8 +100,17 @@ class VehicleForm extends Component
 
     public function render()
     {
+        $user = auth()->user();
+        $locationIds = FleetService::vehicleLocationScope($user);
+
         return view('fahrzeuge::livewire.vehicle-form', [
             'locations' => Location::where('kind', 'vehicle')->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
+            'locationsEnabled' => config('locations.enabled', false),
+            'standorte' => config('locations.enabled', false)
+                ? Standort::query()->whereIn('id', app(LocationAccess::class)->visibleLocationIds($user))
+                    ->when($locationIds !== null, fn ($query) => $query->whereIn('id', $locationIds))
+                    ->orderBy('sort_order')->orderBy('name')->get(['id', 'name'])
+                : collect(),
         ]);
     }
 }

@@ -6,7 +6,7 @@
                 <a href="{{ route('schichtplan.signup', $entry['plan']) }}" class="flex items-center justify-between gap-3 rounded-2xl border-2 border-green-200 bg-white p-4 shadow-sm hover:border-green-400" wire:key="open-{{ $entry['plan']->id }}">
                     <span class="min-w-0">
                         <span class="block font-semibold text-gray-900">{{ $entry['plan']->title }}</span>
-                        <span class="block text-sm text-gray-500">{{ $entry['plan']->timeLabel() }}@if($entry['plan']->location) · {{ $entry['plan']->location }}@endif · bis {{ $entry['plan']->signupDeadline()->copy()->setTimezone('Europe/Berlin')->format('d.m. H:i') }}</span>
+                        <span class="block text-sm text-gray-500">{{ $entry['plan']->timeLabel() }}@if($entry['plan']->location) · {{ $entry['plan']->location }}@endif @if($showSites && $entry['plan']->site) · {{ $entry['plan']->site->name }}@endif · bis {{ $entry['plan']->signupDeadline()->copy()->setTimezone('Europe/Berlin')->format('d.m. H:i') }}</span>
                     </span>
                     <span class="shrink-0 rounded-lg bg-green-600 px-3 py-1.5 text-sm font-semibold text-white">{{ max(0, $entry['free']) }} Plätze frei</span>
                 </a>
@@ -38,7 +38,7 @@
                 @foreach($mine as $entry)
                     <a href="{{ route('schichtplan.show', $entry['plan']) }}" class="block bg-white rounded-2xl border border-gray-100 shadow-sm p-4 hover:border-fw-navy" wire:key="mine-{{ $entry['plan']->id }}">
                         <p class="font-semibold text-gray-900">{{ $entry['plan']->title }}</p>
-                        <p class="text-sm text-gray-500">{{ $entry['plan']->timeLabel() }}@if($entry['plan']->location) · {{ $entry['plan']->location }}@endif</p>
+                        <p class="text-sm text-gray-500">{{ $entry['plan']->timeLabel() }}@if($entry['plan']->location) · {{ $entry['plan']->location }}@endif @if($showSites && $entry['plan']->site) · {{ $entry['plan']->site->name }}@endif</p>
                         @if($entry['leads']->isNotEmpty())
                             <p class="mt-2 text-sm font-semibold text-fw-navy">Stationsverantwortung: {{ $entry['leads']->implode(', ') }}</p>
                         @endif
@@ -74,7 +74,7 @@
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
                                     <p class="font-semibold text-gray-900 truncate">{{ $plan->title }}</p>
-                                    <p class="text-sm text-gray-500">{{ $plan->timeLabel() }} · {{ $plan->stations_count }} Stationen · {{ $plan->participants_count }} Teilnehmer{{ $plan->isSelfSignup() ? ' · Selbst-Eintragung' : '' }}</p>
+                                    <p class="text-sm text-gray-500">{{ $plan->timeLabel() }} @if($showSites && $plan->site) · {{ $plan->site->name }} @endif · {{ $plan->stations_count }} Stationen · {{ $plan->participants_count }} Teilnehmer{{ $plan->isSelfSignup() ? ' · Selbst-Eintragung' : '' }}</p>
                                 </div>
                                 <span class="shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold {{ $plan->isPublished() ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700' }}">{{ $plan->isPublished() ? 'Veröffentlicht' : 'Entwurf' }}</span>
                             </div>

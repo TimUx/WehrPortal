@@ -32,13 +32,14 @@ class Topics extends Component
     private function blank(): void
     {
         $this->editing = null;
-        $this->form = ['name' => '', 'short' => '', 'kind' => 'unterweisung', 'interval_months' => '12', 'vehicle_id' => '', 'counts_as' => '', 'description' => '',
+        $this->form = ['name' => '', 'short' => '', 'kind' => 'unterweisung', 'interval_months' => '12', 'vehicle_id' => '', 'counts_as' => InstructionService::isAtemschutzOnlyManager(auth()->user()) ? 'atemschutz' : '', 'description' => '',
             'for_all' => false, 'group_ids' => [], 'function_ids' => [], 'is_active' => true];
     }
 
     public function edit(int $id): void
     {
         $t = Topic::findOrFail($id);
+        abort_unless(InstructionService::canManageTopic(auth()->user(), $t), 403);
         $this->editing = $t->id;
         $this->form = ['name' => $t->name, 'short' => (string) $t->short, 'kind' => $t->kind, 'interval_months' => (string) ($t->interval_months ?? ''),
             'vehicle_id' => (string) ($t->vehicle_id ?? ''), 'counts_as' => (string) $t->counts_as, 'description' => (string) $t->description, 'for_all' => $t->for_all,
@@ -73,10 +74,11 @@ class Topics extends Component
     public function render()
     {
         return view('unterweisungen::livewire.topics', [
-            'topics' => Topic::with('vehicle')->withCount('sessions')->orderByDesc('is_active')->orderBy('name')->get(),
+            'topics' => InstructionService::topicsForManager(auth()->user())->with('vehicle')->withCount('sessions')->orderByDesc('is_active')->orderBy('name')->get(),
             'groups' => Group::options(),
             'functions' => MemberFunction::topLevel()->orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
             'vehicles' => Vehicle::where('is_active', true)->orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
+            'canManageAll' => InstructionService::canManageAll(auth()->user()),
         ]);
     }
 }

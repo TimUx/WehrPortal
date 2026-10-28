@@ -43,23 +43,33 @@
         @include('partials.place-dress-fields', ['input' => $input, 'places' => $places, 'dressCodes' => $dressCodes, 'placeId' => $placeId, 'manageUrl' => route('uebungsdienste.places')])
 
         <div class="space-y-2">
-            <p class="text-sm font-medium text-gray-700">Für welche Standorte? <span class="font-normal text-gray-500">(jeweils die Einsatzabteilung)</span></p>
+            <p class="text-sm font-medium text-gray-700">Für welche Standorte?</p>
             @if($locationsEnabled && $targetLocations->isNotEmpty())
                 <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-700">
                     @foreach($targetLocations as $id => $name)<label class="flex items-center gap-2"><input type="checkbox" value="{{ $id }}" wire:model="targetLocationIds" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> {{ $name }}</label>@endforeach
                 </div>
-            @elseif(! $locationsEnabled && $targetGroups->isNotEmpty())
-                <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-700">
-                    @foreach($targetGroups as $id => $name)<label class="flex items-center gap-2"><input type="checkbox" value="{{ $id }}" wire:model="targetGroupIds" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> {{ $name }}</label>@endforeach
-                </div>
-            @else
-                <p class="text-sm text-amber-800">Bitte zuerst je Standort die Abteilung „Einsatzabteilung“ anlegen.</p>
+            @elseif($locationsEnabled)
+                <p class="text-sm text-amber-800">Für deine Planungsrolle ist kein Standort mit passender Abteilung verfügbar.</p>
             @endif
             @error('targetLocationIds')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
         </div>
 
+        <div class="space-y-2">
+            <p class="text-sm font-medium text-gray-700">Für welche Abteilungen? <span class="font-normal text-gray-500">(der Standort steht in Klammern)</span></p>
+            @if($targetGroups->isNotEmpty())
+                <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-700">
+                    @foreach($targetGroups as $id => $name)<label class="flex items-center gap-2"><input type="checkbox" value="{{ $id }}" wire:model="targetGroupIds" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> {{ $name }}</label>@endforeach
+                </div>
+            @elseif(! $locationsEnabled && $targetGroups->isEmpty())
+                <p class="text-sm text-amber-800">Für deine Planungsrolle ist keine passende Abteilung verfügbar.</p>
+            @else
+                <p class="text-sm text-gray-500">Wähle zuerst mindestens einen Standort.</p>
+            @endif
+            @error('targetGroupIds')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
+        </div>
+
         @if($inCalendar)
-            <p class="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-900">Der Dienst erscheint als „Übungsdienst“ im Kalender der gewählten Einsatzabteilungen – mit Zeit, Treffpunkt und Kleidung, <strong>ohne Thema und Verantwortliche</strong>.</p>
+            <p class="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-900">Der Dienst erscheint als „Übungsdienst“ im Kalender der gewählten Abteilungen – mit Zeit, Treffpunkt und Kleidung, <strong>ohne Thema und Verantwortliche</strong>.</p>
         @endif
 
         <div class="flex flex-wrap items-center gap-3 pt-2">

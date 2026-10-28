@@ -10,6 +10,8 @@ use Extensions\Anwesenheit\Services\AttendanceService;
 use Filament\Actions;
 use Filament\Forms;
 use Filament\Resources\Resource as FilamentResource;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -51,7 +53,7 @@ class TemplateResource extends FilamentResource
     {
         $user = auth()->user();
 
-        return $user instanceof User && AttendanceService::canManageAt($user, $record->ext_location_id);
+        return $user instanceof User && AttendanceService::canManageGroupAt($user, $record->ext_location_id, $record->group_id);
     }
 
     public static function canDelete(Model $record): bool
@@ -65,13 +67,7 @@ class TemplateResource extends FilamentResource
         $user = auth()->user();
 
         if ($user instanceof User) {
-            $query = app(AttendanceService::class)->restrictTemplateQuery($query, $user);
-        }
-
-        if ($user instanceof User && ! $user->is_admin && AttendanceService::locationsOn()) {
-            $locations = array_filter(app(AttendanceService::class)->locationsFor($user),
-                fn ($id) => AttendanceService::canManageAt($user, $id), ARRAY_FILTER_USE_KEY);
-            $query->whereIn('ext_location_id', array_keys($locations));
+            $query = app(AttendanceService::class)->restrictTemplateQuery($query, $user, forManagement: true);
         }
 
         return $query;
@@ -80,9 +76,11 @@ class TemplateResource extends FilamentResource
     public static function form(Schema $schema): Schema
     {
         $user = auth()->user();
-        $locations = $user instanceof User ? app(AttendanceService::class)->locationsFor($user) : [];
+        $service = app(AttendanceService::class);
+        $locations = $user instanceof User ? $service->locationsFor($user) : [];
         if ($user instanceof User) {
-            $locations = array_filter($locations, fn ($id) => AttendanceService::canManageAt($user, $id), ARRAY_FILTER_USE_KEY);
+            $locations = array_filter($locations, fn ($name, $id) => AttendanceService::canManageAt($user, (int) $id)
+                || $service->groupOptions($user, (int) $id) !== [], ARRAY_FILTER_USE_BOTH);
         }
 
         return $schema->schema([
@@ -90,9 +88,22 @@ class TemplateResource extends FilamentResource
             Forms\Components\TextInput::make('title')->label('Titel der Liste')->helperText('Leer = Name der Vorlage')->maxLength(150),
             Forms\Components\Select::make('kind')->label('Art')->options(config('anwesenheit.kinds'))->required(),
             Forms\Components\TextInput::make('duration_minutes')->label('Übliche Dauer (Minuten)')->numeric()->minValue(1)->maxValue(AttendanceService::MAX_MINUTES),
-            Forms\Components\Select::make('leader_id')->label('Übliche Leitung')->options(fn () => app(AttendanceService::class)->members(null)->pluck('name', 'id'))->searchable(),
-            Forms\Components\Select::make('ext_location_id')->label('Standort')->options($locations)
+            Forms\Components\Select::make('ext_location_id')->label('Standort')->options($locations)->live()
+                ->afterStateUpdated(function (Set $set): void {
+                    $set('group_id', null);
+                    $set('leader_id', null);
+                })
                 ->default(array_key_first($locations))->required(AttendanceService::locationsOn())->visible(AttendanceService::locationsOn()),
+            Forms\Components\Select::make('group_id')->label('Abteilung')
+                ->options(fn (Get $get) => $user instanceof User ? $service->groupOptions($user, (int) $get('ext_location_id') ?: null) : [])
+                ->default($user instanceof User ? $service->defaultGroup($user, array_key_first($locations) ?: null) : null)
+                ->required(AttendanceService::locationsOn())->visible(AttendanceService::locationsOn())->live()
+                ->afterStateUpdated(fn (Set $set) => $set('leader_id', null)),
+            Forms\Components\Select::make('leader_id')->label('Übliche Leitung')
+                ->options(fn (Get $get) => $user instanceof User
+                    ? $service->members((int) $get('ext_location_id') ?: null, (int) $get('group_id') ?: null)->pluck('name', 'id')
+                    : [])
+                ->searchable(),
             Forms\Components\Textarea::make('recipients')->label('E-Mail-Empfänger')->rows(2)
                 ->helperText('Leer = Standard-Empfänger aus den Einstellungen')
                 ->rule(fn () => function (string $attribute, mixed $value, \Closure $fail) {
@@ -110,6 +121,7 @@ class TemplateResource extends FilamentResource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')->label('Name')->searchable()->sortable(),
+                Tables\Columns\TextColumn::make('group.display_name')->label('Abteilung')->toggleable(),
                 Tables\Columns\TextColumn::make('kind')->label('Art')->formatStateUsing(fn ($state) => config('anwesenheit.kinds')[$state] ?? $state),
                 Tables\Columns\TextColumn::make('duration_minutes')->label('Dauer')->suffix(' Min.'),
                 Tables\Columns\IconColumn::make('is_active')->label('Aktiv')->boolean(),

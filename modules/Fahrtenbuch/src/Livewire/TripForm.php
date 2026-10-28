@@ -4,7 +4,12 @@ namespace Modules\Fahrtenbuch\src\Livewire;
 
 use App\Models\User;
 use App\Services\DriverRegistry;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Modules\Fahrtenbuch\src\Models\Trip;
 use Modules\Fahrtenbuch\src\Services\LogbookService;
@@ -19,6 +24,7 @@ class TripForm extends Component
 {
     public string $mode = 'start';            // start | end | record | correct
 
+    #[Locked]
     public ?Trip $trip = null;
 
     public string $vehicleId = '';
@@ -63,7 +69,11 @@ class TripForm extends Component
 
         if (request()->filled('fahrt')) {
             $this->trip = Trip::with('vehicle')->findOrFail((int) request('fahrt'));
-            $this->mode = request()->boolean('korrigieren') && LogbookService::canManage($user) ? 'correct' : ($this->trip->isOpen() ? 'end' : 'view');
+            abort_unless(LogbookService::canAccessTrip($user, $this->trip), 404);
+            $vehicle = $this->trip->vehicle;
+            $this->mode = request()->boolean('korrigieren') && $vehicle instanceof Vehicle && LogbookService::canManageVehicle($user, $vehicle)
+                ? 'correct'
+                : ($this->trip->isOpen() ? 'end' : 'view');
             $this->fillFromTrip();
             if ($this->mode === 'end') {
                 $this->endedAt = $now;
@@ -180,14 +190,36 @@ class TripForm extends Component
 
     public function render(LogbookService $logbook)
     {
+        $selectedVehicleId = $this->vehicleId !== '' ? (int) $this->vehicleId : $this->trip?->vehicle_id;
+        $selectedVehicle = $selectedVehicleId ? Vehicle::find($selectedVehicleId) : null;
+        if ($selectedVehicle) {
+            abort_unless(LogbookService::canAccessVehicle(auth()->user(), $selectedVehicle), 404);
+        }
+
         return view('fahrtenbuch::livewire.trip-form', [
             'vehicles' => Vehicle::where(fn ($q) => $q->where('is_active', true)->orWhere('id', $this->trip?->vehicle_id))->orderBy('sort_order')->orderBy('name')->get(),
-            'drivers' => User::active()->orderBy('name')->get(['id', 'name']),
+            'selectedVehicle' => $selectedVehicle,
+            'drivers' => $this->driversFor($selectedVehicle),
             'reports' => $logbook->reportOptions()->when($this->trip?->report, fn ($c) => $c->push($this->trip->report)->unique('id')),
             'lastKm' => $this->vehicleId !== '' && ($v = Vehicle::find((int) $this->vehicleId)) ? $logbook->lastKm($v, $this->trip?->id) : null,
-            'canManage' => LogbookService::canManage(auth()->user()),
+            'canManage' => $selectedVehicle !== null && LogbookService::canManageVehicle(auth()->user(), $selectedVehicle),
             // A hint when the driver lacks a valid Fahrerlaubnis for the vehicle (Führerscheine, if switched on)
             'licenseWarning' => $this->vehicleId !== '' && ($driver = User::find((int) $this->driverId)) ? app(DriverRegistry::class)->warning($driver, (int) $this->vehicleId) : null,
         ]);
+    }
+
+    /** @return EloquentCollection<int, User> */
+    private function driversFor(?Vehicle $vehicle): EloquentCollection
+    {
+        $drivers = User::active();
+        if ($vehicle?->ext_location_id === null || ! config('locations.enabled') || ! Schema::hasTable('x_location_user')) {
+            return $drivers->orderBy('name')->get(['id', 'name']);
+        }
+
+        $locationId = (int) $vehicle->ext_location_id;
+
+        return $drivers->where(fn (Builder $query) => $query->where('ext_location_id', $locationId)
+            ->orWhereIn('id', DB::table('x_location_user')->where('location_id', $locationId)->select('user_id')))
+            ->orderBy('name')->get(['id', 'name']);
     }
 }

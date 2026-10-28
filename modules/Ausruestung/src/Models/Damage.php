@@ -18,6 +18,7 @@ class Damage extends Model
         return ['status' => DamageStatus::class, 'resolved_at' => 'datetime', 'repair_cost' => 'decimal:2'];
     }
 
+    /** @return BelongsTo<Equipment, $this> */
     public function equipment(): BelongsTo
     {
         return $this->belongsTo(Equipment::class, 'equipment_id');

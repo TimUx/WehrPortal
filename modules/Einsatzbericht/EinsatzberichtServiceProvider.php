@@ -97,7 +97,9 @@ class EinsatzberichtServiceProvider extends ServiceProvider
             $lead = ReportService::canLead($user);
             $drafts = $lead ? Report::where('status', 'draft')->count() : 0;
             $active = $lead ? Report::where('status', 'active')->count() : 0;
-            $toRelease = ReportService::canRelease($user) ? Report::where('status', 'closed')->count() : 0;
+            $toRelease = (ReportService::canRelease($user) || $user->hasAnyModuleRole('einsatzbericht', 'wehrführung'))
+                ? Report::where('status', 'closed')->get()->filter(fn (Report $report) => ReportService::canReleaseReport($user, $report))->count()
+                : 0;
 
             return $drafts + $active + $toRelease === 0 ? null : view('einsatzbericht::cards.open', compact('drafts', 'active', 'toRelease'))->render();
         });

@@ -12,6 +12,16 @@
             <label class="block text-sm text-gray-700">Farbe im Kalender<input type="color" wire:model="form.color" class="mt-1 h-10 w-20 rounded-lg border border-gray-300"></label>
             <label class="block text-sm text-gray-700">Reihenfolge<input type="number" wire:model="form.sort_order" class="{{ $input }}"></label>
         </div>
+        @if($locationsEnabled)
+            <label class="block text-sm text-gray-700">Standort
+                <select wire:model="form.ext_location_id" class="{{ $input }}" @required($standorte->isNotEmpty())>
+                    <option value="">Bitte auswählen</option>
+                    @foreach($standorte as $standort)<option value="{{ $standort->id }}">{{ $standort->name }}</option>@endforeach
+                </select>
+            </label>
+            @error('ext_location_id')<p class="{{ $error }}">{{ $message }}</p>@enderror
+            @if($standorte->isEmpty())<p class="{{ $error }}">Kein berechtigter Standort verfügbar. Bitte lass die Standortzuordnung prüfen.</p>@endif
+        @endif
         @error('name')<p class="{{ $error }}">{{ $message }}</p>@enderror
         @error('color')<p class="{{ $error }}">{{ $message }}</p>@enderror
         <label class="block text-sm text-gray-700">Beschreibung (optional)<textarea wire:model="form.description" rows="2" class="{{ $input }}"></textarea></label>
@@ -40,7 +50,7 @@
             <label class="block text-sm text-gray-700">Kilometerstand<input type="number" wire:model="form.mileage_km" class="{{ $input }}"></label>
             <label class="block text-sm text-gray-700">Betriebsstunden<input type="text" inputmode="decimal" wire:model="form.operating_hours" class="{{ $input }}"></label>
             @if($locations->isNotEmpty())
-                <label class="block text-sm text-gray-700">Beladung (Ausrüstung)
+                <label class="block text-sm text-gray-700">Lagerort / Beladung (Ausrüstung)
                     <select wire:model="form.location_id" class="{{ $input }}"><option value="">–</option>@foreach($locations as $l)<option value="{{ $l->id }}">{{ $l->name }}</option>@endforeach</select>
                 </label>
             @endif

@@ -29,6 +29,7 @@ class Loan extends Model
         ];
     }
 
+    /** @return BelongsTo<Equipment, $this> */
     public function equipment(): BelongsTo
     {
         return $this->belongsTo(Equipment::class, 'equipment_id');

@@ -2,7 +2,8 @@
 @php
     $user = auth()->user();
     $linked = app(\Modules\Schichtplan\src\Services\CalendarLink::class)->plansFor($event, $user);
-    $canCreate = $user->canManageSchichtplan() && ! $event->isExternal() && ! $event->isCancelled();
+    $canCreate = app(\Modules\Schichtplan\src\Services\PlanLocationAccess::class)->canCreate($user)
+        && ! $event->isExternal() && ! $event->isCancelled();
 @endphp
 @if($linked->isNotEmpty() || $canCreate)
     <section class="mx-auto mt-4 max-w-3xl space-y-2 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">

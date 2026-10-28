@@ -245,15 +245,30 @@ class ProtectionManifestTest extends TestCase
         $this->assertViolation('sensitive/personnel NULL ownership must target deny_or_quarantine');
     }
 
-    public function test_physical_inventory_is_not_classified_as_shared_because_it_lacks_a_column(): void
+    public function test_physical_storage_places_have_explicit_location_ownership_while_other_inventory_gaps_remain(): void
     {
         $tables = config('locations.protection.tables');
-        foreach (['kk_stock', 'ar_locations', 'ar_stocktakes', 'mm_devices', 'wm_protocols'] as $table) {
+        foreach (['kk_stock', 'wm_protocols'] as $table) {
             $this->assertSame('standortgebunden', $tables[$table]['mode']);
             $this->assertSame('deny_or_quarantine', $tables[$table]['null_rule']);
             $this->assertSame('pending_decision', $tables[$table]['target_status']);
             $this->assertNotEmpty($tables[$table]['target_gap']);
         }
+        $this->assertSame('proposed', $tables['mm_devices']['target_status']);
+
+        $storage = $tables['ar_locations'];
+        $this->assertSame('standortgebunden', $storage['mode']);
+        $this->assertSame('deny_or_quarantine', $storage['null_rule']);
+        $this->assertSame('proposed', $storage['target_status']);
+        $this->assertSame('ext_location_id', $storage['parents'][0]['child_column']);
+        $this->assertStringContainsString('not backfilled', $storage['target_gap']);
+
+        $stocktakes = $tables['ar_stocktakes'];
+        $this->assertSame('standortgebunden', $stocktakes['mode']);
+        $this->assertSame('deny_or_quarantine', $stocktakes['null_rule']);
+        $this->assertSame('proposed', $stocktakes['target_status']);
+        $this->assertSame('ext_location_id', $stocktakes['parents'][0]['child_column']);
+        $this->assertStringContainsString('Historical NULL ownership is not backfilled', $stocktakes['target_gap']);
     }
 
     public function test_current_shared_null_scope_is_not_an_approved_sensitive_target(): void
@@ -285,10 +300,9 @@ class ProtectionManifestTest extends TestCase
     {
         $tables = config('locations.protection.tables');
         foreach (['fin_budgets', 'fin_closed_years'] as $table) {
-            $this->assertSame('pending_decision', $tables[$table]['target_status']);
+            $this->assertSame('proposed', $tables[$table]['target_status']);
             $this->assertSame('deny_or_quarantine', $tables[$table]['null_rule']);
             $this->assertNotSame('übergreifend', $tables[$table]['mode']);
-            $this->assertNotEmpty($tables[$table]['target_gap']);
         }
     }
 

@@ -4,7 +4,9 @@ use App\Models\ActivityLog;
 use App\Models\Module;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
-use Livewire\Livewire;
+use Illuminate\Validation\ValidationException;
+use Modules\Gefahrenmatrix\src\Livewire\Matrix;
+use Modules\Gefahrstoffe\src\Data\GhsPictograms;
 use Modules\Gefahrstoffe\src\Livewire\ImportCatalog;
 use Modules\Gefahrstoffe\src\Models\Material;
 use Modules\Gefahrstoffe\src\Services\MaterialImport;
@@ -64,7 +66,7 @@ test('duplicate and malformed rows block the entire import', function () {
     $duplicates = "UN-Nummer,Name\n1203,Benzin\n1203,Motorbenzin";
     expect($import->preview($duplicates)[1]['action'])->toBe('invalid');
     expect(fn () => $import->apply($duplicates, 'Quelle', null, null, $this->manager->id))
-        ->toThrow(\Illuminate\Validation\ValidationException::class);
+        ->toThrow(ValidationException::class);
     expect(Material::count())->toBe(0);
 
     $invalid = "UN-Nummer,Name\n12,Benzin";
@@ -96,4 +98,26 @@ test('the module provides a JSON catalogue for offline caching', function () {
         ->assertHeader('Cache-Control', 'no-store, private')
         ->assertJsonPath('materials.0.un_number', '1203')
         ->assertJsonPath('materials.0.source_name', 'Quelle Muster');
+});
+
+test('the database shows the nine general GHS pictograms to every module member', function () {
+    expect(GhsPictograms::all())->toHaveCount(9);
+    $response = $this->actingAs($this->member)->get(route('gefahrstoffe.index'));
+    $response
+        ->assertOk()
+        ->assertSee('GHS-Gefahrenpiktogramme')
+        ->assertSee('GHS01 · Explodierende Bombe')
+        ->assertSee('GHS09 · Umwelt')
+        ->assertSee('Importierter Gefahrstoffkatalog')
+        ->assertSee('role="img" aria-label="GHS09"', false);
+
+    expect(substr_count($response->getContent(), 'role="img" aria-label="GHS'))->toBe(9);
+});
+
+test('the hazard reference modules and catalog remain global under Locations', function () {
+    expect(config('locations.models'))
+        ->not->toContain(Material::class)
+        ->not->toContain(Matrix::class);
+
+    $this->actingAs($this->member)->get(route('gefahrstoffe.catalogue'))->assertOk();
 });

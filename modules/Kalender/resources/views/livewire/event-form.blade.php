@@ -57,8 +57,21 @@
             <textarea wire:model="description" rows="3" maxlength="5000" class="mt-1 {{ $input }}"></textarea>
         </label>
 
+        @if($locations->isNotEmpty())
+            <div>
+                <p class="text-sm font-medium text-gray-700 mb-1">Standorte <span class="text-red-600">*</span></p>
+                <div class="flex flex-wrap gap-3">
+                    @foreach($locations as $id => $name)
+                        <label class="inline-flex items-center gap-1.5 text-sm text-gray-700"><input type="checkbox" value="{{ $id }}" wire:model.live="locationIds" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> {{ $name }}</label>
+                    @endforeach
+                </div>
+                @error('locationIds')<span class="text-sm text-red-600">{{ $message }}</span>@enderror
+                @error('locationIds.*')<span class="text-sm text-red-600">{{ $message }}</span>@enderror
+            </div>
+        @endif
+
         <div>
-            <p class="text-sm font-medium text-gray-700 mb-1">Für (leer = alle Kameraden mit Kalender)</p>
+            <p class="text-sm font-medium text-gray-700 mb-1">Für (leer = alle Kameraden der ausgewählten Standorte)</p>
             <div class="flex flex-wrap gap-3">
                 @foreach($groups as $id => $name)
                     <label class="inline-flex items-center gap-1.5 text-sm text-gray-700"><input type="checkbox" value="{{ $id }}" wire:model="groupIds" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> {{ $name }}</label>
@@ -82,7 +95,7 @@
             <select id="kal-invitees" multiple size="5" wire:model="inviteeIds" class="{{ $input }}">
                 @foreach($people as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
             </select>
-            <p class="mt-1 text-xs text-gray-500">Mehrere mit Strg/Cmd. Ohne Abteilungen, Funktionen und Einladungen gilt der Termin für alle.</p>
+            <p class="mt-1 text-xs text-gray-500">Mehrere mit Strg/Cmd. Ohne Abteilungen, Funktionen und Einladungen gilt der Termin für alle Kameraden an den ausgewählten Standorten.</p>
         </div>
 
         <div class="rounded-xl bg-gray-50 p-3 space-y-2">

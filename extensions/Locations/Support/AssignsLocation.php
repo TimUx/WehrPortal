@@ -57,13 +57,17 @@ class AssignsLocation
     {
         $id = (int) $model->getAttribute('ext_location_id');
 
-        if ($user && ! $user->is_admin && ! app(LocationAccess::class)->canSee($user, $id)) {
+        if ($user && ! $user->is_admin && ! app(LocationAccess::class)->canSee($user, $id)
+            && ! ($model instanceof LocationAssignable && $model->canAssignLocation($user, $id))) {
             throw new AuthorizationException('Kein Zugriff auf diesen Standort.');
         }
     }
 
     private static function ready(): bool
     {
+        if (! config('locations.enabled')) {
+            return false;
+        }
         if (! self::$ready) {
             self::$ready = Schema::hasTable('x_locations');
         }

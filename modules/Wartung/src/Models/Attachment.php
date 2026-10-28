@@ -16,6 +16,7 @@ class Attachment extends Model
 
     protected $hidden = ['data'];
 
+    /** @return BelongsTo<Protocol, $this> */
     public function protocol(): BelongsTo
     {
         return $this->belongsTo(Protocol::class);

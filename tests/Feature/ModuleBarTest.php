@@ -62,6 +62,7 @@ test('no Modulleiste outside modules and for modules the Kamerad has no access t
 });
 
 test('Personalverwaltung and Unterweisungen open the module for role holders, the Personalakte for everyone else', function () {
+    config(['locations.enabled' => false]);
     Module::whereIn('key', ['unterweisungen', 'personalverwaltung'])->update(['is_active' => true]);
     Cache::forget('modules_active_keys');
     foreach (['unterweisungen', 'personalverwaltung'] as $module) {

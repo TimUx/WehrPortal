@@ -3,6 +3,7 @@
 namespace Modules\Verbandbuch\src\Models;
 
 use App\Models\User;
+use Extensions\Locations\Models\Location;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\MassPrunable;
 use Illuminate\Database\Eloquent\Model;
@@ -13,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * An entry of the Verbandbuch (DGUV Information 204-021): who was hurt, when and where, what
  * happened, the injury, the first aid and who gave it, the witnesses. Signed when it is written
  * and never changed afterwards (the database refuses it); corrections are Nachträge.
+ *
+ * @property int|null $ext_location_id
  */
 class Entry extends Model
 {
@@ -32,7 +35,7 @@ class Entry extends Model
 
     protected $fillable = ['year', 'number', 'kind', 'occasion', 'occurred_at', 'location', 'injured_user_id', 'injured_name', 'description', 'injury',
         'witnesses', 'first_aid_at', 'first_aid_measures', 'first_aider_user_id', 'first_aider_name', 'doctor_visited', 'recorded_by', 'recorded_by_name',
-        'content_hash', 'retain_until', 'hold', 'reported_at', 'report_note', 'reported_by', 'voided_at', 'void_reason', 'voided_by'];
+        'ext_location_id', 'content_hash', 'retain_until', 'hold', 'reported_at', 'report_note', 'reported_by', 'voided_at', 'void_reason', 'voided_by'];
 
     protected function casts(): array
     {
@@ -65,6 +68,12 @@ class Entry extends Model
         return $this->belongsTo(User::class, 'recorded_by');
     }
 
+    /** The organizational Standort is a permanent access-control snapshot, unlike the free-text incident location. */
+    public function organizationalLocation(): BelongsTo
+    {
+        return $this->belongsTo(Location::class, 'ext_location_id');
+    }
+
     public function reporter(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reported_by');
@@ -91,12 +100,18 @@ class Entry extends Model
     }
 
     /** Entries this Kamerad is part of: hurt, first aider or recorder */
+    /** @param Builder<Entry> $query
+     * @return Builder<Entry>
+     */
     public function scopeInvolving(Builder $query, User $user): Builder
     {
         return $query->where(fn ($q) => $q->where('injured_user_id', $user->id)->orWhere('first_aider_user_id', $user->id)->orWhere('recorded_by', $user->id));
     }
 
     /** Accidents with a doctor's visit still without the note that the Unfallanzeige was sent */
+    /** @param Builder<Entry> $query
+     * @return Builder<Entry>
+     */
     public function scopeAwaitingReport(Builder $query): Builder
     {
         return $query->where('kind', 'accident')->where('doctor_visited', true)->whereNull('reported_at')->whereNull('voided_at');

@@ -62,6 +62,7 @@ class ReminderService
         }
 
         $this->mailer->toManagers(new MaintenanceDigestNotification($summary));
+        $this->sendLocationDigests($summary);
 
         return true;
     }
@@ -87,5 +88,26 @@ class ReminderService
         }
 
         return $sent;
+    }
+
+    private function sendLocationDigests(array $summary): void
+    {
+        $locationIds = collect($summary)
+            ->flatMap(fn ($items) => $items->map(fn ($item) => $this->equipmentForSummaryItem($item)?->getAttribute('ext_location_id')))
+            ->filter()
+            ->unique();
+
+        foreach ($locationIds as $locationId) {
+            $scopedSummary = collect($summary)->map(
+                fn ($items) => $items->filter(fn ($item) => (int) $this->equipmentForSummaryItem($item)?->getAttribute('ext_location_id') === (int) $locationId)->values(),
+            )->all();
+
+            $this->mailer->toLocationManagers(new MaintenanceDigestNotification($scopedSummary), (int) $locationId);
+        }
+    }
+
+    private function equipmentForSummaryItem(Equipment|Damage|Loan $item): ?Equipment
+    {
+        return $item instanceof Equipment ? $item : $item->equipment;
     }
 }

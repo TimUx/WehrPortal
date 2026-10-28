@@ -2,6 +2,7 @@
 
 namespace Extensions\Anwesenheit\Models;
 
+use App\Models\Group;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,7 +14,7 @@ class AttendanceTemplate extends Model
 
     protected $attributes = ['kind' => 'uebung', 'is_active' => true];
 
-    protected $fillable = ['ext_location_id', 'name', 'kind', 'title', 'duration_minutes', 'leader_id', 'recipients', 'is_active'];
+    protected $fillable = ['ext_location_id', 'group_id', 'name', 'kind', 'title', 'duration_minutes', 'leader_id', 'recipients', 'is_active'];
 
     protected function casts(): array
     {
@@ -23,5 +24,10 @@ class AttendanceTemplate extends Model
     public function leader(): BelongsTo
     {
         return $this->belongsTo(User::class, 'leader_id');
+    }
+
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(Group::class)->withoutGlobalScopes();
     }
 }

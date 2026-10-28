@@ -3,10 +3,12 @@
 use App\Models\Module;
 use App\Models\User;
 use Extensions\Locations\Models\Location;
-use Extensions\Vereinsverwaltung\Models\Association;
 use Extensions\Vereinsverwaltung\Livewire\Board;
+use Extensions\Vereinsverwaltung\Models\Association;
 use Extensions\Vereinsverwaltung\Models\Member;
 use Extensions\Vereinsverwaltung\Models\MembershipApplication;
+use Extensions\Vereinsverwaltung\Services\MembershipService;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
@@ -83,7 +85,7 @@ it('lets applicants select a configured Verein and keeps the association through
     $board = User::factory()->create();
     $association = testAssociation();
     assignAssociationBoard($board, $association);
-    $service = app(\Extensions\Vereinsverwaltung\Services\MembershipService::class);
+    $service = app(MembershipService::class);
 
     $this->get(route('verein.application'))
         ->assertOk()
@@ -132,7 +134,7 @@ it('accepts youth applications without SEPA details and records free membership'
 
     $board = User::factory()->create();
     assignAssociationBoard($board, $association);
-    app(\Extensions\Vereinsverwaltung\Services\MembershipService::class)->approveApplication($board, $association->id, $application->id);
+    app(MembershipService::class)->approveApplication($board, $association->id, $application->id);
     $member = Member::firstOrFail();
     expect($member->youth_member)->toBeTrue()
         ->and($member->annual_fee_cents)->toBe(0)
@@ -249,9 +251,9 @@ it('limits board applications, members and linked personnel to its assigned Vere
     $board = User::factory()->create();
     assignAssociationBoard($board, $association);
 
-    $firstApplication = app(\Extensions\Vereinsverwaltung\Services\MembershipService::class)
+    $firstApplication = app(MembershipService::class)
         ->submitApplication(collect(membershipApplicationData(['first_name' => 'Anna']))->except(['privacy_consent', 'sepa_notice'])->all());
-    $otherApplication = app(\Extensions\Vereinsverwaltung\Services\MembershipService::class)
+    $otherApplication = app(MembershipService::class)
         ->submitApplication(collect(membershipApplicationData(['association_id' => $otherAssociation->id, 'first_name' => 'Bernd']))->except(['privacy_consent', 'sepa_notice'])->all());
 
     $sameLocationPersonnel = User::factory()->create([
@@ -267,14 +269,14 @@ it('limits board applications, members and linked personnel to its assigned Vere
         ->assertSee('Anna Example')
         ->assertDontSee('Bernd Example');
 
-    $visiblePersonnelIds = app(\Extensions\Vereinsverwaltung\Services\MembershipService::class)
+    $visiblePersonnelIds = app(MembershipService::class)
         ->personnelForAssociation($association)->modelKeys();
     expect($visiblePersonnelIds)->toContain($sameLocationPersonnel->id)
         ->and($visiblePersonnelIds)->not->toContain($otherLocationPersonnel->id);
 
-    expect(fn () => app(\Extensions\Vereinsverwaltung\Services\MembershipService::class)
+    expect(fn () => app(MembershipService::class)
         ->rejectApplication($board, $association->id, $otherApplication->id))
-        ->toThrow(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+        ->toThrow(ModelNotFoundException::class);
 
     expect($firstApplication->association_id)->toBe($association->id)
         ->and($otherApplication->association_id)->toBe($otherAssociation->id)
@@ -285,7 +287,7 @@ it('approves applications as passive members and removes the duplicate applicati
     $association = testAssociation();
     $board = User::factory()->create();
     assignAssociationBoard($board, $association);
-    $application = app(\Extensions\Vereinsverwaltung\Services\MembershipService::class)
+    $application = app(MembershipService::class)
         ->submitApplication(collect(membershipApplicationData())->except(['privacy_consent', 'sepa_notice'])->all());
 
     Livewire::actingAs($board)->test(Board::class)->call('approve', $application->id);
@@ -364,7 +366,7 @@ it('links personnel records to the Verein without copying contact data', functio
     $person = User::factory()->create(['phone' => '0123456789', 'email' => 'kamerad@example.com']);
     $locationId = $person->getAttribute('ext_location_id');
 
-    $service = app(\Extensions\Vereinsverwaltung\Services\MembershipService::class);
+    $service = app(MembershipService::class);
     $service->setPersonnelMembership($person, true);
 
     $member = Member::query()->where('user_id', $person->id)->firstOrFail();
@@ -389,7 +391,7 @@ it('redacts rejected application data and permits active and passive board membe
     $association = testAssociation();
     $board = User::factory()->create();
     assignAssociationBoard($board, $association);
-    $application = app(\Extensions\Vereinsverwaltung\Services\MembershipService::class)
+    $application = app(MembershipService::class)
         ->submitApplication(collect(membershipApplicationData())->except(['privacy_consent', 'sepa_notice'])->all());
 
     Livewire::actingAs($board)->test(Board::class)->call('reject', $application->id);

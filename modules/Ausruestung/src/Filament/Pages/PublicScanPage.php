@@ -6,6 +6,7 @@ use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Modules\Ausruestung\src\Filament\Concerns\AusruestungArea;
+use Modules\Ausruestung\src\Services\EquipmentService;
 use Modules\Ausruestung\src\Support\PublicScan;
 
 /** The Gerätewart switches the Geräteinfo without login on or off */
@@ -24,6 +25,11 @@ class PublicScanPage extends Page
     protected static ?int $navigationSort = 90;
 
     protected string $view = 'ausruestung::filament.pages.public-scan';
+
+    public static function canAccess(): bool
+    {
+        return static::canAccessArea() && EquipmentService::canManageGlobal(auth()->user());
+    }
 
     protected function getHeaderActions(): array
     {

@@ -5,6 +5,8 @@ namespace Modules\Finanzen\src\Services;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\ImageResizer;
+use Extensions\Locations\Models\Location;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Notifications\Notification;
@@ -24,7 +26,7 @@ use Throwable;
 /**
  * All changes of Budget & Finanzen go through here:
  * 1. a Kamerad submits an Ausgabe with Beleg (Kassenwart and Wehrführung are told),
- * 2. Kassenwart or Wehrführung approve or reject it (not their own),
+ * 2. Kassenwart or the Wehrführung at that Standort approve or reject it (not their own),
  * 3. the Kassenwart pays it; Einnahmen and paid Ausgaben he books directly,
  * 4. the Jahresabschluss locks a year: nothing of it changes any more.
  */
@@ -42,16 +44,118 @@ class FinanceService
 
     // ─── who may do what ─────────────────────────────────────────────────────
 
-    /** Kassenwart and admins: Kostenstellen, budgets, booking, paying, Jahresabschluss */
+    /** Kassenwart and admins: shared Kostenstellen, all Standortbudgets, booking, paying, Jahresabschluss */
     public static function canManage(User $user): bool
     {
         return $user->is_active && $user->canUseModule(self::MODULE) && ($user->is_admin || $user->hasModuleRole(self::MODULE, 'kassenwart'));
     }
 
-    /** Kassenwart, Wehrführung and admins: approve, see all Buchungen with Belege, reports and export */
-    public static function canReview(User $user): bool
+    /** Global finance managers retain cross-location review; local Wehrführung is checked per entry. */
+    public static function canReviewGlobally(User $user): bool
     {
         return self::canManage($user) || ($user->is_active && $user->canUseModule(self::MODULE) && $user->hasModuleRole(self::MODULE, 'wehrführung'));
+    }
+
+    public static function locationsEnabled(): bool
+    {
+        return (bool) config('locations.enabled');
+    }
+
+    public static function canReviewAt(User $user, ?int $locationId): bool
+    {
+        if (self::canReviewGlobally($user)) {
+            return true;
+        }
+
+        return self::locationsEnabled() && $locationId !== null
+            && $user->is_active && $user->canUseModule(self::MODULE)
+            && $user->hasModuleRole(self::MODULE, 'wehrführung', $locationId);
+    }
+
+    public static function canReview(User $user): bool
+    {
+        return self::canReviewGlobally($user)
+            || (self::locationsEnabled() && $user->is_active && $user->canUseModule(self::MODULE)
+                && $user->standardRoleLocationIds(self::MODULE, ['wehrführung']) !== []);
+    }
+
+    public static function canManageBudgetPage(User $user): bool
+    {
+        return self::canManage($user) || (self::budgetEnabled() && self::locationsEnabled()
+            && $user->standardRoleLocationIds(self::MODULE, ['wehrführung']) !== []);
+    }
+
+    /** @return EloquentCollection<int, Location> */
+    public static function entryLocationOptions(User $user): EloquentCollection
+    {
+        if (! self::locationsEnabled()) {
+            return new EloquentCollection;
+        }
+
+        if (self::canManage($user)) {
+            return Location::active()->orderBy('sort_order')->orderBy('name')->get();
+        }
+
+        $locationId = (int) ($user->ext_location_id ?? 0);
+
+        return $locationId > 0 ? Location::active()->whereKey($locationId)->get() : new EloquentCollection;
+    }
+
+    public static function defaultEntryLocation(User $user): ?int
+    {
+        $locationId = (int) ($user->ext_location_id ?? 0);
+
+        return self::entryLocationOptions($user)->contains('id', $locationId) ? $locationId : null;
+    }
+
+    /** @return EloquentCollection<int, Location> */
+    public static function budgetLocationOptions(User $user): EloquentCollection
+    {
+        if (! self::locationsEnabled()) {
+            return new EloquentCollection;
+        }
+
+        $query = Location::active();
+        if (! self::canManage($user)) {
+            $query->whereIn('id', $user->standardRoleLocationIds(self::MODULE, ['wehrführung']));
+        }
+
+        return $query->orderBy('sort_order')->orderBy('name')->get();
+    }
+
+    /** @return EloquentCollection<int, Location> */
+    public static function overviewLocationOptions(User $user): EloquentCollection
+    {
+        if (! self::locationsEnabled()) {
+            return new EloquentCollection;
+        }
+
+        $query = Location::active();
+        if (! self::canReviewGlobally($user) && ! self::settings()['public']) {
+            $query->whereIn('id', $user->standardRoleLocationIds(self::MODULE, ['wehrführung']));
+        }
+
+        return $query->orderBy('sort_order')->orderBy('name')->get();
+    }
+
+    /** Null means an unrestricted reviewer; an empty list grants no access. */
+    public static function reviewLocationIds(User $user): ?array
+    {
+        if (self::canReviewGlobally($user)) {
+            return null;
+        }
+
+        return self::locationsEnabled()
+            ? $user->standardRoleLocationIds(self::MODULE, ['wehrführung'])
+            : [];
+    }
+
+    /** Apply the reviewer's location boundary to a finance-entry query. */
+    public static function scopeReviewEntries(User $user, Builder $query): Builder
+    {
+        $locationIds = self::reviewLocationIds($user);
+
+        return $locationIds === null ? $query : $query->whereIn('location_id', $locationIds);
     }
 
     // ─── settings ────────────────────────────────────────────────────────────
@@ -59,7 +163,7 @@ class FinanceService
     public const SETTINGS_KEY = 'finanzen.settings';
 
     /**
-     * What the Wehr uses: budget (budgets per Kostenstelle), report (Jahresabschluss with closing the
+     * What the Wehr uses: budget (budgets per Standort and Kostenstelle), report (consolidated Jahresabschluss with closing the
      * year), public (every Kamerad sees the budget status and all approved/paid Ausgaben; otherwise only
      * their own – the full picture is for Kassenwart, Wehrführung and admins).
      *
@@ -97,7 +201,8 @@ class FinanceService
 
     public static function canView(User $user, Entry $entry): bool
     {
-        return self::canReview($user) || $entry->submitted_by === $user->id;
+        return self::canReviewAt($user, self::locationsEnabled() ? $entry->location_id : null)
+            || $entry->submitted_by === $user->id;
     }
 
     /** The submitter while it waits, the Kassenwart until the year is closed */
@@ -122,13 +227,22 @@ class FinanceService
     }
 
     /** Who decides on Ausgaben; admins when nobody has the role */
-    public function reviewers(): EloquentCollection
+    public function reviewers(?int $locationId = null): EloquentCollection
     {
-        $reviewers = User::active()
-            ->whereHas('moduleAccess', fn ($q) => $q->where('module', self::MODULE)->whereIn('role', ['kassenwart', 'wehrführung']))
+        $reviewers = User::withoutGlobalScopes()->where('is_active', true)->where(function ($query) {
+            $query->where('is_admin', true)
+                ->orWhereHas('moduleAccess', fn ($q) => $q->where('module', self::MODULE)->whereIn('role', ['kassenwart', 'wehrführung']));
+        })
             ->get();
+        if ($locationId !== null && self::locationsEnabled()) {
+            $standardRoleUserIds = DB::table('x_standard_role_assignments')
+                ->where('profile', 'wehrfuehrung')->where('location_id', $locationId)->whereNull('group_id')
+                ->pluck('user_id');
+            $reviewers = $reviewers->merge(User::withoutGlobalScopes()->where('is_active', true)->whereIn('id', $standardRoleUserIds)->get());
+        }
+        $reviewers = $reviewers->filter(fn (User $user) => self::canReviewAt($user, $locationId))->unique('id')->values();
 
-        return $reviewers->isNotEmpty() ? $reviewers : User::active()->where('is_admin', true)->get();
+        return $reviewers->isNotEmpty() ? $reviewers : User::withoutGlobalScopes()->where('is_active', true)->where('is_admin', true)->get();
     }
 
     // ─── Ausgaben and Einnahmen ──────────────────────────────────────────────
@@ -136,14 +250,14 @@ class FinanceService
     /**
      * A Kamerad submits an Ausgabe; the Kassenwart can book an Ausgabe or Einnahme directly as paid.
      *
-     * @param  array{kind?: string, cost_center_id: int, title: string, description?: ?string, vendor?: ?string, amount_cents: ?int, booked_on: string, payment_note?: ?string}  $data
+     * @param  array{kind?: string, cost_center_id: int, title: string, description?: ?string, vendor?: ?string, amount_cents: ?int, booked_on: string, payment_note?: ?string, location_id?: ?int}  $data
      * @param  list<UploadedFile>  $files
      */
     public function create(User $by, array $data, array $files = [], bool $direct = false): Entry
     {
         $direct = $direct && self::canManage($by);
         $kind = $direct ? ($data['kind'] ?? 'expense') : 'expense';
-        $clean = $this->validate($data, $kind);
+        $clean = $this->validate($by, $data, $kind);
         $receipts = $this->prepareReceipts($files, 0);
 
         $entry = DB::transaction(function () use ($by, $clean, $kind, $direct, $receipts) {
@@ -159,7 +273,7 @@ class FinanceService
         });
 
         if (! $direct) {
-            $this->notify($this->reviewers()->reject(fn (User $u) => $u->is($by)), new ExpenseSubmittedNotification($entry));
+            $this->notify($this->reviewers(self::locationsEnabled() ? $entry->location_id : null)->reject(fn (User $u) => $u->is($by)), new ExpenseSubmittedNotification($entry));
         }
 
         return $entry;
@@ -170,7 +284,7 @@ class FinanceService
     {
         $this->assertEditable($by, $entry);
         // A Kostenstelle switched off later stays valid for its own Buchungen
-        $clean = $this->validate([...$data, 'keep_center' => $entry->cost_center_id], $entry->kind);
+        $clean = $this->validate($by, [...$data, 'keep_center' => $entry->cost_center_id], $entry->kind, $entry);
 
         if ($clean['year'] !== $entry->year) {
             throw ValidationException::withMessages(['booked_on' => 'Das Datum muss im Jahr '.$entry->year.' bleiben (Belegnummer '.$entry->code().'). Sonst bitte neu erfassen.']);
@@ -194,7 +308,7 @@ class FinanceService
     /** Approve or reject; a rejection needs a comment. Not the own Ausgabe, unless admin. */
     public function decide(User $by, Entry $entry, bool $approve, ?string $comment = null): void
     {
-        if (! self::canReview($by)) {
+        if (! self::canReviewAt($by, self::locationsEnabled() ? $entry->location_id : null)) {
             throw ValidationException::withMessages(['entry' => 'Genehmigen dürfen Kassenwart und Wehrführung.']);
         }
 
@@ -276,28 +390,46 @@ class FinanceService
         $center->delete();
     }
 
-    public function setBudget(User $by, CostCenter $center, int $year, ?int $cents, ?string $notes = null): void
+    public function setBudget(User $by, CostCenter $center, int $year, ?int $cents, ?string $notes = null, ?int $locationId = null): void
     {
-        $this->assertManage($by);
+        $this->assertBudgetManager($by, $locationId);
         $this->assertBudget();
         $this->assertOpenYear($year);
         if ($cents === null || $cents < 0) {
             throw ValidationException::withMessages(['budget' => 'Bitte einen Betrag angeben, z. B. 1.500,00.']);
         }
 
-        Budget::updateOrCreate(['cost_center_id' => $center->id, 'year' => $year], ['amount_cents' => $cents, 'notes' => filled($notes) ? trim($notes) : null]);
+        $criteria = ['cost_center_id' => $center->id, 'year' => $year];
+        if (self::locationsEnabled()) {
+            if ($locationId === null && ! Budget::where($criteria)->whereNull('location_id')->exists()) {
+                throw ValidationException::withMessages(['location_id' => 'Neue Budgets müssen einem Standort zugewiesen werden.']);
+            }
+            $criteria['location_id'] = $locationId;
+        }
+
+        Budget::updateOrCreate($criteria, ['amount_cents' => $cents, 'notes' => filled($notes) ? trim($notes) : null]);
     }
 
     /** Takes over the budgets of the year before for Kostenstellen without a budget yet; returns how many */
-    public function copyBudgets(User $by, int $year): int
+    public function copyBudgets(User $by, int $year, ?int $locationId = null): int
     {
-        $this->assertManage($by);
+        $this->assertBudgetManager($by, $locationId);
         $this->assertBudget();
         $this->assertOpenYear($year);
+        if (self::locationsEnabled() && $locationId === null) {
+            throw ValidationException::withMessages(['location_id' => 'Bitte einen Standort für das Budget auswählen.']);
+        }
         $count = 0;
 
-        foreach (Budget::where('year', $year - 1)->get() as $previous) {
-            $budget = Budget::firstOrCreate(['cost_center_id' => $previous->cost_center_id, 'year' => $year], ['amount_cents' => $previous->amount_cents, 'notes' => $previous->notes]);
+        $previousBudgets = Budget::where('year', $year - 1)
+            ->when(self::locationsEnabled(), fn ($query) => $query->where('location_id', $locationId))
+            ->get();
+        foreach ($previousBudgets as $previous) {
+            $criteria = ['cost_center_id' => $previous->cost_center_id, 'year' => $year];
+            if (self::locationsEnabled()) {
+                $criteria['location_id'] = $locationId;
+            }
+            $budget = Budget::firstOrCreate($criteria, ['amount_cents' => $previous->amount_cents, 'notes' => $previous->notes]);
             $count += $budget->wasRecentlyCreated ? 1 : 0;
         }
 
@@ -311,10 +443,20 @@ class FinanceService
      *
      * @return Collection<int, array{center: CostCenter, budget: int, approved: int, paid: int, available: int, income: int, percent: ?int}>
      */
-    public function overview(int $year, bool $activeOnly = false): Collection
+    public function overview(int $year, bool $activeOnly = false, ?int $locationId = null, bool $unassignedLocation = false): Collection
     {
-        $budgets = Budget::where('year', $year)->pluck('amount_cents', 'cost_center_id');
-        $sums = Entry::where('year', $year)->whereIn('status', Entry::BOOKED)
+        $budgetRows = Budget::where('year', $year)
+            ->when(self::locationsEnabled() && $locationId !== null, fn ($query) => $query->where('location_id', $locationId))
+            ->when(self::locationsEnabled() && $unassignedLocation, fn ($query) => $query->whereNull('location_id'))
+            ->get(['cost_center_id', 'amount_cents']);
+        $budgets = $budgetRows->groupBy('cost_center_id')->map(fn ($rows) => (int) $rows->sum('amount_cents'));
+        $entryQuery = Entry::where('year', $year)->whereIn('status', Entry::BOOKED);
+        if (self::locationsEnabled() && $locationId !== null) {
+            $entryQuery->where('location_id', $locationId);
+        } elseif (self::locationsEnabled() && $unassignedLocation) {
+            $entryQuery->whereNull('location_id');
+        }
+        $sums = $entryQuery
             ->selectRaw('cost_center_id, kind, status, sum(amount_cents) as total')->groupBy('cost_center_id', 'kind', 'status')->get();
         $sum = fn ($id, $kind, $status) => (int) $sums->where('cost_center_id', $id)->where('kind', $kind)->where('status', $status)->sum('total');
 
@@ -374,8 +516,8 @@ class FinanceService
 
     // ─── helpers ─────────────────────────────────────────────────────────────
 
-    /** @return array{year: int, cost_center_id: int, title: string, description: ?string, vendor: ?string, amount_cents: int, booked_on: string, payment_note: ?string} */
-    private function validate(array $data, string $kind): array
+    /** @return array{year: int, cost_center_id: int, title: string, description: ?string, vendor: ?string, amount_cents: int, booked_on: string, payment_note?: ?string, location_id?: ?int} */
+    private function validate(User $by, array $data, string $kind, ?Entry $entry = null): array
     {
         $errors = [];
         $title = trim((string) ($data['title'] ?? ''));
@@ -407,6 +549,22 @@ class FinanceService
             $errors['booked_on'] = 'Das Jahr '.$date->year.' ist abgeschlossen.';
         }
 
+        $locationId = null;
+        if (self::locationsEnabled()) {
+            $locationId = self::canManage($by)
+                ? (int) (array_key_exists('location_id', $data) ? $data['location_id'] : (self::defaultEntryLocation($by) ?? 0))
+                : (int) ($entry ? $entry->location_id : ($by->ext_location_id ?? 0));
+            $location = $locationId > 0 ? Location::active()->find($locationId) : null;
+            if (! $location) {
+                $errors['location_id'] = $entry !== null && $entry->location_id === null
+                    ? 'Bitte ordne diese Altbuchung einem aktiven Standort zu.'
+                    : 'Bitte einen aktiven Standort wählen.';
+            } elseif (! self::canManage($by) && ! self::canReviewAt($by, $locationId)
+                && (int) ($by->ext_location_id ?? 0) !== $locationId) {
+                $errors['location_id'] = 'Du kannst nur Buchungen für deinen eigenen Standort einreichen.';
+            }
+        }
+
         if ($errors) {
             throw ValidationException::withMessages($errors);
         }
@@ -416,6 +574,7 @@ class FinanceService
             'description' => filled($data['description'] ?? null) ? trim($data['description']) : null,
             'vendor' => filled($data['vendor'] ?? null) ? mb_substr(trim($data['vendor']), 0, 150) : null,
             'amount_cents' => $amount, 'booked_on' => $date->toDateString(),
+            ...(self::locationsEnabled() ? ['location_id' => $locationId] : []),
             ...(array_key_exists('payment_note', $data) ? ['payment_note' => filled($data['payment_note']) ? mb_substr(trim($data['payment_note']), 0, 150) : null] : []),
         ];
     }
@@ -490,6 +649,28 @@ class FinanceService
     {
         if (! self::canManage($by)) {
             throw ValidationException::withMessages(['center' => 'Das macht der Kassenwart.']);
+        }
+    }
+
+    private function assertBudgetManager(User $by, ?int $locationId): void
+    {
+        if (! self::locationsEnabled()) {
+            $this->assertManage($by);
+
+            return;
+        }
+
+        if ($locationId === null) {
+            if (! self::canManage($by)) {
+                throw ValidationException::withMessages(['location_id' => 'Für dieses Budget fehlt der Standort.']);
+            }
+
+            return;
+        }
+
+        if (! Location::active()->whereKey($locationId)->exists() || ! self::canManage($by)
+            && ! in_array($locationId, $by->standardRoleLocationIds(self::MODULE, ['wehrführung']), true)) {
+            throw ValidationException::withMessages(['location_id' => 'Du darfst das Budget dieses Standorts nicht verwalten.']);
         }
     }
 

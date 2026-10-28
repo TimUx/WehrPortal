@@ -27,6 +27,8 @@ class EntryForm extends Component
 
     public string $costCenterId = '';
 
+    public string $locationId = '';
+
     public string $title = '';
 
     public string $description = '';
@@ -47,6 +49,7 @@ class EntryForm extends Component
         $this->entry = $entry?->exists ? $entry : null;
         $this->direct = $direct && FinanceService::canManage(auth()->user());
         $this->bookedOn = FinanceService::today()->toDateString();
+        $this->locationId = (string) (FinanceService::defaultEntryLocation(auth()->user()) ?? '');
 
         if ($this->entry) {
             abort_unless(FinanceService::canEdit(auth()->user(), $this->entry), 403);
@@ -55,6 +58,7 @@ class EntryForm extends Component
                 'description' => (string) $this->entry->description, 'vendor' => (string) $this->entry->vendor,
                 'amount' => Money::input($this->entry->amount_cents), 'bookedOn' => $this->entry->booked_on->toDateString(),
                 'paymentNote' => (string) $this->entry->payment_note,
+                ...(FinanceService::locationsEnabled() ? ['locationId' => (string) ($this->entry->location_id ?? '')] : []),
             ]);
         }
     }
@@ -74,6 +78,7 @@ class EntryForm extends Component
         $data = [
             'kind' => $this->kind, 'cost_center_id' => (int) $this->costCenterId, 'title' => $this->title, 'description' => $this->description,
             'vendor' => $this->vendor, 'amount_cents' => Money::parse($this->amount), 'booked_on' => $this->bookedOn,
+            ...(FinanceService::locationsEnabled() ? ['location_id' => $this->locationId !== '' ? (int) $this->locationId : null] : []),
             ...($this->direct || ($this->entry && FinanceService::canManage(auth()->user())) ? ['payment_note' => $this->paymentNote] : []),
         ];
 
@@ -109,6 +114,8 @@ class EntryForm extends Component
         return view('finanzen::livewire.entry-form', [
             'centers' => CostCenter::ordered()->where(fn ($q) => $q->where('is_active', true)->orWhere('id', $this->entry?->cost_center_id))->get(),
             'canManage' => FinanceService::canManage(auth()->user()),
+            'locationsEnabled' => FinanceService::locationsEnabled(),
+            'locations' => FinanceService::entryLocationOptions(auth()->user()),
             'existing' => $this->entry?->receipts()->get(['id', 'entry_id', 'name', 'mime', 'size']) ?? collect(),
         ]);
     }

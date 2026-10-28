@@ -2,18 +2,24 @@
 
 use App\Models\Group;
 use App\Models\Module;
+use App\Models\Setting;
 use App\Models\User;
 use App\Notifications\InvitationNotification;
 use App\Services\Invitation;
+use Extensions\Locations\Models\Location;
+use Extensions\Locations\Services\StandardRoleAssignments;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 use Modules\Personalverwaltung\src\Livewire\MemberFile;
 use Modules\Personalverwaltung\src\Livewire\MemberList;
 use Modules\Personalverwaltung\src\Livewire\NewMembers;
+use Modules\Personalverwaltung\src\Services\PersonnelService;
 
 beforeEach(function () {
+    config(['locations.enabled' => false]);
     Module::where('key', 'personalverwaltung')->update(['is_active' => true]);
     Cache::forget('modules_active_keys');
     Notification::fake();
@@ -67,7 +73,20 @@ test('members come in from a CSV with a preview: new ones created, known ones co
         ->and($known->fresh()->rank)->toBe('Oberfeuerwehrmann');
 });
 
+test('the Personalakte shows every assigned Standort', function () {
+    config(['locations.enabled' => true]);
+    $location = Location::create(['name' => 'Wache Nord', 'slug' => 'wache-nord']);
+    $member = User::factory()->create(['name' => 'Hanna Hydrant']);
+    $member->locations()->attach($location);
+    $admin = User::factory()->create(['is_admin' => true]);
+
+    Livewire::actingAs($admin)->test(MemberFile::class, ['member' => $member])
+        ->assertSee('Standorte')
+        ->assertSee('Wache Nord');
+});
+
 test('Personaleinsicht sees the files read-only, without personal data and without changing anything', function () {
+    config(['locations.enabled' => false]);
     $hanna = User::factory()->create(['name' => 'Hanna Hydrant', 'phone' => '0170 123']);
     $hanna->groups()->attach($this->ea);
     $viewer = User::factory()->create();
@@ -75,7 +94,8 @@ test('Personaleinsicht sees the files read-only, without personal data and witho
 
     $this->actingAs($viewer)->get(route('personalverwaltung.index'))->assertOk()->assertSee('Hanna Hydrant')->assertDontSee('Neue Mitglieder');
     Livewire::actingAs($viewer)->test(MemberFile::class, ['member' => $hanna])
-        ->assertSee('Diensthistorie')->assertDontSee('Nachtragen')->assertDontSee('Persönliche Daten')->assertDontSee('Einladung (QR-Code)')
+        ->assertSet('data', [])->assertSee('Diensthistorie')->assertDontSee('Nachtragen')->assertDontSee('Persönliche Daten')
+        ->assertDontSee('Einladung (QR-Code)')->assertDontSee('0170 123')->assertDontSee('Dienstausweis')
         ->set('stage', ['kind' => 'event', 'label' => 'Verpflichtung', 'since' => '2020-01-01', 'until' => '', 'note' => ''])->call('addStage')->assertHasErrors();
     Livewire::actingAs($viewer)->test(MemberList::class)->assertDontSee('Sammelverarbeitung')
         ->set('selected', [(string) $hanna->id])->call('applyBulk')->assertHasErrors('bulk');
@@ -84,4 +104,51 @@ test('Personaleinsicht sees the files read-only, without personal data and witho
         $this->get(route('personalverwaltung.'.$route))->assertForbidden();
     }
     $this->get('/admin/personalverwaltung/einstellungen')->assertForbidden();
+});
+
+test('Wehrführung only manages personal files and member fields within assigned locations', function () {
+    config(['locations.enabled' => true]);
+    $north = Location::create(['name' => 'Wache Nord', 'slug' => 'wache-nord']);
+    $south = Location::create(['name' => 'Wache Süd', 'slug' => 'wache-sued']);
+    $admin = User::factory()->create(['is_admin' => true]);
+    $leader = User::factory()->create(['name' => 'Hanna Hydrant']);
+    $member = User::factory()->create(['name' => 'Bernd Blaulicht', 'rank' => 'Hauptfeuerwehrmann']);
+    $other = User::factory()->create(['name' => 'Nina Neu', 'rank' => 'Hauptfeuerwehrmann']);
+    $leader->locations()->attach($north);
+    $member->locations()->attach($north);
+    $member->update(['phone' => '0170 123']);
+    $other->locations()->attach($south);
+
+    app(StandardRoleAssignments::class)->grant($admin, $leader->id, 'wehrfuehrung', $north->id, null, 'Zuständig für Wache Nord');
+
+    expect(PersonnelService::canManage($leader))->toBeTrue()
+        ->and(PersonnelService::mayView($leader, $member))->toBeTrue()
+        ->and(PersonnelService::mayView($leader, $other))->toBeFalse()
+        ->and(PersonnelService::visibleMembers($leader)->whereKey($member->id)->exists())->toBeTrue()
+        ->and(PersonnelService::visibleMembers($leader)->whereKey($other->id)->exists())->toBeFalse()
+        ->and(PersonnelService::canConfigure($leader))->toBeFalse();
+
+    Setting::set('personalverwaltung.fields', json_encode(['phone' => true]));
+    Livewire::actingAs($leader)->test(MemberFile::class, ['member' => $member])
+        ->assertSee('Persönliche Daten')
+        ->assertSet('data.phone', '0170 123');
+
+    $reportNames = collect(app(PersonnelService::class)->report($leader, 'dienstgrade', now()->startOfYear(), now()->endOfYear()))->pluck('name')->all();
+    expect($reportNames)->toContain('Bernd Blaulicht')->not->toContain('Nina Neu');
+
+    $this->actingAs($leader)->get('/admin/personalverwaltung/einstellungen')->assertForbidden();
+});
+
+test('legacy global personnel roles do not grant access while locations are enabled', function () {
+    config(['locations.enabled' => true]);
+    $legacy = User::factory()->create();
+    $legacy->moduleAccess()->create(['module' => 'personalverwaltung', 'role' => 'personalverwalter']);
+    DB::table('pm_scopes')->insert(['user_id' => $legacy->id, 'group_id' => $this->ea->id]);
+    $reader = User::factory()->create();
+    $reader->moduleAccess()->create(['module' => 'personalverwaltung', 'role' => 'personaleinsicht']);
+
+    expect(PersonnelService::canManage($legacy))->toBeFalse()
+        ->and(PersonnelService::visibleMembers($legacy)->count())->toBe(0)
+        ->and(PersonnelService::canView($reader))->toBeFalse()
+        ->and(PersonnelService::visibleMembers($reader)->count())->toBe(0);
 });

@@ -6,12 +6,15 @@ use App\Models\User;
 use App\Services\ImageResizer;
 use App\Services\ModuleRegistry;
 use App\Support\Csv;
+use App\Support\FileResponse;
+use Extensions\Locations\Services\LocationAccess;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Modules\Einsatzbericht\src\Models\Report;
 use Modules\Einsatzbericht\src\Models\ReportVehicle;
@@ -52,10 +55,47 @@ class LogbookService
         return $user->is_active && $user->canUseModule(self::MODULE);
     }
 
-    /** Fahrtenbuchwart and admins: corrections, cancellations, statistics, export */
+    /** Fahrtenbuchwarte, local Wehrführungen and admins: corrections, cancellations, statistics, export */
     public static function canManage(User $user): bool
     {
-        return self::canView($user) && ($user->is_admin || $user->hasModuleRole(self::MODULE, 'fahrtenbuchwart'));
+        return self::canView($user) && ($user->is_admin || $user->hasAnyModuleRole(self::MODULE, 'fahrtenbuchwart'));
+    }
+
+    public static function canManageVehicle(User $user, Vehicle $vehicle): bool
+    {
+        $locationId = filled($vehicle->ext_location_id) ? (int) $vehicle->ext_location_id : null;
+
+        return self::canManage($user) && self::canAccessVehicle($user, $vehicle)
+            && ($user->is_admin || $user->hasModuleRole(self::MODULE, 'fahrtenbuchwart', $locationId));
+    }
+
+    /** @return list<int>|null Null means an existing global manager; an empty list grants no vehicles. */
+    public static function managementLocationIds(User $user): ?array
+    {
+        if ($user->is_admin || $user->hasModuleRole(self::MODULE, 'fahrtenbuchwart')) {
+            return null;
+        }
+
+        return $user->standardRoleLocationIds(self::MODULE, ['fahrtenbuchwart']);
+    }
+
+    public static function canAccessVehicle(User $user, Vehicle $vehicle): bool
+    {
+        if (! self::canView($user)) {
+            return false;
+        }
+        if (! config('locations.enabled') || ! Schema::hasTable('x_locations') || $vehicle->ext_location_id === null) {
+            return true;
+        }
+
+        return app(LocationAccess::class)->canSee($user, (int) $vehicle->ext_location_id);
+    }
+
+    public static function canAccessTrip(User $user, Trip $trip): bool
+    {
+        $vehicle = Vehicle::withoutGlobalScopes()->find($trip->vehicle_id);
+
+        return $vehicle !== null && self::canAccessVehicle($user, $vehicle);
     }
 
     public function managers(): EloquentCollection
@@ -120,7 +160,7 @@ class LogbookService
     public function start(User $by, array $data): Trip
     {
         $this->assertView($by);
-        $clean = $this->validateStart($data);
+        $clean = $this->validateStart($by, $data);
 
         try {
             $trip = DB::transaction(function () use ($by, $clean) {
@@ -144,12 +184,13 @@ class LogbookService
     public function end(User $by, Trip $trip, array $data): Trip
     {
         $this->assertView($by);
+        $vehicle = $this->accessibleTripVehicle($by, $trip);
         if (! $trip->isOpen()) {
             throw ValidationException::withMessages(['trip' => 'Diese Fahrt ist schon beendet.']);
         }
         $clean = $this->validateEnd($data, $trip->started_at, $trip->start_km);
         $trip->update([...$clean, 'notes' => $this->text($data['notes'] ?? null, 2000) ?? $trip->notes]);
-        $this->syncMileage($trip->vehicle, $clean['end_km']);
+        $this->syncMileage($vehicle, $clean['end_km']);
 
         return $trip;
     }
@@ -158,7 +199,7 @@ class LogbookService
     public function record(User $by, array $data): Trip
     {
         $this->assertView($by);
-        $start = $this->validateStart($data, allowPast: true);
+        $start = $this->validateStart($by, $data, allowPast: true);
         $end = $this->validateEnd($data, $start['started_at'], $start['start_km']);
 
         $trip = DB::transaction(function () use ($by, $start, $end) {
@@ -167,7 +208,7 @@ class LogbookService
 
             return Trip::create([...collect($start)->except('vehicle')->all(), ...$end, 'vehicle_id' => $start['vehicle']->id, 'created_by' => $by->id]);
         });
-        $this->syncMileage($trip->vehicle, $trip->end_km);
+        $this->syncMileage($start['vehicle'], $trip->end_km);
 
         return $trip;
     }
@@ -175,13 +216,14 @@ class LogbookService
     /** The Fahrtenbuchwart corrects a trip; the old values stay as revision with the reason */
     public function correct(User $by, Trip $trip, array $data, string $reason): Trip
     {
-        $this->assertManager($by);
+        $vehicle = $this->accessibleTripVehicle($by, $trip);
+        $this->assertManager($by, $vehicle);
         $reason = trim($reason);
         if (mb_strlen($reason) < 5) {
             throw ValidationException::withMessages(['reason' => 'Bitte den Grund der Korrektur angeben.']);
         }
 
-        $start = $this->validateStart($data, allowPast: true, fixed: $trip->vehicle);
+        $start = $this->validateStart($by, $data, allowPast: true, fixed: $vehicle);
         $end = $trip->isOpen() && blank($data['end_km'] ?? null) ? [] : $this->validateEnd($data, $start['started_at'], $start['start_km']);
         $after = [...collect($start)->except('vehicle')->all(), ...$end];
         $fields = array_keys($after);
@@ -193,7 +235,7 @@ class LogbookService
                 'after' => collect($after)->map(fn ($v) => $v instanceof Carbon ? $v->toIso8601String() : $v)->all()]);
         });
         if ($trip->end_km) {
-            $this->syncMileage($trip->vehicle, $trip->end_km);
+            $this->syncMileage($vehicle, $trip->end_km);
         }
 
         return $trip;
@@ -202,7 +244,8 @@ class LogbookService
     /** A wrong trip (e.g. twice) is cancelled with a reason, never deleted */
     public function void(User $by, Trip $trip, string $reason): void
     {
-        $this->assertManager($by);
+        $vehicle = $this->accessibleTripVehicle($by, $trip);
+        $this->assertManager($by, $vehicle);
         if (mb_strlen(trim($reason)) < 5) {
             throw ValidationException::withMessages(['reason' => 'Bitte den Grund der Stornierung angeben.']);
         }
@@ -219,6 +262,8 @@ class LogbookService
         $vehicle = Vehicle::find((int) ($data['vehicle_id'] ?? 0));
         if (! $vehicle) {
             $errors['vehicle_id'] = 'Bitte das Fahrzeug wählen.';
+        } elseif (! self::canAccessVehicle($by, $vehicle)) {
+            $errors['vehicle_id'] = 'Dieses Fahrzeug gehört zu einem anderen Standort.';
         }
         $at = $this->time($data['fueled_at'] ?? null) ?? now();
         if ($at->isAfter(now()->addMinutes(5))) {
@@ -286,13 +331,15 @@ class LogbookService
     // ─── evaluation and export ───────────────────────────────────────────────
 
     /** @return Collection<int, array{vehicle: Vehicle, trips: int, km: int, by_purpose: array<string, int>, liters: float, cost: int, per100: ?float}> */
-    public function statistics(int $year): Collection
+    public function statistics(int $year, ?User $manager = null): Collection
     {
         [$from, $to] = [Carbon::create($year, 1, 1, 0, 0, 0, 'Europe/Berlin')->utc(), Carbon::create($year + 1, 1, 1, 0, 0, 0, 'Europe/Berlin')->utc()];
         $trips = Trip::valid()->whereNotNull('end_km')->where('started_at', '>=', $from)->where('started_at', '<', $to)->get()->groupBy('vehicle_id');
         $fuel = Fueling::where('fueled_at', '>=', $from)->where('fueled_at', '<', $to)->get()->groupBy('vehicle_id');
+        $locationIds = $manager === null ? null : self::managementLocationIds($manager);
 
         return Vehicle::whereIn('id', $trips->keys()->merge($fuel->keys())->unique())->orderBy('sort_order')->orderBy('name')->get()
+            ->filter(fn (Vehicle $vehicle) => $locationIds === null || in_array((int) $vehicle->ext_location_id, $locationIds, true))
             ->map(function (Vehicle $vehicle) use ($trips, $fuel, $year) {
                 $own = $trips[$vehicle->id] ?? collect();
                 $stops = $fuel[$vehicle->id] ?? collect();
@@ -387,16 +434,20 @@ class LogbookService
     // ─── details ─────────────────────────────────────────────────────────────
 
     /** @return array<string, mixed> */
-    private function validateStart(array $data, bool $allowPast = false, ?Vehicle $fixed = null): array
+    private function validateStart(User $by, array $data, bool $allowPast = false, ?Vehicle $fixed = null): array
     {
         $errors = [];
         $vehicle = $fixed ?? Vehicle::where('is_active', true)->find((int) ($data['vehicle_id'] ?? 0));
         if (! $vehicle) {
             $errors['vehicle_id'] = 'Bitte ein Fahrzeug wählen.';
+        } elseif (! self::canAccessVehicle($by, $vehicle)) {
+            $errors['vehicle_id'] = 'Dieses Fahrzeug gehört zu einem anderen Standort.';
         }
         $driver = User::active()->find((int) ($data['driver_id'] ?? 0));
         if (! $driver) {
             $errors['driver_id'] = 'Bitte den Fahrer wählen.';
+        } elseif ($vehicle && ! $this->driverCanUseVehicleLocation($driver, $vehicle)) {
+            $errors['driver_id'] = 'Der Fahrer muss dem Standort des Fahrzeugs zugeordnet sein.';
         }
         $started = $this->time($data['started_at'] ?? null) ?? now()->startOfMinute();
         if (filled($data['started_at'] ?? null) && ! $this->time($data['started_at'])) {
@@ -511,12 +562,13 @@ class LogbookService
     /** @return array{0: string, 1: string} base64 and mime */
     private function receipt(UploadedFile $file): array
     {
-        $mime = (string) $file->getMimeType();
-        if ($mime === 'application/pdf') {
-            return [base64_encode((string) file_get_contents($file->getRealPath())), $mime];
-        }
-        if (! str_starts_with($mime, 'image/')) {
+        $extension = strtolower($file->getClientOriginalExtension());
+        $allowedExtensions = array_diff(FileResponse::allowedExtensions(false), ['gif']);
+        if (! in_array($extension, $allowedExtensions, true)) {
             throw ValidationException::withMessages(['receipt' => 'Bitte ein Foto oder eine PDF-Datei hochladen.']);
+        }
+        if ($extension === 'pdf') {
+            return [base64_encode((string) file_get_contents($file->getRealPath())), 'application/pdf'];
         }
 
         return [base64_encode($this->images->toWebp($file->getRealPath(), 2000, 'receipt')), 'image/webp'];
@@ -558,10 +610,32 @@ class LogbookService
         }
     }
 
-    private function assertManager(User $user): void
+    private function accessibleTripVehicle(User $user, Trip $trip): Vehicle
     {
-        if (! self::canManage($user)) {
-            throw ValidationException::withMessages(['trip' => 'Das dürfen nur Fahrtenbuchwarte und Admins.']);
+        $vehicle = Vehicle::withoutGlobalScopes()->find($trip->vehicle_id);
+        if (! $vehicle || ! self::canAccessVehicle($user, $vehicle)) {
+            throw ValidationException::withMessages(['trip' => 'Diese Fahrt gehört zu einem anderen Standort.']);
+        }
+
+        return $vehicle;
+    }
+
+    private function driverCanUseVehicleLocation(User $driver, Vehicle $vehicle): bool
+    {
+        if (! config('locations.enabled') || ! Schema::hasTable('x_locations') || $vehicle->ext_location_id === null) {
+            return true;
+        }
+
+        $locationId = (int) $vehicle->ext_location_id;
+
+        return (int) $driver->getAttribute('ext_location_id') === $locationId
+            || DB::table('x_location_user')->where('location_id', $locationId)->where('user_id', $driver->id)->exists();
+    }
+
+    private function assertManager(User $user, Vehicle $vehicle): void
+    {
+        if (! self::canManageVehicle($user, $vehicle)) {
+            throw ValidationException::withMessages(['trip' => 'Das dürfen nur Fahrtenbuchwarte, zuständige Wehrführungen und Admins.']);
         }
     }
 }

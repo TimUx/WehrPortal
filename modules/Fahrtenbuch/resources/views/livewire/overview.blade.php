@@ -25,6 +25,7 @@
                     <a href="{{ route('fahrtenbuch.vehicle', $vehicle) }}" class="text-lg font-bold text-gray-900 hover:underline">{{ $vehicle->name }}</a>
                     <span class="h-3 w-3 shrink-0 rounded-full" style="background-color: {{ $vehicle->color }}"></span>
                 </div>
+                @if($vehicle->standort)<p class="text-xs text-gray-500">Standort: {{ $vehicle->standort->name }}</p>@endif
                 @if($trip)
                     <p class="text-sm text-amber-900">Unterwegs: {{ $trip->driver->name }} seit {{ $trip->started_at->setTimezone('Europe/Berlin')->format('H:i') }} Uhr</p>
                 @else

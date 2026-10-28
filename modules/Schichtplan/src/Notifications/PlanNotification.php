@@ -7,6 +7,7 @@ use App\Services\OrganizationSettings;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Modules\Schichtplan\src\Models\Plan;
+use Modules\Schichtplan\src\Services\PlanLocationAccess;
 
 /** The plan by mail: your own shifts first, then the whole plan as a table */
 class PlanNotification extends Notification
@@ -18,6 +19,10 @@ class PlanNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         $plan = $this->plan->load(['stations.lead', 'slots']);
+        $showSite = app(PlanLocationAccess::class)->enabled();
+        if ($showSite) {
+            $plan->load('site');
+        }
         $assignments = $plan->assignments()->with('user')->get();
 
         $mine = $assignments->where('user_id', $notifiable->id)
@@ -44,6 +49,7 @@ class PlanNotification extends Notification
                 'leads' => $plan->stations->map(fn ($station) => $station->lead?->name ?? '–')->all(),
                 'grid' => $grid,
                 'firstTime' => $this->firstTime,
+                'showSite' => $showSite,
                 'url' => route('schichtplan.show', $plan),
                 'salutation' => app(OrganizationSettings::class)->salutation(),
             ]);
@@ -53,6 +59,10 @@ class PlanNotification extends Notification
     public function inApp(object $notifiable): array
     {
         $plan = $this->plan->load(['stations', 'slots']);
+        $showSite = app(PlanLocationAccess::class)->enabled();
+        if ($showSite) {
+            $plan->load('site');
+        }
         $shifts = $plan->assignments()->where('user_id', $notifiable->id)->get()
             ->sortBy(fn ($a) => $plan->slots->firstWhere('id', $a->slot_id)?->starts_at)
             ->map(fn ($a) => $plan->slots->firstWhere('id', $a->slot_id)?->label().' '.$plan->stations->firstWhere('id', $a->station_id)?->name);
@@ -61,7 +71,7 @@ class PlanNotification extends Notification
         $body = match (true) {
             $shifts->isNotEmpty() => 'Deine Schichten: '.$shifts->implode(', '),
             $leading->isNotEmpty() => 'Du hast die Stationsverantwortung für '.$leading->implode(', ').'.',
-            default => $plan->timeLabel(),
+            default => $plan->timeLabel().($showSite && $plan->site ? ' · '.$plan->site->name : ''),
         };
 
         return ['body' => $body, 'url' => route('schichtplan.show', $plan)];

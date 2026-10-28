@@ -35,7 +35,12 @@ class SignupService
     /** Planer and the Stationsverantwortung of the station decide on requests */
     public static function canApprove(User $user, Assignment $assignment): bool
     {
-        return $user->canManageSchichtplan() || Station::whereKey($assignment->station_id)->where('lead_user_id', $user->id)->exists();
+        $plan = $assignment->plan;
+        $locations = app(PlanLocationAccess::class);
+
+        return ($plan && $locations->canManage($user, $plan->ext_location_id))
+            || ($plan && $locations->isMemberAt($user, $plan->ext_location_id)
+                && Station::whereKey($assignment->station_id)->where('lead_user_id', $user->id)->exists());
     }
 
     /** Published plans with self sign-up the Kamerad can still join */
@@ -66,10 +71,11 @@ class SignupService
         if ($slot->plan_id !== $plan->id || $station->plan_id !== $plan->id) {
             $fail('Diese Schicht gehört nicht zum Plan.');
         }
-        if (! self::mayJoin($by, $plan) && ! $by->canManageSchichtplan()) {
+        $manager = app(PlanLocationAccess::class)->canManage($by, $plan->ext_location_id);
+        if (! self::mayJoin($by, $plan) && ! $manager) {
             $fail('Du gehörst nicht zur Zielgruppe dieses Plans.');
         }
-        if (! $for->is($by) && ! $by->canManageSchichtplan()) {
+        if (! $for->is($by) && ! $manager) {
             $fail('Eintragen kann man nur sich selbst.');
         }
         if (! self::mayJoin($for, $plan)) {
@@ -79,7 +85,7 @@ class SignupService
             $fail('Diese Schicht hat schon begonnen.');
         }
 
-        $assignment = DB::transaction(function () use ($by, $plan, $slot, $station, $for, $fail) {
+        $assignment = DB::transaction(function () use ($by, $plan, $slot, $station, $for, $fail, $manager) {
             // The station row is the lock: two people can't take its last place at once
             Station::whereKey($station->id)->lockForUpdate()->first();
 
@@ -102,7 +108,7 @@ class SignupService
             // Taken by the Kamerad, so "Plan füllen" keeps it (locked)
             return Assignment::create([
                 'plan_id' => $plan->id, 'slot_id' => $slot->id, 'station_id' => $station->id, 'user_id' => $for->id, 'locked' => true,
-                'status' => $plan->needs_approval && ! $by->canManageSchichtplan() ? Assignment::REQUESTED : Assignment::CONFIRMED,
+                'status' => $plan->needs_approval && ! $manager ? Assignment::REQUESTED : Assignment::CONFIRMED,
                 'signed_up_by' => $by->id,
             ]);
         });
@@ -118,7 +124,7 @@ class SignupService
     public function withdraw(User $by, Assignment $assignment): void
     {
         $plan = $assignment->plan;
-        if (! $by->canManageSchichtplan()) {
+        if (! app(PlanLocationAccess::class)->canManage($by, $plan->ext_location_id)) {
             if ($assignment->user_id !== $by->id) {
                 throw ValidationException::withMessages(['signup' => 'Diese Schicht gehört jemand anderem.']);
             }
@@ -214,7 +220,10 @@ class SignupService
     /** Planer and the Stationsverantwortung of the station */
     private function approvers(Assignment $assignment): Collection
     {
-        $planners = User::active()->get()->filter(fn (User $u) => $u->canManageSchichtplan() && ! $u->is_admin);
+        $plan = $assignment->plan;
+        $locations = app(PlanLocationAccess::class);
+        $planners = User::active()->get()->filter(fn (User $u) => $plan
+            && $locations->canManage($u, $plan->ext_location_id) && ! $u->is_admin);
         $lead = Station::find($assignment->station_id)?->lead;
         $people = $planners->push($lead)->filter()->unique('id');
 

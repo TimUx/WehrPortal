@@ -14,6 +14,7 @@ use Modules\Ausruestung\src\Enums\DamageStatus;
 use Modules\Ausruestung\src\Filament\Concerns\AusruestungArea;
 use Modules\Ausruestung\src\Filament\Resources\DamageResource\Pages;
 use Modules\Ausruestung\src\Models\Damage;
+use Modules\Ausruestung\src\Models\Equipment;
 use Modules\Ausruestung\src\Services\EquipmentService;
 
 /** Schadenmeldungen and their repair */
@@ -45,9 +46,24 @@ class DamageResource extends Resource
         return false;
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $locationIds = EquipmentService::equipmentManagementScope($user);
+
+        return $locationIds === null ? $query : ($locationIds === []
+            ? $query->whereRaw('1 = 0')
+            : $query->whereHas('equipment', fn (Builder $equipment) => $equipment->whereIn('ext_location_id', $locationIds)));
+    }
+
     public static function getNavigationBadge(): ?string
     {
-        $open = Damage::where('status', DamageStatus::Open->value)->count();
+        $open = static::getEloquentQuery()->where('status', DamageStatus::Open->value)->count();
 
         return $open > 0 ? (string) $open : null;
     }
@@ -62,7 +78,9 @@ class DamageResource extends Resource
         $change = fn (string $name, string $label, string $icon, DamageStatus $status, array $visibleFrom, bool $withRepairData = false) => Actions\Action::make($name)
             ->label($label)
             ->icon($icon)
-            ->visible(fn (Damage $record) => in_array($record->status, $visibleFrom, true))
+            ->visible(fn (Damage $record) => in_array($record->status, $visibleFrom, true)
+                && $record->equipment instanceof Equipment
+                && EquipmentService::canManageEquipment(auth()->user(), $record->equipment))
             ->schema($withRepairData ? [
                 Forms\Components\Textarea::make('repair_notes')->label('Was wurde gemacht?')->rows(2),
                 Forms\Components\TextInput::make('repair_cost')->label('Kosten')->numeric()->minValue(0)->suffix('€'),

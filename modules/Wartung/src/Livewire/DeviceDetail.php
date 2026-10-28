@@ -31,6 +31,7 @@ class DeviceDetail extends Component
 
     public function mount(): void
     {
+        abort_unless(WartungService::canViewEquipment(auth()->user(), $this->equipment), 404);
         $this->dueOn = WartungService::today()->toDateString();
     }
 
@@ -54,6 +55,7 @@ class DeviceDetail extends Component
     public function render(WartungService $service)
     {
         $equipment = $this->equipment->load('category');
+        abort_unless(WartungService::canViewEquipment(auth()->user(), $equipment), 404);
         $templates = Template::active()->get()->filter(fn (Template $t) => $t->devices()->whereKey($equipment->id)->exists())->values();
 
         return view('wartung::livewire.device-detail', [
@@ -62,8 +64,8 @@ class DeviceDetail extends Component
             'protocols' => Protocol::where('equipment_id', $equipment->id)->orderByDesc('performed_on')->orderByDesc('id')->get(),
             'allTemplates' => Template::active()->orderBy('name')->get(['id', 'name']),
             'providers' => Provider::active()->orderBy('name')->get(['id', 'name']),
-            'canManage' => WartungService::canManage(auth()->user()),
-            'canPerform' => WartungService::canPerform(auth()->user()),
+            'canManage' => WartungService::canManageOnEquipment(auth()->user(), $equipment),
+            'canPerform' => WartungService::canPerformOnEquipment(auth()->user(), $equipment),
         ]);
     }
 }

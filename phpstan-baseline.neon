@@ -811,12 +811,6 @@ parameters:
 			path: modules/Ausruestung/AusruestungServiceProvider.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Ausruestung/src/Filament/Resources/DamageResource.php
-
-		-
 			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\:\:inService\(\)\.$#'
 			identifier: method.notFound
 			count: 2
@@ -853,12 +847,6 @@ parameters:
 			path: modules/Ausruestung/src/Filament/Resources/EquipmentResource/Pages/CreateEquipment.php
 
 		-
-			message: '#^Parameter \#1 \$equipment of method Modules\\Ausruestung\\src\\Services\\EquipmentService\:\:move\(\) expects Modules\\Ausruestung\\src\\Models\\Equipment, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: modules/Ausruestung/src/Filament/Resources/EquipmentResource/Pages/EditEquipment.php
-
-		-
 			message: '#^Access to an undefined property Modules\\Ausruestung\\src\\Models\\Recall\:\:\$pivot\.$#'
 			identifier: property.notFound
 			count: 2
@@ -869,12 +857,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: modules/Ausruestung/src/Filament/Resources/EquipmentResource/RelationManagers/RecallsRelationManager.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Ausruestung/src/Filament/Resources/LoanResource.php
 
 		-
 			message: '#^Cannot call method color\(\) on string\.$#'
@@ -1051,20 +1033,8 @@ parameters:
 			path: modules/Ausruestung/src/Models/Loan.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
-			identifier: property.notFound
-			count: 2
-			path: modules/Ausruestung/src/Notifications/DamageReportedNotification.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
 			identifier: property.notFound
-			count: 3
-			path: modules/Ausruestung/src/Notifications/DamageReportedNotification.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:placeLabel\(\)\.$#'
-			identifier: method.notFound
 			count: 1
 			path: modules/Ausruestung/src/Notifications/DamageReportedNotification.php
 
@@ -1075,33 +1045,15 @@ parameters:
 			path: modules/Ausruestung/src/Notifications/DamageReportedNotification.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Ausruestung/src/Notifications/LoanOverdueNotification.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 2
-			path: modules/Ausruestung/src/Notifications/LoanOverdueNotification.php
-
-		-
 			message: '#^Cannot call method copy\(\) on string\.$#'
 			identifier: method.nonObject
 			count: 1
 			path: modules/Ausruestung/src/Notifications/LoanOverdueNotification.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Ausruestung/src/Notifications/MaintenanceDigestNotification.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
 			identifier: property.notFound
-			count: 2
+			count: 1
 			path: modules/Ausruestung/src/Notifications/MaintenanceDigestNotification.php
 
 		-
@@ -1123,20 +1075,8 @@ parameters:
 			path: modules/Ausruestung/src/Services/AusruestungMailer.php
 
 		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:damages\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: modules/Ausruestung/src/Services/EquipmentService.php
-
-		-
 			message: '#^Call to function in_array\(\) with arguments string, array\{Modules\\Ausruestung\\src\\Enums\\EquipmentStatus\:\:Defective, Modules\\Ausruestung\\src\\Enums\\EquipmentStatus\:\:InRepair\} and true will always evaluate to false\.$#'
 			identifier: function.impossibleType
-			count: 1
-			path: modules/Ausruestung/src/Services/EquipmentService.php
-
-		-
-			message: '#^Cannot call method isOpen\(\) on string\.$#'
-			identifier: method.nonObject
 			count: 1
 			path: modules/Ausruestung/src/Services/EquipmentService.php
 
@@ -1149,48 +1089,6 @@ parameters:
 		-
 			message: '#^Method Modules\\Ausruestung\\src\\Services\\EquipmentService\:\:log\(\) should return Modules\\Ausruestung\\src\\Models\\EquipmentEvent but returns Illuminate\\Database\\Eloquent\\Model\.$#'
 			identifier: return.type
-			count: 1
-			path: modules/Ausruestung/src/Services/EquipmentService.php
-
-		-
-			message: '#^Method Modules\\Ausruestung\\src\\Services\\EquipmentService\:\:recordInspection\(\) should return Modules\\Ausruestung\\src\\Models\\Inspection but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 1
-			path: modules/Ausruestung/src/Services/EquipmentService.php
-
-		-
-			message: '#^Method Modules\\Ausruestung\\src\\Services\\EquipmentService\:\:reportDamage\(\) should return Modules\\Ausruestung\\src\\Models\\Damage but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 1
-			path: modules/Ausruestung/src/Services/EquipmentService.php
-
-		-
-			message: '#^Parameter \#1 \$damage of class Modules\\Ausruestung\\src\\Notifications\\DamageReportedNotification constructor expects Modules\\Ausruestung\\src\\Models\\Damage, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: modules/Ausruestung/src/Services/EquipmentService.php
-
-		-
-			message: '#^Parameter \#1 \$equipment of method Modules\\Ausruestung\\src\\Services\\EquipmentService\:\:backInService\(\) expects Modules\\Ausruestung\\src\\Models\\Equipment, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: modules/Ausruestung/src/Services/EquipmentService.php
-
-		-
-			message: '#^Parameter \#1 \$equipment of method Modules\\Ausruestung\\src\\Services\\EquipmentService\:\:log\(\) expects Modules\\Ausruestung\\src\\Models\\Equipment, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: modules/Ausruestung/src/Services/EquipmentService.php
-
-		-
-			message: '#^Parameter \#1 \$equipment of method Modules\\Ausruestung\\src\\Services\\EquipmentService\:\:setStatus\(\) expects Modules\\Ausruestung\\src\\Models\\Equipment, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: modules/Ausruestung/src/Services/EquipmentService.php
-
-		-
-			message: '#^Parameter \#1 \$equipment of method Modules\\Ausruestung\\src\\Services\\EquipmentService\:\:takeOutOfService\(\) expects Modules\\Ausruestung\\src\\Models\\Equipment, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
 			count: 1
 			path: modules/Ausruestung/src/Services/EquipmentService.php
 
@@ -1283,12 +1181,6 @@ parameters:
 			identifier: identical.alwaysFalse
 			count: 1
 			path: modules/Ausruestung/src/Services/LoadPlanService.php
-
-		-
-			message: '#^Anonymous function has an unused use \$by\.$#'
-			identifier: closure.unusedUse
-			count: 2
-			path: modules/Ausruestung/src/Services/LoanService.php
 
 		-
 			message: '#^Anonymous function has an unused use \$damage\.$#'
@@ -1405,19 +1297,7 @@ parameters:
 			path: modules/Einsatzbericht/src/Livewire/ExternalReport.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Support\\HigherOrderCollectionProxy\<string, Illuminate\\Database\\Eloquent\\Model, Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\>\>\:\:\$crew\.$#'
-			identifier: property.notFound
-			count: 2
-			path: modules/Einsatzbericht/src/Livewire/ReportEditor.php
-
-		-
 			message: '#^Method Modules\\Einsatzbericht\\src\\Livewire\\ReportEditor\:\:crew\(\) should return Modules\\Einsatzbericht\\src\\Models\\CrewMember but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 1
-			path: modules/Einsatzbericht/src/Livewire/ReportEditor.php
-
-		-
-			message: '#^Method Modules\\Einsatzbericht\\src\\Livewire\\ReportEditor\:\:vehicle\(\) should return Modules\\Einsatzbericht\\src\\Models\\ReportVehicle but returns Illuminate\\Database\\Eloquent\\Model\.$#'
 			identifier: return.type
 			count: 1
 			path: modules/Einsatzbericht/src/Livewire/ReportEditor.php
@@ -1431,18 +1311,6 @@ parameters:
 		-
 			message: '#^Offset ''function'' on array\{user\: non\-falsy\-string, function\: string, ba\: bool\} on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
-			count: 1
-			path: modules/Einsatzbericht/src/Livewire/ReportEditor.php
-
-		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:mapWithKeys\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\<int\<0, max\>, array\<string, string\>\>, Closure\(Modules\\Einsatzbericht\\src\\Models\\ReportVehicle\)\: non\-empty\-array\<int\<0, max\>, array\<string, string\>\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: modules/Einsatzbericht/src/Livewire/ReportEditor.php
-
-		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:mapWithKeys\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\<int\<0, max\>, array\>, Closure\(Modules\\Einsatzbericht\\src\\Models\\ReportVehicle\)\: non\-empty\-array\<int\<0, max\>, array\> given\.$#'
-			identifier: argument.type
 			count: 1
 			path: modules/Einsatzbericht/src/Livewire/ReportEditor.php
 
@@ -1549,31 +1417,7 @@ parameters:
 			path: modules/Einsatzbericht/src/Services/ReportService.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$arrived_at\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Einsatzbericht/src/Services/ReportService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$crew\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Einsatzbericht/src/Services/ReportService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$departed_at\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Einsatzbericht/src/Services/ReportService.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$is_standby\.$#'
-			identifier: property.notFound
-			count: 2
-			path: modules/Einsatzbericht/src/Services/ReportService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$left_at\.$#'
 			identifier: property.notFound
 			count: 1
 			path: modules/Einsatzbericht/src/Services/ReportService.php
@@ -1581,7 +1425,7 @@ parameters:
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
 			identifier: property.notFound
-			count: 2
+			count: 1
 			path: modules/Einsatzbericht/src/Services/ReportService.php
 
 		-
@@ -1591,25 +1435,7 @@ parameters:
 			path: modules/Einsatzbericht/src/Services/ReportService.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$returned_at\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Einsatzbericht/src/Services/ReportService.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Einsatzbericht/src/Services/ReportService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Support\\HigherOrderCollectionProxy\<string, Illuminate\\Database\\Eloquent\\Model, Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\>\>\:\:\$crew\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Einsatzbericht/src/Services/ReportService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Support\\HigherOrderCollectionProxy\<string, Illuminate\\Database\\Eloquent\\Model, Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\>\>\:\:\$is_standby\.$#'
 			identifier: property.notFound
 			count: 1
 			path: modules/Einsatzbericht/src/Services/ReportService.php
@@ -1639,12 +1465,6 @@ parameters:
 			path: modules/Einsatzbericht/src/Services/ReportService.php
 
 		-
-			message: '#^Method Modules\\Einsatzbericht\\src\\Services\\ReportService\:\:addVehicle\(\) should return Modules\\Einsatzbericht\\src\\Models\\ReportVehicle but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 2
-			path: modules/Einsatzbericht/src/Services/ReportService.php
-
-		-
 			message: '#^Method Modules\\Einsatzbericht\\src\\Services\\ReportService\:\:consumption\(\) should return Illuminate\\Support\\Collection\<string, array\{label\: string, items\: Illuminate\\Support\\Collection\}\> but returns Illuminate\\Support\\Collection\<\(int\|string\), array\{label\: \(int\|string\), items\: Illuminate\\Support\\Collection\<int, array\{name\: string, unit\: string, quantity\: mixed, reports\: int\<0, max\>\}\>\}\>\.$#'
 			identifier: return.type
 			count: 1
@@ -1653,7 +1473,7 @@ parameters:
 		-
 			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
 			identifier: argument.unresolvableType
-			count: 2
+			count: 1
 			path: modules/Einsatzbericht/src/Services/ReportService.php
 
 		-
@@ -1677,7 +1497,7 @@ parameters:
 		-
 			message: '#^Parameter \#2 \$report of static method Modules\\Einsatzbericht\\src\\Services\\ReportService\:\:canEdit\(\) expects Modules\\Einsatzbericht\\src\\Models\\Report, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
 			identifier: argument.type
-			count: 7
+			count: 4
 			path: modules/Einsatzbericht/src/Services/ReportService.php
 
 		-
@@ -1685,12 +1505,6 @@ parameters:
 			identifier: nullsafe.neverNull
 			count: 1
 			path: modules/Einsatzbericht/src/Services/ReportService.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:isRunning\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: modules/Einsatzbericht/src/Services/SituationService.php
 
 		-
 			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:photos\(\)\.$#'
@@ -1885,31 +1699,13 @@ parameters:
 			path: modules/Fahrtenbuch/src/Services/LogbookService.php
 
 		-
-			message: '#^Method Modules\\Fahrtenbuch\\src\\Services\\LogbookService\:\:suggest\(\) should return array\{vehicle_id\: int\|null, booking\: Modules\\Fahrzeugbuchung\\src\\Models\\Booking\|null, report\: Modules\\Einsatzbericht\\src\\Models\\Report\|null, start_km\: int\|null\} but returns array\{vehicle_id\: mixed, booking\: Modules\\Fahrzeugbuchung\\src\\Models\\Booking\|null, report\: Illuminate\\Database\\Eloquent\\Model\|null, start_km\: int\|null\}\.$#'
-			identifier: return.type
-			count: 1
-			path: modules/Fahrtenbuch/src/Services/LogbookService.php
-
-		-
 			message: '#^Parameter \#1 \$vehicle of method Modules\\Fahrtenbuch\\src\\Services\\LogbookService\:\:lastKm\(\) expects Modules\\Fahrzeugbuchung\\src\\Models\\Vehicle, Illuminate\\Database\\Eloquent\\Model given\.$#'
 			identifier: argument.type
 			count: 1
 			path: modules/Fahrtenbuch/src/Services/LogbookService.php
 
 		-
-			message: '#^Parameter \#1 \$vehicle of method Modules\\Fahrtenbuch\\src\\Services\\LogbookService\:\:syncMileage\(\) expects Modules\\Fahrzeugbuchung\\src\\Models\\Vehicle, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 3
-			path: modules/Fahrtenbuch/src/Services/LogbookService.php
-
-		-
 			message: '#^Parameter \#2 \$startedAt of method Modules\\Fahrtenbuch\\src\\Services\\LogbookService\:\:validateEnd\(\) expects Illuminate\\Support\\Carbon, string\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: modules/Fahrtenbuch/src/Services/LogbookService.php
-
-		-
-			message: '#^Parameter \$fixed of method Modules\\Fahrtenbuch\\src\\Services\\LogbookService\:\:validateStart\(\) expects Modules\\Fahrzeugbuchung\\src\\Models\\Vehicle\|null, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
 			identifier: argument.type
 			count: 1
 			path: modules/Fahrtenbuch/src/Services/LogbookService.php
@@ -2265,7 +2061,7 @@ parameters:
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
 			identifier: property.notFound
-			count: 2
+			count: 1
 			path: modules/Fahrzeuge/FahrzeugeServiceProvider.php
 
 		-
@@ -2275,19 +2071,7 @@ parameters:
 			path: modules/Fahrzeuge/FahrzeugeServiceProvider.php
 
 		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<\(int\|string\),Illuminate\\Database\\Eloquent\\Collection\<int, Modules\\Fahrzeuge\\src\\Models\\Record\>\>\:\:map\(\) contains unresolvable type\.$#'
-			identifier: argument.unresolvableType
-			count: 1
-			path: modules/Fahrzeuge/FahrzeugeServiceProvider.php
-
-		-
 			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Modules\\Fahrzeuge\\src\\Models\\Profile\>\:\:map\(\) contains unresolvable type\.$#'
-			identifier: argument.unresolvableType
-			count: 1
-			path: modules/Fahrzeuge/FahrzeugeServiceProvider.php
-
-		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<\(int\|string\),array\<string, mixed\>\>\:\:sortBy\(\) contains unresolvable type\.$#'
 			identifier: argument.unresolvableType
 			count: 1
 			path: modules/Fahrzeuge/FahrzeugeServiceProvider.php
@@ -2443,46 +2227,10 @@ parameters:
 			path: modules/Fahrzeuge/src/Models/Record.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Fahrzeuge/src/Notifications/DeadlineDigestNotification.php
-
-		-
 			message: '#^Cannot call method format\(\) on string\.$#'
 			identifier: method.nonObject
 			count: 1
 			path: modules/Fahrzeuge/src/Notifications/DeadlineDigestNotification.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 2
-			path: modules/Fahrzeuge/src/Notifications/VehicleUnavailableNotification.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Fahrzeuge/src/Services/FleetService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$keyword\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Fahrzeuge/src/Services/FleetService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 2
-			path: modules/Fahrzeuge/src/Services/FleetService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$number\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Fahrzeuge/src/Services/FleetService.php
 
 		-
 			message: '#^Cannot call method format\(\) on string\.$#'
@@ -2516,12 +2264,6 @@ parameters:
 
 		-
 			message: '#^Method Modules\\Fahrzeuge\\src\\Services\\FleetService\:\:einsatzHistory\(\) should return Illuminate\\Support\\Collection\<int, object\{report_id\: int, number\: string, keyword\: string\|null, alarmed_at\: string, category\: string\|null, crew\: int\}\> but returns Illuminate\\Support\\Collection\<int, stdClass\>\.$#'
-			identifier: return.type
-			count: 1
-			path: modules/Fahrzeuge/src/Services/FleetService.php
-
-		-
-			message: '#^Method Modules\\Fahrzeuge\\src\\Services\\FleetService\:\:runningAssignments\(\) should return Illuminate\\Support\\Collection\<int, array\{vehicle_id\: int\|null, name\: string, report_id\: int, number\: string, keyword\: string\|null, departed_at\: Illuminate\\Support\\Carbon\|null, crew\: int\}\> but returns Illuminate\\Support\\Collection\<int, array\{vehicle_id\: int\<0, max\>\|null, name\: string, report_id\: int\<0, max\>, number\: mixed, keyword\: mixed, departed_at\: string\|null, crew\: int\<0, max\>\}\>\.$#'
 			identifier: return.type
 			count: 1
 			path: modules/Fahrzeuge/src/Services/FleetService.php
@@ -2565,24 +2307,6 @@ parameters:
 		-
 			message: '#^Offset ''title'' on array\{title\: string, interval_months\?\: int\|null, due_on\: string, lead_days\?\: int\|null, notes\?\: string\|null, steps\?\: list\<string\>\|string\} on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
-			count: 1
-			path: modules/Fahrzeuge/src/Services/FleetService.php
-
-		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Modules\\Einsatzbericht\\src\\Models\\ReportVehicle\>\:\:map\(\) contains unresolvable type\.$#'
-			identifier: argument.unresolvableType
-			count: 1
-			path: modules/Fahrzeuge/src/Services/FleetService.php
-
-		-
-			message: '#^Parameter \#1 \$vehicle of method Modules\\Fahrzeuge\\src\\Services\\FleetService\:\:profile\(\) expects Modules\\Fahrzeugbuchung\\src\\Models\\Vehicle, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: modules/Fahrzeuge/src/Services/FleetService.php
-
-		-
-			message: '#^Parameter \#2 \$vehicle of method Modules\\Fahrzeuge\\src\\Services\\FleetService\:\:setStatus\(\) expects Modules\\Fahrzeugbuchung\\src\\Models\\Vehicle, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
 			count: 1
 			path: modules/Fahrzeuge/src/Services/FleetService.php
 
@@ -4333,12 +4057,6 @@ parameters:
 			path: modules/Objektplaene/src/Services/ObjectPlanService.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$user\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Personalverwaltung/routes/web.php
-
-		-
 			message: '#^Parameter \#1 \$boolean of function abort_unless expects bool, array\|null given\.$#'
 			identifier: argument.type
 			count: 1
@@ -4399,31 +4117,7 @@ parameters:
 			path: modules/Personalverwaltung/src/Notifications/ChangeRequestedNotification.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$birth_date\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Personalverwaltung/src/Services/PersonnelService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$city\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Personalverwaltung/src/Services/PersonnelService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Personalverwaltung/src/Services/PersonnelService.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$gender\.$#'
-			identifier: property.notFound
-			count: 2
-			path: modules/Personalverwaltung/src/Services/PersonnelService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$groups\.$#'
 			identifier: property.notFound
 			count: 2
 			path: modules/Personalverwaltung/src/Services/PersonnelService.php
@@ -4437,31 +4131,13 @@ parameters:
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
 			identifier: property.notFound
-			count: 8
-			path: modules/Personalverwaltung/src/Services/PersonnelService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$phone\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Personalverwaltung/src/Services/PersonnelService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$postal_code\.$#'
-			identifier: property.notFound
-			count: 1
+			count: 6
 			path: modules/Personalverwaltung/src/Services/PersonnelService.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$rank\.$#'
 			identifier: property.notFound
 			count: 2
-			path: modules/Personalverwaltung/src/Services/PersonnelService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$street\.$#'
-			identifier: property.notFound
-			count: 1
 			path: modules/Personalverwaltung/src/Services/PersonnelService.php
 
 		-
@@ -4567,12 +4243,6 @@ parameters:
 			path: modules/Personalverwaltung/src/Services/PersonnelService.php
 
 		-
-			message: '#^Parameter \#1 \$member of method Modules\\Personalverwaltung\\src\\Services\\PersonnelService\:\:attendance\(\) expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: modules/Personalverwaltung/src/Services/PersonnelService.php
-
-		-
 			message: '#^Parameter \#1 \$user of method Modules\\Personalverwaltung\\src\\Services\\PersonnelService\:\:syncHistory\(\) expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
 			identifier: argument.type
 			count: 2
@@ -4636,12 +4306,6 @@ parameters:
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$starts_at\.$#'
 			identifier: property.notFound
 			count: 2
-			path: modules/Schichtplan/SchichtplanServiceProvider.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$title\.$#'
-			identifier: property.notFound
-			count: 1
 			path: modules/Schichtplan/SchichtplanServiceProvider.php
 
 		-
@@ -4921,12 +4585,6 @@ parameters:
 			path: modules/Schichtplan/src/Notifications/ShiftDecidedNotification.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$title\.$#'
-			identifier: property.notFound
-			count: 2
-			path: modules/Schichtplan/src/Notifications/ShiftDecidedNotification.php
-
-		-
 			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:label\(\)\.$#'
 			identifier: method.notFound
 			count: 1
@@ -4954,12 +4612,6 @@ parameters:
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
 			identifier: property.notFound
 			count: 3
-			path: modules/Schichtplan/src/Notifications/ShiftRequestedNotification.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$title\.$#'
-			identifier: property.notFound
-			count: 2
 			path: modules/Schichtplan/src/Notifications/ShiftRequestedNotification.php
 
 		-
@@ -5143,12 +4795,6 @@ parameters:
 			path: modules/Schichtplan/src/Services/PlanService.php
 
 		-
-			message: '#^Parameter \#1 \$plan of method Modules\\Schichtplan\\src\\Services\\CalendarLink\:\:sync\(\) expects Modules\\Schichtplan\\src\\Models\\Plan, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: modules/Schichtplan/src/Services/PlanService.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
@@ -5161,38 +4807,14 @@ parameters:
 			path: modules/Schichtplan/src/Services/ShiftPlanner.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Schichtplan/src/Services/SignupService.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$starts_at\.$#'
 			identifier: property.notFound
 			count: 1
 			path: modules/Schichtplan/src/Services/SignupService.php
 
 		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:signupOpen\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: modules/Schichtplan/src/Services/SignupService.php
-
-		-
 			message: '#^Cannot call method lte\(\) on string\.$#'
 			identifier: method.nonObject
-			count: 1
-			path: modules/Schichtplan/src/Services/SignupService.php
-
-		-
-			message: '#^Parameter \#1 \$plan of class Modules\\Schichtplan\\src\\Notifications\\ShiftReminderNotification constructor expects Modules\\Schichtplan\\src\\Models\\Plan, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: modules/Schichtplan/src/Services/SignupService.php
-
-		-
-			message: '#^Parameter \#1 \$plan of class Modules\\Schichtplan\\src\\Notifications\\ShiftsChangedNotification constructor expects Modules\\Schichtplan\\src\\Models\\Plan, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
 			count: 1
 			path: modules/Schichtplan/src/Services/SignupService.php
 
@@ -5335,24 +4957,6 @@ parameters:
 			path: modules/Uebungsdienste/src/Services/ServicePlan.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Unterweisungen/UnterweisungenServiceProvider.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Unterweisungen/UnterweisungenServiceProvider.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Unterweisungen/routes/web.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$user\.$#'
 			identifier: property.notFound
 			count: 1
@@ -5363,30 +4967,6 @@ parameters:
 			identifier: property.notFound
 			count: 1
 			path: modules/Unterweisungen/src/Livewire/SessionDetail.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$held_on\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Unterweisungen/src/Services/InstructionService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 4
-			path: modules/Unterweisungen/src/Services/InstructionService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Unterweisungen/src/Services/InstructionService.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:label\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: modules/Unterweisungen/src/Services/InstructionService.php
 
 		-
 			message: '#^Cannot call method equalTo\(\) on string\.$#'
@@ -5521,12 +5101,6 @@ parameters:
 			path: modules/Wartung/src/Models/Qualification.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Wartung/src/Models/Task.php
-
-		-
 			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\:\:open\(\)\.$#'
 			identifier: method.notFound
 			count: 1
@@ -5543,18 +5117,6 @@ parameters:
 			identifier: nullsafe.neverNull
 			count: 1
 			path: modules/Wartung/src/Models/Task.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Wartung/src/Notifications/WartungDigestNotification.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Wartung/src/Notifications/WartungDigestNotification.php
 
 		-
 			message: '#^Cannot call method format\(\) on string\.$#'
@@ -5579,30 +5141,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: modules/Wartung/src/Services/WartungPdf.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Wartung/src/Services/WartungService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$counts_as_inspection\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Wartung/src/Services/WartungService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 8
-			path: modules/Wartung/src/Services/WartungService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Wartung/src/Services/WartungService.php
 
 		-
 			message: '#^Access to an undefined property Modules\\Wartung\\src\\Models\\Protocol\:\:\$cost\.$#'
@@ -5665,55 +5203,7 @@ parameters:
 			path: modules/Wartung/src/Services/WartungService.php
 
 		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<\(int\|string\),Illuminate\\Database\\Eloquent\\Model\>\:\:each\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\|string\)\: mixed, Closure\(App\\Models\\User\)\: void given\.$#'
-			identifier: argument.type
-			count: 1
-			path: modules/Wartung/src/Services/WartungService.php
-
-		-
-			message: '#^Parameter \#1 \$equipment of method Modules\\Ausruestung\\src\\Services\\EquipmentService\:\:log\(\) expects Modules\\Ausruestung\\src\\Models\\Equipment, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: modules/Wartung/src/Services/WartungService.php
-
-		-
-			message: '#^Parameter \#1 \$equipment of method Modules\\Ausruestung\\src\\Services\\EquipmentService\:\:recordInspection\(\) expects Modules\\Ausruestung\\src\\Models\\Equipment, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: modules/Wartung/src/Services/WartungService.php
-
-		-
-			message: '#^Parameter \#1 \$equipment of method Modules\\Ausruestung\\src\\Services\\EquipmentService\:\:reportDamage\(\) expects Modules\\Ausruestung\\src\\Models\\Equipment, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: modules/Wartung/src/Services/WartungService.php
-
-		-
-			message: '#^Parameter \#1 \$only of method Modules\\Wartung\\src\\Services\\WartungService\:\:plan\(\) expects Modules\\Wartung\\src\\Models\\Template\|null, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: modules/Wartung/src/Services/WartungService.php
-
-		-
 			message: '#^Parameter \#1 \$value of function collect expects Illuminate\\Contracts\\Support\\Arrayable\<\(int\|string\), mixed\>\|iterable\<\(int\|string\), mixed\>\|null, string given\.$#'
-			identifier: argument.type
-			count: 1
-			path: modules/Wartung/src/Services/WartungService.php
-
-		-
-			message: '#^Parameter \#2 \$equipment of method Modules\\Wartung\\src\\Services\\WartungService\:\:nextDue\(\) expects Modules\\Ausruestung\\src\\Models\\Equipment, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: modules/Wartung/src/Services/WartungService.php
-
-		-
-			message: '#^Parameter \#3 \$template of method Modules\\Wartung\\src\\Services\\WartungService\:\:validateProtocol\(\) expects Modules\\Wartung\\src\\Models\\Template\|null, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: modules/Wartung/src/Services/WartungService.php
-
-		-
-			message: '#^Parameter \#4 \$equipment of method Modules\\Wartung\\src\\Services\\WartungService\:\:validateProtocol\(\) expects Modules\\Ausruestung\\src\\Models\\Equipment\|null, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
 			identifier: argument.type
 			count: 1
 			path: modules/Wartung/src/Services/WartungService.php

@@ -5,11 +5,14 @@ namespace Modules\Kalender\src\Livewire;
 use App\Models\Group;
 use App\Models\MemberFunction;
 use App\Models\User;
+use Extensions\Locations\Scopes\LocationScope;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Modules\Kalender\src\Models\Event;
+use Modules\Kalender\src\Services\CalendarLocationAccess;
 use Modules\Kalender\src\Services\PollService;
 
 /** A new Terminabfrage: what, for whom, and the date proposals */
@@ -37,11 +40,17 @@ class PollForm extends Component
     /** @var array<int, string> */
     public array $inviteeIds = [];
 
+    /** @var array<int, string> */
+    public array $locationIds = [];
+
     public bool $notify = true;
 
     public function mount(): void
     {
-        abort_unless(auth()->user()->canManageKalender(), 403);
+        $user = auth()->user();
+        $access = app(CalendarLocationAccess::class);
+        abort_unless($access->enabled() ? $user->canManageAnyKalenderLocation() : $user->canManageKalender(), 403);
+        $this->locationIds = array_map('strval', $access->defaultIds($user));
         $first = now('Europe/Berlin')->addWeek();
         $this->options = [
             ['date' => $first->format('Y-m-d'), 'from' => '18:00', 'until' => '21:00', 'all_day' => false],
@@ -63,6 +72,28 @@ class PollForm extends Component
         $this->options = array_values($this->options);
     }
 
+    public function updatedLocationIds(): void
+    {
+        if (! app(CalendarLocationAccess::class)->enabled()) {
+            return;
+        }
+
+        $locations = array_map('intval', $this->locationIds);
+        $allowedGroups = Group::query()->withoutGlobalScope(LocationScope::class)->whereIn('ext_location_id', $locations ?: [-1])
+            ->pluck('id')->map(fn ($id) => (string) $id)->all();
+        $allowedFunctions = DB::table('member_functions')->where(function ($query) use ($locations) {
+            $query->whereIn('ext_location_id', $locations ?: [-1])->orWhereNull('ext_location_id');
+        })->pluck('id')->map(fn ($id) => (string) $id)->all();
+        $allowedPeople = DB::table('users')->where('is_active', true)->where(function ($query) use ($locations) {
+            $query->whereIn('ext_location_id', $locations ?: [-1])->orWhereExists(fn ($membership) => $membership
+                ->selectRaw('1')->from('x_location_user')->whereColumn('x_location_user.user_id', 'users.id')
+                ->whereIn('x_location_user.location_id', $locations ?: [-1]));
+        })->pluck('id')->map(fn ($id) => (string) $id)->all();
+        $this->groupIds = array_values(array_intersect($this->groupIds, $allowedGroups));
+        $this->functionIds = array_values(array_intersect($this->functionIds, $allowedFunctions));
+        $this->inviteeIds = array_values(array_intersect($this->inviteeIds, $allowedPeople));
+    }
+
     public function save(PollService $polls)
     {
         $this->validate([
@@ -77,6 +108,10 @@ class PollForm extends Component
             'groupIds.*' => ['exists:groups,id'],
             'functionIds.*' => ['exists:member_functions,id'],
             'inviteeIds.*' => ['exists:users,id'],
+            ...(app(CalendarLocationAccess::class)->enabled() ? [
+                'locationIds' => ['required', 'array', 'min:1'],
+                'locationIds.*' => ['integer', 'exists:x_locations,id'],
+            ] : []),
         ], ['title.required' => 'Wofür wird ein Termin gesucht?', 'options.*.date.required' => 'Bitte bei jedem Vorschlag ein Datum angeben.', '*.date_format' => 'Bitte ein gültiges Datum bzw. eine Uhrzeit angeben.']);
 
         $options = [];
@@ -103,7 +138,7 @@ class PollForm extends Component
                 'title' => trim($this->title), 'type' => $this->type, 'location' => trim($this->location) ?: null,
                 'description' => trim($this->description) ?: null,
                 'deadline' => filled($this->deadline) ? Carbon::createFromFormat('Y-m-d\TH:i', $this->deadline, 'Europe/Berlin')->utc() : null,
-            ], $options, array_map('intval', $this->groupIds), array_map('intval', $this->functionIds), array_map('intval', $this->inviteeIds), $this->notify);
+            ], $options, array_map('intval', $this->groupIds), array_map('intval', $this->functionIds), array_map('intval', $this->inviteeIds), $this->notify, array_map('intval', $this->locationIds));
         } catch (ValidationException $e) {
             foreach ($e->errors() as $field => $messages) {
                 $this->addError($field, $messages[0]);
@@ -117,11 +152,23 @@ class PollForm extends Component
 
     public function render()
     {
+        $access = app(CalendarLocationAccess::class);
+        $selectedLocations = array_map('intval', $this->locationIds);
+
         return view('kalender::livewire.poll-form', [
             'types' => Event::TYPES,
-            'groups' => Group::options(),
-            'functions' => MemberFunction::with('parent')->orderBy('sort_order')->orderBy('name')->get()->mapWithKeys(fn (MemberFunction $f) => [$f->id => $f->fullLabel()])->sort(),
-            'people' => User::active()->orderBy('name')->get()->filter(fn (User $u) => $u->canUseModule('kalender'))->pluck('name', 'id'),
+            'groups' => Group::options(fn ($query) => $access->enabled()
+                ? $query->withoutGlobalScope(LocationScope::class)->whereIn('ext_location_id', $selectedLocations ?: [-1])
+                : null),
+            'functions' => MemberFunction::query()->when($access->enabled(), fn ($query) => $query->withoutGlobalScope(LocationScope::class)->where(function ($query) use ($selectedLocations) {
+                $query->whereIn('ext_location_id', $selectedLocations ?: [-1])->orWhereNull('ext_location_id');
+            }))->with('parent')->orderBy('sort_order')->orderBy('name')->get()->mapWithKeys(fn (MemberFunction $f) => [$f->id => $f->fullLabel()])->sort(),
+            'people' => User::active()->when($access->enabled(), fn ($query) => $query->withoutGlobalScope(LocationScope::class)->where(function ($query) use ($selectedLocations) {
+                $query->whereIn('ext_location_id', $selectedLocations ?: [-1])->orWhereExists(fn ($membership) => $membership
+                    ->selectRaw('1')->from('x_location_user')->whereColumn('x_location_user.user_id', 'users.id')
+                    ->whereIn('x_location_user.location_id', $selectedLocations ?: [-1]));
+            }))->orderBy('name')->get()->filter(fn (User $u) => $u->canUseModule('kalender'))->pluck('name', 'id'),
+            'locations' => $access->options(auth()->user()),
         ]);
     }
 }

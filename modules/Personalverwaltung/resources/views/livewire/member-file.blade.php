@@ -27,6 +27,7 @@
         </div>
         <dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
             <div><dt class="text-xs uppercase tracking-wide text-gray-500">Eintritt</dt><dd>{{ $member->joined_at?->format('d.m.Y') ?? '–' }}</dd></div>
+            @if(config('locations.enabled'))<div><dt class="text-xs uppercase tracking-wide text-gray-500">Standorte</dt><dd>{{ $locations->implode(', ') ?: '–' }}</dd></div>@endif
             <div><dt class="text-xs uppercase tracking-wide text-gray-500">Abteilungen</dt><dd>{{ $member->groups->pluck('display_name')->implode(', ') ?: '–' }}</dd></div>
             <div><dt class="text-xs uppercase tracking-wide text-gray-500">Funktionen</dt><dd>{{ $member->functions->map->fullLabel()->implode(', ') ?: '–' }}</dd></div>
         </dl>
@@ -50,7 +51,11 @@
     @if($inviteQr)
         <section class="space-y-2 rounded-2xl border border-fw-navy bg-white p-4 text-center shadow-sm">
             <img src="{{ $inviteQr }}" alt="QR-Code der Einladung" class="mx-auto h-48 w-48">
-            <p class="text-xs text-gray-500">Mit dem Handy scannen – {{ $member->name }} ist angemeldet, ohne Passwort. Gilt bis {{ $invite['until'] }} Uhr und nur einmal.</p>
+            @if($invite['method'] === 'sso')
+                <p class="text-xs text-gray-500">Mit dem Handy scannen – die Anmeldung öffnet den Identitätsanbieter mit vorausgefüllter E-Mail-Adresse.</p>
+            @else
+                <p class="text-xs text-gray-500">Mit dem Handy scannen – {{ $member->name }} ist angemeldet, ohne Passwort. Gilt bis {{ $invite['until'] }} Uhr und nur einmal.</p>
+            @endif
             <p class="break-all text-xs text-gray-600">{{ $invite['url'] }}</p>
         </section>
     @endif
@@ -168,11 +173,10 @@
         @include('schluessel::partials.held-by', ['member' => $member])
     @endif
 
+    @if($canEdit)
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <section class="{{ $card }}">
             <h2 class="text-sm font-semibold text-gray-900">Dienstausweis</h2>
-            @unless($canEdit)<p class="text-sm text-gray-700">{{ $idCard['number'] ?: 'ohne Nummer' }}{{ $idCard['valid_until'] ? ' · gültig bis '.\Illuminate\Support\Carbon::parse($idCard['valid_until'])->format('d.m.Y') : '' }}{{ $idCard['birth_place'] ? ' · geboren in '.$idCard['birth_place'] : '' }}</p>@endunless
-            @if($canEdit)
 <form wire:submit="saveIdCard" class="space-y-2">
                 <div class="grid grid-cols-2 gap-2">
                     <label class="block text-xs text-gray-600">Ausweisnummer<input type="text" wire:model="idCard.number" maxlength="50" class="{{ $input }}"></label>
@@ -182,7 +186,6 @@
                 @error('id_card_valid_until')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
                 <button type="submit" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700">Speichern</button>
             </form>
-        @endif
         </section>
         @if($hours->isNotEmpty())
             <section class="{{ $card }}">
@@ -199,4 +202,5 @@
             </section>
         @endif
     </div>
+    @endif
 </div>

@@ -2,6 +2,7 @@
 
 namespace Modules\Finanzen\src\Livewire;
 
+use Extensions\Locations\Models\Location;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -26,6 +27,9 @@ class EntryList extends Component
     #[Url(as: 'kostenstelle')]
     public string $center = '';
 
+    #[Url(as: 'standort')]
+    public string $locationId = '';
+
     #[Url(as: 'suche')]
     public string $search = '';
 
@@ -37,6 +41,10 @@ class EntryList extends Component
     public function mount(): void
     {
         $this->year ??= FinanceService::today()->year;
+        $user = auth()->user();
+        if (FinanceService::locationsEnabled() && FinanceService::canReview($user) && ! FinanceService::canReviewGlobally($user)) {
+            $this->locationId = (string) (FinanceService::overviewLocationOptions($user)->first()->id ?? '');
+        }
     }
 
     public function updated(): void
@@ -47,25 +55,48 @@ class EntryList extends Component
     public function render(FinanceService $finance)
     {
         $term = trim($this->search);
-        $query = Entry::query()
+        $user = auth()->user();
+        $locations = FinanceService::overviewLocationOptions($user);
+        $locationId = null;
+        if (FinanceService::locationsEnabled()) {
+            if ($this->locationId !== '') {
+                $locationId = ctype_digit($this->locationId) ? (int) $this->locationId : null;
+                abort_unless($locationId !== null && $locations->contains('id', $locationId), 403);
+            } elseif (! FinanceService::canReviewGlobally($user)) {
+                abort(403);
+            }
+        }
+        $query = FinanceService::scopeReviewEntries($user, Entry::query())
             // Waiting ones of every year, everything else of the chosen year
             ->when($this->status === 'submitted', fn ($q) => $q->where('status', 'submitted'), fn ($q) => $q->where('year', $this->year)
                 ->when($this->status !== '', fn ($q) => $q->where('status', $this->status)))
             ->when($this->kind !== '', fn ($q) => $q->where('kind', $this->kind))
             ->when($this->center !== '', fn ($q) => $q->where('cost_center_id', (int) $this->center))
+            ->when(FinanceService::locationsEnabled() && $locationId !== null, fn ($q) => $q->where('location_id', $locationId))
             ->when($term !== '', fn ($q) => $q->where(fn ($s) => $s->where('title', 'ilike', '%'.$term.'%')->orWhere('vendor', 'ilike', '%'.$term.'%')
                 ->orWhere('description', 'ilike', '%'.$term.'%')->orWhereHas('submitter', fn ($u) => $u->where('name', 'ilike', '%'.$term.'%'))));
         $booked = (clone $query)->whereIn('status', Entry::BOOKED);
+        $entryRelations = ['costCenter', 'submitter'];
+        if (FinanceService::locationsEnabled()) {
+            $entryRelations[] = 'location';
+        }
+        $waiting = FinanceService::scopeReviewEntries($user, Entry::where('status', 'submitted'));
+        if ($locationId !== null) {
+            $waiting->where('location_id', $locationId);
+        }
 
         return view('finanzen::livewire.entry-list', [
-            'entries' => (clone $query)->with(['costCenter', 'submitter'])->withCount('receipts')->orderByDesc('booked_on')->orderByDesc('number')->paginate(50),
+            'entries' => (clone $query)->with($entryRelations)->withCount('receipts')->orderByDesc('booked_on')->orderByDesc('number')->paginate(50),
             'sumExpense' => (int) (clone $booked)->where('kind', 'expense')->sum('amount_cents'),
             'sumIncome' => (int) (clone $booked)->where('kind', 'income')->sum('amount_cents'),
             'centers' => CostCenter::ordered()->get(),
             'years' => $finance->years(),
-            'waiting' => Entry::where('status', 'submitted')->count(),
+            'waiting' => $waiting->count(),
             'canManage' => FinanceService::canManage(auth()->user()),
             'reportOn' => FinanceService::reportEnabled(),
+            'locationsEnabled' => FinanceService::locationsEnabled(),
+            'locations' => $locations,
+            'selectedLocation' => $locationId ? Location::find($locationId) : null,
         ]);
     }
 }

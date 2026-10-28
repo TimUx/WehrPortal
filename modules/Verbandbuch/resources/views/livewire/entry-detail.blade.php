@@ -27,6 +27,7 @@
             <dt class="text-gray-500">Verletzte / beteiligte Person</dt><dd>{{ $entry->injured_name ?? '–' }}</dd>
             <dt class="text-gray-500">Zeitpunkt</dt><dd>{{ $time($entry->occurred_at) }}</dd>
             <dt class="text-gray-500">Wobei</dt><dd>{{ $entry->occasionLabel() }}</dd>
+            @if($entry->organizationalLocation)<dt class="text-gray-500">Standort</dt><dd>{{ $entry->organizationalLocation->name }}</dd>@endif
             <dt class="text-gray-500">Ort</dt><dd>{{ $entry->location }}</dd>
             <dt class="text-gray-500">Hergang</dt><dd class="whitespace-pre-line">{{ $entry->description }}</dd>
             @if($entry->injury)<dt class="text-gray-500">Art und Umfang der Verletzung</dt><dd class="whitespace-pre-line">{{ $entry->injury }}</dd>@endif

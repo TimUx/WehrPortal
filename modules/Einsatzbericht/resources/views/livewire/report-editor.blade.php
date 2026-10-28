@@ -46,10 +46,11 @@
         <section class="{{ $card }}">
             <h2 class="text-sm font-semibold text-gray-900">Kopfdaten</h2>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <label class="block text-sm text-gray-700">Laufende Nummer<input type="text" value="{{ $report->number }}" disabled class="{{ $input }}"></label>
+                <label class="block text-sm text-gray-700">Laufende Nummer<input type="text" id="field-number" wire:model="form.number" maxlength="20" class="{{ $input }}"></label>
                 <label class="block text-sm text-gray-700">Einsatznummer Leitstelle{{ $req('dispatch_number') }}<input type="text" id="field-dispatch_number" wire:model="form.dispatch_number" maxlength="50" class="{{ $input }}"></label>
                 <label class="block text-sm text-gray-700">Einsatzstichwort{{ $req('keyword') }}<input type="text" id="field-keyword" wire:model="form.keyword" maxlength="150" placeholder="z. B. FEU 2, TH 1" class="{{ $input }}"></label>
             </div>
+            @error('form.number')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
             @if($report->source === 'divera')
                 <div class="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-900">
                     <p class="text-xs font-semibold uppercase tracking-wide">Aus DIVERA 24/7 angelegt{{ $report->divera_id ? ' · Alarm '.$report->divera_id : '' }}</p>
@@ -193,7 +194,7 @@
                         <div class="grid grid-cols-[1fr_auto] items-center gap-2 border-t border-gray-100 pt-3 sm:grid-cols-[minmax(0,1fr)_12rem_auto_auto]">
                             <select wire:model="newCrew.{{ $vehicle->id }}.user" class="col-span-2 w-full rounded-lg border border-gray-300 px-2 py-2 text-base sm:col-span-1 sm:text-sm" aria-label="Kamerad">
                                 <option value="">Kamerad wählen …</option>
-                                @foreach($people as $person)
+                                @foreach($crewOptions->get($vehicle->id, collect()) as $person)
                                     <option value="{{ $person->id }}">{{ $person->name }}{{ in_array($person->id, $assigned, true) ? ' (wechselt)' : '' }}</option>
                                 @endforeach
                             </select>

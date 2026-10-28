@@ -15,6 +15,7 @@ use Modules\Personalverwaltung\src\Models\HonorType;
 use Modules\Personalverwaltung\src\Services\PersonnelService;
 
 beforeEach(function () {
+    config(['locations.enabled' => false]);
     Module::where('key', 'personalverwaltung')->update(['is_active' => true]);
     Cache::forget('modules_active_keys');
     $this->travelTo(Carbon::parse('2027-06-01 12:00', 'Europe/Berlin'));

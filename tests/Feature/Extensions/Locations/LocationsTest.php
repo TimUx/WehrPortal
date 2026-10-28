@@ -1,6 +1,7 @@
 <?php
 
 use App\Filament\Resources\GroupResource\Pages\CreateGroup;
+use App\Filament\Resources\UserResource\Pages\CreateUser;
 use App\Filament\Resources\UserResource\Pages\EditUser;
 use App\Models\Group;
 use App\Models\User;
@@ -186,6 +187,27 @@ it('lets admins assign members to one or more Standorte from the member form', f
     expect($member->fresh()->locations()->pluck('x_locations.id')->map(fn ($id) => (int) $id)->all())
         ->toEqualCanonicalizing([$south->id, $north->id])
         ->and((int) $member->fresh()->ext_location_id)->toBe($south->id);
+});
+
+it('creates members with multiple Standort memberships and an explicit primary location', function () {
+    $admin = User::factory()->admin()->create();
+    $south = station('Wache Süd');
+    $north = station('Wache Nord');
+
+    Livewire::actingAs($admin)->test(CreateUser::class)
+        ->fillForm([
+            'name' => 'Hanna Hydrant',
+            'email' => 'hanna@example.com',
+            'locations' => [$south->id, $north->id],
+            'ext_location_id' => $north->id,
+        ])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    $member = User::where('email', 'hanna@example.com')->sole();
+    expect($member->locations()->pluck('x_locations.id')->map(fn ($id) => (int) $id)->all())
+        ->toEqualCanonicalizing([$south->id, $north->id])
+        ->and((int) $member->ext_location_id)->toBe($north->id);
 });
 
 it('lets Standort-Admins assign members to multiple local Abteilungen without changing other Standorte', function () {

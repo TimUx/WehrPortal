@@ -2,7 +2,7 @@
 <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
         <h1 class="text-xl font-bold text-gray-900">Arten</h1>
-        <button type="button" wire:click="presets" class="text-sm text-fw-navy underline">Übliche Unterweisungen anlegen</button>
+        <button type="button" wire:click="presets" class="text-sm text-fw-navy underline">{{ $canManageAll ? 'Übliche Unterweisungen anlegen' : 'Atemschutz-Unterweisung anlegen' }}</button>
     </div>
     @if($flash)<p class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{{ $flash }}</p>@endif
     <form wire:submit="save" class="space-y-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
@@ -13,7 +13,11 @@
             <label class="block text-sm text-gray-700">Art<select wire:model.live="form.kind" class="{{ $in }}">@foreach(\Modules\Unterweisungen\src\Models\Topic::KINDS as $k => $l)<option value="{{ $k }}">{{ $l }}</option>@endforeach</select></label>
             <label class="block text-sm text-gray-700">Wiederholen alle … Monate<input type="number" min="1" max="120" wire:model="form.interval_months" placeholder="leer = einmalig" class="{{ $in }}"></label>
             @if($form['kind'] === 'einweisung')<label class="block text-sm text-gray-700">auf Fahrzeug (optional)<select wire:model="form.vehicle_id" class="{{ $in }}"><option value="">–</option>@foreach($vehicles as $id => $n)<option value="{{ $id }}">{{ $n }}</option>@endforeach</select></label>@endif
-            <label class="block text-sm text-gray-700">zählt auch als<select wire:model="form.counts_as" class="{{ $in }}"><option value="">–</option>@foreach(\Modules\Unterweisungen\src\Models\Topic::COUNTS_AS as $k => $l)<option value="{{ $k }}">{{ $l }}</option>@endforeach</select></label>
+            @if($canManageAll)
+                <label class="block text-sm text-gray-700">zählt auch als<select wire:model="form.counts_as" class="{{ $in }}"><option value="">–</option>@foreach(\Modules\Unterweisungen\src\Models\Topic::COUNTS_AS as $k => $l)<option value="{{ $k }}">{{ $l }}</option>@endforeach</select></label>
+            @else
+                <p class="self-end text-sm text-gray-700">Zählt als Atemschutz-Unterweisung (FwDV 7)</p>
+            @endif
         </div>
         <fieldset class="text-sm"><legend class="text-gray-700">Verpflichtend für</legend>
             <label class="mr-4 inline-flex items-center gap-1.5"><input type="checkbox" wire:model.live="form.for_all" class="rounded"> alle aktiven Kameraden</label>
@@ -24,7 +28,7 @@
         </fieldset>
         <textarea wire:model="form.description" rows="2" maxlength="2000" placeholder="Inhalt / Grundlage (optional)" class="{{ $in }}"></textarea>
         <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model="form.is_active" class="rounded"> aktiv</label>
-        @foreach(['topic_name', 'topic_kind', 'topic_interval'] as $f)@error($f)<p class="text-sm text-red-600">{{ $message }}</p>@enderror @endforeach
+        @foreach(['topic_name', 'topic_kind', 'topic_interval', 'topic_access'] as $f)@error($f)<p class="text-sm text-red-600">{{ $message }}</p>@enderror @endforeach
         <div class="flex gap-3"><button type="submit" class="rounded-lg bg-fw-navy px-4 py-2 text-sm font-semibold text-white">Speichern</button>@if($editing)<button type="button" wire:click="cancel" class="text-sm text-gray-500 underline">Abbrechen</button>@endif</div>
     </form>
     <ul class="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white text-sm shadow-sm">

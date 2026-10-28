@@ -9,6 +9,7 @@ use Extensions\Hydrantenkontrolle\Livewire\YearOverview;
 use Extensions\Hydrantenkontrolle\Models\Hydrant;
 use Extensions\Hydrantenkontrolle\Models\Inspection;
 use Extensions\Hydrantenkontrolle\Services\InspectionService;
+use Extensions\Hydrantenkontrolle\Support\Checklist;
 use Extensions\Locations\Models\Location;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -164,7 +165,7 @@ it('exports real PDF bytes with safe content headers and all annual results', fu
 
     $html = view('hydrantenkontrolle::pdf.year', [
         'year' => $year, 'inspections' => $year->inspections, 'org' => 'FF Musterstadt',
-        'defects' => \Extensions\Hydrantenkontrolle\Support\Checklist::DEFECTS,
+        'defects' => Checklist::DEFECTS,
         'createdAt' => now()->timezone('Europe/Berlin'),
     ])->render();
     expect($html)->toContain('FF Musterstadt', '2026', 'PDF-1', 'Musterstadt', 'Am Musterplatz', 'Ungeprüft');

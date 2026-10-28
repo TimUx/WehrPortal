@@ -7,24 +7,41 @@ use Modules\Wartung\src\Models\Attachment;
 use Modules\Wartung\src\Models\Protocol;
 use Modules\Wartung\src\Models\Template;
 use Modules\Wartung\src\Services\WartungPdf;
+use Modules\Wartung\src\Services\WartungService;
 
 Route::prefix('wartung')->name('wartung.')
     ->middleware(['auth', 'active', 'module:wartung'])
     ->group(function () {
         Route::get('/', fn () => view('wartung::pages.page', ['livewireComponent' => 'wartung.overview', 'title' => 'Wartungsmanagement']))->name('index');
         Route::get('/protokolle', fn () => view('wartung::pages.page', ['livewireComponent' => 'wartung.protocol-list', 'title' => 'Prüfprotokolle']))->name('protocols');
-        Route::get('/protokolle/{protocol}', fn (Protocol $protocol) => view('wartung::pages.page', ['livewireComponent' => 'wartung.protocol-detail', 'title' => 'Prüfprotokoll '.$protocol->code(), 'params' => ['protocol' => $protocol]]))
+        Route::get('/protokolle/{protocol}', function (Protocol $protocol) {
+            abort_unless(WartungService::canViewProtocol(auth()->user(), $protocol), 404);
+
+            return view('wartung::pages.page', ['livewireComponent' => 'wartung.protocol-detail', 'title' => 'Prüfprotokoll '.$protocol->code(), 'params' => ['protocol' => $protocol]]);
+        })
             ->whereNumber('protocol')->name('protocol');
 
-        Route::get('/protokolle/{protocol}/pdf', fn (Protocol $protocol, WartungPdf $pdf) => response($pdf->protocol($protocol), 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="Pruefprotokoll-'.$protocol->code().'.pdf"',
-        ]))->whereNumber('protocol')->name('protocol.pdf');
+        Route::get('/protokolle/{protocol}/pdf', function (Protocol $protocol, WartungPdf $pdf) {
+            abort_unless(WartungService::canViewProtocol(auth()->user(), $protocol), 404);
 
-        Route::get('/anhaenge/{attachment}', fn (Attachment $attachment) => FileResponse::make(base64_decode($attachment->data), $attachment->name))
+            return response($pdf->protocol($protocol), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="Pruefprotokoll-'.$protocol->code().'.pdf"',
+            ]);
+        })->whereNumber('protocol')->name('protocol.pdf');
+
+        Route::get('/anhaenge/{attachment}', function (Attachment $attachment) {
+            abort_unless(WartungService::canViewProtocol(auth()->user(), $attachment->protocol), 404);
+
+            return FileResponse::make(base64_decode($attachment->data), $attachment->name);
+        })
             ->whereNumber('attachment')->name('attachment');
 
-        Route::get('/geraete/{equipment}', fn (Equipment $equipment) => view('wartung::pages.page', ['livewireComponent' => 'wartung.device-detail', 'title' => $equipment->name, 'params' => ['equipment' => $equipment]]))
+        Route::get('/geraete/{equipment}', function (Equipment $equipment) {
+            abort_unless(WartungService::canViewEquipment(auth()->user(), $equipment), 404);
+
+            return view('wartung::pages.page', ['livewireComponent' => 'wartung.device-detail', 'title' => $equipment->name, 'params' => ['equipment' => $equipment]]);
+        })
             ->whereNumber('equipment')->name('device');
 
         // Gerätewarte and Prüfer: carry out a Wartung (from the list, a device, or ad hoc)

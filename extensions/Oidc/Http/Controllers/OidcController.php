@@ -16,7 +16,8 @@ class OidcController
     public function redirect(Request $request, OidcClient $client): RedirectResponse
     {
         try {
-            $start = $client->authorizationRequest();
+            $hint = $request->query('login_hint');
+            $start = $client->authorizationRequest(is_string($hint) ? $hint : null);
         } catch (OidcException $e) {
             OidcLoginService::logFailure($e);
 

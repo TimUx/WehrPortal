@@ -6,10 +6,16 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Services\Geocoder;
 use App\Support\SignatureImage;
+use Extensions\Locations\Models\Location;
+use Extensions\Locations\Services\LocationAccess;
+use Extensions\Locations\Services\LocationContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Modules\Einsatzbericht\src\Models\CrewMember;
 use Modules\Einsatzbericht\src\Models\Material;
@@ -33,7 +39,7 @@ class ReportService
     public static function canLead(User $user): bool
     {
         return $user->is_active && $user->canUseModule('einsatzbericht')
-            && ($user->is_admin || $user->hasModuleRole('einsatzbericht', 'einsatzleiter') || $user->hasModuleRole('einsatzbericht', 'wehrführung'));
+            && ($user->is_admin || $user->hasAnyModuleRole('einsatzbericht', 'einsatzleiter') || $user->hasAnyModuleRole('einsatzbericht', 'wehrführung'));
     }
 
     /** Wehrführung and admins release, correct and evaluate */
@@ -43,9 +49,42 @@ class ReportService
             && ($user->is_admin || $user->hasModuleRole('einsatzbericht', 'wehrführung'));
     }
 
+    public static function canLeadReport(User $user, Report $report): bool
+    {
+        if (! self::canLead($user)) {
+            return false;
+        }
+        if ($user->hasModuleRole('einsatzbericht', 'einsatzleiter') || self::canRelease($user)) {
+            return true;
+        }
+
+        return self::hasLocationLeadership($user, $report);
+    }
+
+    public static function canReleaseReport(User $user, Report $report): bool
+    {
+        return self::canRelease($user) || self::hasLocationLeadership($user, $report);
+    }
+
+    private static function hasLocationLeadership(User $user, Report $report): bool
+    {
+        $locationId = $report->getAttribute('ext_location_id');
+        if (! $user->is_active || ! $user->canUseModule('einsatzbericht')
+            || ! config('locations.enabled') || ! is_numeric($locationId)
+            || ! Schema::hasTable('x_locations') || ! Schema::hasColumn('eb_reports', 'ext_location_id')) {
+            return false;
+        }
+
+        $locationId = (int) $locationId;
+
+        return Location::query()->active()->whereKey($locationId)->exists()
+            && app(LocationAccess::class)->canSee($user, $locationId)
+            && $user->hasModuleRole('einsatzbericht', 'wehrführung', $locationId);
+    }
+
     public static function canEdit(User $user, Report $report): bool
     {
-        return in_array($report->status, Report::OPEN, true) ? self::canLead($user) : self::canRelease($user);
+        return in_array($report->status, Report::OPEN, true) ? self::canLeadReport($user, $report) : self::canReleaseReport($user, $report);
     }
 
     /** @return list<string> fields that must be filled before closing */
@@ -66,19 +105,39 @@ class ReportService
     {
         $this->assert(self::canLead($by));
 
-        return $this->numbered(['commander_id' => $by->id, 'created_by' => $by->id], $alarmedAt ?? now());
+        $attributes = ['commander_id' => $by->id, 'created_by' => $by->id];
+        if (config('locations.enabled') && $by->hasAnyModuleRole('einsatzbericht', 'wehrführung')
+            && ! $by->hasModuleRole('einsatzbericht', 'wehrführung')
+            && Schema::hasColumn('eb_reports', 'ext_location_id')) {
+            $roleLocations = $by->standardRoleLocationIds('einsatzbericht', ['wehrführung']);
+            $currentLocation = app(LocationContext::class)->forUser($by)['current'];
+            $locationId = $currentLocation !== null && in_array($currentLocation, $roleLocations, true)
+                ? $currentLocation
+                : (count($roleLocations) === 1 ? $roleLocations[0] : null);
+            if ($locationId === null) {
+                throw ValidationException::withMessages(['report' => 'Bitte wählen Sie einen Standort aus, an dem Sie als Wehrführung eingetragen sind.']);
+            }
+            $attributes['ext_location_id'] = $locationId;
+        }
+
+        return $this->numbered($attributes, $alarmedAt ?? now());
     }
 
     /** A current (aktuell) Einsatz from an alarm (DIVERA), without anyone logged in: the alarm has happened */
     public function createFromAlarm(array $data, Carbon $alarmedAt): Report
     {
-        return $this->numbered([...collect($data)->only(['keyword', 'alarm_message', 'address', 'latitude', 'longitude', 'divera_id'])->all(), 'source' => 'divera', 'status' => 'active'], $alarmedAt);
+        $attributes = collect($data)->only(['keyword', 'alarm_message', 'address', 'latitude', 'longitude', 'divera_id'])->all();
+        if (config('locations.enabled') && Schema::hasColumn('eb_reports', 'ext_location_id')) {
+            $attributes['ext_location_id'] = $data['ext_location_id'] ?? null;
+        }
+
+        return $this->numbered([...$attributes, 'source' => 'divera', 'status' => 'active'], $alarmedAt);
     }
 
     /** "Einsatz starten": the draft becomes the current Einsatz (Lagemeldungen, QR for external Wehren) */
     public function start(User $by, Report $report): void
     {
-        $this->assert(self::canLead($by) && $report->status === 'draft', 'Nur ein Entwurf lässt sich starten.');
+        $this->assert(self::canLeadReport($by, $report) && $report->status === 'draft', 'Nur ein Entwurf lässt sich starten.');
         $report->update(['status' => 'active']);
     }
 
@@ -89,10 +148,10 @@ class ReportService
         for ($attempt = 0; $attempt < 5; $attempt++) {
             try {
                 return DB::transaction(function () use ($attributes, $alarmedAt, $year) {
-                    $last = Report::where('number', 'like', $year.'/%')->lockForUpdate()->pluck('number')
+                    $last = Report::withoutGlobalScopes()->where('number', 'like', $year.'/%')->lockForUpdate()->pluck('number')
                         ->map(fn ($n) => (int) substr($n, 5))->max() ?? 0;
 
-                    return Report::create([
+                    return Report::forceCreate([
                         ...$attributes,
                         'number' => $year.'/'.str_pad((string) ($last + 1), 3, '0', STR_PAD_LEFT),
                         'alarmed_at' => $alarmedAt->copy()->utc(),
@@ -113,11 +172,20 @@ class ReportService
     {
         $this->assert(self::canEdit($by, $report), 'Dieser Bericht ist abgeschlossen; Änderungen nur noch durch die Wehrführung.');
 
-        $data = collect($data)->only(array_diff((new Report)->getFillable(), ['number', 'status', 'created_by', 'closed_at', 'closed_by', 'released_at', 'released_by', 'source', 'divera_id',
+        $data = collect($data)->only(array_diff((new Report)->getFillable(), ['status', 'created_by', 'closed_at', 'closed_by', 'released_at', 'released_by', 'source', 'divera_id',
             'closed_signature', 'released_signature', 'released_hash', 'parent_id', 'reminded_at', 'external_key', 'external_key_hash']))
             ->map(fn ($v, $k) => $k === 'details' ? ($v ?? []) : $v)
             ->map(fn ($v) => $v instanceof Carbon ? $v->copy()->utc() : (is_string($v) ? (trim($v) !== '' ? trim($v) : null) : $v))
             ->all();
+
+        if (array_key_exists('number', $data)) {
+            Validator::make(['number' => $data['number']], [
+                'number' => ['required', 'string', 'max:20', 'regex:/^\d{4}\/\d{3,}(?:-\d+)?$/', Rule::unique('eb_reports', 'number')->ignore($report->id)],
+            ], [
+                'number.regex' => 'Die laufende Nummer muss das Format JJJJ/001 haben.',
+                'number.unique' => 'Diese laufende Nummer ist bereits vergeben.',
+            ])->validate();
+        }
 
         if (isset($data['category']) && ! array_key_exists($data['category'], Report::CATEGORIES)) {
             throw ValidationException::withMessages(['category' => 'Unbekannte Einsatzart.']);
@@ -129,7 +197,15 @@ class ReportService
         }
 
         $addressChanged = array_key_exists('address', $data) && $data['address'] !== $report->address;
-        $report->update($data);
+        try {
+            $report->update($data);
+        } catch (QueryException $e) {
+            if (! array_key_exists('number', $data) || $e->getCode() !== '23505') {
+                throw $e;
+            }
+
+            throw ValidationException::withMessages(['number' => 'Diese laufende Nummer ist bereits vergeben.']);
+        }
 
         // New address without coordinates: look them up (Google key under Einstellungen → Dienste)
         if ($addressChanged && $report->address && ! array_key_exists('latitude', $data) && ($point = app(Geocoder::class)->locate($report->address))) {
@@ -178,6 +254,13 @@ class ReportService
     public function assign(User $by, ReportVehicle $vehicle, User $member, string $function = 'einsatzkraft', bool $breathingApparatus = false): CrewMember
     {
         $this->assert(self::canEdit($by, $vehicle->report));
+
+        $locationId = $vehicle->vehicle?->getAttribute('ext_location_id');
+        if (config('locations.enabled') && $locationId !== null
+            && (int) $member->getAttribute('ext_location_id') !== (int) $locationId
+            && ! $member->locations()->whereKey($locationId)->exists()) {
+            throw ValidationException::withMessages(['crew' => 'Für dieses Fahrzeug können nur Kameraden desselben Standorts eingeteilt werden.']);
+        }
 
         if (! array_key_exists($function, CrewMember::FUNCTIONS)) {
             throw ValidationException::withMessages(['function' => 'Unbekannte Funktion.']);
@@ -284,7 +367,7 @@ class ReportService
     /** The Einsatzleiter confirms; the report is then locked for him. Mandatory fields must be there. */
     public function close(User $by, Report $report, ?string $signature = null): void
     {
-        $this->assert(self::canLead($by) && in_array($report->status, Report::OPEN, true), 'Nur ein Entwurf oder aktueller Einsatz lässt sich abschließen.');
+        $this->assert(self::canLeadReport($by, $report) && in_array($report->status, Report::OPEN, true), 'Nur ein Entwurf oder aktueller Einsatz lässt sich abschließen.');
 
         $missing = $this->missing($report);
         if ($missing) {
@@ -295,7 +378,7 @@ class ReportService
             'closed_signature' => filled($signature) ? SignatureImage::fromDataUrl($signature) : null]);
 
         // The Wehrführung (and admins) hear that a report waits for them
-        $releasers = User::active()->get()->filter(fn (User $u) => self::canRelease($u) && ! $u->is($by));
+        $releasers = $this->releaseRecipients($report)->reject(fn (User $user) => $user->is($by));
         $this->tell($releasers, new ReportStatusNotification($report, $by));
     }
 
@@ -303,7 +386,7 @@ class ReportService
     /** The Wehrführung checks, releases and (optionally) signs; the checksum seals the content of that moment */
     public function release(User $by, Report $report, ?string $signature = null): void
     {
-        $this->assert(self::canRelease($by) && $report->status === 'closed', 'Freigeben kann die Wehrführung einen abgeschlossenen Bericht.');
+        $this->assert(self::canReleaseReport($by, $report) && $report->status === 'closed', 'Freigeben kann die Wehrführung einen abgeschlossenen Bericht.');
         $png = filled($signature) ? SignatureImage::fromDataUrl($signature) : null;
         $report->update(['status' => 'released', 'released_at' => now(), 'released_by' => $by->id, 'released_signature' => $png,
             'released_hash' => self::contentHash($report)]);
@@ -339,17 +422,18 @@ class ReportService
      */
     public function createSide(User $by, Report $parent, ?string $label = null): Report
     {
-        $this->assert(self::canLead($by) && ! $parent->isSide(), 'Ein Nebenbericht gehört zu einem Hauptbericht.');
+        $this->assert(self::canLeadReport($by, $parent) && ! $parent->isSide(), 'Ein Nebenbericht gehört zu einem Hauptbericht.');
 
         return DB::transaction(function () use ($by, $parent, $label) {
             Report::whereKey($parent->id)->lockForUpdate()->first();
             $n = Report::where('parent_id', $parent->id)->count() + 1;
-            while (Report::where('number', $parent->number.'-'.$n)->exists()) {
+            while (Report::withoutGlobalScopes()->where('number', $parent->number.'-'.$n)->exists()) {
                 $n++;
             }
 
-            return Report::create([
+            return Report::forceCreate([
                 ...$parent->only(['dispatch_number', 'keyword', 'alarmed_at', 'departed_at', 'arrived_at', 'address', 'object', 'latitude', 'longitude', 'category']),
+                ...(Schema::hasColumn('eb_reports', 'ext_location_id') ? ['ext_location_id' => $parent->getAttribute('ext_location_id')] : []),
                 'number' => $parent->number.'-'.$n, 'parent_id' => $parent->id, 'side_label' => filled($label) ? mb_substr(trim($label), 0, 150) : null,
                 'status' => $parent->status === 'active' ? 'active' : 'draft', 'commander_id' => $by->id, 'created_by' => $by->id,
             ]);
@@ -374,16 +458,17 @@ class ReportService
         if ($ids->isEmpty()) {
             return 0;
         }
-        $reports = Report::whereIn('id', $ids)->orderBy('alarmed_at')->get();
+        $reports = Report::withoutGlobalScopes()->whereIn('id', $ids)->orderBy('alarmed_at')->get();
 
-        foreach ($reports->whereIn('status', Report::OPEN)->groupBy(fn (Report $r) => $r->commander_id ?? $r->created_by) as $userId => $own) {
+        foreach ($reports->whereIn('status', Report::OPEN)->groupBy(fn (Report $report) => ($report->commander_id ?? $report->created_by).'|'.($report->getAttribute('ext_location_id') ?? 'unassigned')) as $own) {
+            $report = $own->first();
+            $userId = $report->commander_id ?? $report->created_by;
             $user = $userId ? User::find($userId) : null;
-            $to = $user && $user->is_active && self::canLead($user) ? collect([$user]) : User::active()->get()->filter(fn (User $u) => self::canRelease($u));
+            $to = $user && self::canLeadReport($user, $report) ? collect([$user]) : $this->releaseRecipients($report);
             $this->tell($to, new ReportReminderNotification($own->values(), false));
         }
-        $waiting = $reports->where('status', 'closed')->values();
-        if ($waiting->isNotEmpty()) {
-            $this->tell(User::active()->get()->filter(fn (User $u) => self::canRelease($u)), new ReportReminderNotification($waiting, true));
+        foreach ($reports->where('status', 'closed')->groupBy(fn (Report $report) => $report->getAttribute('ext_location_id') ?? 'unassigned') as $waiting) {
+            $this->tell($this->releaseRecipients($waiting->first()), new ReportReminderNotification($waiting->values(), true));
         }
 
         return $reports->count();
@@ -410,7 +495,7 @@ class ReportService
     /** The Wehrführung hands a closed report back to the Einsatzleiter; it was a real Einsatz, so it is aktuell again */
     public function reopen(User $by, Report $report): void
     {
-        $this->assert(self::canRelease($by) && in_array($report->status, Report::DONE, true));
+        $this->assert(self::canReleaseReport($by, $report) && in_array($report->status, Report::DONE, true));
         $closer = $report->closed_by ? User::find($report->closed_by) : null;
         $report->update(['status' => 'active', 'closed_at' => null, 'closed_by' => null, 'released_at' => null, 'released_by' => null,
             'closed_signature' => null, 'released_signature' => null, 'released_hash' => null]);
@@ -434,8 +519,13 @@ class ReportService
 
     public function delete(User $by, Report $report): void
     {
-        $this->assert(in_array($report->status, Report::OPEN, true) ? self::canLead($by) : self::canRelease($by));
+        $this->assert(in_array($report->status, Report::OPEN, true) ? self::canLeadReport($by, $report) : self::canReleaseReport($by, $report));
         $report->delete();
+    }
+
+    private function releaseRecipients(Report $report): Collection
+    {
+        return User::active()->get()->filter(fn (User $user) => self::canReleaseReport($user, $report))->values();
     }
 
     /** @return list<string> labels of mandatory fields still empty */

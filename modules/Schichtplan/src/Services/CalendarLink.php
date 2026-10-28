@@ -7,6 +7,7 @@ use App\Services\ModuleRegistry;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Modules\Kalender\src\Models\Event;
+use Modules\Kalender\src\Services\CalendarLocationAccess;
 use Modules\Kalender\src\Services\EventService;
 use Modules\Schichtplan\src\Models\Plan;
 
@@ -37,14 +38,18 @@ class CalendarLink
         [$groups, $functions, $users] = $plan->isSelfSignup()
             ? [array_map('intval', $plan->audience_groups ?? []), array_map('intval', $plan->audience_functions ?? []), []]
             : [[], [], $this->people($plan)];
+        $locationIds = app(CalendarLocationAccess::class)->resolveTargets(
+            null, $plan->ext_location_id ? [(int) $plan->ext_location_id] : [], $groups, $functions, $users, $data, false,
+        );
 
         if ($event = $plan->event_id ? Event::find($plan->event_id) : null) {
-            $events->update($event, $data, $groups, false, $users, $functions);
+            $events->update($event, $data, $groups, false, $users, $functions, locationIds: $locationIds);
 
             return;
         }
 
-        $event = $events->create([...$data, 'type' => 'veranstaltung', 'managed_by' => 'schichtplan'], $groups, User::find($plan->created_by), userIds: $users, functionIds: $functions)->first();
+        $event = $events->create([...$data, 'type' => 'veranstaltung', 'managed_by' => 'schichtplan'], $groups, User::find($plan->created_by),
+            userIds: $users, functionIds: $functions, locationIds: $locationIds)->first();
         $plan->update(['event_id' => $event->id, 'event_owned' => true]);
     }
 
@@ -66,9 +71,15 @@ class CalendarLink
     /** Planer mode: participants and Stationsverantwortliche; never empty, which would mean everyone */
     private function people(Plan $plan): array
     {
+        $locations = app(PlanLocationAccess::class);
         $ids = $plan->participants()->pluck('user_id')
             ->concat($plan->stations()->whereNotNull('lead_user_id')->pluck('lead_user_id'))
-            ->push($plan->created_by)->filter()->unique()->values()->all();
+            ->push($plan->created_by)->filter()->unique()
+            ->filter(function ($id) use ($locations, $plan) {
+                $user = User::query()->withoutGlobalScopes()->find((int) $id);
+
+                return $user && $locations->isMemberAt($user, $plan->ext_location_id);
+            })->values()->all();
 
         return array_map('intval', $ids);
     }

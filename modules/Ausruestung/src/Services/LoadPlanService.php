@@ -24,6 +24,7 @@ class LoadPlanService
         // On the vehicle means: assigned there and not lent out or retired
         $present = Equipment::with('category')
             ->where('location_id', $location->id)
+            ->when(config('locations.enabled'), fn ($query) => $query->where('ext_location_id', $location->getAttribute('ext_location_id')))
             ->whereNotIn('status', [EquipmentStatus::Retired->value, EquipmentStatus::Loaned->value])
             ->get()
             ->groupBy('compartment_id');
@@ -60,7 +61,9 @@ class LoadPlanService
     /** Items assigned to the location but to no compartment */
     public function unassigned(Location $location): Collection
     {
-        return Equipment::where('location_id', $location->id)->whereNull('compartment_id')
+        return Equipment::where('location_id', $location->id)
+            ->when(config('locations.enabled'), fn ($query) => $query->where('ext_location_id', $location->getAttribute('ext_location_id')))
+            ->whereNull('compartment_id')
             ->whereNotIn('status', [EquipmentStatus::Retired->value, EquipmentStatus::Loaned->value])
             ->orderBy('code')->get();
     }

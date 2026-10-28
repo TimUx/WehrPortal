@@ -19,7 +19,7 @@
                 <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
                     <span>{{ $op->title }} · {{ $op->teams->whereNotNull('started_at')->count() }} Trupps{{ $op->isRunning() ? ' · läuft' : '' }}</span>
                     <span class="flex gap-3 text-xs">
-                        @can('atemschutz-monitor')<a href="{{ route('atemschutz.board', $op) }}" class="text-fw-navy underline">Überwachung</a>@endcan
+                        @can('atemschutz-monitor-operation', $op)<a href="{{ route('atemschutz.board', $op) }}" class="text-fw-navy underline">Überwachung</a>@endcan
                         <a href="{{ route('atemschutz.pdf', $op) }}" target="_blank" class="text-fw-navy underline">Protokoll (PDF)</a>
                     </span>
                 </div>

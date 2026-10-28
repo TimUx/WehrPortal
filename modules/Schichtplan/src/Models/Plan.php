@@ -5,13 +5,20 @@ namespace Modules\Schichtplan\src\Models;
 use App\Models\Group;
 use App\Models\MemberFunction;
 use App\Models\User;
+use Extensions\Locations\Models\Location;
+use Extensions\Locations\Support\LocationAssignable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Modules\Schichtplan\src\Services\PlanLocationAccess;
 
-class Plan extends Model
+/**
+ * @property int $id
+ * @property int|null $ext_location_id
+ */
+class Plan extends Model implements LocationAssignable
 {
     public const DRAFT = 'draft';
 
@@ -27,7 +34,7 @@ class Plan extends Model
     protected $fillable = [
         'title', 'location', 'starts_at', 'ends_at', 'shift_minutes', 'max_consecutive',
         'group_id', 'status', 'published_at', 'mailed_at', 'created_by',
-        'signup', 'signup_until', 'needs_approval', 'max_shifts', 'audience_groups', 'audience_functions', 'event_id', 'event_owned',
+        'signup', 'signup_until', 'needs_approval', 'max_shifts', 'audience_groups', 'audience_functions', 'event_id', 'event_owned', 'ext_location_id',
     ];
 
     protected function casts(): array
@@ -80,6 +87,17 @@ class Plan extends Model
         return $this->belongsTo(Group::class);
     }
 
+    /** @return BelongsTo<Location, $this> */
+    public function site(): BelongsTo
+    {
+        return $this->belongsTo(Location::class, 'ext_location_id');
+    }
+
+    public function canAssignLocation(User $user, int $locationId): bool
+    {
+        return $user->canManageSchichtplan() || $user->canManageSchichtplanAt($locationId);
+    }
+
     /** Everyone the plan concerns: participants and Stationsverantwortliche */
     public function concerns(User $user): bool
     {
@@ -115,6 +133,10 @@ class Plan extends Model
      */
     public function inAudience(User $user): bool
     {
+        if (! app(PlanLocationAccess::class)->isMemberAt($user, $this->ext_location_id)) {
+            return false;
+        }
+
         $groups = array_map('intval', $this->audience_groups ?? []);
         $functions = MemberFunction::idsWithChildren($this->audience_functions ?? []);
         if ($groups === [] && $functions === []) {

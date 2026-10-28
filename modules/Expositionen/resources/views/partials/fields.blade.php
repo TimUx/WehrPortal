@@ -2,6 +2,19 @@
 @php($in = 'mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-base sm:text-sm focus:border-fw-red focus:ring-fw-red')
 @php($E = \Modules\Expositionen\src\Models\Exposure::class)
 <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+    @if(($showLocations ?? false) && isset($locations) && $locations->isNotEmpty() && ! isset($reportId) && ! isset($exposure))
+        <label class="block text-sm text-gray-700">Standort
+            <select wire:model.live="form.ext_location_id" class="{{ $in }}">
+                <option value="">– wählen –</option>
+                @foreach($locations as $location)<option value="{{ $location->id }}">{{ $location->name }}</option>@endforeach
+            </select>
+        </label>
+        @error('ext_location_id')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
+    @elseif(isset($reportLocation) && $reportLocation)
+        <p class="text-sm text-gray-700">Standort: <span class="font-medium">{{ $reportLocation->name }}</span></p>
+    @elseif(($showLocations ?? false) && isset($exposure) && $exposure?->organizationalLocation)
+        <p class="text-sm text-gray-700">Standort: <span class="font-medium">{{ $exposure->organizationalLocation->name }}</span></p>
+    @endif
     <label class="block text-sm text-gray-700">Datum<input type="date" wire:model="form.occurred_on" max="{{ now('Europe/Berlin')->toDateString() }}" class="{{ $in }}"></label>
     <label class="block text-sm text-gray-700 sm:col-span-2">Anlass<input type="text" wire:model="form.occasion" maxlength="200" placeholder="z. B. Einsatz 2027/012 · FEU 2 oder Übung Brandübungsanlage" class="{{ $in }}"></label>
 </div>

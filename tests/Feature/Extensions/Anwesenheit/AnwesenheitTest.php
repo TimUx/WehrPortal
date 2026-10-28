@@ -1,10 +1,12 @@
 <?php
 
+use App\Models\Group;
 use App\Models\Module;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\HoursRegistry;
 use Extensions\Anwesenheit\Filament\Resources\TemplateResource;
+use Extensions\Anwesenheit\Filament\Resources\TemplateResource\Pages\CreateTemplate;
 use Extensions\Anwesenheit\Filament\SettingsPage;
 use Extensions\Anwesenheit\Livewire\ListForm;
 use Extensions\Anwesenheit\Livewire\ListIndex;
@@ -14,6 +16,7 @@ use Extensions\Anwesenheit\Models\AttendanceList;
 use Extensions\Anwesenheit\Models\AttendanceTemplate;
 use Extensions\Anwesenheit\Services\AttendanceService;
 use Extensions\Locations\Models\Location;
+use Extensions\Locations\Services\StandardRoleAssignments;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -33,17 +36,24 @@ function kamerad(string $name, ?Location $at = null, string $role = 'member', bo
     if ($at) {
         $user->forceFill(['ext_location_id' => $at->id])->save();
         $user->locations()->sync([$at->id => ['role' => $role]]);
+        $group = Group::withoutGlobalScopes()->where('ext_location_id', $at->id)->first();
+        if ($group) {
+            $user->groups()->syncWithoutDetaching([$group->id]);
+        }
     }
 
     return $user;
 }
 
 beforeEach(function () {
+    config(['locations.enabled' => true, 'locations.scoped_role_modules' => []]);
     Module::where('key', 'anwesenheit')->update(['is_active' => true]);
     Cache::forget('modules_active_keys');
     Mail::fake();
     $this->south = stationOf('Wache Süd');
     $this->north = stationOf('Wache Nord');
+    $this->southGroup = $this->south->groups()->create(['name' => 'Einsatzabteilung']);
+    $this->northGroup = $this->north->groups()->create(['name' => 'Einsatzabteilung']);
     $this->hanna = kamerad('Hanna Hydrant', $this->south);
     $this->bernd = kamerad('Bernd Blaulicht', $this->south);
     $this->nord = kamerad('Nora Nord', $this->north);
@@ -144,7 +154,7 @@ it('shows members only their own lists and Standort-Admins all lists of their St
 });
 
 it('prefills from a template without linking the list to it', function () {
-    $template = AttendanceTemplate::create(['ext_location_id' => $this->south->id, 'name' => 'Montagsübung', 'kind' => 'uebung', 'title' => 'Übungsabend', 'duration_minutes' => 120, 'leader_id' => $this->bernd->id, 'recipients' => 'vorlage@example.com']);
+    $template = AttendanceTemplate::create(['ext_location_id' => $this->south->id, 'group_id' => $this->southGroup->id, 'name' => 'Montagsübung', 'kind' => 'uebung', 'title' => 'Übungsabend', 'duration_minutes' => 120, 'leader_id' => $this->bernd->id, 'recipients' => 'vorlage@example.com']);
 
     $form = Livewire::actingAs($this->hanna)->test(ListForm::class)
         ->set('prefill', 'tpl:'.$template->id)->call('applyPrefill')
@@ -309,4 +319,156 @@ it('rechecks read permission on subsequent component renders', function () {
     $component = Livewire::actingAs($this->bernd)->test(ListShow::class, ['list' => $list])->assertOk();
     $list->participants()->detach($this->bernd->id);
     $component->call('$refresh')->assertForbidden();
+});
+
+it('limits youth and children wardens to assigned groups for lists, members, and templates', function () {
+    $youth = $this->south->groups()->create(['name' => 'Jugendfeuerwehr']);
+    $children = $this->south->groups()->create(['name' => 'Kinderfeuerwehr']);
+    $warden = kamerad('Jana Jugendwart', $this->south);
+    $youthMember = kamerad('Yara Jugend', $this->south);
+    $childrenMember = kamerad('Karla Kinder', $this->south);
+    $youthMember->groups()->sync([$youth->id]);
+    $childrenMember->groups()->sync([$children->id]);
+    $grant = app(StandardRoleAssignments::class)->grant(
+        User::factory()->admin()->create(),
+        $warden->id,
+        'jugendwart',
+        $this->south->id,
+        $youth->id,
+        'Leitung Jugendgruppe',
+    );
+
+    $youthList = AttendanceList::create([
+        'title' => 'Jugendübung', 'created_by' => $this->hanna->id,
+        'ext_location_id' => $this->south->id, 'group_id' => $youth->id,
+    ]);
+    $childrenList = AttendanceList::create([
+        'title' => 'Kinderübung', 'created_by' => $this->hanna->id,
+        'ext_location_id' => $this->south->id, 'group_id' => $children->id,
+    ]);
+    $legacyList = AttendanceList::create([
+        'title' => 'Alte Liste', 'created_by' => $this->hanna->id,
+        'ext_location_id' => $this->south->id,
+    ]);
+    $youthTemplate = AttendanceTemplate::create([
+        'name' => 'Jugendvorlage', 'kind' => 'uebung', 'ext_location_id' => $this->south->id, 'group_id' => $youth->id,
+    ]);
+    $childrenTemplate = AttendanceTemplate::create([
+        'name' => 'Kindervorlage', 'kind' => 'uebung', 'ext_location_id' => $this->south->id, 'group_id' => $children->id,
+    ]);
+    $this->actingAs($warden);
+    $service = app(AttendanceService::class);
+
+    expect($service->groupOptions($warden, $this->south->id))->toBe([$youth->id => 'Jugendfeuerwehr (Wache Süd)'])
+        ->and($service->members($this->south->id, $youth->id)->pluck('id')->all())->toBe([$youthMember->id])
+        ->and($service->visibleTo($warden)->pluck('id')->all())->toBe([$youthList->id])
+        ->and(AttendanceService::canSee($warden, $youthList))->toBeTrue()
+        ->and(AttendanceService::canSee($warden, $childrenList))->toBeFalse()
+        ->and(AttendanceService::canSee($warden, $legacyList))->toBeFalse()
+        ->and(TemplateResource::getEloquentQuery()->pluck('id')->all())->toBe([$youthTemplate->id])
+        ->and(TemplateResource::canEdit($youthTemplate))->toBeTrue()
+        ->and(TemplateResource::canEdit($childrenTemplate))->toBeFalse();
+
+    Livewire::actingAs($warden)->test(ListForm::class)
+        ->set('form.title', 'Neue Jugendübung')->set("selected.{$youthMember->id}", true)
+        ->set('mode', 'draft')->call('save')->assertHasNoErrors();
+    expect(AttendanceList::where('title', 'Neue Jugendübung')->value('group_id'))->toBe($youth->id);
+
+    Livewire::actingAs($warden)->test(ListForm::class, ['list' => $youthList])
+        ->set('form.group_id', (string) $children->id)
+        ->set("selected.{$childrenMember->id}", true)
+        ->set('mode', 'draft')->call('save')->assertHasErrors('form.group_id');
+
+    app(StandardRoleAssignments::class)->revoke(User::factory()->admin()->create(), $grant->id, 'Aufgabe beendet');
+    expect(AttendanceService::canSee($warden, $youthList))->toBeFalse()
+        ->and(AttendanceService::canEdit($warden, $youthList))->toBeFalse()
+        ->and($service->visibleTo($warden)->whereKey($youthList->id)->exists())->toBeFalse();
+});
+
+it('lets municipality wardens manage only matching groups across active locations', function () {
+    $youthNorth = $this->north->groups()->create(['name' => 'Jugendfeuerwehr']);
+    $youthSouth = $this->south->groups()->create(['name' => 'Jugendfeuerwehr']);
+    $childrenSouth = $this->south->groups()->create(['name' => 'Kinderfeuerwehr']);
+    $warden = kamerad('Jana Gemeindejugendwart');
+    app(StandardRoleAssignments::class)->grant(
+        User::factory()->admin()->create(),
+        $warden->id,
+        'gemeindejugendwart',
+        null,
+        null,
+        'Gemeindeweite Jugendverwaltung',
+    );
+    $northList = AttendanceList::create([
+        'title' => 'Nordjugend', 'created_by' => $this->hanna->id,
+        'ext_location_id' => $this->north->id, 'group_id' => $youthNorth->id,
+    ]);
+    $southList = AttendanceList::create([
+        'title' => 'Südjugend', 'created_by' => $this->hanna->id,
+        'ext_location_id' => $this->south->id, 'group_id' => $youthSouth->id,
+    ]);
+    $childrenList = AttendanceList::create([
+        'title' => 'Südkinder', 'created_by' => $this->hanna->id,
+        'ext_location_id' => $this->south->id, 'group_id' => $childrenSouth->id,
+    ]);
+    $service = app(AttendanceService::class);
+
+    expect($service->groupOptions($warden))->toBe([
+        $youthNorth->id => 'Jugendfeuerwehr (Wache Nord)',
+        $youthSouth->id => 'Jugendfeuerwehr (Wache Süd)',
+    ])
+        ->and($service->visibleTo($warden)->pluck('id')->all())->toEqualCanonicalizing([$northList->id, $southList->id])
+        ->and(AttendanceService::canEdit($warden, $northList))->toBeTrue()
+        ->and(AttendanceService::canEdit($warden, $southList))->toBeTrue()
+        ->and(AttendanceService::canEdit($warden, $childrenList))->toBeFalse();
+});
+
+it('keeps group-scoped attendance permissions when the optional location role adapter is enabled', function () {
+    config(['locations.scoped_role_modules' => ['anwesenheit']]);
+    $youth = $this->south->groups()->create(['name' => 'Jugendfeuerwehr']);
+    $children = $this->south->groups()->create(['name' => 'Kinderfeuerwehr']);
+    $warden = kamerad('Jana Jugendwart', $this->south);
+    $grant = app(StandardRoleAssignments::class)->grant(
+        User::factory()->admin()->create(),
+        $warden->id,
+        'jugendwart',
+        $this->south->id,
+        $youth->id,
+        'Leitung Jugendgruppe',
+    );
+    $youthList = AttendanceList::create([
+        'title' => 'Jugendübung', 'created_by' => $this->hanna->id,
+        'ext_location_id' => $this->south->id, 'group_id' => $youth->id,
+    ]);
+    $childrenList = AttendanceList::create([
+        'title' => 'Kinderübung', 'created_by' => $this->hanna->id,
+        'ext_location_id' => $this->south->id, 'group_id' => $children->id,
+    ]);
+
+    expect(AttendanceService::canManage($warden))->toBeTrue()
+        ->and(AttendanceService::canEdit($warden, $youthList))->toBeTrue()
+        ->and(AttendanceService::canEdit($warden, $childrenList))->toBeFalse()
+        ->and(app(AttendanceService::class)->visibleTo($warden)->pluck('id')->all())->toBe([$youthList->id]);
+
+    app(StandardRoleAssignments::class)->revoke(User::factory()->admin()->create(), $grant->id, 'Aufgabe beendet');
+    expect(AttendanceService::canManage($warden))->toBeFalse()
+        ->and(AttendanceService::canEdit($warden, $youthList))->toBeFalse();
+});
+
+it('rejects template targets whose group belongs to another location', function () {
+    $foreignGroup = $this->north->groups()->create(['name' => 'Jugendfeuerwehr']);
+    $admin = User::factory()->admin()->create();
+
+    expect(app(AttendanceService::class)->canSelectGroup($admin, $this->south->id, $foreignGroup->id))->toBeFalse();
+
+    Livewire::actingAs($admin)->test(CreateTemplate::class)
+        ->fillForm([
+            'name' => 'Falsche Zuordnung',
+            'kind' => 'uebung',
+            'ext_location_id' => $this->south->id,
+            'group_id' => $foreignGroup->id,
+        ])
+        ->call('create')
+        ->assertHasFormErrors(['group_id']);
+
+    expect(AttendanceTemplate::where('name', 'Falsche Zuordnung')->exists())->toBeFalse();
 });

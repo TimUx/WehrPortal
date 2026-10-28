@@ -506,6 +506,7 @@ test('the Lehrgangsplan lists the confirmed days with time, place and the Kamera
 });
 
 test('the Personalakte and the Personalverwaltung show the absolvierte Lehrgänge', function () {
+    config(['locations.enabled' => false]);
     $this->r->recordCompleted($this->member, 'Truppmann Teil 1', '2019-04-06');
     confirmDays($this->r->request($this->member, $this->agt, null));
 

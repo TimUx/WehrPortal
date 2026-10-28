@@ -17,6 +17,12 @@ class EventPolicy
 
     public function manage(User $user, ?Event $event = null): bool
     {
-        return $user->canManageKalender() && ($event === null || ! $event->isExternal());
+        $canManage = $event === null
+            ? $user->canManageAnyKalenderLocation()
+            : ($event->locationIds() === []
+                ? $user->canManageKalender()
+                : $user->canManageKalenderLocations($event->locationIds()));
+
+        return $canManage && ($event === null || ! $event->isExternal());
     }
 }

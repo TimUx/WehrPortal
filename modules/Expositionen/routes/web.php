@@ -20,16 +20,20 @@ Route::middleware(['auth', 'active', 'module:expositionen'])->group(function () 
 
         // From the Einsatzbericht: for the crew
         Route::get('/einsatz/{report}', function (Report $report) use ($page) {
-            abort_unless(ExposureService::canPropose(auth()->user()), 403);
+            abort_unless(ExposureService::canPropose(auth()->user(), $report), 403);
 
             return $page('expositionen.crew-form', 'Exposition für die Besatzung', ['report' => $report]);
         })->whereNumber('report')->name('crew');
 
         // Expositionsnachweis of a Kamerad: for themselves (e.g. when leaving) and the Beauftragte
         Route::get('/nachweis/{user}', function (User $user) {
-            abort_unless($user->is(auth()->user()) || ExposureService::canManage(auth()->user()), 403);
+            $actor = auth()->user();
+            abort_unless(ExposureService::canViewCertificate($actor, $user), 403);
 
-            return view('expositionen::pages.certificate', ['member' => $user, 'exposures' => Exposure::where('user_id', $user->id)->where('status', '!=', 'draft')->orderBy('occurred_on')->get()]);
+            return view('expositionen::pages.certificate', [
+                'member' => $user,
+                'exposures' => ExposureService::certificateExposures($actor, $user),
+            ]);
         })->whereNumber('user')->name('certificate');
 
         Route::middleware('can:expositionen-manage')->group(function () use ($page) {

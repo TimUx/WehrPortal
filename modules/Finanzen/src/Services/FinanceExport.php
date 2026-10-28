@@ -19,25 +19,38 @@ class FinanceExport
     /** @return Collection<int, Entry> */
     public function entries(int $year): Collection
     {
-        return Entry::with(['costCenter', 'submitter', 'decider', 'payer', 'receipts:id,entry_id,name'])
+        $relations = ['costCenter', 'submitter', 'decider', 'payer', 'receipts:id,entry_id,name'];
+        if (FinanceService::locationsEnabled()) {
+            $relations[] = 'location';
+        }
+
+        return Entry::with($relations)
             ->where('year', $year)->whereIn('status', Entry::BOOKED)
             ->orderBy('booked_on')->orderBy('number')->get();
     }
 
     public function csv(int $year): string
     {
-        $rows = [['Belegnummer', 'Belegdatum', 'Art', 'Kostenstelle Nr.', 'Kostenstelle', 'Bezeichnung', 'Händler / Zahler', 'Betrag', 'Einnahme', 'Ausgabe',
-            'Status', 'Eingereicht von', 'Genehmigt von', 'Genehmigt am', 'Bezahlt am', 'Zahlungshinweis', 'Belege']];
+        $headers = ['Belegnummer', 'Belegdatum', 'Art', 'Kostenstelle Nr.', 'Kostenstelle'];
+        if (FinanceService::locationsEnabled()) {
+            $headers[] = 'Standort';
+        }
+        $rows = [array_merge($headers, ['Bezeichnung', 'Händler / Zahler', 'Betrag', 'Einnahme', 'Ausgabe',
+            'Status', 'Eingereicht von', 'Genehmigt von', 'Genehmigt am', 'Bezahlt am', 'Zahlungshinweis', 'Belege'])];
 
         foreach ($this->entries($year) as $e) {
             $amount = number_format($e->amount_cents / 100, 2, ',', '');
-            $rows[] = [
-                $e->code(), $e->booked_on->format('d.m.Y'), Entry::KINDS[$e->kind], (string) $e->costCenter->code, $e->costCenter->name, $e->title, (string) $e->vendor,
+            $row = [$e->code(), $e->booked_on->format('d.m.Y'), Entry::KINDS[$e->kind], (string) $e->costCenter->code, $e->costCenter->name];
+            if (FinanceService::locationsEnabled()) {
+                $row[] = $e->location->getAttribute('name') ?? 'ohne Standort';
+            }
+            $rows[] = array_merge($row, [
+                $e->title, (string) $e->vendor,
                 ($e->isIncome() ? '' : '-').$amount, $e->isIncome() ? $amount : '', $e->isIncome() ? '' : $amount,
                 $e->statusLabel(), (string) $e->submitter?->name, (string) $e->decider?->name,
                 (string) $e->decided_at?->setTimezone('Europe/Berlin')->format('d.m.Y'), (string) $e->paid_at?->setTimezone('Europe/Berlin')->format('d.m.Y'),
                 (string) $e->payment_note, (string) $e->receipts->count(),
-            ];
+            ]);
         }
 
         $handle = fopen('php://temp', 'r+');

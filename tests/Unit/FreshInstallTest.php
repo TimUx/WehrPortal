@@ -25,6 +25,10 @@ test('a fresh WehrPortal install creates the current schema without predecessor 
             expect(Schema::hasTable($table))->toBeFalse();
         }
         expect(Schema::hasColumn('x_locations', 'crest_data'))->toBeTrue()
+            ->and(Schema::hasColumn('ar_locations', 'ext_location_id'))->toBeTrue()
+            ->and(collect(Schema::getForeignKeys('ar_stocktakes'))->contains('name', 'ar_stocktakes_ext_location_fk'))->toBeTrue()
+            ->and(Schema::hasColumn('as_operations', 'ext_location_id'))->toBeTrue()
+            ->and(collect(Schema::getForeignKeys('as_operations'))->contains('name', 'as_operations_ext_location_fk'))->toBeTrue()
             ->and(Schema::hasColumn('kk_issued_items', 'ext_source_stock_id'))->toBeTrue()
             ->and(Schema::hasTable('member_functions'))->toBeTrue()
             ->and(Schema::hasTable('lq_record_sessions'))->toBeTrue();

@@ -5,6 +5,7 @@
         <div>
             <h1 class="text-xl font-bold text-gray-900">Fahrtenbuch {{ $vehicle->name }}</h1>
             <p class="text-sm text-gray-500">{{ $year }}: {{ $n($km) }} km · Kilometerstand {{ $lastKm !== null ? $n($lastKm).' km' : '–' }}@if($per100) · Ø {{ str_replace('.', ',', (string) $per100) }} l/100 km @endif</p>
+            @if($vehicle->standort)<p class="text-xs text-gray-500">Standort: {{ $vehicle->standort->name }}</p>@endif
         </div>
         <div class="flex flex-wrap items-center gap-2 text-sm">
             <select wire:model.live="year" class="{{ $select }}" aria-label="Jahr">@foreach($years as $y)<option value="{{ $y }}">{{ $y }}</option>@endforeach</select>

@@ -21,6 +21,7 @@ use Modules\Personalverwaltung\src\Notifications\ChangeRequestAnsweredNotificati
 use Modules\Personalverwaltung\src\Notifications\ChangeRequestedNotification;
 
 beforeEach(function () {
+    config(['locations.enabled' => false]);
     Module::whereIn('key', ['personalverwaltung', 'atemschutz'])->update(['is_active' => true]);
     Cache::forget('modules_active_keys');
     $this->ea = Group::create(['name' => 'Einsatzabteilung', 'sort_order' => 1]);

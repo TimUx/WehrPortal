@@ -23,6 +23,7 @@ use Modules\Maengelmanagement\src\Models\Device;
 require_once __DIR__.'/Helpers.php';
 
 beforeEach(function () {
+    config(['locations.enabled' => false]);
     activateAusruestung();
     Module::whereIn('key', ['fahrzeuge', 'kleiderkammer', 'maengelmanagement'])->update(['is_active' => true]);
     Cache::forget('modules_active_keys');

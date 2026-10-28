@@ -27,7 +27,8 @@
                             <p class="font-semibold text-gray-900 truncate">{{ $item->name }}</p>
                             <p class="text-sm text-gray-500 mt-0.5 truncate">
                                 <span class="font-mono">{{ $item->code }}</span>
-                                · {{ $item->placeLabel() }}
+                                · Lagerort: {{ $item->placeLabel() }}
+                                @if(config('locations.enabled'))· Standort: {{ $item->standort?->name ?? 'Ohne Standort' }}@endif
                                 @if($item->next_inspection_at)· Prüfung {{ $item->next_inspection_at->format('d.m.Y') }}@endif
                             </p>
                         </div>

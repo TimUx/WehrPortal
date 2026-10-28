@@ -4,6 +4,7 @@ use App\Livewire\Profile\Hours;
 use App\Models\Module;
 use App\Models\User;
 use App\Services\HoursRegistry;
+use Extensions\Locations\Models\Location;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Livewire;
@@ -19,6 +20,7 @@ use Modules\Schichtplan\src\Models\Slot;
 use Modules\Schichtplan\src\Models\Station;
 
 beforeEach(function () {
+    config(['locations.enabled' => false]);
     Module::whereIn('key', ['kalender', 'einsatzbericht', 'lehrgaenge', 'schichtplan', 'personalverwaltung'])->update(['is_active' => true]);
     Cache::forget('modules_active_keys');
     $this->travelTo(Carbon::parse('2027-06-20 12:00', 'Europe/Berlin'));
@@ -51,7 +53,7 @@ beforeEach(function () {
 
     // Schicht 14–16 Uhr on the Dorffest
     $plan = Plan::create(['title' => 'Dorffest', 'starts_at' => Carbon::parse('2027-06-13 14:00', 'Europe/Berlin'), 'ends_at' => Carbon::parse('2027-06-13 18:00', 'Europe/Berlin'),
-        'shift_minutes' => 120, 'status' => Plan::PUBLISHED]);
+        'shift_minutes' => 120, 'status' => Plan::PUBLISHED, 'ext_location_id' => Location::default()->getKey()]);
     $slot = Slot::create(['plan_id' => $plan->id, 'starts_at' => Carbon::parse('2027-06-13 14:00', 'Europe/Berlin'), 'ends_at' => Carbon::parse('2027-06-13 16:00', 'Europe/Berlin')]);
     $station = Station::create(['plan_id' => $plan->id, 'name' => 'Kasse', 'capacity' => 1]);
     Assignment::create(['plan_id' => $plan->id, 'slot_id' => $slot->id, 'station_id' => $station->id, 'user_id' => $this->hanna->id]);

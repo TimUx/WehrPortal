@@ -64,6 +64,7 @@ class AtemschutzServiceProvider extends ServiceProvider
 
         Gate::define('atemschutz-manage', fn (User $user) => MonitorService::canManage($user));
         Gate::define('atemschutz-monitor', fn (User $user) => MonitorService::canMonitor($user));
+        Gate::define('atemschutz-monitor-operation', fn (User $user, Operation $operation) => MonitorService::canMonitorOperation($user, $operation));
 
         foreach (['overview' => Overview::class, 'board' => Board::class, 'wearers' => Wearers::class, 'my-status' => MyStatus::class] as $name => $class) {
             Livewire::component('atemschutz.'.$name, $class);

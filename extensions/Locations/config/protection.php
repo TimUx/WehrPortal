@@ -60,19 +60,55 @@ $entry = static fn (string $module, string $mode, string $dataClass, string $own
 
 $core = ['app/Models/User.php', 'app/Filament/Concerns/AdminOnly.php'];
 $feedback = ['app/Services/FeedbackService.php'];
-$personnel = ['modules/Personalverwaltung/src/Services/PersonnelService.php'];
+$personnel = [
+    'modules/Personalverwaltung/src/Services/PersonnelService.php',
+    'modules/Personalverwaltung/src/Livewire/MemberFile.php',
+    'modules/Personalverwaltung/src/Livewire/MemberList.php',
+    'modules/Personalverwaltung/src/Livewire/NewMembers.php',
+    'modules/Personalverwaltung/src/Filament/Pages/SettingsPage.php',
+    'modules/Personalverwaltung/routes/web.php',
+    'tests/Feature/Personalverwaltung/MembersTest.php',
+];
 $booking = ['modules/Fahrzeugbuchung/src/Policies/BookingPolicy.php'];
 $equipment = ['modules/Ausruestung/src/Services/EquipmentService.php'];
 $clothing = ['modules/Kleiderkammer/src/Services/IssuingService.php'];
 $report = ['modules/Einsatzbericht/src/Services/ReportService.php'];
-$calendar = ['modules/Kalender/src/Policies/EventPolicy.php'];
+$calendar = [
+    'modules/Kalender/src/Policies/EventPolicy.php',
+    'modules/Kalender/src/Livewire/EventDetail.php',
+    'modules/Kalender/src/Services/CalendarLocationAccess.php',
+    'modules/Kalender/src/Services/EventService.php',
+    'modules/Kalender/src/Services/PollService.php',
+    'modules/Kalender/src/Support/Audience.php',
+    'extensions/Locations/Support/AssignsLocation.php',
+    'extensions/Locations/Support/LocationAssignable.php',
+    'modules/Schichtplan/src/Services/CalendarLink.php',
+    'tests/Feature/Extensions/Locations/CalendarLocationTest.php',
+    'extensions/Locations/database/migrations/2027_01_11_000000_add_location_targets_to_calendar.php',
+];
 $training = ['modules/Lehrgaenge/src/Services/RegistrationService.php'];
 $defects = ['modules/Maengelmanagement/src/Services/DefectService.php'];
 $finance = ['modules/Finanzen/src/Services/FinanceService.php'];
 $fleet = ['modules/Fahrzeuge/src/Services/FleetService.php'];
 $breathing = ['modules/Atemschutz/src/Services/MonitorService.php'];
-$exposure = ['modules/Expositionen/src/Services/ExposureService.php'];
-$logbook = ['modules/Fahrtenbuch/src/Services/LogbookService.php'];
+$exposure = [
+    'modules/Expositionen/src/Services/ExposureService.php',
+    'modules/Expositionen/src/Livewire/Manage.php',
+    'modules/Expositionen/src/Livewire/ExposureForm.php',
+    'modules/Expositionen/src/Livewire/CrewForm.php',
+    'modules/Expositionen/routes/web.php',
+    'modules/Expositionen/database/migrations/2027_01_04_000000_add_location_to_exposures.php',
+];
+$logbook = [
+    'modules/Fahrtenbuch/src/Services/LogbookService.php',
+    'modules/Fahrtenbuch/src/Livewire/TripForm.php',
+    'modules/Fahrtenbuch/src/Livewire/FuelForm.php',
+    'modules/Fahrtenbuch/src/Livewire/Overview.php',
+    'modules/Fahrtenbuch/src/Livewire/VehicleLog.php',
+    'modules/Fahrtenbuch/routes/web.php',
+    'modules/Fahrtenbuch/FahrtenbuchServiceProvider.php',
+    'tests/Feature/Fahrtenbuch/LogbookTest.php',
+];
 $license = ['modules/Fuehrerscheine/src/Services/LicenseService.php'];
 $plans = ['modules/Objektplaene/src/Services/ObjectPlanService.php'];
 $shifts = ['modules/Schichtplan/src/Policies/PlanPolicy.php'];
@@ -87,16 +123,97 @@ $association = ['extensions/Vereinsverwaltung/Services/AssociationAccess.php', '
 $attendance = ['extensions/Anwesenheit/Services/AttendanceService.php'];
 $hydrants = ['extensions/Hydrantenkontrolle/Services/InspectionService.php'];
 $locations = ['extensions/Locations/Services/LocationAccess.php', 'extensions/Locations/Scopes/LocationScope.php'];
+
+$mmDevices = $entry(
+    'maengelmanagement',
+    'standortgebunden',
+    'operational',
+    'Required Standort owner; responsible person is assignment only',
+    [$location, $parent('responsible_id', 'users', 'retain')],
+    'Legacy NULL Standort is quarantined from local members and managers; only global admins and GBI/SBI can reassign it.',
+    $defects,
+    targetGap: 'New records take the current Standort; local managers can only assign devices to their own role locations. Legacy NULL devices remain available to global admins and GBI/SBI for assignment.',
+);
+$mmDevices['enforcement'] = [
+    'status' => 'implemented',
+    'evidence' => [
+        'extensions/Locations/LocationsServiceProvider.php',
+        'extensions/Locations/Scopes/LocationScope.php',
+        'extensions/Locations/database/migrations/2027_01_10_000000_add_location_to_defect_devices.php',
+        'modules/Maengelmanagement/src/Models/Device.php',
+        'modules/Maengelmanagement/src/Filament/Resources/DeviceResource.php',
+        'modules/Maengelmanagement/src/Services/DefectService.php',
+        'tests/Feature/Maengelmanagement/DefectTest.php',
+    ],
+    'gap' => 'Legacy unassigned devices remain quarantined from local actors and need global-admin/GBI assignment; their old physical location is not inferred.',
+];
+
 $assignmentHistory = $entry('extensions.locations', 'bewusst global', 'audit', 'Append-only operator assignment history; only finite attendance and tracked-clothing CLIs write it', [$parent('location_id', 'x_locations'), $parent('assigned_by', 'users')], $required, ['extensions/Locations/Services/AttendanceLocationAssignment.php', 'extensions/Locations/Console/AssignAttendanceCommand.php', 'extensions/Locations/Services/ClothingLocationAssignment.php', 'extensions/Locations/Console/AssignClothingCommand.php', 'extensions/Locations/database/migrations/2026_12_23_000000_create_location_data_assignments.php', 'extensions/Locations/database/migrations/2026_12_24_000000_allow_clothing_location_assignments.php', 'extensions/Locations/database/migrations/2026_12_24_000001_restrict_clothing_location_deletion.php', 'extensions/Locations/Services/LocationModuleRoles.php', 'app/Services/MemberRemoval.php', 'tests/Feature/Extensions/Locations/AttendanceLocationAssignmentTest.php', 'tests/Feature/Extensions/Locations/ClothingLocationAssignmentTest.php'], $optionalLocations, targetGap: 'Only explicit legacy NULL attendance and nondeleted tracked-clothing ownership assignment is implemented here; historical clothing children require private review, not rewriting. This is not verification of all module isolation or enforcement.');
 $assignmentHistory['enforcement']['evidence'] = $assignmentHistory['authorization'];
 $assignmentHistory['enforcement']['gap'] = 'Bounded CLI and immutable journal only; no certification of complete module reads, writes, exports or child isolation.';
+$verbandbuchEntries = $entry(
+    'verbandbuch',
+    'hybrid',
+    'health_encrypted',
+    'Immutable organizational Standort snapshot; linked people retain access only to entries in which they participate',
+    [$parent('ext_location_id', 'x_locations', 'retain', 'conditional_foreign_key', true), $parent('injured_user_id', 'users', 'retain'), $parent('first_aider_user_id', 'users', 'retain'), $parent('recorded_by', 'users', 'retain')],
+    'NULL historical Standort denies local-manager access; only GBI/SBI/admins and involved people retain access.',
+    $health,
+    targetStatus: 'pending_decision',
+    targetGap: 'Existing records are not assigned retroactively. A NULL Standort remains quarantined from local managers; database trigger prevents later reassignment. Location is access-control metadata and does not alter the historic signature hash.',
+);
+$verbandbuchEntries['enforcement'] = [
+    'status' => 'implemented',
+    'evidence' => [
+        'modules/Verbandbuch/src/Services/VerbandbuchService.php',
+        'modules/Verbandbuch/src/Livewire/EntryList.php',
+        'modules/Verbandbuch/routes/web.php',
+        'modules/Verbandbuch/database/migrations/2027_01_03_000000_add_location_to_verbandbuch_entries.php',
+        'tests/Feature/Verbandbuch/VerbandbuchTest.php',
+    ],
+    'gap' => 'Personalverwaltung and Expositionen have their own location-aware access checks; other health and personal-data modules remain subject to their own rollout and verification.',
+];
+$exposureRecords = $entry(
+    'expositionen',
+    'hybrid',
+    'health_encrypted',
+    'Immutable Standort snapshot; exposed members retain access to their own records',
+    [$parent('ext_location_id', 'x_locations', 'retain', 'conditional_foreign_key', true), $parent('user_id', 'users', 'retain'), $parent('report_id', 'eb_reports', 'retain')],
+    'NULL historical Standort denies local-manager access; only GBI/SBI/admins, the assigned local Wehrführung and the record owner retain access.',
+    $exposure,
+    targetStatus: 'pending_decision',
+    targetGap: 'New records require an active Standort; existing rows remain NULL and are not backfilled. The database prevents Standort reassignment. Legacy global module roles do not grant access while Locations is enabled.',
+);
+$exposureRecords['enforcement'] = [
+    'status' => 'implemented',
+    'evidence' => [
+        ...$exposure,
+        'modules/Expositionen/src/Livewire/MyExposures.php',
+        'modules/Expositionen/resources/views/partials/report-section.blade.php',
+        'tests/Feature/Expositionen/ExposureTest.php',
+    ],
+    'gap' => 'Personalverwaltung and Verbandbuch have their own location-aware access checks; other personal and health-data modules remain subject to their own rollout and verification.',
+];
+$breathingOperations = $entry('atemschutz', 'standortgebunden', 'operational', 'Report Standort or explicit standalone operation Standort; starter is attribution only', [$parent('ext_location_id', 'x_locations', 'shared', 'conditional_foreign_key'), $parent('report_id', 'eb_reports', 'alternative'), $parent('started_by', 'users', 'retain')], 'Historical operations without an explicit Standort remain unassigned; new standalone operations require one.', $breathing, targetStatus: 'proposed', targetGap: 'Ordinary Atemschutzüberwacher can view and manage operations only at accessible active locations. The global Atemschutzwart and admins retain cross-location access, including unassigned history.');
+$breathingOperations['enforcement'] = [
+    'status' => 'implemented',
+    'evidence' => [
+        'modules/Atemschutz/src/Services/MonitorService.php',
+        'modules/Atemschutz/routes/web.php',
+        'modules/Atemschutz/src/Livewire/Board.php',
+        'modules/Atemschutz/src/Livewire/Overview.php',
+        'modules/Atemschutz/resources/views/partials/report-section.blade.php',
+        'tests/Feature/Atemschutz/AtemschutzTest.php',
+    ],
+    'gap' => 'The linked Einsatzbericht remains governed by its own report authorization; wearer readiness and pool views retain their separate existing module permissions.',
+];
 
 return [
     'version' => 1,
     'purpose' => 'declarative_target_only',
     'admin_rule' => 'Preserve existing global administrator access; no manifest entry installs filters or changes authorization.',
     'optional_extensions' => [
-        'extensions.locations' => ['config' => 'locations.enabled', 'provider' => 'extensions/Locations/LocationsServiceProvider.php', 'tables' => ['x_locations', 'x_location_user', 'x_location_module_roles', 'x_location_data_assignments', 'x_leadership_assignments', 'x_clothing_stock_transfers', 'x_clothing_history_corrections'], 'reason' => $optionalLocations],
+        'extensions.locations' => ['config' => 'locations.enabled', 'provider' => 'extensions/Locations/LocationsServiceProvider.php', 'tables' => ['x_locations', 'x_location_user', 'x_location_module_roles', 'x_location_data_assignments', 'x_leadership_assignments', 'x_standard_role_assignments', 'x_clothing_stock_transfers', 'x_clothing_history_corrections'], 'reason' => $optionalLocations],
         'extensions.oidc' => ['config' => 'oidc.enabled', 'provider' => 'extensions/Oidc/OidcServiceProvider.php', 'tables' => ['x_oidc_identities'], 'reason' => $optionalOidc],
         'extensions.verein' => ['config' => 'vereinsverwaltung.enabled', 'provider' => 'extensions/Vereinsverwaltung/VereinsverwaltungServiceProvider.php', 'tables' => ['x_vv_associations', 'x_vv_association_user', 'x_vv_members', 'x_vv_applications'], 'reason' => $optionalVerein],
         'extensions.anwesenheit' => ['config' => 'anwesenheit.enabled', 'provider' => 'extensions/Anwesenheit/AnwesenheitServiceProvider.php', 'tables' => ['x_att_templates', 'x_att_lists', 'x_att_participants', 'x_att_files'], 'reason' => $optionalAttendance],
@@ -113,12 +230,13 @@ return [
         'sessions' => 'Laravel sessions; user_id is optional and not a domain ownership boundary.',
     ],
     'tables' => [
-        'x_leadership_assignments' => $entry('extensions.locations', 'standortgebunden', 'access', 'Explicit single-location leadership capabilities and immutable grant/revocation history; no municipality wildcard', [$parent('location_id', 'x_locations'), $parent('user_id', 'users'), $parent('granted_by', 'users'), $parent('approved_by', 'users', 'retain'), $parent('revoked_by', 'users', 'retain')], $required, ['extensions/Locations/Services/LeadershipAssignments.php', 'extensions/Locations/Console/LeadershipCommand.php', 'extensions/Locations/database/migrations/2026_12_28_000000_create_leadership_assignments.php', 'extensions/Locations/Services/LocationModuleRoles.php'], $optionalLocations, targetGap: 'Bounded P6 foundation only. No existing module policy consumes these capabilities; future restricted projections require explicit approval and separate integration. No full P6 certification.'),
+        'x_leadership_assignments' => $entry('extensions.locations', 'standortgebunden', 'access', 'Explicit single-location leadership capabilities and immutable grant/revocation history; no municipality wildcard', [$parent('location_id', 'x_locations'), $parent('user_id', 'users'), $parent('granted_by', 'users'), $parent('approved_by', 'users', 'retain'), $parent('revoked_by', 'users', 'retain')], $required, ['extensions/Locations/Services/LeadershipAssignments.php', 'extensions/Locations/Services/LeadershipProjections.php', 'extensions/Locations/Console/LeadershipCommand.php', 'extensions/Locations/database/migrations/2026_12_28_000000_create_leadership_assignments.php', 'extensions/Locations/Services/LocationModuleRoles.php'], $optionalLocations, targetGap: 'Bounded P6 per-location grants remain separate from the opt-in global Bürgermeister standard-role projection. No existing module policy consumes these capabilities; no full P6 certification.'),
+        'x_standard_role_assignments' => $entry('extensions.locations', 'hybrid', 'access', 'Explicit standard-profile grant and immutable revocation history; global, location or exact-group target is encoded by profile', [$parent('user_id', 'users'), $parent('location_id', 'x_locations', 'shared'), $parent('group_id', 'groups', 'shared'), $parent('granted_by', 'users'), $parent('revoked_by', 'users', 'retain')], 'Global profiles have NULL location; group profiles bind an exact group; local profiles require membership at their location.', ['extensions/Locations/Services/StandardRoleAssignments.php', 'extensions/Locations/Services/StandardRoleCatalog.php', 'extensions/Locations/Filament/StandardRolesPage.php', 'extensions/Locations/Filament/LeadershipOverviewPage.php', 'extensions/Locations/Services/LeadershipProjections.php', 'extensions/Locations/database/migrations/2026_12_30_000000_create_standard_role_assignments.php', 'extensions/Anwesenheit/Services/AttendanceService.php', 'modules/Uebungsdienste/src/Services/ServicePlan.php', 'extensions/Locations/Scopes/LocationScope.php', 'modules/Einsatzbericht/src/Services/ReportService.php', 'modules/Einsatzbericht/src/Services/SituationService.php', 'modules/Einsatzbericht/src/Services/ExternalAccess.php', 'modules/Einsatzbericht/src/Livewire/ReportEditor.php', 'modules/Einsatzbericht/routes/web.php', ...$personnel, 'modules/Expositionen/src/Services/ExposureService.php', 'modules/Expositionen/src/Livewire/Manage.php', 'modules/Expositionen/database/migrations/2027_01_04_000000_add_location_to_exposures.php'], $optionalLocations, targetGap: 'Target-aware adapters cover the global Bürgermeister annual incident-count projection, local Wehrführung access to exact-site reports, attendance, group-scoped Übungsdienste, location-scoped Personalverwaltung and the GBI/Wehrführung Expositionen boundary. Brandschutzamt remains unassignable until material and clothing management are scoped; other profiles and health-data modules remain incomplete. Assignments do not bypass each target-aware check.'),
         'x_location_data_assignments' => $assignmentHistory,
         'x_clothing_stock_transfers' => $entry('extensions.locations', 'hybrid', 'audit', 'Immutable quantity-transfer journal; both explicit stock capabilities or a fresh global admin authorize a transfer, never personal clothing access', [$parent('from_stock_id', 'kk_stock'), $parent('to_stock_id', 'kk_stock'), $parent('from_location_id', 'x_locations'), $parent('to_location_id', 'x_locations'), $parent('actor_id', 'users'), $parent('reverses_id', 'x_clothing_stock_transfers', 'root')], 'Required non-NULL active source and destination locations at booking; NULL reversal denotes an original entry. Historical actors and balances never establish authority.', ['extensions/Locations/Services/ClothingOperations.php', 'extensions/Locations/Console/TransferClothingStockCommand.php', 'extensions/Locations/database/migrations/2026_12_30_000000_create_clothing_operation_journals.php', 'extensions/Locations/Services/ClothingReadinessReport.php', 'extensions/Locations/Services/LocationModuleRoles.php', 'app/Services/MemberRemoval.php', 'tests/Feature/Extensions/Locations/ClothingOperationsTest.php', 'tests/Unit/Extensions/Locations/ClothingOperationsLockTest.php'], $optionalLocations, targetGap: 'Bounded explicit quantity-transfer CLI and append-only counterbookings only. Both endpoint rights are checked freshly; no personal history grant or full operational isolation certification.'),
         'x_clothing_history_corrections' => $entry('extensions.locations', 'bewusst global', 'personnel', 'Global-admin-only documentary source review with private evidence reference and retained original issuance snapshot; not operational provenance or stock balancing', [$parent('issuance_id', 'kk_issued_items'), $parent('reviewed_stock_id', 'kk_stock'), $parent('reviewed_location_id', 'x_locations'), $parent('actor_id', 'users'), $parent('previous_id', 'x_clothing_history_corrections', 'root')], 'Required reviewed source and location; NULL previous entry denotes the first review. Retained JSON originals and evidence never authorize access or alter original source-bound returns.', ['extensions/Locations/Services/ClothingOperations.php', 'extensions/Locations/Console/CorrectClothingHistoryCommand.php', 'extensions/Locations/database/migrations/2026_12_30_000000_create_clothing_operation_journals.php', 'extensions/Locations/Services/ClothingReadinessReport.php', 'extensions/Locations/Services/LocationModuleRoles.php', 'app/Services/MemberRemoval.php', 'tests/Feature/Extensions/Locations/ClothingOperationsTest.php', 'tests/Unit/Extensions/Locations/ClothingOperationsLockTest.php'], $optionalLocations, targetGap: 'Returned nondeleted bulk issuances only. Admin preview and history resolve the latest overlay, preserving original rows and source triggers; no active-source rerouting, automatic stock or financial effects, or general personal-history access.'),
         // Core. Own-user data is not made global merely because it lacks a location column.
-        'users' => $entry('core', 'hybrid', 'personnel', 'Member itself, location membership and self-service identity', [$location], $shared, [...$core, ...$locations, ...$personnel]),
+        'users' => $entry('core', 'hybrid', 'personnel', 'Member itself, location membership and self-service identity', [$location], $shared, [...$core, ...$locations, ...$personnel], targetGap: 'Personalverwaltung now limits management of private fields and member files to GBI/SBI and assigned local Wehrführung when Locations is enabled. This does not certify other core or module readers of user data.'),
         'groups' => $entry('core', 'standortgebunden', 'access', 'Department location is required; unassigned departments must not become shared access boundaries', [$parent('ext_location_id', 'x_locations', 'forbidden', 'conditional_foreign_key', true)], $required, [...$core, ...$locations]),
         'group_user' => $entry('core', 'hybrid', 'access', 'Both department and member', [$parent('group_id', 'groups'), $parent('user_id', 'users')], $required, $core),
         'member_functions' => $entry('core', 'standortgebunden', 'access', 'Function location/hierarchy; unassigned functions must not become shared role grants', [$location, $parent('parent_id', 'member_functions', 'root')], $shared.' NULL parent denotes a root function.', [...$core, ...$locations]),
@@ -151,7 +269,7 @@ return [
 
         // Ausrüstung.
         'ar_categories' => $entry('ausruestung', 'hybrid', 'reference', 'Pure category catalog with proposed explicit shared categories; no physical equipment ownership is inherited from sharing a category', [$location], $shared, [...$equipment, ...$locations], targetNullRule: 'explicitly_shared_catalog'),
-        'ar_locations' => $entry('ausruestung', 'standortgebunden', 'operational', 'Physical storage place must belong to a Standort; ar_locations is not the Standort registry', [], 'No Standort owner column currently exists; storage places use module-level management.', $equipment, targetStatus: 'pending_decision', targetGap: 'Define and migrate a Standort owner for physical storage places; lack of a column is not a cross-location target decision.'),
+        'ar_locations' => $entry('ausruestung', 'standortgebunden', 'operational', 'Physical storage place belongs to one organizational Standort; legacy unassigned places remain unavailable to local managers', [$location], 'Legacy places without a Standort are visible only to global administrators. A Standort change is rejected while any equipment still references the place.', [...$equipment, ...$locations, 'extensions/Locations/database/migrations/2027_01_06_000000_add_location_to_equipment_storage_places.php'], targetGap: 'New storage places require a managed Standort; existing unassigned places are not backfilled. A place can change Standort only after all stored equipment has been moved out individually.'),
         'ar_compartments' => $entry('ausruestung', 'standortgebunden', 'operational', 'Physical compartment inherits the storage place Standort', [$parent('location_id', 'ar_locations')], $required, $equipment),
         'ar_equipment' => $entry('ausruestung', 'standortgebunden', 'operational', 'Physical equipment location; category/storage references cannot grant sharing', [$location, $parent('category_id', 'ar_categories', 'inherit'), $parent('location_id', 'ar_locations', 'inherit'), $parent('compartment_id', 'ar_compartments', 'inherit')], $shared.' Missing category/storage assignment does not remove equipment ownership.', [...$equipment, ...$locations]),
         'ar_inspections' => $entry('ausruestung', 'standortgebunden', 'operational', 'Equipment; inspector is actor only', [$parent('equipment_id', 'ar_equipment')], $required, $equipment),
@@ -161,7 +279,7 @@ return [
         'ar_recall_equipment' => $entry('ausruestung', 'hybrid', 'operational', 'Both recall and equipment', [$parent('recall_id', 'ar_recalls'), $parent('equipment_id', 'ar_equipment')], $required, ['modules/Ausruestung/src/Services/RecallService.php']),
         'ar_load_plan_items' => $entry('ausruestung', 'standortgebunden', 'operational', 'Physical load plan inherits compartment/storage Standort; category is reference data only', [$parent('compartment_id', 'ar_compartments'), $parent('category_id', 'ar_categories')], $required, ['modules/Ausruestung/src/Services/LoadPlanService.php']),
         'ar_events' => $entry('ausruestung', 'standortgebunden', 'financial', 'Equipment lifecycle work and costs', [$parent('equipment_id', 'ar_equipment')], $required, $equipment),
-        'ar_stocktakes' => $entry('ausruestung', 'standortgebunden', 'operational', 'Physical inventory requires a Standort owner independent of optional storage-place selection', [$parent('location_id', 'ar_locations', 'shared')], 'NULL storage place means the stocktake has no single storage-place restriction.', ['modules/Ausruestung/src/Services/StocktakeService.php'], targetStatus: 'pending_decision', targetGap: 'Design Standort ownership for inventory across one or several storage places; current NULL/module-wide inventory is not an approved target.'),
+        'ar_stocktakes' => $entry('ausruestung', 'standortgebunden', 'operational', 'Each inventory snapshots the Standort of its one physical storage place', [$location, $parent('location_id', 'ar_locations', 'inherit')], 'New inventories inherit the selected storage place Standort; historical rows without one remain unassigned and unavailable to local managers.', ['modules/Ausruestung/src/Services/StocktakeService.php', 'modules/Ausruestung/src/Models/Stocktake.php', 'extensions/Locations/database/migrations/2027_01_06_000001_add_stocktake_location_foreign_key.php'], targetGap: 'An inventory covers one storage place, so its Standort is derived from that place. Historical NULL ownership is not backfilled.'),
 
         // Kleiderkammer: members are core users.
         'kk_item_categories' => $entry('kleiderkammer', 'übergreifend', 'reference', 'Shared clothing category catalog', [], $catalog, $clothing),
@@ -176,7 +294,7 @@ return [
         'kk_equipment_messages' => $entry('kleiderkammer', 'hybrid', 'personnel', 'Own user and optional retained issuance link', [$parent('user_id', 'users'), $parent('issued_item_id', 'kk_issued_items', 'retain')], 'NULL issuance retains the item-label snapshot and own-user/manager boundary.', ['modules/Kleiderkammer/src/Services/EquipmentMessageService.php']),
 
         // Einsatzbericht.
-        'eb_reports' => $entry('einsatzbericht', 'standortgebunden', 'personnel', 'Report Standort; optional parent is a main report for a Nebenbericht, not implicit shared access', [$location, $parent('parent_id', 'eb_reports', 'root')], $shared.' NULL parent is a main report.', [...$report, ...$locations]),
+        'eb_reports' => $entry('einsatzbericht', 'standortgebunden', 'personnel', 'Report Standort; optional parent is a main report for a Nebenbericht, not implicit shared access', [$location, $parent('parent_id', 'eb_reports', 'root')], $shared.' NULL parent is a main report.', [...$report, ...$locations, 'modules/Einsatzbericht/src/Services/DiveraWebhook.php', 'modules/Einsatzbericht/src/Filament/Pages/SettingsPage.php', 'tests/Feature/Einsatzbericht/DiveraWebhookTest.php']),
         'eb_report_vehicles' => $entry('einsatzbericht', 'standortgebunden', 'operational', 'Report and optional retained shared vehicle link', [$parent('report_id', 'eb_reports'), $parent('vehicle_id', 'vehicles', 'retain')], 'NULL vehicle retains report-owned vehicle snapshot, never unrestricted access.', $report),
         'eb_report_crew' => $entry('einsatzbericht', 'hybrid', 'personnel', 'Report plus own user and required report-vehicle assignment', [$parent('report_id', 'eb_reports'), $parent('user_id', 'users'), $parent('report_vehicle_id', 'eb_report_vehicles')], $required, $report),
         'eb_divera_requests' => $entry('einsatzbericht', 'standortgebunden', 'authentication', 'Webhook request with optional resulting report; payload can contain personal data', [$parent('report_id', 'eb_reports', 'retain')], 'NULL report denotes rejected/unprocessed webhook; retain administrative webhook access only.', ['modules/Einsatzbericht/EinsatzberichtServiceProvider.php']),
@@ -190,15 +308,15 @@ return [
         // Health and breathing apparatus.
         'as_wearers' => $entry('atemschutz', 'hybrid', 'health', 'Own user readiness and medical examination dates', [$parent('user_id', 'users')], $required, $breathing),
         'as_trainings' => $entry('atemschutz', 'hybrid', 'health', 'Own user breathing-apparatus training', [$parent('user_id', 'users')], $required, $breathing),
-        'as_operations' => $entry('atemschutz', 'standortgebunden', 'operational', 'Report Standort or explicit standalone-operation Standort; starter is attribution only', [$parent('report_id', 'eb_reports', 'alternative'), $parent('started_by', 'users', 'retain')], 'NULL report is a standalone operation, not shared/public; dedicated manager/monitor rules remain and location boundary is unverified.', $breathing, targetStatus: 'pending_decision', targetGap: 'Define Standort ownership for standalone exercises instead of deriving it from a nullable actor.'),
+        'as_operations' => $breathingOperations,
         'as_teams' => $entry('atemschutz', 'standortgebunden', 'operational', 'Breathing-apparatus operation', [$parent('operation_id', 'as_operations')], $required, $breathing),
         'as_team_members' => $entry('atemschutz', 'hybrid', 'health', 'Team plus optional linked own member; free-text external members are supported', [$parent('team_id', 'as_teams'), $parent('user_id', 'users', 'retain')], 'NULL user retains team-owned named member; never grants access.', $breathing),
         'as_readings' => $entry('atemschutz', 'standortgebunden', 'health', 'Team and required individual team member', [$parent('team_id', 'as_teams'), $parent('team_member_id', 'as_team_members')], $required, $breathing),
         'as_warnings' => $entry('atemschutz', 'standortgebunden', 'health', 'Team warning; acknowledging user is actor only', [$parent('team_id', 'as_teams')], $required, $breathing),
-        'ex_exposures' => $entry('expositionen', 'hybrid', 'health_encrypted', 'Own exposed user/report boundary with retained Standort ownership when person/report links disappear', [$parent('user_id', 'users', 'retain'), $parent('report_id', 'eb_reports', 'alternative')], 'NULL user/report does not make retained encrypted exposure public; exposure manager/own-user rules remain.', $exposure, targetStatus: 'pending_decision', targetGap: 'Define retained health-record Standort ownership when both user and report are absent; encrypted content and module-manager roles alone do not establish isolation.'),
+        'ex_exposures' => $exposureRecords,
         'ex_events' => $entry('expositionen', 'hybrid', 'health', 'Exposure audit; actor is not the data owner', [$parent('exposure_id', 'ex_exposures')], $required, $exposure),
         'ex_dismissals' => $entry('expositionen', 'hybrid', 'health', 'Own user and report prompt', [$parent('user_id', 'users'), $parent('report_id', 'eb_reports')], $required, $exposure),
-        'vb_entries' => $entry('verbandbuch', 'hybrid', 'health_encrypted', 'Dedicated health-record Standort/ACL boundary plus injured-person own access; actor IDs alone are not ownership', [$parent('injured_user_id', 'users', 'retain'), $parent('first_aider_user_id', 'users', 'retain'), $parent('recorded_by', 'users', 'retain')], 'NULL person links never make health records shared; dedicated health authorization and retention apply.', $health, targetStatus: 'pending_decision', targetGap: 'Define immutable retained Standort ownership for non-member injuries and removed user links; never treat missing person IDs as shared health data.'),
+        'vb_entries' => $verbandbuchEntries,
         'vb_signatures' => $entry('verbandbuch', 'hybrid', 'health', 'Health entry and optional signing user', [$parent('entry_id', 'vb_entries'), $parent('user_id', 'users', 'retain')], $retained, $health),
         'vb_amendments' => $entry('verbandbuch', 'hybrid', 'health_encrypted', 'Health entry; author is actor only', [$parent('entry_id', 'vb_entries')], $required, $health),
         'vb_access_logs' => $entry('verbandbuch', 'hybrid', 'health', 'Health entry audit, under dedicated health ACL rather than general activity log', [$parent('entry_id', 'vb_entries')], $required, $health),
@@ -227,13 +345,15 @@ return [
         'kal_event_user' => $entry('kalender', 'hybrid', 'access', 'Event and specifically invited user', [$parent('event_id', 'kal_events'), $parent('user_id', 'users')], $required, $calendar),
         'kal_event_function' => $entry('kalender', 'hybrid', 'access', 'Event and invited member function', [$parent('event_id', 'kal_events'), $parent('function_id', 'member_functions')], $required, $calendar),
         'kal_templates' => $entry('kalender', 'hybrid', 'reference', 'Template ownership must account for embedded audience/event data; creator is attribution, not a complete location boundary', [$parent('created_by', 'users', 'retain')], $catalog, $calendar, targetStatus: 'pending_decision', targetGap: 'Decide which template fields are pure shared catalog data and which require Standort/audience ownership; do not approve blanket sharing of embedded personal targets.', targetNullRule: 'deny_or_quarantine'),
-        'kal_polls' => $entry('kalender', 'hybrid', 'personnel', 'Poll audience via group/function/user pivots; optional resulting event and creator', [$parent('event_id', 'kal_events', 'inherit'), $parent('created_by', 'users', 'retain')], 'NULL event means the poll has not produced an event; audience and poll-manager rules remain.', ['modules/Kalender/src/Services/PollService.php']),
+        'kal_event_location' => $entry('kalender', 'hybrid', 'access', 'Event and explicit target Standort', [$parent('event_id', 'kal_events'), $parent('location_id', 'x_locations')], $required, $calendar),
+        'kal_polls' => $entry('kalender', 'hybrid', 'personnel', 'Poll location plus audience via group/function/user pivots; optional resulting event and creator', [$location, $parent('event_id', 'kal_events', 'inherit'), $parent('created_by', 'users', 'retain')], 'NULL location/event means a legacy/shared poll or a poll that has not produced an event; audience and poll-manager rules remain.', $calendar),
+        'kal_poll_location' => $entry('kalender', 'hybrid', 'access', 'Poll and explicit target Standort', [$parent('poll_id', 'kal_polls'), $parent('location_id', 'x_locations')], $required, $calendar),
         'kal_poll_group' => $entry('kalender', 'hybrid', 'access', 'Poll and audience department', [$parent('poll_id', 'kal_polls'), $parent('group_id', 'groups')], $required, ['modules/Kalender/src/Services/PollService.php']),
         'kal_poll_function' => $entry('kalender', 'hybrid', 'access', 'Poll and audience function', [$parent('poll_id', 'kal_polls'), $parent('function_id', 'member_functions')], $required, ['modules/Kalender/src/Services/PollService.php']),
         'kal_poll_user' => $entry('kalender', 'hybrid', 'access', 'Poll and specifically invited own user', [$parent('poll_id', 'kal_polls'), $parent('user_id', 'users')], $required, ['modules/Kalender/src/Services/PollService.php']),
         'kal_poll_options' => $entry('kalender', 'hybrid', 'personnel', 'Poll and its event', [$parent('poll_id', 'kal_polls')], $required, ['modules/Kalender/src/Services/PollService.php']),
         'kal_poll_votes' => $entry('kalender', 'hybrid', 'personnel', 'Poll option plus own voting user', [$parent('option_id', 'kal_poll_options'), $parent('user_id', 'users')], $required, ['modules/Kalender/src/Services/PollService.php']),
-        'sp_plans' => $entry('schichtplan', 'hybrid', 'personnel', 'Optional department and mirrored calendar event; plan ACL/participants also apply', [$parent('group_id', 'groups', 'shared'), $parent('event_id', 'kal_events', 'inherit')], 'NULL department means no department restriction, not public access; plan policy remains. NULL mirror does not change plan ownership.', $shifts),
+        'sp_plans' => $entry('schichtplan', 'standortgebunden', 'personnel', 'Exactly one Standort; plan ACL and participants also apply', [$parent('ext_location_id', 'x_locations'), $parent('group_id', 'groups', 'inherit'), $parent('event_id', 'kal_events', 'inherit')], $required, $shifts),
         'sp_stations' => $entry('schichtplan', 'standortgebunden', 'operational', 'Shift plan; station is a post, not x_locations', [$parent('plan_id', 'sp_plans')], $required, $shifts),
         'sp_slots' => $entry('schichtplan', 'standortgebunden', 'operational', 'Shift plan time slot', [$parent('plan_id', 'sp_plans')], $required, $shifts),
         'sp_participants' => $entry('schichtplan', 'hybrid', 'personnel', 'Shift plan and own participant', [$parent('plan_id', 'sp_plans'), $parent('user_id', 'users')], $required, $shifts),
@@ -254,15 +374,15 @@ return [
         'lq_deletions' => $entry('lehrgaenge', 'hybrid', 'personnel', 'Member qualification deletion history; actor is not the owner', [$parent('user_id', 'users')], $required, $training),
 
         // Defects, finance and remaining operational modules.
-        'mm_devices' => $entry('maengelmanagement', 'standortgebunden', 'operational', 'Physical device requires Standort ownership independent of the responsible actor', [$parent('responsible_id', 'users', 'inherit')], 'NULL responsible user falls back to module responsibility, not public write access.', $defects, targetStatus: 'pending_decision', targetGap: 'Define physical device Standort ownership; responsible_id is assignment, not an adequate isolation boundary.'),
+        'mm_devices' => $mmDevices,
         'mm_defects' => $entry('maengelmanagement', 'standortgebunden', 'personnel', 'Defect Standort plus reporter/object authorization; equipment/damage IDs lack database FKs', [$location, $parent('reporter_id', 'users'), $parent('device_id', 'mm_devices', 'alternative'), $parent('vehicle_id', 'vehicles', 'alternative'), $parent('equipment_id', 'ar_equipment', 'alternative', 'logical'), $parent('ar_damage_id', 'ar_damages', 'inherit', 'logical')], $shared.' NULL object links are valid for free reports; reporter and defect ACL remain.', [...$defects, ...$locations]),
         'mm_defect_photos' => $entry('maengelmanagement', 'standortgebunden', 'content', 'Defect and optional comment event', [$parent('defect_id', 'mm_defects'), $parent('event_id', 'mm_defect_events', 'inherit')], 'NULL event denotes original report photo; defect ACL remains.', $defects),
         'mm_defect_events' => $entry('maengelmanagement', 'standortgebunden', 'personnel', 'Defect timeline; user is actor only', [$parent('defect_id', 'mm_defects')], $required, $defects),
         'fin_cost_centers' => $entry('finanzen', 'übergreifend', 'financial', 'Shared cost-center catalog; no location dimension today', [], $catalog, $finance),
-        'fin_budgets' => $entry('finanzen', 'standortgebunden', 'financial', 'Budget Standort ownership must be defined separately from the shared cost-center catalog', [$parent('cost_center_id', 'fin_cost_centers')], 'Required cost_center_id currently identifies an instance-wide cost center without a Standort column; budget feature flag and finance ACL apply.', $finance, targetStatus: 'pending_decision', targetGap: 'Decide budget Standort ownership, cost-center allocation and per-year uniqueness; the missing Standort dimension is not approval of cross-location financial visibility.'),
-        'fin_entries' => $entry('finanzen', 'hybrid', 'financial', 'Own submitting user plus finance reviewers and required cost center; public overview setting is separate', [$parent('submitted_by', 'users', 'retain'), $parent('cost_center_id', 'fin_cost_centers')], 'NULL submitting user retains finance-reviewer access only; no automatic own-user/global grant.', $finance),
-        'fin_receipts' => $entry('finanzen', 'hybrid', 'financial', 'Finance entry receipt, not an unrestricted file', [$parent('entry_id', 'fin_entries')], $required, $finance),
-        'fin_closed_years' => $entry('finanzen', 'hybrid', 'financial', 'Annual-close scope needs an explicit Standort/aggregation decision; closing actor is not the owner', [$parent('closed_by', 'users', 'retain')], 'Current year primary key closes the whole finance module; NULL closed_by retains the closing record and does not create own-user authorization.', $finance, targetStatus: 'pending_decision', targetGap: 'Decide per-Standort versus explicitly authorized consolidated annual closing and retained scope; existing year-only storage is not cross-location sharing approval.'),
+        'fin_budgets' => $entry('finanzen', 'standortgebunden', 'financial', 'One budget per Standort, Kostenstelle and year; cost centers remain shared', [$parent('location_id', 'x_locations', 'retain'), $parent('cost_center_id', 'fin_cost_centers')], 'NULL location is retained legacy budget data, visible to global finance reviewers only; new budgets require an active Standort.', $finance, targetStatus: 'proposed', targetGap: 'Verify location-scoped budget screens and the partial unique indexes on PostgreSQL.'),
+        'fin_entries' => $entry('finanzen', 'hybrid', 'financial', 'Submitting member owns own entry; finance reviewers are global or scoped to the entry Standort; public overview setting is separate', [$parent('location_id', 'x_locations', 'retain'), $parent('submitted_by', 'users', 'retain'), $parent('cost_center_id', 'fin_cost_centers')], 'NULL location is retained legacy data and is visible only to global finance reviewers and the submitter; new entries require an active Standort and are not backfilled from current membership.', $finance, targetStatus: 'proposed', targetGap: 'Verify location-specific submission, review, payment, receipt and export access paths.'),
+        'fin_receipts' => $entry('finanzen', 'hybrid', 'financial', 'Access follows the parent finance entry, including its Standort and submitter authorization', [$parent('entry_id', 'fin_entries')], 'No independent ownership; parent-entry authorization applies.', $finance, targetStatus: 'proposed'),
+        'fin_closed_years' => $entry('finanzen', 'hybrid', 'financial', 'One explicitly consolidated annual close across all Standorte; only global finance managers may close or reopen it', [$parent('closed_by', 'users', 'retain')], 'Current year primary key closes the whole finance module; NULL closed_by retains the closing record and does not create own-user authorization.', $finance, targetStatus: 'proposed'),
         'gf_materials' => $entry('gefahrstoffe', 'übergreifend', 'reference', 'Shared hazardous-substance catalog', [], $catalog, ['modules/Gefahrstoffe/GefahrstoffeServiceProvider.php']),
         'op_objects' => $entry('objektplaene', 'übergreifend', 'operational', 'Shared geographic object catalog; module access still required', [], $catalog, $plans),
         'op_documents' => $entry('objektplaene', 'übergreifend', 'content', 'Object plan object', [$parent('object_id', 'op_objects')], $required, $plans),
@@ -272,8 +392,8 @@ return [
         'sk_handovers' => $entry('schluessel', 'hybrid', 'personnel', 'Key plus own recipient; signature has the same boundary', [$parent('key_id', 'sk_keys'), $parent('user_id', 'users')], $required, $keys),
         'ud_services' => $entry('uebungsdienste', 'hybrid', 'personnel', 'JSON group_ids/function_ids audience, optional place and calendar mirror; no scalar group FK', [$parent('place_id', 'places', 'inherit'), $parent('event_id', 'kal_events', 'inherit')], 'NULL place/calendar link does not remove audience or planner authorization.', ['modules/Uebungsdienste/UebungsdiensteServiceProvider.php']),
         'ud_service_user' => $entry('uebungsdienste', 'hybrid', 'personnel', 'Service and own responsible user', [$parent('service_id', 'ud_services'), $parent('user_id', 'users')], $required, ['modules/Uebungsdienste/UebungsdiensteServiceProvider.php']),
-        'uw_topics' => $entry('unterweisungen', 'hybrid', 'reference', 'Topic audience JSON for_all/group_ids/function_ids and optional vehicle', [$parent('vehicle_id', 'vehicles', 'alternative')], 'NULL vehicle is a general instruction; topic audience and manager rules remain.', $instructions),
-        'uw_sessions' => $entry('unterweisungen', 'hybrid', 'personnel', 'Instruction topic and audience; instructor is an actor', [$parent('topic_id', 'uw_topics')], $required, $instructions),
+        'uw_topics' => $entry('unterweisungen', 'hybrid', 'reference', 'Topic audience JSON for_all/group_ids/function_ids and optional vehicle', [$parent('vehicle_id', 'vehicles', 'alternative')], 'NULL vehicle is a general instruction; underweisungsbeauftragter, global GBI and admins manage all topics, global Atemschutzwart only topics counting as Atemschutz-Unterweisung.', $instructions),
+        'uw_sessions' => $entry('unterweisungen', 'hybrid', 'personnel', 'Instruction topic and audience; instructor is an actor', [$parent('topic_id', 'uw_topics')], 'Session, print, document and signature manager access inherits the topic boundary.', $instructions),
         'uw_attendances' => $entry('unterweisungen', 'hybrid', 'personnel', 'Instruction session and own attendee/signature', [$parent('session_id', 'uw_sessions'), $parent('user_id', 'users')], $required, $instructions),
         'uw_files' => $entry('unterweisungen', 'hybrid', 'content', 'Instruction session', [$parent('session_id', 'uw_sessions')], $required, $instructions),
         'wm_providers' => $entry('wartung', 'übergreifend', 'reference', 'Shared maintenance provider catalog', [], $catalog, $maintenance),

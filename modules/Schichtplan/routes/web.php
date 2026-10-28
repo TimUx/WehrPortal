@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Modules\Schichtplan\src\Models\Plan;
+use Modules\Schichtplan\src\Services\PlanLocationAccess;
 use Modules\Schichtplan\src\Services\PlanService;
 
 Route::prefix('schichtplan')->name('schichtplan.')
@@ -13,7 +14,12 @@ Route::prefix('schichtplan')->name('schichtplan.')
         Route::get('/neu', fn () => view('schichtplan::pages.create'))
             ->middleware('can:manage,'.Plan::class)->name('create');
 
-        Route::get('/{plan}', fn (Plan $plan) => view('schichtplan::pages.show', compact('plan')))
+        Route::get('/{plan}', function (Plan $plan) {
+            $showSite = app(PlanLocationAccess::class)->enabled();
+            $plan->load(['stations.lead', 'slots', ...($showSite ? ['site'] : [])]);
+
+            return view('schichtplan::pages.show', compact('plan', 'showSite'));
+        })
             ->whereNumber('plan')->middleware('can:view,plan')->name('show');
 
         // Self sign-up: pick and give back places
@@ -28,10 +34,15 @@ Route::prefix('schichtplan')->name('schichtplan.')
             'Content-Disposition' => 'attachment; filename="schichtplan-'.Str::slug($plan->title).'.csv"',
         ]))->whereNumber('plan')->middleware('can:view,plan')->name('csv');
 
-        Route::get('/{plan}/druck', fn (Plan $plan) => view('schichtplan::pages.print', [
-            'plan' => $plan->load(['stations.lead', 'slots']),
-            'assignments' => $plan->assignments()->with('user')->get(),
-            'people' => $plan->participants()->with('user')->get()->pluck('user')
-                ->concat($plan->stations->pluck('lead'))->filter()->unique('id')->sortBy('name'),
-        ]))->whereNumber('plan')->middleware('can:view,plan')->name('print');
+        Route::get('/{plan}/druck', function (Plan $plan) {
+            $showSite = app(PlanLocationAccess::class)->enabled();
+
+            return view('schichtplan::pages.print', [
+                'plan' => $plan->load(['stations.lead', 'slots', ...($showSite ? ['site'] : [])]),
+                'showSite' => $showSite,
+                'assignments' => $plan->assignments()->with('user')->get(),
+                'people' => $plan->participants()->with('user')->get()->pluck('user')
+                    ->concat($plan->stations->pluck('lead'))->filter()->unique('id')->sortBy('name'),
+            ]);
+        })->whereNumber('plan')->middleware('can:view,plan')->name('print');
     });

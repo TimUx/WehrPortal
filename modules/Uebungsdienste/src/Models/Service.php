@@ -5,6 +5,7 @@ namespace Modules\Uebungsdienste\src\Models;
 use App\Models\Group;
 use App\Models\Place;
 use App\Models\User;
+use Extensions\Locations\Scopes\LocationScope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -46,8 +47,7 @@ class Service extends Model
     public function audienceLabel(): ?string
     {
         $locationsEnabled = config('locations.enabled') && Schema::hasTable('x_locations');
-        $groups = Group::whereIn('id', $this->group_ids ?? [])
-            ->whereRaw('lower(name) = ?', ['einsatzabteilung'])->orderBy('name')
+        $groups = Group::withoutGlobalScope(LocationScope::class)->whereIn('id', $this->group_ids ?? [])->orderBy('name')
             ->get($locationsEnabled ? ['name', 'ext_location_id'] : ['name']);
         $groups->when($locationsEnabled, fn ($groups) => $groups->load('location'));
         $names = $groups->map(fn (Group $group) => $group->displayName())->all();

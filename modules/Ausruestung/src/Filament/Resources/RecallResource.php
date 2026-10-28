@@ -2,6 +2,7 @@
 
 namespace Modules\Ausruestung\src\Filament\Resources;
 
+use App\Models\User;
 use Filament\Actions;
 use Filament\Forms;
 use Filament\Notifications\Notification;
@@ -10,11 +11,14 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Modules\Ausruestung\src\Filament\Concerns\AusruestungArea;
 use Modules\Ausruestung\src\Filament\Resources\RecallResource\Pages;
 use Modules\Ausruestung\src\Filament\Resources\RecallResource\RelationManagers\AffectedEquipmentRelationManager;
 use Modules\Ausruestung\src\Models\Equipment;
 use Modules\Ausruestung\src\Models\Recall;
+use Modules\Ausruestung\src\Services\EquipmentService;
 use Modules\Ausruestung\src\Services\RecallService;
 
 class RecallResource extends Resource
@@ -35,10 +39,35 @@ class RecallResource extends Resource
 
     protected static ?int $navigationSort = 40;
 
+    public static function canAccess(): bool
+    {
+        $user = auth()->user();
+
+        return static::canAccessArea() && $user instanceof User && EquipmentService::canManage($user);
+    }
+
+    public static function canCreate(): bool
+    {
+        return EquipmentService::canManageGlobal(auth()->user());
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        $user = auth()->user();
+
+        return $record instanceof Recall && $user instanceof User && EquipmentService::canManage($user);
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return $record instanceof Recall && EquipmentService::canManageGlobal(auth()->user());
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
             Section::make('Rückruf')
+                ->disabled(fn () => ! EquipmentService::canManageGlobal(auth()->user()))
                 ->schema([
                     Forms\Components\TextInput::make('title')->label('Titel')->required()->maxLength(255)->columnSpan(2),
                     Forms\Components\DatePicker::make('issued_at')->label('Veröffentlicht am')->native(false)->displayFormat('d.m.Y'),
@@ -50,6 +79,7 @@ class RecallResource extends Resource
 
             Section::make('Betroffene Geräte')
                 ->description('Gesperrt werden alle Geräte dieses Herstellers, die zu allen ausgefüllten Angaben passen. Leere Felder schränken nicht ein. Groß-/Kleinschreibung zählt nicht.')
+                ->disabled(fn () => ! EquipmentService::canManageGlobal(auth()->user()))
                 ->schema([
                     Forms\Components\TextInput::make('manufacturer')->label('Hersteller')->required()->maxLength(255)
                         ->datalist(fn () => Equipment::whereNotNull('manufacturer')->distinct()->orderBy('manufacturer')->pluck('manufacturer')->all()),
@@ -68,10 +98,18 @@ class RecallResource extends Resource
 
     public static function table(Table $table): Table
     {
+        $user = auth()->user();
+        $locationIds = $user instanceof User && ! EquipmentService::canManageGlobal($user)
+            ? EquipmentService::manageableLocationIds($user)
+            : null;
+        $scopeEquipment = fn (Builder $query) => $locationIds === null
+            ? $query
+            : $query->whereIn('ar_equipment.ext_location_id', $locationIds);
+
         return $table
             ->modifyQueryUsing(fn ($query) => $query->withCount([
-                'equipment as affected_count',
-                'equipment as open_count' => fn ($q) => $q->whereNull('ar_recall_equipment.resolved_at'),
+                'equipment as affected_count' => $scopeEquipment,
+                'equipment as open_count' => fn (Builder $query) => $scopeEquipment($query)->whereNull('ar_recall_equipment.resolved_at'),
             ]))
             ->columns([
                 Tables\Columns\TextColumn::make('title')->label('Rückruf')->searchable()->wrap(),
@@ -101,7 +139,7 @@ class RecallResource extends Resource
             ->color('gray')
             ->requiresConfirmation()
             ->modalDescription('Alle noch gesperrten Geräte dieses Rückrufs werden freigegeben und bekommen ihren vorherigen Status zurück.')
-            ->visible(fn (Recall $record) => $record->isOpen())
+            ->visible(fn (Recall $record) => $record->isOpen() && EquipmentService::canManageGlobal(auth()->user()))
             ->action(function (Recall $record) {
                 app(RecallService::class)->close($record, auth()->user());
                 Notification::make()->title('Rückruf geschlossen')->success()->send();

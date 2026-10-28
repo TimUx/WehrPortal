@@ -7,12 +7,15 @@ use App\Models\Group;
 use App\Models\MemberFunction;
 use App\Models\Place;
 use App\Models\User;
+use Extensions\Locations\Scopes\LocationScope;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Modules\Kalender\src\Models\Event;
 use Modules\Kalender\src\Models\Template;
+use Modules\Kalender\src\Services\CalendarLocationAccess;
 use Modules\Kalender\src\Services\EventService;
 
 /**
@@ -66,6 +69,9 @@ class EventForm extends Component
     /** @var array<int, string> Funktionen of the target group */
     public array $functionIds = [];
 
+    /** @var array<int, string> */
+    public array $locationIds = [];
+
     public string $templateId = '';
 
     public string $templateName = '';
@@ -107,15 +113,21 @@ class EventForm extends Component
             $this->placeId = (string) ($event->place_id ?? '');
             $this->dressCodeIds = array_map('strval', $event->dress_code_ids ?? []);
             $this->description = (string) $event->description;
-            $this->groupIds = $event->groups->pluck('id')->map(fn ($id) => (string) $id)->all();
-            $this->inviteeIds = $event->invitees->pluck('id')->map(fn ($id) => (string) $id)->all();
-            $this->functionIds = $event->functions->pluck('id')->map(fn ($id) => (string) $id)->all();
+            $locationScope = LocationScope::class;
+            $this->groupIds = $event->groups()->withoutGlobalScope($locationScope)->pluck('groups.id')->map(fn ($id) => (string) $id)->all();
+            $this->inviteeIds = $event->invitees()->withoutGlobalScope($locationScope)->pluck('users.id')->map(fn ($id) => (string) $id)->all();
+            $this->functionIds = $event->functions()->withoutGlobalScope($locationScope)->pluck('member_functions.id')->map(fn ($id) => (string) $id)->all();
+            $this->locationIds = array_map('strval', $event->locationIds());
+            if (app(CalendarLocationAccess::class)->enabled() && $this->locationIds === []) {
+                $this->locationIds = array_map('strval', app(CalendarLocationAccess::class)->defaultIds(auth()->user()));
+            }
             $this->minParticipants = (string) ($event->min_participants ?? '');
             $this->isPublic = $event->is_public;
             $this->rsvp = $event->rsvp;
             $this->rsvpDeadline = $event->rsvp_deadline?->setTimezone('Europe/Berlin')->format('Y-m-d') ?? '';
         } else {
             $this->authorize('manage', Event::class);
+            $this->locationIds = array_map('strval', app(CalendarLocationAccess::class)->defaultIds(auth()->user()));
             $start = now('Europe/Berlin')->addDay()->setTime(19, 0);
             $this->startsAt = $start->format(self::LOCAL);
             $this->endsAt = $start->copy()->addMinutes(self::DEFAULT_MINUTES)->format(self::LOCAL);
@@ -143,6 +155,28 @@ class EventForm extends Component
         if ($place = Place::find((int) $value)) {
             $this->location = $place->name;
         }
+    }
+
+    public function updatedLocationIds(): void
+    {
+        if (! app(CalendarLocationAccess::class)->enabled()) {
+            return;
+        }
+
+        $locations = array_map('intval', $this->locationIds);
+        $allowedGroups = Group::query()->withoutGlobalScope(LocationScope::class)->whereIn('ext_location_id', $locations ?: [-1])
+            ->pluck('id')->map(fn ($id) => (string) $id)->all();
+        $allowedFunctions = DB::table('member_functions')->where(function ($query) use ($locations) {
+            $query->whereIn('ext_location_id', $locations ?: [-1])->orWhereNull('ext_location_id');
+        })->pluck('id')->map(fn ($id) => (string) $id)->all();
+        $allowedPeople = DB::table('users')->where('is_active', true)->where(function ($query) use ($locations) {
+            $query->whereIn('ext_location_id', $locations ?: [-1])->orWhereExists(fn ($membership) => $membership
+                ->selectRaw('1')->from('x_location_user')->whereColumn('x_location_user.user_id', 'users.id')
+                ->whereIn('x_location_user.location_id', $locations ?: [-1]));
+        })->pluck('id')->map(fn ($id) => (string) $id)->all();
+        $this->groupIds = array_values(array_intersect($this->groupIds, $allowedGroups));
+        $this->functionIds = array_values(array_intersect($this->functionIds, $allowedFunctions));
+        $this->inviteeIds = array_values(array_intersect($this->inviteeIds, $allowedPeople));
     }
 
     /** The last day of an all-day event follows the first as long as it would end before it */
@@ -247,6 +281,10 @@ class EventForm extends Component
             'rsvpDeadline' => ['nullable', 'date_format:Y-m-d'],
             'repeat' => ['nullable', Rule::in(array_keys(EventService::REPEATS))],
             'repeatUntil' => [filled($this->repeat) && ! $this->event ? 'required' : 'nullable', 'date_format:Y-m-d'],
+            ...(app(CalendarLocationAccess::class)->enabled() ? [
+                'locationIds' => ['required', 'array', 'min:1'],
+                'locationIds.*' => ['integer', 'exists:x_locations,id'],
+            ] : []),
         ], [
             'title.required' => 'Bitte gib einen Titel an.',
             '*.required' => 'Bitte Datum und Uhrzeit angeben.',
@@ -281,11 +319,11 @@ class EventForm extends Component
         try {
             if ($this->event) {
                 $data['rsvp_deadline'] = $data['rsvp_deadline']?->utc();
-                $events->update($this->event, $data, $groups, $this->applyToFollowing, $invitees, $functions, auth()->user(), $this->notify);
+                $events->update($this->event, $data, $groups, $this->applyToFollowing, $invitees, $functions, auth()->user(), $this->notify, array_map('intval', $this->locationIds));
                 $target = $this->event;
             } else {
                 $repeat = filled($this->repeat) ? ['freq' => $this->repeat, 'until' => $day($this->repeatUntil)] : null;
-                $target = $events->create($data, $groups, auth()->user(), $repeat, $this->notify, $invitees, $functions)->first();
+                $target = $events->create($data, $groups, auth()->user(), $repeat, $this->notify, $invitees, $functions, array_map('intval', $this->locationIds))->first();
             }
         } catch (ValidationException $e) {
             $this->addError($this->allDay ? 'endDate' : 'endsAt', collect($e->errors())->flatten()->first());
@@ -298,13 +336,31 @@ class EventForm extends Component
 
     public function render()
     {
+        $locationAccess = app(CalendarLocationAccess::class);
+        $locations = $locationAccess->options(auth()->user());
+        $selectedLocations = array_map('intval', $this->locationIds);
+        $groups = Group::options(fn ($query) => $locationAccess->enabled()
+            ? $query->withoutGlobalScope(LocationScope::class)->whereIn('ext_location_id', $selectedLocations ?: [-1])
+            : null);
+        $functions = MemberFunction::query()->when($locationAccess->enabled(), fn ($query) => $query
+            ->withoutGlobalScope(LocationScope::class)->where(function ($query) use ($selectedLocations) {
+                $query->whereIn('ext_location_id', $selectedLocations ?: [-1])->orWhereNull('ext_location_id');
+            }))->with('parent')->orderBy('sort_order')->orderBy('name')->get()
+            ->mapWithKeys(fn (MemberFunction $f) => [$f->id => $f->fullLabel()])->sort();
+        $people = User::active()->when($locationAccess->enabled(), fn ($query) => $query->withoutGlobalScope(LocationScope::class)->where(function ($query) use ($selectedLocations) {
+            $query->whereIn('ext_location_id', $selectedLocations ?: [-1])->orWhereExists(fn ($membership) => $membership
+                ->selectRaw('1')->from('x_location_user')->whereColumn('x_location_user.user_id', 'users.id')
+                ->whereIn('x_location_user.location_id', $selectedLocations ?: [-1]));
+        }))->orderBy('name')->get()->filter(fn (User $u) => $u->canUseModule('kalender'))->pluck('name', 'id');
+
         return view('kalender::livewire.event-form', [
             'types' => Event::TYPES,
-            'groups' => Group::options(),
-            'people' => User::active()->orderBy('name')->get()->filter(fn (User $u) => $u->canUseModule('kalender'))->pluck('name', 'id'),
+            'groups' => $groups,
+            'people' => $people,
             'repeats' => EventService::REPEATS,
             'inSeries' => (bool) $this->event?->series_id,
-            'functions' => MemberFunction::with('parent')->orderBy('sort_order')->orderBy('name')->get()->mapWithKeys(fn (MemberFunction $f) => [$f->id => $f->fullLabel()])->sort(),
+            'functions' => $functions,
+            'locations' => $locations,
             'templates' => Template::orderBy('name')->pluck('name', 'id'),
             'places' => Place::options(),
             'dressCodes' => DressCode::options(),

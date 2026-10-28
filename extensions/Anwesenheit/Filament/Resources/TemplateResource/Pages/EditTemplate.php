@@ -13,8 +13,12 @@ class EditTemplate extends EditRecord
 
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
-        abort_unless(AttendanceService::canManageAt(auth()->user(), $record->getAttribute('ext_location_id'))
-            && AttendanceService::canManageAt(auth()->user(), isset($data['ext_location_id']) ? (int) $data['ext_location_id'] : $record->getAttribute('ext_location_id')), 403);
+        $user = auth()->user();
+        $locationId = isset($data['ext_location_id']) ? (int) $data['ext_location_id'] : $record->getAttribute('ext_location_id');
+        $groupId = isset($data['group_id']) ? (int) $data['group_id'] : $record->getAttribute('group_id');
+        abort_unless(AttendanceService::canManageGroupAt($user, $record->getAttribute('ext_location_id'), $record->getAttribute('group_id'))
+            && AttendanceService::canManageGroupAt($user, $locationId, $groupId)
+            && app(AttendanceService::class)->canSelectGroup($user, $locationId, $groupId), 403);
 
         return parent::handleRecordUpdate($record, $data);
     }

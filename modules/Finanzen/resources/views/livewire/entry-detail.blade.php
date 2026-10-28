@@ -17,6 +17,7 @@
 
     <section class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
         <dl class="grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-[10rem_1fr]">
+            @if($locationsEnabled)<dt class="text-gray-500">Standort</dt><dd>{{ $entry->location?->name ?? 'Altbestand ohne Standort' }}</dd>@endif
             <dt class="text-gray-500">Kostenstelle</dt><dd>{{ $entry->costCenter->label() }}</dd>
             <dt class="text-gray-500">Datum des Belegs</dt><dd>{{ $entry->booked_on->format('d.m.Y') }}</dd>
             @if($entry->vendor)<dt class="text-gray-500">{{ $entry->isIncome() ? 'Von' : 'Händler' }}</dt><dd>{{ $entry->vendor }}</dd>@endif

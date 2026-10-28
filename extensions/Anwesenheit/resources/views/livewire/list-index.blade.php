@@ -20,7 +20,7 @@
             <a href="{{ route('anwesenheit.show', $list) }}" class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-gray-50" wire:key="l-{{ $list->id }}">
                 <div>
                     <p class="font-semibold text-gray-900">{{ $list->title }} <span class="ml-1 rounded-full px-2 py-0.5 text-xs font-normal {{ $list->isSubmitted() ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800' }}">{{ $list->isSubmitted() ? __('anwesenheit::messages.submitted') : __('anwesenheit::messages.draft') }}</span></p>
-                    <p class="text-sm text-gray-500">{{ $list->kindLabel() }} · {{ $list->starts_at?->timezone('Europe/Berlin')->format('d.m.Y H:i') ?? 'ohne Zeit' }} · {{ $list->durationLabel() }} · Leitung: {{ $list->leader?->name ?? '–' }}</p>
+                    <p class="text-sm text-gray-500">{{ $list->kindLabel() }}@if($list->group) · {{ $list->group->display_name }}@endif · {{ $list->starts_at?->timezone('Europe/Berlin')->format('d.m.Y H:i') ?? 'ohne Zeit' }} · {{ $list->durationLabel() }} · Leitung: {{ $list->leader?->name ?? '–' }}</p>
                 </div>
                 <p class="text-sm text-gray-700">{{ $list->participant_count }} Teilnehmer</p>
             </a>

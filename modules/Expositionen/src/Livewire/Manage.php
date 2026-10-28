@@ -2,6 +2,7 @@
 
 namespace Modules\Expositionen\src\Livewire;
 
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -57,7 +58,12 @@ class Manage extends Component
 
     public function query()
     {
-        return Exposure::with('user')
+        $query = ExposureService::managedExposures(auth()->user())->with('user');
+        if (config('locations.enabled') && Schema::hasTable('x_locations')) {
+            $query->with('organizationalLocation');
+        }
+
+        return $query
             ->when(array_key_exists($this->status, Exposure::STATUSES), fn ($q) => $q->where('status', $this->status))
             ->when($this->year !== '', fn ($q) => $q->whereYear('occurred_on', (int) $this->year))
             ->orderByDesc('occurred_on')->orderBy('person_name');
@@ -67,7 +73,8 @@ class Manage extends Component
     {
         return view('expositionen::livewire.manage', [
             'exposures' => $this->query()->get(),
-            'counts' => Exposure::selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status'),
+            'counts' => ExposureService::managedExposures(auth()->user())->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status'),
+            'showLocations' => config('locations.enabled') && Schema::hasTable('x_locations'),
         ]);
     }
 }

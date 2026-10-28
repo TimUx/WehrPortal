@@ -1,7 +1,7 @@
 <x-layouts.app :title="'Lage '.($report->keyword ?: $report->number)">
     <div class="mx-auto max-w-2xl space-y-4">
         <div>
-            <a href="{{ \Modules\Einsatzbericht\src\Services\ReportService::canLead(auth()->user()) ? route('einsatzbericht.show', $report) : route('einsatzbericht.index') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← {{ \Modules\Einsatzbericht\src\Services\ReportService::canLead(auth()->user()) ? 'Bericht' : 'Laufende Einsätze' }}</a>
+            <a href="{{ \Modules\Einsatzbericht\src\Services\ReportService::canLeadReport(auth()->user(), $report) ? route('einsatzbericht.show', $report) : route('einsatzbericht.index') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← {{ \Modules\Einsatzbericht\src\Services\ReportService::canLeadReport(auth()->user(), $report) ? 'Bericht' : 'Laufende Einsätze' }}</a>
             <h1 class="mt-1 text-xl font-bold text-gray-900">Lagemeldungen · {{ $report->keyword ?: 'Einsatz '.$report->number }}</h1>
             <p class="text-sm text-gray-500">{{ $report->alarmed_at?->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }}{{ $report->address ? ' · '.$report->address : '' }}@if($report->navigationUrl()) · <a href="{{ $report->navigationUrl() }}" target="_blank" rel="noopener" class="underline">Navigation</a>@endif</p>
         </div>

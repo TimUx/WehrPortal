@@ -126,7 +126,7 @@ class CalendarView extends Component
             'upcoming' => $upcoming,
             'types' => Event::TYPES,
             'views' => self::VIEWS,
-            'manager' => $user->canManageKalender(),
+            'manager' => $user->canManageAnyKalenderLocation(),
         ]);
     }
 }

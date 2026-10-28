@@ -16,20 +16,21 @@
     </div>
     <div class="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
         <table class="min-w-full text-sm">
-            <thead class="bg-gray-50 text-left text-xs text-gray-500"><tr><th class="p-2"></th><th class="p-2">Datum</th><th class="p-2">Kamerad</th><th class="p-2">Anlass</th><th class="p-2">Gefahrstoffe</th><th class="p-2">Status</th><th class="p-2"></th></tr></thead>
+            <thead class="bg-gray-50 text-left text-xs text-gray-500"><tr><th class="p-2"></th><th class="p-2">Datum</th><th class="p-2">Kamerad</th>@if($showLocations)<th class="p-2">Standort</th>@endif<th class="p-2">Anlass</th><th class="p-2">Gefahrstoffe</th><th class="p-2">Status</th><th class="p-2"></th></tr></thead>
             <tbody class="divide-y divide-gray-100">
                 @forelse($exposures as $e)
                     <tr wire:key="x-{{ $e->id }}">
                         <td class="p-2">@if($e->status === 'recorded')<input type="checkbox" wire:model="selected" value="{{ $e->id }}" class="rounded" aria-label="auswählen">@endif</td>
                         <td class="p-2 whitespace-nowrap">{{ $e->occurred_on->format('d.m.Y') }}</td>
                         <td class="p-2">{{ $e->person_name }}@if($e->user?->status?->value === 'left')<span class="block text-[11px] text-amber-700">ausgetreten – Nachweis aushändigen</span>@endif</td>
+                        @if($showLocations)<td class="p-2">{{ $e->organizationalLocation?->name ?? 'Nicht zugeordnet' }}</td>@endif
                         <td class="p-2">{{ $e->occasion }}<span class="block text-xs text-gray-500">{{ $e->activityLabel() }}</span></td>
                         <td class="p-2 text-xs">{{ $e->substanceList() }}</td>
                         <td class="p-2 text-xs {{ $e->status === 'draft' ? 'text-amber-700' : 'text-gray-600' }}">{{ $e->statusLabel() }}@if($e->reported_on) {{ $e->reported_on->format('d.m.Y') }}@endif</td>
                         <td class="p-2 whitespace-nowrap text-xs"><a href="{{ route('expositionen.edit', $e) }}" class="text-fw-navy underline">Öffnen</a>@if($e->user)<a href="{{ route('expositionen.certificate', $e->user) }}" target="_blank" class="ml-2 text-fw-navy underline">Nachweis</a>@endif</td>
                     </tr>
                 @empty
-                    <tr><td colspan="7" class="p-4 text-gray-500">Keine Expositionen.</td></tr>
+                    <tr><td colspan="{{ $showLocations ? 8 : 7 }}" class="p-4 text-gray-500">Keine Expositionen.</td></tr>
                 @endforelse
             </tbody>
         </table>

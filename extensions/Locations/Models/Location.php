@@ -12,6 +12,14 @@ use Illuminate\Validation\ValidationException;
 use Modules\Ausruestung\src\Models\Equipment;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 
+/**
+ * @property int $id
+ * @property string $name
+ * @property string $slug
+ * @property bool $is_default
+ * @property bool $is_active
+ * @property string|null $crest_data
+ */
 class Location extends Model
 {
     protected $table = 'x_locations';

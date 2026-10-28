@@ -1,7 +1,6 @@
 <?php
 
 use Extensions\Vereinsverwaltung\Http\Controllers\MembershipApplicationController;
-use Extensions\Vereinsverwaltung\Livewire\Board;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/vereinsbeitritt', [MembershipApplicationController::class, 'create'])->name('verein.application');

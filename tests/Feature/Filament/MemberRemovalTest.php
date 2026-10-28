@@ -35,7 +35,8 @@ beforeEach(function () {
     $vehicle = Vehicle::factory()->create(['name' => 'HLF 20', 'is_active' => true]);
     $this->booking = app(BookingService::class)->create(['vehicle_id' => $vehicle->id, 'purpose' => 'Übungsfahrt',
         'starts_at' => now()->addDay(), 'ends_at' => now()->addDay()->addHours(2)], $this->hanna->id);
-    $this->event = app(EventService::class)->create(['title' => 'Übung', 'type' => 'uebung', 'starts_at' => now()->addDays(2), 'ends_at' => now()->addDays(2)->addHours(2)], [], $this->hanna)->first();
+    $this->event = app(EventService::class)->create(['title' => 'Übung', 'type' => 'uebung', 'starts_at' => now()->addDays(2), 'ends_at' => now()->addDays(2)->addHours(2)], [], null)->first();
+    $this->event->forceFill(['created_by' => $this->hanna->id])->save();
 
     $reports = app(ReportService::class);
     foreach ([[$this->hanna, $this->former], [$this->hanna]] as $i => $crew) {

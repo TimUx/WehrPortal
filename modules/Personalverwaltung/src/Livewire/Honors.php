@@ -107,6 +107,7 @@ class Honors extends Component
             'types' => HonorType::orderBy('sort_order')->orderBy('name')->get(),
             'awarded' => Honor::with('user')->whereIn('user_id', PersonnelService::visibleMembers($manager)->select('id'))
                 ->whereYear('awarded_on', $this->year)->orderByDesc('awarded_on')->get(),
+            'canEditTypes' => PersonnelService::canManageHonorTypes($manager),
         ]);
     }
 }

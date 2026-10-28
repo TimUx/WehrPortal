@@ -21,7 +21,8 @@
 
         <dl class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
             <div><dt class="text-gray-500">Kategorie</dt><dd class="text-gray-900">{{ $equipment->category?->name ?? '–' }}</dd></div>
-            <div><dt class="text-gray-500">Standort</dt><dd class="text-gray-900">{{ $equipment->placeLabel() }}</dd></div>
+            <div><dt class="text-gray-500">Lagerort / Fahrzeug</dt><dd class="text-gray-900">{{ $equipment->placeLabel() }}</dd></div>
+            @if(config('locations.enabled'))<div><dt class="text-gray-500">Standort</dt><dd class="text-gray-900">{{ $equipment->standort?->name ?? '–' }}</dd></div>@endif
             <div><dt class="text-gray-500">Hersteller / Modell</dt><dd class="text-gray-900">{{ collect([$equipment->manufacturer, $equipment->model])->filter()->implode(' · ') ?: '–' }}</dd></div>
             <div><dt class="text-gray-500">Seriennummer</dt><dd class="text-gray-900">{{ $equipment->serial_number ?? '–' }}</dd></div>
             <div><dt class="text-gray-500">Nächste Prüfung</dt><dd class="{{ $equipment->inspectionOverdue() ? 'text-red-700 font-semibold' : 'text-gray-900' }}">{{ $equipment->next_inspection_at?->format('d.m.Y') ?? '–' }}</dd></div>

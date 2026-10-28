@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\Module;
 use App\Models\Group;
+use App\Models\Module;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;

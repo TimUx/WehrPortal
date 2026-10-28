@@ -22,6 +22,7 @@ class Downtime extends Model
         return ['starts_at' => 'datetime', 'ends_at' => 'datetime'];
     }
 
+    /** @return BelongsTo<Vehicle, $this> */
     public function vehicle(): BelongsTo
     {
         return $this->belongsTo(Vehicle::class);

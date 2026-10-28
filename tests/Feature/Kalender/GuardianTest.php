@@ -53,6 +53,7 @@ test('Erziehungsberechtigte get the Kalender mails of the child and answer for i
 });
 
 test('the Personalverwalter and the admin keep the Erziehungsberechtigte', function () {
+    config(['locations.enabled' => false]);
     Module::where('key', 'personalverwaltung')->update(['is_active' => true]);
     Cache::forget('modules_active_keys');
     $pv = User::factory()->create();

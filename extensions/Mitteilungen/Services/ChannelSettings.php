@@ -3,6 +3,7 @@
 namespace Extensions\Mitteilungen\Services;
 
 use App\Models\User;
+use App\Support\SafeUrl;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\LocationAccess;
 use Extensions\Mitteilungen\Models\ChannelDestination;
@@ -159,7 +160,7 @@ class ChannelSettings
 
         if ($checkPublicHost) {
             try {
-                \App\Support\SafeUrl::check($url);
+                SafeUrl::check($url);
             } catch (Throwable) {
                 throw ValidationException::withMessages(['data' => 'Der Server ist nicht erreichbar oder nicht zulässig. Erlaubt sind öffentliche HTTPS-Server.']);
             }

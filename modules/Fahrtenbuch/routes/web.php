@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\FileResponse;
 use Illuminate\Support\Facades\Route;
 use Modules\Fahrtenbuch\src\Models\Fueling;
 use Modules\Fahrtenbuch\src\Services\LogbookService;
@@ -20,27 +21,49 @@ Route::prefix('fahrtenbuch')->name('fahrtenbuch.')
 
         Route::get('/beleg/{fueling}', function (Fueling $fueling) {
             abort_unless($fueling->receipt, 404);
+            $vehicle = Vehicle::withoutGlobalScopes()->find($fueling->vehicle_id);
+            abort_unless($vehicle && LogbookService::canAccessVehicle(auth()->user(), $vehicle), 404);
 
-            return response(base64_decode($fueling->receipt), 200, ['Content-Type' => $fueling->receipt_mime, 'Cache-Control' => 'private, max-age=3600', 'X-Content-Type-Options' => 'nosniff']);
+            $filename = match ($fueling->receipt_mime) {
+                'application/pdf' => 'tankbeleg.pdf',
+                'image/webp' => 'tankbeleg.webp',
+                default => abort(404),
+            };
+            $bytes = base64_decode($fueling->receipt, true);
+            abort_if($bytes === false, 404);
+
+            return FileResponse::make($bytes, $filename);
         })->whereNumber('fueling')->name('receipt');
 
         // Fahrtenbuchwart and admins: statistics and export for Steuer and Versicherung
         Route::middleware('can:fahrtenbuch-manage')->group(function () use ($page) {
             Route::get('/auswertung', fn () => $page('fahrtenbuch.statistics', 'Auswertung Fahrtenbuch'))->name('statistics');
 
-            Route::get('/export/{vehicle}/{year}/fahrten.csv', fn (Vehicle $vehicle, int $year, LogbookService $logbook) => response($logbook->csv($vehicle, $year), 200, [
-                'Content-Type' => 'text/csv; charset=UTF-8',
-                'Content-Disposition' => 'attachment; filename="Fahrtenbuch-'.str($vehicle->name)->slug().'-'.$year.'.csv"',
-            ]))->whereNumber(['vehicle', 'year'])->name('export.trips');
+            Route::get('/export/{vehicle}/{year}/fahrten.csv', function (Vehicle $vehicle, int $year, LogbookService $logbook) {
+                abort_unless(LogbookService::canManageVehicle(auth()->user(), $vehicle), 403);
 
-            Route::get('/export/{vehicle}/{year}/tanken.csv', fn (Vehicle $vehicle, int $year, LogbookService $logbook) => response($logbook->fuelCsv($vehicle, $year), 200, [
-                'Content-Type' => 'text/csv; charset=UTF-8',
-                'Content-Disposition' => 'attachment; filename="Tankbuch-'.str($vehicle->name)->slug().'-'.$year.'.csv"',
-            ]))->whereNumber(['vehicle', 'year'])->name('export.fuel');
+                return response($logbook->csv($vehicle, $year), 200, [
+                    'Content-Type' => 'text/csv; charset=UTF-8',
+                    'Content-Disposition' => 'attachment; filename="Fahrtenbuch-'.str($vehicle->name)->slug().'-'.$year.'.csv"',
+                ]);
+            })->whereNumber(['vehicle', 'year'])->name('export.trips');
 
-            Route::get('/export/{vehicle}/{year}/druck', fn (Vehicle $vehicle, int $year, LogbookService $logbook) => view('fahrtenbuch::pages.print', [
-                'vehicle' => $vehicle, 'year' => $year, 'trips' => $logbook->yearTrips($vehicle, $year, withVoided: true),
-                'consumption' => $logbook->consumption($vehicle, $year),
-            ]))->whereNumber(['vehicle', 'year'])->name('export.print');
+            Route::get('/export/{vehicle}/{year}/tanken.csv', function (Vehicle $vehicle, int $year, LogbookService $logbook) {
+                abort_unless(LogbookService::canManageVehicle(auth()->user(), $vehicle), 403);
+
+                return response($logbook->fuelCsv($vehicle, $year), 200, [
+                    'Content-Type' => 'text/csv; charset=UTF-8',
+                    'Content-Disposition' => 'attachment; filename="Tankbuch-'.str($vehicle->name)->slug().'-'.$year.'.csv"',
+                ]);
+            })->whereNumber(['vehicle', 'year'])->name('export.fuel');
+
+            Route::get('/export/{vehicle}/{year}/druck', function (Vehicle $vehicle, int $year, LogbookService $logbook) {
+                abort_unless(LogbookService::canManageVehicle(auth()->user(), $vehicle), 403);
+
+                return view('fahrtenbuch::pages.print', [
+                    'vehicle' => $vehicle, 'year' => $year, 'trips' => $logbook->yearTrips($vehicle, $year, withVoided: true),
+                    'consumption' => $logbook->consumption($vehicle, $year),
+                ]);
+            })->whereNumber(['vehicle', 'year'])->name('export.print');
         });
     });

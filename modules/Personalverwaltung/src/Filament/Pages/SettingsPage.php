@@ -40,7 +40,7 @@ class SettingsPage extends Page implements ModuleArea
 
     public static function allows(User $user): bool
     {
-        return PersonnelService::canManage($user);
+        return PersonnelService::canConfigure($user);
     }
 
     public function mount(): void

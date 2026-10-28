@@ -25,7 +25,7 @@
 <body>
     <button type="button" class="print" onclick="window.print()">Drucken</button>
     <h1>{{ $plan->title }}</h1>
-    <p class="meta">{{ $plan->timeLabel() }}@if($plan->location) · {{ $plan->location }}@endif</p>
+    <p class="meta">{{ $plan->timeLabel() }}@if($plan->location) · {{ $plan->location }}@endif @if($showSite && $plan->site) · Standort: {{ $plan->site->name }}@endif</p>
 
     <table>
         <thead>

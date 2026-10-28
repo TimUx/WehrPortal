@@ -2,6 +2,7 @@
 
 namespace Extensions\Anwesenheit\Models;
 
+use App\Models\Group;
 use App\Models\User;
 use App\Services\ActivityRecorder;
 use Illuminate\Database\Eloquent\Model;
@@ -20,7 +21,7 @@ class AttendanceList extends Model
 
     protected $attributes = ['status' => self::DRAFT, 'kind' => 'uebung', 'guests' => 0, 'participant_count' => 0, 'duration_minutes' => 0];
 
-    protected $fillable = ['ext_location_id', 'title', 'kind', 'status', 'starts_at', 'ends_at', 'duration_minutes', 'leader_id', 'guests',
+    protected $fillable = ['ext_location_id', 'group_id', 'title', 'kind', 'status', 'starts_at', 'ends_at', 'duration_minutes', 'leader_id', 'guests',
         'participant_count', 'notes', 'recipients', 'template_id', 'source_event_id', 'submitted_at', 'mailed_at', 'created_by'];
 
     protected function casts(): array
@@ -51,6 +52,11 @@ class AttendanceList extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(Group::class)->withoutGlobalScopes();
     }
 
     public function participants(): BelongsToMany

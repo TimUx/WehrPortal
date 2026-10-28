@@ -24,7 +24,9 @@ use Extensions\Locations\Services\LocationModuleRoles;
 use Extensions\Locations\Services\ScopedAnnouncementService;
 use Extensions\Locations\Support\AssignsLocation;
 use Filament\Facades\Filament;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Events\MigrationsStarted;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -43,6 +45,7 @@ use Modules\Kleiderkammer\src\Models\Size;
 use Modules\Kleiderkammer\src\Models\Stock;
 use Modules\Kleiderkammer\src\Services\PersonalAccess;
 use Modules\Kleiderkammer\src\Services\StockAccess;
+use Modules\Maengelmanagement\src\Models\Device as DefectDevice;
 use Modules\Mitteilungen\src\Services\AnnouncementService;
 
 /**
@@ -155,6 +158,20 @@ class LocationsServiceProvider extends ServiceProvider
             $class::addGlobalScope(new LocationScope);
             $class::creating(fn ($model) => AssignsLocation::creating($model));
             $class::updating(fn ($model) => AssignsLocation::updating($model));
+        }
+
+        foreach (['creating', 'updating'] as $event) {
+            DefectDevice::{$event}(function (DefectDevice $device): void {
+                if (! Auth::hasUser() || ! config('locations.enabled')) {
+                    return;
+                }
+
+                $user = Auth::user();
+                $locationId = $device->getAttribute('ext_location_id');
+                if (! $user instanceof User || ! $user->canManageMaengelAt($locationId === null ? null : (int) $locationId)) {
+                    throw new AuthorizationException('Kein Recht, Geräte an diesem Standort zu verwalten.');
+                }
+            });
         }
     }
 }

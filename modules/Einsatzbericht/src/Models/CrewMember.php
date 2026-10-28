@@ -6,7 +6,13 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/** An Einsatzkraft on one vehicle (or in the Bereitschaft) with function and Atemschutz */
+/**
+ * An Einsatzkraft on one vehicle (or in the Bereitschaft) with function and Atemschutz.
+ *
+ * @property int $user_id
+ * @property string $function
+ * @property bool $breathing_apparatus
+ */
 class CrewMember extends Model
 {
     /**
