@@ -84,6 +84,14 @@ class Explorer extends Component
     #[Url]
     public string $layout = 'list';
 
+    public const SORTS = ['name', 'type', 'size', 'created', 'modified', 'version', 'author'];
+
+    #[Url]
+    public string $sort = 'name';
+
+    #[Url]
+    public string $dir = 'asc';
+
     public string $destination = '';
 
     public string $subjectType = 'user';
@@ -148,6 +156,40 @@ class Explorer extends Component
     {
         abort_unless(in_array($layout, ['list', 'table', 'tiles'], true), 404);
         $this->layout = $layout;
+    }
+
+    public function setSort(string $sort): void
+    {
+        abort_unless(in_array($sort, self::SORTS, true), 404);
+        $this->dir = $this->sort === $sort && $this->dir === 'asc' ? 'desc' : 'asc';
+        $this->sort = $sort;
+    }
+
+    public function setSortDirection(string $dir): void
+    {
+        $this->dir = $dir === 'desc' ? 'desc' : 'asc';
+    }
+
+    /** Default action of a file: edit in the online office, else view there, else download */
+    public function openFile(int $id): void
+    {
+        $node = $this->findNode($id);
+        if ($node->kind !== 'file' || $node->trashed()) {
+            $this->select($id);
+
+            return;
+        }
+        $office = app(OfficeService::class);
+        $user = $this->user();
+        if ($office->canOpen($user, $node, true)) {
+            $this->redirect(route('dateien.office', ['node' => $node->id, 'bearbeiten' => 1]));
+        } elseif ($office->canOpen($user, $node)) {
+            $this->redirect(route('dateien.office', ['node' => $node->id]));
+        } elseif ($version = $this->service()->versions($user, $node)->first()) {
+            $this->redirect(route('dateien.download', ['node' => $node->id, 'version' => $version->id]));
+        } else {
+            $this->select($id);
+        }
     }
 
     public function createSpace(): void
@@ -640,6 +682,7 @@ class Explorer extends Component
     {
         $user = $this->user();
         abort_unless(in_array($this->view, self::VIEWS, true), 404);
+        abort_unless(in_array($this->sort, self::SORTS, true), 404);
         $access = $this->access();
         $spaces = Space::query()->orderBy('name')->get()->filter(fn (Space $space) => $access->can($user, $space, 'read'));
         $space = null;

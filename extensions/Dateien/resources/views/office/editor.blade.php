@@ -19,7 +19,7 @@
 <body>
 <header>
     <a href="{{ $back }}">← Zurück zu Dateien</a>
-    <span>{{ $node->name }} · nur lesen</span>
+    <span>{{ $node->name }} · {{ $editing ? 'bearbeiten' : 'nur lesen' }}</span>
 </header>
 <main>
     @if ($editor['mode'] === 'onlyoffice')

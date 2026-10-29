@@ -39,7 +39,7 @@ class OfficeEditorController
             ."base-uri 'none'; object-src 'none'; frame-ancestors 'self'";
 
         return response()->view('dateien::office.editor', [
-            'node' => $node, 'editor' => $editor, 'nonce' => $nonce,
+            'node' => $node, 'editor' => $editor, 'nonce' => $nonce, 'editing' => $session->level === 'edit',
             'back' => route('dateien.index', ['node' => $node->id]),
         ])->withHeaders([
             'Content-Security-Policy' => $csp,
