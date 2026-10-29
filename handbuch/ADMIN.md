@@ -2,7 +2,7 @@
 
 [README](../README.md) · [Installationsguide](INSTALLATION.md) · [User-Guide](USER.md)
 
-Dieser Guide führt durch die Einrichtung und den laufenden Betrieb in der Oberfläche. Server, Datenbank, Mailversand und Backups behandelt der [Installationsguide](INSTALLATION.md). Die vollständigen Fachabläufe stehen bei den [Modulvorstellungen](../README.md#module-im-detail).
+Dieser Guide führt durch die Einrichtung und den laufenden Betrieb in der Oberfläche. Server, Datenbank, Mailversand und Backups behandelt der [Installationsguide](INSTALLATION.md). Die vollständigen Fachabläufe stehen bei den [Modulvorstellungen](../docs/MODULE.md#module-im-detail).
 
 ## Inhaltsverzeichnis
 
@@ -91,7 +91,7 @@ Einige Module können durch den Betreiber zusätzlich per `*_ENABLED` gar nicht 
 
 Bei Austritt grundsätzlich den Status **Ausgetreten** setzen. Dadurch endet der Login, während referenzierte Vorgänge erhalten bleiben. **Inaktiv** eignet sich für eine vorübergehende Deaktivierung.
 
-Wenn andere Datensätze auf ein Mitglied verweisen, kann die normale Löschung blockiert sein. **Löschen mit Übertragung** ist eine bewusste, weitreichende Alternative: Der Dialog zeigt betroffene Bereiche und verlangt eine Zielperson sowie Bestätigung. Persönliche Daten werden teilweise gelöscht; geschützte Daten werden nicht beliebig auf eine andere Person übertragen. Vorher den [genauen Ablauf und die Ausnahmen](../README.md#admin-bereich-admin) lesen und eine Sicherung sicherstellen. Austritt ist keine Aufforderung, vorgeschriebene Aufbewahrungsfristen zu umgehen.
+Wenn andere Datensätze auf ein Mitglied verweisen, kann die normale Löschung blockiert sein. **Löschen mit Übertragung** ist eine bewusste, weitreichende Alternative: Der Dialog zeigt betroffene Bereiche und verlangt eine Zielperson sowie Bestätigung. Persönliche Daten werden teilweise gelöscht; geschützte Daten werden nicht beliebig auf eine andere Person übertragen. Vorher den [genauen Ablauf und die Ausnahmen](../docs/KERNFUNKTIONEN.md#admin-bereich-admin) lesen und eine Sicherung sicherstellen. Austritt ist keine Aufforderung, vorgeschriebene Aufbewahrungsfristen zu umgehen.
 
 ## Zugriffsprobleme eingrenzen
 

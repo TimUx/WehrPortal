@@ -3,7 +3,7 @@ import path from 'node:path';
 import { frozenNow } from '../fixtures/env';
 import { pages } from '../fixtures/pages';
 
-// Default: straight into the documentation (README.md and docs embed these files)
+// Default: straight into the documentation (docs/MODULE.md embeds these files)
 const outputDir = path.resolve(__dirname, '..', process.env.E2E_SCREENSHOT_DIR ?? '../../docs/screenshots');
 
 /** Waits until nothing loads or moves any more: network idle, web fonts, images and Livewire done */

@@ -82,7 +82,7 @@ Im **Kalender** einen Termin öffnen und die angebotene Rückmeldung mit eventue
 
 **Fahrzeugbuchung** öffnen, Fahrzeug und Zeitraum wählen, die Pflichtangaben ergänzen und speichern. Bei einer Überschneidung zeigt die App die Belegung und gegebenenfalls Alternativen. Eine begründete Entscheidungsanfrage reserviert das Fahrzeug noch nicht.
 
-Eigene Buchungen kannst du vor Beginn ändern oder stornieren. Bist du während einer laufenden Buchung früher zurück, **Fahrzeug zurückgeben** verwenden; dadurch wird der restliche Zeitraum frei. [Ausführlicher Buchungsablauf](../README.md#buchen).
+Eigene Buchungen kannst du vor Beginn ändern oder stornieren. Bist du während einer laufenden Buchung früher zurück, **Fahrzeug zurückgeben** verwenden; dadurch wird der restliche Zeitraum frei. [Ausführlicher Buchungsablauf](../docs/KERNFUNKTIONEN.md#buchen).
 
 ### Eine Fahrt dokumentieren
 
@@ -110,7 +110,7 @@ Im Modul **Anwesenheit** eine neue Liste anlegen, Standort, Zeiten und Teilnehme
 
 Unter **Dateien** eine freigegebene Ablage oder **Mit mir geteilt** öffnen. Sichtbarkeit und Aktionen hängen von den ausdrücklich vergebenen Rechten ab. Für eine Inhaltsänderung **Neue Version** verwenden; eine gleich benannte Datei überschreibt nicht automatisch die vorhandene. Öffentliche Download-Links nur mit dafür vorgesehenen Rechten und nach den Vorgaben eurer Wehr erzeugen.
 
-Alle weiteren Abläufe und die jeweiligen Rollen beschreibt die [Modulübersicht](../README.md#module-im-überblick).
+Alle weiteren Abläufe und die jeweiligen Rollen beschreibt die [Modulübersicht](../docs/MODULE.md#module-im-überblick).
 
 ## Ohne Verbindung arbeiten
 
@@ -120,7 +120,7 @@ Für ausdrücklich unterstützte Formulare, etwa Wasserquellen und Anwesenheitsl
 
 **Objektpläne**, **Gefahrenmatrix** und **Gefahrstoffdatenbank** haben gezielte Offline-Funktionen. Benötigte Inhalte vorher online speichern und nach Änderungen erneut aktualisieren. Die Dateiablage hat keine Offline-Bearbeitung. Ein lokal gespeicherter Entwurf ist noch kein abgegebener oder serverseitig gesicherter Vorgang.
 
-Auf gemeinsam genutzten Geräten nach der Nutzung abmelden. Lokale Formularentwürfe verfallen nach 30 Tagen und werden beim Abmelden gelöscht; andere gezielte Offline-Speicher sind davon zu unterscheiden. [Details zur Offline-Nutzung](../README.md#offline-und-pwa-im-detail).
+Auf gemeinsam genutzten Geräten nach der Nutzung abmelden. Lokale Formularentwürfe verfallen nach 30 Tagen und werden beim Abmelden gelöscht; andere gezielte Offline-Speicher sind davon zu unterscheiden. [Details zur Offline-Nutzung](../docs/MODULE.md#offline-und-pwa-im-detail).
 
 ## Hilfe bekommen
 

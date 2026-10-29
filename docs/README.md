@@ -2,7 +2,7 @@
 
 [Zur Hauptdokumentation](../README.md)
 
-Alle Funktionen gehören zu WehrPortal; es gibt keine unterschiedlichen Modulklassen. Dieser Index bündelt weiterführende Handbücher für einzelne Module und übergreifende Funktionen direkt mit der Projektseite und den Screenshots unter `docs/`. Die vollständige [Modulübersicht mit Screenshots](../README.md#module-im-überblick) steht in der README.
+Alle Funktionen gehören zu WehrPortal; es gibt keine unterschiedlichen Modulklassen. Dieser Index bündelt weiterführende Handbücher für einzelne Module und übergreifende Funktionen direkt mit der Projektseite und den Screenshots unter `docs/`. Die vollständige [Modulübersicht mit Screenshots](MODULE.md#module-im-überblick) steht in der README.
 
 Für den Einstieg: **[Installationsguide](../handbuch/INSTALLATION.md)** · **[Admin-Guide](../handbuch/ADMIN.md)** · **[User-Guide](../handbuch/USER.md)**.
 
@@ -36,7 +36,7 @@ System-Admins legen Vereine unter **Admin → Vereine** an, ordnen jedem Verein 
 
 ## Hydrantenkontrolle: Bedienungsanleitung
 
-[Kurzüberblick in der README](../README.md#hydrantenkontrolle)
+[Kurzüberblick in der Modulübersicht](MODULE.md#hydrantenkontrolle)
 
 ![Screenshot: Hydrantenkontrolle – Jahreskontrollen](screenshots/hydrantenkontrolle/jahreskontrollen.png)
 
@@ -159,4 +159,4 @@ Der PDF-Export verwendet die bereits vorhandene Dompdf-Bibliothek und benötigt 
 - Offline-Entwürfe bleiben lokal im Browser, laufen ab und müssen von der Person geprüft und regulär abgesendet werden. Es gibt keine automatische Formularsynchronisierung; siehe [Offline/PWA](OFFLINE.md).
 - Die Dateien-Roadmap trennt umgesetzte Meilensteine von offenem Ausbau; geplante Punkte sind keine verfügbaren Funktionen: [Dateien-Roadmap](DATEIEN-ROADMAP.md).
 - Eine Testinstallation mit Beispieldaten, Browser-Smoke-Test und aktuelle Screenshots erzeugt der Workflow **E2E Screenshots**; siehe [E2E-Test und Screenshots](SCREENSHOTS.md).
-- Für Installation, Updates und Image-Veröffentlichungen siehe [Betrieb und Entwicklung](../README.md#betrieb-und-entwicklung), für Herkunft und Urheberhinweise [Lizenz](../README.md#lizenz).
+- Für Installation, Updates und Image-Veröffentlichungen siehe [Betrieb und Entwicklung](BETRIEB.md#betrieb-und-entwicklung), für Herkunft und Urheberhinweise [Lizenz](BETRIEB.md#lizenz).

@@ -1,6 +1,6 @@
 name: Docs Screenshots
 
-# Keeps the screenshots in the documentation (docs/screenshots/, embedded in README.md
+# Keeps the screenshots in the documentation (docs/screenshots/, embedded in docs/MODULE.md
 # and docs) current. Runs the E2E screenshot workflow and commits the pictures back to
 # `main` when they changed. The run is deterministic (frozen clock, fixed data), so a commit only
 # happens when the UI or the example data changed. Pushes with GITHUB_TOKEN start no new workflow runs.
