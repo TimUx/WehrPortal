@@ -10,7 +10,8 @@
             <label class="min-w-48 flex-1 text-sm sm:w-72 sm:flex-none"><span class="sr-only">Dateien suchen</span>
                 <input type="search" wire:model.live.debounce.400ms="search" maxlength="100" placeholder="Name suchen …" class="{{ $input }} w-full">
             </label>
-            @if(($canWriteHere && ! $searching) || ($currentSpace && $view !== 'trash' && $access->can($user, $currentSpace, 'manage')))
+            @php $folderTools = $folder && ! $selected && $collabNode && ! $searching; @endphp
+            @if(($canWriteHere && ! $searching) || $folderTools || ($currentSpace && $view !== 'trash' && $access->can($user, $currentSpace, 'manage')))
             <div class="inline-flex rounded-lg border border-gray-200 bg-white p-1" role="group" aria-label="Aktionen">
                 @if($canWriteHere && ! $searching)
                     <button type="button" x-on:click="modal = 'folder'" title="Neuer Ordner" aria-label="Neuer Ordner" class="rounded-md p-1.5 text-fw-navy hover:bg-gray-100"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM12 10v5M9.5 12.5h5"/></svg></button>
@@ -18,6 +19,11 @@
                         <button type="button" x-on:click="modal = 'file'" title="Neue Datei" aria-label="Neue Datei" class="rounded-md p-1.5 text-fw-navy hover:bg-gray-100"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM14 3v5h5M12 11v6M9 14h6"/></svg></button>
                     @endif
                     <button type="button" x-on:click="modal = 'upload'" title="Hochladen" aria-label="Hochladen" class="rounded-md p-1.5 text-fw-navy hover:bg-gray-100"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></button>
+                @endif
+                @if($folderTools)
+                    <a href="{{ route('dateien.zip', ['node' => $folder->id]) }}" title="Als ZIP herunterladen" aria-label="Als ZIP herunterladen" class="rounded-md p-1.5 text-fw-navy hover:bg-gray-100"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M4 19h16"/></svg></a>
+                    <button type="button" wire:click="toggleFavorite" title="{{ $isFavorite ? 'Favorit entfernen' : 'Als Favorit merken' }}" aria-label="{{ $isFavorite ? 'Favorit entfernen' : 'Als Favorit merken' }}" aria-pressed="{{ $isFavorite ? 'true' : 'false' }}" class="rounded-md p-1.5 hover:bg-gray-100 {{ $isFavorite ? 'text-amber-500' : 'text-fw-navy' }}"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="{{ $isFavorite ? 'currentColor' : 'none' }}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg></button>
+                    <button type="button" wire:click="toggleSubscription" title="{{ $isSubscribed ? 'Abo beenden' : 'Bei Änderungen benachrichtigen' }}" aria-label="{{ $isSubscribed ? 'Abo beenden' : 'Bei Änderungen benachrichtigen' }}" aria-pressed="{{ $isSubscribed ? 'true' : 'false' }}" class="rounded-md p-1.5 hover:bg-gray-100 {{ $isSubscribed ? 'text-fw-red' : 'text-fw-navy' }}"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="{{ $isSubscribed ? 'currentColor' : 'none' }}" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9zM10 20a2 2 0 0 0 4 0"/></svg></button>
                 @endif
                 @if($currentSpace && $view !== 'trash' && $access->can($user, $currentSpace, 'manage'))
                     <button type="button" wire:click="navigate({{ $currentSpace->id }}, null, 'trash')" title="Papierkorb dieses Bereichs" aria-label="Papierkorb dieses Bereichs" class="rounded-md p-1.5 text-fw-navy hover:bg-gray-100">@include('dateien::partials.icon', ['kind' => 'trash'])</button>
@@ -183,11 +189,6 @@
                 @if($view === 'trash')<span class="font-semibold">Papierkorb</span>@endif
                 @if($view === 'favorites')<span class="font-semibold">Favoriten</span>@endif
                 @if($view === 'recent')<span class="font-semibold">Zuletzt verwendet</span>@endif
-                @if($folder && ! $selected && $collabNode)
-                    <a href="{{ route('dateien.zip', ['node' => $folder->id]) }}" class="{{ $link }}">Als ZIP herunterladen</a>
-                    <button type="button" wire:click="toggleFavorite" class="{{ $link }}">{{ $isFavorite ? '★ Favorit' : '☆ Favorit' }}</button>
-                    <button type="button" wire:click="toggleSubscription" class="{{ $link }}">{{ $isSubscribed ? 'Abo beenden' : 'Abonnieren' }}</button>
-                @endif
             </div>
             @if($quotaWarning)
                 <p role="alert" class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">Speicherplatz dieses Bereichs zu {{ $quotaWarning['percent'] }} % belegt ({{ number_format($quotaWarning['used'] / 1048576, 1, ',', '.') }} von {{ number_format($quotaWarning['quota'] / 1048576, 1, ',', '.') }} MB, inklusive Versionen und Papierkorb).</p>
@@ -204,30 +205,76 @@
             <div class="flex flex-col gap-3 lg:flex-row lg:items-start">
             <div class="min-h-[60vh] min-w-0 flex-1 space-y-3" x-on:contextmenu.prevent="show($event, null)">
             @php
-                $rows = collect($rows)->sortBy([fn ($a, $b) => ($a->kind === 'folder' ? 0 : 1) <=> ($b->kind === 'folder' ? 0 : 1), fn ($a, $b) => strnatcasecmp($a->name, $b->name)])->values();
-                $open = fn ($row) => $searching ? "openResult({$row->id})" : ($row->kind === 'folder' && $view !== 'trash' ? "navigate(null, {$row->id})" : "select({$row->id})");
+                $rows = collect($rows)->values();
+                $versionsByNode = \Extensions\Dateien\Models\Version::with('creator:id,name')->whereIn('node_id', $rows->where('kind', 'file')->pluck('id'))->orderBy('id')->get()->groupBy('node_id');
+                $head = fn ($row) => $versionsByNode->get($row->id)?->last();
+                $typeOf = fn ($row) => $row->kind === 'folder' ? 'Ordner' : (strtoupper(pathinfo($row->name, PATHINFO_EXTENSION)) ?: 'Datei');
+                $modifiedAt = fn ($row) => ($head($row)?->created_at ?? $row->updated_at)?->getTimestamp() ?? 0;
+                $sortKey = fn ($row) => match ($sort) {
+                    'type' => mb_strtolower($typeOf($row)),
+                    'size' => (int) ($head($row)?->size ?? 0),
+                    'created' => $row->created_at?->getTimestamp() ?? 0,
+                    'modified' => $modifiedAt($row),
+                    'version' => (int) ($head($row)?->number ?? 0),
+                    'author' => mb_strtolower((string) $head($row)?->creator?->name),
+                    default => mb_strtolower($row->name),
+                };
+                $rows = $rows->sort(function ($a, $b) use ($sortKey, $sort, $dir) {
+                    $folders = ($a->kind === 'folder' ? 0 : 1) <=> ($b->kind === 'folder' ? 0 : 1);
+                    if ($folders !== 0) {
+                        return $folders;
+                    }
+                    $cmp = is_string($sortKey($a)) ? strnatcasecmp($sortKey($a), $sortKey($b)) : $sortKey($a) <=> $sortKey($b);
+                    $cmp = $dir === 'desc' ? -$cmp : $cmp;
+
+                    return $cmp !== 0 ? $cmp : strnatcasecmp($a->name, $b->name);
+                })->values();
+                $open = fn ($row) => $row->trashed() ? "select({$row->id})" : ($row->kind === 'folder' ? ($searching ? "openResult({$row->id})" : "navigate(null, {$row->id})") : "openFile({$row->id})");
                 $meta = fn ($row) => ($row->kind === 'folder' ? 'Ordner' : 'Datei').($row->trashed() ? ' · Gelöscht '.$row->deleted_at->timezone('Europe/Berlin')->format('d.m.Y H:i') : '');
-                $ctx = fn ($row) => \Illuminate\Support\Js::from(['id' => $row->id, 'name' => $row->name, 'act' => $searching ? 'result' : ($row->kind === 'folder' && $view !== 'trash' ? 'folder' : 'file'), 'folder' => $row->kind === 'folder', 'trashed' => $row->trashed(), 'manage' => ! $row->trashed() && $access->can($user, $row, 'manage'), 'dl' => $row->trashed() ? null : ($row->kind === 'folder' ? route('dateien.zip', ['node' => $row->id]) : ($latest[$row->id] ?? null ? route('dateien.download', ['node' => $row->id, 'version' => $latest[$row->id]]) : null))]);
-                $latest = \Extensions\Dateien\Models\Version::whereIn('node_id', $rows->where('kind', 'file')->pluck('id'))->selectRaw('node_id, max(id) as vid')->groupBy('node_id')->pluck('vid', 'node_id');
+                $fmtDate = fn ($date) => $date?->timezone('Europe/Berlin')->format('d.m.Y H:i') ?? '–';
+                $fmtSize = fn ($bytes) => $bytes === null ? '–' : ($bytes < 1048576 ? number_format($bytes / 1024, 1, ',', '.').' KB' : number_format($bytes / 1048576, 1, ',', '.').' MB');
+                $sortLabels = ['name' => 'Name', 'type' => 'Typ', 'size' => 'Größe', 'created' => 'Erstellt', 'modified' => 'Geändert', 'version' => 'Version', 'author' => 'Geändert von'];
+                $ctx = fn ($row) => \Illuminate\Support\Js::from(['id' => $row->id, 'name' => $row->name, 'act' => $row->trashed() ? 'file' : ($row->kind === 'folder' ? ($searching ? 'result' : 'folder') : 'open'), 'folder' => $row->kind === 'folder', 'trashed' => $row->trashed(), 'manage' => ! $row->trashed() && $access->can($user, $row, 'manage'), 'dl' => $row->trashed() ? null : ($row->kind === 'folder' ? route('dateien.zip', ['node' => $row->id]) : ($latest[$row->id] ?? null ? route('dateien.download', ['node' => $row->id, 'version' => $latest[$row->id]]) : null))]);
+                $latest = $versionsByNode->map(fn ($list) => $list->last()->id);
                 $empty = $searching ? 'Keine Treffer.' : 'Dieser Ordner ist leer.';
             @endphp
+            @if($layout !== 'table')
+                <div class="flex flex-wrap items-center justify-end gap-2 text-sm text-gray-600">
+                    <label class="flex items-center gap-2">Sortieren nach
+                        <select wire:change="setSort($event.target.value)" class="{{ $input }} py-1">
+                            @foreach($sortLabels as $key => $label)<option value="{{ $key }}" @selected($sort === $key)>{{ $label }}</option>@endforeach
+                        </select>
+                    </label>
+                    <button type="button" wire:click="setSortDirection('{{ $dir === 'asc' ? 'desc' : 'asc' }}')" class="rounded-md border border-gray-200 bg-white px-2 py-1 text-fw-navy" aria-label="Sortierrichtung umkehren">{{ $dir === 'asc' ? '▲ Aufsteigend' : '▼ Absteigend' }}</button>
+                </div>
+            @endif
             @if($layout === 'table')
                 <div class="overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm">
                     <table class="w-full text-left text-sm">
                         <thead class="border-b border-gray-100 text-xs text-gray-500">
-                            <tr><th class="px-4 py-2 font-medium">Name</th><th class="px-4 py-2 font-medium">Typ</th><th class="w-10 px-2 py-2"><span class="sr-only">Details</span></th></tr>
+                            <tr>
+                                @foreach(['name' => 'px-4', 'type' => 'px-4', 'size' => 'px-4', 'created' => 'px-4', 'modified' => 'px-4', 'version' => 'px-4', 'author' => 'px-4'] as $key => $pad)
+                                    <th class="{{ $pad }} py-2 font-medium" aria-sort="{{ $sort === $key ? ($dir === 'asc' ? 'ascending' : 'descending') : 'none' }}"><button type="button" wire:click="setSort('{{ $key }}')" class="inline-flex items-center gap-1 whitespace-nowrap hover:text-fw-navy {{ $sort === $key ? 'font-semibold text-fw-navy' : '' }}">{{ $sortLabels[$key] }}@if($sort === $key)<span aria-hidden="true">{{ $dir === 'asc' ? '▲' : '▼' }}</span>@endif</button></th>
+                                @endforeach
+                                <th class="w-10 px-2 py-2"><span class="sr-only">Details</span></th>
+                            </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-50">
                             @forelse($rows as $row)
                                 <tr wire:key="node-{{ $row->id }}" x-on:contextmenu.prevent.stop="show($event, {{ $ctx($row) }})" class="hover:bg-blue-50/50 {{ $selected?->id === $row->id ? 'bg-blue-50' : '' }}">
-                                    <td class="max-w-0 px-4 py-1.5">
+                                    <td class="w-1/3 min-w-[12rem] max-w-0 px-4 py-1.5">
                                         <button type="button" wire:click="{{ $open($row) }}" class="flex w-full items-center gap-2 text-left text-gray-900">@include('dateien::partials.icon', ['kind' => $row->kind === 'folder' ? 'folder' : 'file', 'ext' => pathinfo($row->name, PATHINFO_EXTENSION)])<span class="truncate">{{ $row->name }}</span></button>
                                     </td>
-                                    <td class="whitespace-nowrap px-4 py-1.5 text-gray-500">{{ $meta($row) }}</td>
+                                    <td class="whitespace-nowrap px-4 py-1.5 text-gray-500">{{ $typeOf($row) }}{{ $row->trashed() ? ' · Gelöscht '.$fmtDate($row->deleted_at) : '' }}</td>
+                                    <td class="whitespace-nowrap px-4 py-1.5 text-gray-500">{{ $row->kind === 'folder' ? '–' : $fmtSize($head($row)?->size) }}</td>
+                                    <td class="whitespace-nowrap px-4 py-1.5 text-gray-500">{{ $fmtDate($row->created_at) }}</td>
+                                    <td class="whitespace-nowrap px-4 py-1.5 text-gray-500">{{ $row->kind === 'folder' ? $fmtDate($row->updated_at) : $fmtDate($head($row)?->created_at ?? $row->updated_at) }}</td>
+                                    <td class="whitespace-nowrap px-4 py-1.5 text-gray-500">{{ $head($row) ? 'V'.$head($row)->number : '–' }}</td>
+                                    <td class="whitespace-nowrap px-4 py-1.5 text-gray-500">{{ $head($row)?->creator?->name ?? '–' }}</td>
                                     <td class="px-2 py-1.5"><button type="button" wire:click="{{ $searching ? 'openResult' : 'select' }}({{ $row->id }})" title="Details" aria-label="Details zu {{ $row->name }}" class="rounded p-1 text-gray-500 hover:bg-gray-100"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></button></td>
                                 </tr>
                             @empty
-                                <tr><td colspan="3" class="px-4 py-6 text-sm text-gray-500">{{ $empty }}</td></tr>
+                                <tr><td colspan="8" class="px-4 py-6 text-sm text-gray-500">{{ $empty }}</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -250,7 +297,7 @@
                             <button type="button" wire:click="{{ $open($row) }}" class="flex min-w-0 flex-1 items-center gap-3 px-2 py-2 text-left text-sm text-gray-900">
                                 @include('dateien::partials.icon', ['kind' => $row->kind === 'folder' ? 'folder' : 'file', 'ext' => pathinfo($row->name, PATHINFO_EXTENSION)])
                                 <span class="min-w-0 break-words">{{ $row->name }}</span>
-                                @if($row->trashed())<span class="shrink-0 text-xs text-gray-500">{{ $meta($row) }}</span>@endif
+                                <span class="ml-auto hidden shrink-0 text-xs text-gray-500 sm:inline">{{ $typeOf($row) }}@if($row->kind === 'file') · {{ $fmtSize($head($row)?->size) }} · V{{ $head($row)?->number ?? 1 }}@endif · geändert {{ $fmtDate($row->kind === 'folder' ? $row->updated_at : ($head($row)?->created_at ?? $row->updated_at)) }}@if($row->trashed()) · {{ $meta($row) }}@endif</span>
                             </button>
                             <button type="button" wire:click="{{ $searching ? 'openResult' : 'select' }}({{ $row->id }})" title="Details" aria-label="Details zu {{ $row->name }}" class="rounded p-1.5 text-gray-500 hover:bg-gray-100"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></button>
                         </div>
@@ -419,7 +466,7 @@
         @php $mi = 'block w-full px-3 py-1.5 text-left text-gray-800 hover:bg-gray-50'; @endphp
         <template x-if="menu.node">
             <div>
-                <button type="button" role="menuitem" class="{{ $mi }} font-semibold" x-on:click="menu.node.act === 'folder' ? $wire.navigate(null, menu.node.id) : (menu.node.act === 'result' ? $wire.openResult(menu.node.id) : $wire.select(menu.node.id))">Öffnen</button>
+                <button type="button" role="menuitem" class="{{ $mi }} font-semibold" x-on:click="menu.node.act === 'folder' ? $wire.navigate(null, menu.node.id) : (menu.node.act === 'result' ? $wire.openResult(menu.node.id) : (menu.node.act === 'open' ? $wire.openFile(menu.node.id) : $wire.select(menu.node.id)))">Öffnen</button>
                 <button type="button" role="menuitem" class="{{ $mi }}" x-on:click="$wire.select(menu.node.id)">Details und Umbenennen</button>
                 <a x-show="menu.node.dl" x-bind:href="menu.node.dl" role="menuitem" class="{{ $mi }}" x-text="menu.node.folder ? 'Als ZIP herunterladen' : 'Herunterladen'"></a>
                 <button type="button" role="menuitem" class="{{ $mi }}" x-show="menu.node.manage" x-on:click="$wire.select(menu.node.id, false).then(() => $dispatch('open-perms'))">Berechtigungen …</button>
