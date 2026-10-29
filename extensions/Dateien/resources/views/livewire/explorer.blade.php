@@ -25,8 +25,11 @@
             @foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach
         </div>
     @endif
-    <div class="grid gap-4 md:grid-cols-[14rem_minmax(0,1fr)]">
-        <aside class="space-y-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+    @php
+        $hasDetails = $selected || ($canManage && $view !== 'trash') || ($shareNode && ($canShare || $shares->isNotEmpty()));
+    @endphp
+    <div class="flex flex-col gap-4 md:flex-row md:items-start">
+        <aside class="w-full shrink-0 space-y-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm md:w-56">
             <h2 class="font-semibold">Bereiche</h2>
             @forelse($spaces as $item)
                 <button type="button" wire:click="navigate({{ $item->id }})" class="block w-full break-words text-left text-sm text-fw-navy">{{ $item->name }}</button>
@@ -40,18 +43,6 @@
                     </label>
                     <button class="{{ $button }} w-full justify-center" wire:loading.attr="disabled">Ablage erstellen</button>
                 </form>
-            @endif
-            @if($currentSpace && $folderTree !== [])
-                <div class="border-t border-gray-100 pt-3">
-                    <h3 class="mb-2 text-sm font-semibold">Ordnerstruktur</h3>
-                    <nav aria-label="Ordnerstruktur" class="max-h-80 space-y-1 overflow-y-auto">
-                        @foreach($folderTree as $treeRow)
-                            <button type="button" wire:click="navigate(null, {{ $treeRow['node']->id }})" style="padding-left: {{ min($treeRow['depth'] * 1.25, 8) }}rem" class="block w-full truncate rounded px-2 py-1 text-left text-sm {{ $folder?->id === $treeRow['node']->id ? 'bg-blue-50 font-semibold text-fw-navy' : 'text-gray-700 hover:bg-gray-50' }}">
-                                <span aria-hidden="true">📁</span> {{ $treeRow['node']->name }}
-                            </button>
-                        @endforeach
-                    </nav>
-                </div>
             @endif
             <hr class="border-gray-100">
             <button type="button" wire:click="navigate(null, null, 'favorites')" class="block text-sm text-fw-navy">Favoriten</button>
@@ -80,9 +71,24 @@
                     <button type="button" wire:click="toggleFavorite" class="{{ $link }}">{{ $isFavorite ? '★ Favorit' : '☆ Favorit' }}</button>
                     <button type="button" wire:click="toggleSubscription" class="{{ $link }}">{{ $isSubscribed ? 'Abo beenden' : 'Abonnieren' }}</button>
                 @endif
-                @if($currentSpace && $view !== 'trash' && $access->can($user, $currentSpace, 'manage'))
-                    <button type="button" wire:click="navigate({{ $currentSpace->id }}, null, 'trash')" class="{{ $link }} ml-auto">Papierkorb dieses Bereichs</button>
-                @endif
+                <div class="ml-auto flex items-center gap-3">
+                    @if($currentSpace && $view !== 'trash' && $access->can($user, $currentSpace, 'manage'))
+                        <button type="button" wire:click="navigate({{ $currentSpace->id }}, null, 'trash')" class="{{ $link }}">Papierkorb dieses Bereichs</button>
+                    @endif
+                    @if($canWriteHere && ! $searching)
+                        <div class="relative" x-data="{ open: false }" x-on:keydown.escape="open = false" x-on:click.outside="open = false">
+                            <button type="button" x-on:click="open = !open" aria-haspopup="true" x-bind:aria-expanded="open" class="{{ $button }}">+ Neuer Ordner</button>
+                            <div x-show="open" x-cloak class="absolute right-0 z-20 mt-2 w-80 max-w-[90vw] space-y-3 rounded-xl border border-gray-200 bg-white p-3 shadow-lg">
+                                <form wire:submit="createFolder" class="flex flex-wrap items-end gap-2">
+                                    <label class="min-w-0 flex-1 text-sm">Neuer Ordner
+                                        <input wire:model="folderName" required maxlength="255" class="{{ $input }} mt-1 w-full">
+                                    </label>
+                                    <button class="{{ $button }}" wire:loading.attr="disabled">Erstellen</button>
+                                </form>
+                            </div>
+                        </div>
+                    @endif
+                </div>
             </div>
             @if($quotaWarning)
                 <p role="alert" class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">Speicherplatz dieses Bereichs zu {{ $quotaWarning['percent'] }} % belegt ({{ number_format($quotaWarning['used'] / 1048576, 1, ',', '.') }} von {{ number_format($quotaWarning['quota'] / 1048576, 1, ',', '.') }} MB, inklusive Versionen und Papierkorb).</p>
@@ -96,16 +102,24 @@
             @if($view === 'trash')
                 <p class="text-sm text-gray-500">Aufbewahrungsfrist im Papierkorb: {{ $retentionDays }} Tage. Danach können Einträge endgültig gelöscht werden. Das kann nicht rückgängig gemacht werden.</p>
             @endif
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-start">
+            @if($currentSpace && $folderTree !== [] && ! $searching)
+                <nav aria-label="Ordnerstruktur" class="max-h-[32rem] w-full shrink-0 space-y-0.5 overflow-y-auto rounded-2xl border border-gray-100 bg-white p-2 shadow-sm lg:w-56">
+                    @if($access->can($user, $currentSpace, 'read'))
+                    <button type="button" wire:click="navigate({{ $currentSpace->id }})" class="block w-full truncate rounded px-2 py-1 text-left text-sm {{ ! $folder ? 'bg-blue-50 font-semibold text-fw-navy' : 'text-gray-700 hover:bg-gray-50' }}">
+                        <span aria-hidden="true">🗂️</span> {{ $currentSpace->name }}
+                    </button>
+                    @endif
+                    @foreach($folderTree as $treeRow)
+                        <button type="button" wire:click="navigate(null, {{ $treeRow['node']->id }})" style="padding-left: {{ min($treeRow['depth'] * 1.25 + 0.5, 8) }}rem" class="block w-full truncate rounded px-2 py-1 text-left text-sm {{ $folder?->id === $treeRow['node']->id ? 'bg-blue-50 font-semibold text-fw-navy' : 'text-gray-700 hover:bg-gray-50' }}">
+                            <span aria-hidden="true">📁</span> {{ $treeRow['node']->name }}
+                        </button>
+                    @endforeach
+                </nav>
+            @endif
+            <div class="min-w-0 flex-1 space-y-3">
             @if($canWriteHere && ! $searching)
-                <div class="grid gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm lg:grid-cols-2">
-                    <form wire:submit="createFolder" class="flex flex-wrap items-end gap-2">
-                        <label class="min-w-0 flex-1 text-sm">Neuer Ordner
-                            <input wire:model="folderName" required maxlength="255" class="{{ $input }} mt-1 w-full">
-                        </label>
-                        <button class="{{ $button }}" wire:loading.attr="disabled">Erstellen</button>
-                    </form>
-                    @include('dateien::partials.upload', ['label' => 'Dateien hochladen', 'multiple' => true, 'parent' => $folder?->id, 'spaceId' => $currentSpace?->id, 'nodeId' => null])
-                </div>
+                @include('dateien::partials.upload', ['label' => 'Dateien hochladen', 'multiple' => true, 'parent' => $folder?->id, 'spaceId' => $currentSpace?->id, 'nodeId' => null])
             @endif
             @if($layout === 'table')
                 <div class="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
@@ -151,6 +165,11 @@
                     @endforelse
                 </div>
             @endif
+            </div>
+            </div>
+        </main>
+        @if($hasDetails)
+        <aside aria-label="Details" class="w-full min-w-0 shrink-0 space-y-4 md:w-80">
             @if($selected)
                 <section class="space-y-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
                     <div class="flex items-center justify-between gap-3">
@@ -354,7 +373,8 @@
                     @endif
                 </section>
             @endif
-        </main>
+        </aside>
+        @endif
     </div>
     <p wire:loading role="status" class="text-sm text-gray-500">Wird verarbeitet …</p>
 </div>
