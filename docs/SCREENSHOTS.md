@@ -2,7 +2,7 @@
 
 [Zur Hauptdokumentation](../README.md) · [Modulhandbücher](README.md)
 
-Der Workflow `.github/workflows/screenshots.yml` baut eine vollständige Testinstallation mit Beispieldaten auf, meldet sich im Browser an und fotografiert jedes Modul. Die Bilder liegen in `docs/screenshots/` und sind in die Dokumentation eingebunden (Modulübersicht in `docs/MODULE.md` bei jedem Modul, [Galerie](#galerie)); `.github/workflows/docs-screenshots.yml` hält sie aktuell. Der Lauf dient zugleich als Smoke-Test vor Releases: Lädt eine Seite nicht, endet sie mit Fehler oder führt sie zurück zur Anmeldung, schlägt der Lauf fehl.
+Der Workflow `.github/workflows/screenshots.yml` baut eine vollständige Testinstallation mit Beispieldaten auf, meldet sich im Browser an und fotografiert jedes Modul. Die Bilder liegen in `docs/screenshots/` und sind in die Dokumentation eingebunden (Modulübersicht in `docs/MODULE.md`, übergreifende Funktionen in `docs/KERNFUNKTIONEN.md`, [Galerie](#galerie)); `.github/workflows/docs-screenshots.yml` hält sie aktuell. Der Lauf dient zugleich als Smoke-Test vor Releases: Lädt eine Seite nicht, endet sie mit Fehler oder führt sie zurück zur Anmeldung, schlägt der Lauf fehl.
 
 ## Inhalt
 
@@ -15,7 +15,7 @@ Der Workflow `.github/workflows/screenshots.yml` baut eine vollständige Testins
 
 ## Galerie
 
-Alle Bilder der letzten Erzeugung (Ordner `docs/screenshots/`, Klick öffnet das Bild in voller Größe). In der [Modulübersicht](MODULE.md) steht jedes Bild zusätzlich beim beschriebenen Modul; die README zeigt nur eine Auswahl.
+Alle Bilder der letzten Erzeugung (Ordner `docs/screenshots/`, Klick öffnet das Bild in voller Größe). In der [Modulübersicht](MODULE.md) und bei den [übergreifenden Funktionen](KERNFUNKTIONEN.md) steht jedes Bild zusätzlich bei der beschriebenen Funktion; die README zeigt nur eine Auswahl.
 
 | | |
 |---|---|

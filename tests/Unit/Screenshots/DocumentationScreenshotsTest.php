@@ -33,8 +33,12 @@ it('embeds only existing screenshots in the documentation', function () {
     }
 });
 
-it('shows every page in the module overview and the gallery', function () {
-    foreach (['docs/MODULE.md', 'docs/SCREENSHOTS.md'] as $file) {
-        expect(embeddedScreenshots($file))->toEqualCanonicalizing(screenshotPages());
-    }
+it('shows every page in the feature documentation and the gallery', function () {
+    $documentedPages = array_unique([
+        ...embeddedScreenshots('docs/MODULE.md'),
+        ...embeddedScreenshots('docs/KERNFUNKTIONEN.md'),
+    ]);
+
+    expect(array_values($documentedPages))->toEqualCanonicalizing(screenshotPages())
+        ->and(embeddedScreenshots('docs/SCREENSHOTS.md'))->toEqualCanonicalizing(screenshotPages());
 });
