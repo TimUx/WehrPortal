@@ -26,15 +26,15 @@ it('has a committed screenshot for every page of the E2E run', function () {
 });
 
 it('embeds only existing screenshots in the documentation', function () {
-    foreach (['README.md', 'docs/README.md', 'docs/SCREENSHOTS.md', 'docs/ANWESENHEIT.md', 'docs/DATEIEN.md', 'docs/LOCATIONS.md'] as $file) {
+    foreach (['README.md', 'docs/MODULE.md', 'docs/README.md', 'docs/SCREENSHOTS.md', 'docs/ANWESENHEIT.md', 'docs/DATEIEN.md', 'docs/LOCATIONS.md'] as $file) {
         foreach (embeddedScreenshots($file) as $image) {
             expect(screenshotPages())->toContain($image);
         }
     }
 });
 
-it('shows every page in the README and the gallery', function () {
-    foreach (['README.md', 'docs/SCREENSHOTS.md'] as $file) {
+it('shows every page in the module overview and the gallery', function () {
+    foreach (['docs/MODULE.md', 'docs/SCREENSHOTS.md'] as $file) {
         expect(embeddedScreenshots($file))->toEqualCanonicalizing(screenshotPages());
     }
 });

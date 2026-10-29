@@ -1,6 +1,6 @@
 # Mitteilungen: Standorte, ntfy und Matrix
 
-[Zur Hauptdokumentation](../README.md#mitteilungen) · [Erweiterungsindex](README.md) · [Locations](LOCATIONS.md)
+[Zur Hauptdokumentation](MODULE.md#mitteilungen) · [Erweiterungsindex](README.md) · [Locations](LOCATIONS.md)
 
 ## Geltungsbereich und Empfänger
 

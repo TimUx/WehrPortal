@@ -27,12 +27,12 @@ Für eine Installation ohne fertiges Image oder für Entwicklung werden zusätzl
 
 ## Produktiv installieren
 
-Die vollständige Schritt-für-Schritt-Anleitung für **VPS → Docker Compose → HTTPS → WehrPortal** steht unter [Installation in der README](../README.md#installation). Sie ist unabhängig vom Hosting-Anbieter und benötigt keine Verwaltungsplattform.
+Die vollständige Schritt-für-Schritt-Anleitung für **VPS → Docker Compose → HTTPS → WehrPortal** steht unter [Installation im Serverbetrieb](../docs/BETRIEB.md#installation). Sie ist unabhängig vom Hosting-Anbieter und benötigt keine Verwaltungsplattform.
 
 1. **Server vorbereiten:** Docker Engine und Compose-Plugin installieren, Domain auf den Server zeigen lassen, HTTPS-Reverse-Proxy einrichten und nur notwendige Ports öffnen. PostgreSQL und Redis nicht öffentlich freigeben.
 2. **Datenbank vorbereiten:** Compose stellt PostgreSQL intern bereit und initialisiert die Datenbank beim ersten Start. Ein starkes `DB_PASSWORD` setzen und regelmäßige Sicherungen einrichten. Bei einer bewusst extern betriebenen Datenbank die Verbindungswerte in der Compose-Datei für App und Worker entsprechend anpassen.
 3. **Version wählen:** Nur tatsächlich veröffentlichte Tags aus den [WehrPortal-Releases](https://github.com/TimUx/WehrPortal/releases) verwenden. Der Release-Workflow veröffentlicht nach erfolgreichen Tests und Image-Scan `ghcr.io/timux/wehrportal:<Release-Tag>`, zum Beispiel `v0.9.5.5`. `latest` folgt stabilen Releases, nicht dem Entwicklungsstand auf `main`. Vor dem Deployment den erfolgreichen Workflow und das vorhandene Package prüfen. Keine Images anderer Projekte als Ersatz verwenden.
-4. **App konfigurieren:** Die [Umgebungsvariablen der Serveranleitung](../README.md#4-wehrportal-konfigurieren) übernehmen und alle Platzhalter ersetzen. Besonders wichtig sind die öffentliche HTTPS-Adresse als `APP_URL`, `APP_KEY`, `DB_PASSWORD`, `MAIL_*` und `ADMIN_EMAILS`. Compose setzt `APP_ENV=production`, `APP_DEBUG=false` und die interne Datenbankverbindung selbst. Für SMTP auf Port 465 gilt `MAIL_SCHEME=smtps`, auf Port 587 `MAIL_SCHEME=smtp`.
+4. **App konfigurieren:** Die [Umgebungsvariablen der Serveranleitung](../docs/BETRIEB.md#4-wehrportal-konfigurieren) übernehmen und alle Platzhalter ersetzen. Besonders wichtig sind die öffentliche HTTPS-Adresse als `APP_URL`, `APP_KEY`, `DB_PASSWORD`, `MAIL_*` und `ADMIN_EMAILS`. Compose setzt `APP_ENV=production`, `APP_DEBUG=false` und die interne Datenbankverbindung selbst. Für SMTP auf Port 465 gilt `MAIL_SCHEME=smtps`, auf Port 587 `MAIL_SCHEME=smtp`.
 5. **Speicher einbinden:** Im Produktionscontainer `/var/www/html/storage/app` dauerhaft und für den App-Benutzer schreibbar einbinden. Dort liegt unter anderem `private/dateien`. Ein Container ohne persistentes Volume ist für diese Dateiablage ungeeignet.
 6. **Starten:** Port `8080` an den Reverse-Proxy anbinden und `/up` als Health-Check verwenden. Mit `AUTORUN_ENABLED=true` laufen Migrationen beim Start. Der mitgelieferte Scheduler erledigt Erinnerungen und Aufräumarbeiten; für den synchronen Mailversand ist kein Queue-Worker erforderlich.
 7. **Ersten Admin anmelden:** Die Adresse aus `ADMIN_EMAILS` auf `/anmelden` eingeben, die Mail öffnen und die Anmeldung bestätigen. Danach mit dem [Admin-Guide](ADMIN.md#ersteinrichtung-in-sinnvoller-reihenfolge) fortfahren.
@@ -64,7 +64,7 @@ Die mitgelieferte `docker-compose.yml` lädt das fertige Release-Image aus **Git
    docker compose logs --tail=100 app
    ```
 
-6. `http://127.0.0.1:8080/up` am Server prüfen, davor einen HTTPS-Reverse-Proxy für die öffentliche Adresse einrichten und die erste Anmeldung testen. Ein vollständiges Beispiel mit Caddy als Systemdienst steht unter [HTTPS-Reverse-Proxy einrichten](../README.md#6-https-reverse-proxy-einrichten).
+6. `http://127.0.0.1:8080/up` am Server prüfen, davor einen HTTPS-Reverse-Proxy für die öffentliche Adresse einrichten und die erste Anmeldung testen. Ein vollständiges Beispiel mit Caddy als Systemdienst steht unter [HTTPS-Reverse-Proxy einrichten](../docs/BETRIEB.md#6-https-reverse-proxy-einrichten).
 
 Die benannten Volumes speichern Datenbank, Redis und App-Dateien dauerhaft. **Nicht mit `docker compose down -v` löschen.** Ein geändertes `DB_PASSWORD` ändert das Passwort einer bereits initialisierten PostgreSQL-Datenbank nicht automatisch; bestehende Zugangsdaten koordiniert in Datenbank und Konfiguration ändern.
 
@@ -154,4 +154,4 @@ Ein Push nach `main` deployt keine produktive Instanz. Datenbankmigrationen lauf
 
 **Modul fehlt:** [Modulzugang im Admin-Guide prüfen](ADMIN.md#module-und-rechte-vergeben). Bei Modulen mit `*_ENABLED` muss zusätzlich deren Provider geladen sein. Nach Änderungen an Umgebungsvariablen die App mit aktualisierter Konfiguration neu starten.
 
-**Single Sign-On ausgefallen:** Die dokumentierten [lokalen Notfallzugänge und Wiederherstellungsbefehle](../README.md#oidc--single-sign-on-im-detail) verwenden; nicht ohne getesteten lokalen Admin auf ausschließlich SSO umstellen.
+**Single Sign-On ausgefallen:** Die dokumentierten [lokalen Notfallzugänge und Wiederherstellungsbefehle](../docs/MODULE.md#oidc--single-sign-on-im-detail) verwenden; nicht ohne getesteten lokalen Admin auf ausschließlich SSO umstellen.
