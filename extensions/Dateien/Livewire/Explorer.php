@@ -12,6 +12,8 @@ use Extensions\Dateien\Models\Share;
 use Extensions\Dateien\Models\Space;
 use Extensions\Dateien\Models\Version;
 use Extensions\Dateien\Office\OfficeService;
+use Extensions\Dateien\Office\OfficeSettings;
+use Extensions\Dateien\Services\BlankDocument;
 use Extensions\Dateien\Services\CollaborationService;
 use Extensions\Dateien\Services\FileAccess;
 use Extensions\Dateien\Services\FileService;
@@ -20,6 +22,7 @@ use Extensions\Dateien\Services\ShareService;
 use Extensions\Locations\Services\LocationAccess;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Locked;
@@ -68,6 +71,13 @@ class Explorer extends Component
     public string $name = '';
 
     public string $folderName = '';
+
+    public string $fileName = '';
+
+    public string $fileType = 'docx';
+
+    /** Whether the details of the selected entry are shown in the dialog (the permissions can also be edited in the sidebar without it) */
+    public bool $detailsOpen = false;
 
     public string $spaceName = '';
 
@@ -150,10 +160,11 @@ class Explorer extends Component
         session()->flash('flash', 'Ablage erstellt. Vergeben Sie unter „Berechtigungen“ den Zugriff.');
     }
 
-    public function select(int $id): void
+    public function select(int $id, bool $details = true): void
     {
         $node = $this->findNode($id, $this->view === 'trash');
         $this->selectedId = $node->id;
+        $this->detailsOpen = $details;
         $this->newShareUrl = null;
         $this->name = $node->name;
         $this->inheritPermissions = (bool) $node->inherit_permissions;
@@ -201,7 +212,7 @@ class Explorer extends Component
 
     public function resetSelection(): void
     {
-        $this->reset('selectedId', 'expectedVersion', 'name', 'destination', 'subjectId', 'upload', 'newShareUrl');
+        $this->reset('selectedId', 'detailsOpen', 'expectedVersion', 'name', 'destination', 'subjectId', 'upload', 'newShareUrl');
         $this->resetValidation();
     }
 
@@ -212,6 +223,46 @@ class Explorer extends Component
         $this->service()->createFolder($this->user(), $space, $parent, $this->folderName);
         $this->reset('folderName');
         session()->flash('flash', 'Ordner erstellt.');
+        $this->dispatch('modal-done');
+    }
+
+    /** @return array<string, string> extension => label of the starter files this user may create */
+    private function newFileTypes(): array
+    {
+        $settings = app(OfficeSettings::class);
+        $allowed = FileService::allowedExtensions();
+
+        return array_filter(BlankDocument::TYPES, fn (string $label, string $extension) => in_array($extension, $allowed, true)
+            && (! in_array($extension, BlankDocument::OFFICE, true) || $settings->editable($extension)), ARRAY_FILTER_USE_BOTH);
+    }
+
+    public function createFile(): void
+    {
+        [$space, $parent] = $this->context('edit');
+        $types = $this->newFileTypes();
+        $this->validate([
+            'fileType' => ['required', 'in:'.implode(',', array_keys($types))],
+            'fileName' => ['required', 'string', 'max:200', 'not_regex:#[/\\\\]#'],
+        ]);
+        $name = trim($this->fileName);
+        if (strtolower(pathinfo($name, PATHINFO_EXTENSION)) !== $this->fileType) {
+            $name .= '.'.$this->fileType;
+        }
+        $path = tempnam(sys_get_temp_dir(), 'new');
+        file_put_contents($path, BlankDocument::bytes($this->fileType));
+        try {
+            $node = $this->service()->upload($this->user(), $space, $parent, new UploadedFile($path, $name, null, null, true));
+        } finally {
+            @unlink($path);
+        }
+        $this->reset('fileName');
+        $this->dispatch('modal-done');
+        if (app(OfficeService::class)->canOpen($this->user(), $node, true)) {
+            $this->redirect(route('dateien.office', ['node' => $node->id, 'bearbeiten' => 1]));
+
+            return;
+        }
+        session()->flash('flash', 'Datei erstellt.');
     }
 
     public function uploadFile(): void
@@ -653,6 +704,7 @@ class Explorer extends Component
             'officeEditUrl' => $selected && app(OfficeService::class)->canOpen($user, $selected, true) ? route('dateien.office', ['node' => $selected->id, 'bearbeiten' => 1]) : null,
             'officeEditing' => $selected && $selected->kind === 'file' && OfficeSession::editing($selected->id),
             'allowedExtensions' => FileService::allowedExtensions(),
+            'newFileTypes' => $this->newFileTypes(),
             'shareNode' => $shareNode = $this->view !== 'trash' && ! $searching ? ($selected ?? $folder) : null,
             'canShare' => $shareNode && ! $shareNode->trashed() && app(ShareService::class)->canCreate($user, $shareNode),
             'shares' => $shareNode && ! $shareNode->trashed() ? app(ShareService::class)->forNode($user, $shareNode) : collect(),

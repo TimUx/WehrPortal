@@ -802,8 +802,8 @@ class FileService
         $mime = (string) (new \finfo(FILEINFO_MIME_TYPE))->file($file->getRealPath());
         $expected = FileResponse::INLINE + FileResponse::DOWNLOAD;
         $matches = $mime === $expected[$extension];
-        if (in_array($extension, ['txt', 'csv'], true)) {
-            $matches = in_array($mime, ['text/plain', 'text/csv', 'application/csv', 'application/x-empty', 'inode/x-empty'], true);
+        if (in_array($extension, ['txt', 'csv', 'md'], true)) {
+            $matches = in_array($mime, ['text/plain', 'text/csv', 'text/markdown', 'application/csv', 'application/x-empty', 'inode/x-empty'], true);
         }
         if (in_array($extension, ['doc', 'xls', 'ppt'], true)) {
             $matches = in_array($mime, [$expected[$extension], 'application/x-ole-storage', 'application/CDFV2'], true);
