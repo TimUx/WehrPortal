@@ -14,6 +14,8 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M3 5h18M3 10h18M3 15h18M3 20h18M9 5v15M15 5v15"/>
     @elseif($key === 'dateien')
         <path stroke-linecap="round" stroke-linejoin="round" d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>
+    @elseif($key === 'verein')
+        <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h4v-2a4 4 0 0 0-3-3.9M17 11a3 3 0 1 0 0-6M3 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2zM9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/>
     @elseif($key === 'ausruestung')
         <path stroke-linecap="round" stroke-linejoin="round" d="M11.4 4.6a3 3 0 0 0-4 3.9L3 13l-.5 3.5L6 16l4.5-4.4a3 3 0 0 0 3.9-4l-2 2-1.9-.5-.5-1.9 2-2zM14 14l6 6M17 17l-2 2"/>
     @elseif($key === 'mitteilungen')

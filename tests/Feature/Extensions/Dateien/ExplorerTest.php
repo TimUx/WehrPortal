@@ -5,6 +5,8 @@ use App\Models\User;
 use Extensions\Dateien\Livewire\Explorer;
 use Extensions\Dateien\Models\Node;
 use Extensions\Dateien\Models\Permission;
+use Extensions\Dateien\Office\OfficeSettings;
+use Extensions\Dateien\Services\BlankDocument;
 use Extensions\Dateien\Services\FileAccess;
 use Extensions\Dateien\Services\FileService;
 use Extensions\Locations\Models\Location;
@@ -256,3 +258,36 @@ it('renders trash restores folders and purges files only after the retention per
     expect(Node::withTrashed()->find($this->node->id))->toBeNull();
     Storage::disk('dateien')->assertMissing($this->version->storage_key);
 });
+
+it('creates blank files, offers Office types only with Online-Office and rejects bad names', function () {
+    $component = Livewire::actingAs($this->admin)->test(Explorer::class, ['space' => $this->space->id])
+        ->assertViewHas('newFileTypes', fn (array $types) => array_keys($types) === ['txt', 'md']);
+
+    $component->set('fileType', 'md')->set('fileName', 'Notizen')->call('createFile')->assertHasNoErrors();
+    expect(Node::where('name', 'Notizen.md')->where('kind', 'file')->exists())->toBeTrue();
+
+    $component->set('fileType', 'docx')->set('fileName', 'Brief')->call('createFile')->assertHasErrors('fileType');
+    $component->set('fileType', 'txt')->set('fileName', '../böse')->call('createFile')->assertHasErrors('fileName');
+
+    app(OfficeSettings::class)->save(['provider' => 'collabora', 'server_url' => 'https://office.ff-musterstadt.de', 'internal_url' => '', 'callback_url' => '', 'extensions' => OfficeSettings::VIEWABLE], null);
+    Livewire::actingAs($this->admin)->test(Explorer::class, ['space' => $this->space->id])
+        ->assertViewHas('newFileTypes', fn (array $types) => array_keys($types) === ['docx', 'xlsx', 'pptx', 'txt', 'md'])
+        ->set('fileType', 'xlsx')->set('fileName', 'Dienstplan')->call('createFile')->assertHasNoErrors();
+    expect(Node::where('name', 'Dienstplan.xlsx')->exists())->toBeTrue();
+});
+
+it('generates valid empty Office packages', function (string $extension, string $part) {
+    $path = tempnam(sys_get_temp_dir(), 'doc');
+    file_put_contents($path, BlankDocument::bytes($extension));
+    $zip = new ZipArchive;
+    expect($zip->open($path))->toBeTrue()
+        ->and($zip->locateName('[Content_Types].xml'))->not->toBeFalse()
+        ->and($zip->locateName($part))->not->toBeFalse();
+    for ($i = 0; $i < $zip->numFiles; $i++) {
+        if (str_ends_with($zip->getNameIndex($i), '.xml') || str_ends_with($zip->getNameIndex($i), '.rels')) {
+            expect(simplexml_load_string($zip->getFromIndex($i)))->not->toBeFalse();
+        }
+    }
+    $zip->close();
+    unlink($path);
+})->with([['docx', 'word/document.xml'], ['xlsx', 'xl/workbook.xml'], ['pptx', 'ppt/presentation.xml']]);
