@@ -8,8 +8,12 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 3H5l-3 5h4l3-3m6 0 3 3h4l-3-5h-4M9 3l3 3 3-3M3 8v13h18V8"/>
     @elseif($key === 'maengelmanagement')
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>
+    @elseif($key === 'anwesenheit')
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5 2a8 8 0 1 1-16 0 8 8 0 0 1 16 0z"/>
     @elseif($key === 'schichtplan')
         <path stroke-linecap="round" stroke-linejoin="round" d="M3 5h18M3 10h18M3 15h18M3 20h18M9 5v15M15 5v15"/>
+    @elseif($key === 'dateien')
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>
     @elseif($key === 'ausruestung')
         <path stroke-linecap="round" stroke-linejoin="round" d="M11.4 4.6a3 3 0 0 0-4 3.9L3 13l-.5 3.5L6 16l4.5-4.4a3 3 0 0 0 3.9-4l-2 2-1.9-.5-.5-1.9 2-2zM14 14l6 6M17 17l-2 2"/>
     @elseif($key === 'mitteilungen')
@@ -24,6 +28,10 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
     @elseif($key === 'finanzen')
         <rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path stroke-linecap="round" d="M6 12h.01M18 12h.01"/>
+    @elseif($key === 'gefahrenmatrix')
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8zM17 15v2m0 1.5h.01"/>
+    @elseif($key === 'gefahrstoffe')
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 3h6M10 3v6L4.5 18.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3M7.5 15h9"/>
     @elseif($key === 'verbandbuch')
         <rect x="3" y="7" width="18" height="13" rx="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M12 10.5v6M9 13.5h6"/>
     @elseif($key === 'wartung')
@@ -44,6 +52,8 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a3 3 0 1 1-2.8 4H7l-1 1-1-1-1 1V9h8.2A3 3 0 0 1 15 7zM15.5 10h.01"/>
     @elseif($key === 'personalverwaltung')
         <path stroke-linecap="round" stroke-linejoin="round" d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3M9 3h6v3H9zM12 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM8 16c.5-2 2-3 4-3s3.5 1 4 3"/>
+    @elseif($key === 'hydrantenkontrolle')
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8 21V8a4 4 0 0 1 8 0v13M6 12h12M4 12h16M9 8h6M12 4V2m-4 8v2m8-2v2m-6 7h4"/>
     @elseif($key === 'objektplaene')
         <path stroke-linecap="round" stroke-linejoin="round" d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3V6zM9 3v15M15 6v15"/>
     @elseif($key === 'wasserkarte')
