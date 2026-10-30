@@ -2,18 +2,26 @@
 
 namespace Modules\Unterweisungen\src\Notifications;
 
+use App\Models\User;
 use App\Notifications\Concerns\InApp;
 use App\Services\OrganizationSettings;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Modules\Unterweisungen\src\Services\InstructionService;
 
-/** Unterweisungen running out: to the Kamerad, or as overview to the Unterweisungsbeauftragte */
+/** Expiring Unterweisungen: to the Kamerad, or as overview to specialists and local Wehrführung */
 class InstructionDueNotification extends Notification
 {
     use InApp;
 
     /** @param  list<string>  $lines */
     public function __construct(private readonly array $lines, private readonly bool $digest = false) {}
+
+    /** @return array{url: ?string} */
+    public function inApp(object $notifiable): array
+    {
+        return ['url' => $this->toMail($notifiable)->actionUrl];
+    }
 
     public function toMail(object $notifiable): MailMessage
     {
@@ -24,7 +32,10 @@ class InstructionDueNotification extends Notification
             $mail->line($line);
         }
 
-        return $mail->action($this->digest ? 'Zur Übersicht' : 'Meine Unterweisungen', route($this->digest ? 'unterweisungen.overview' : 'unterweisungen.index'))
-            ->salutation(app(OrganizationSettings::class)->salutation());
+        if (! $this->digest || ($notifiable instanceof User && InstructionService::canManage($notifiable))) {
+            $mail->action($this->digest ? 'Zur Übersicht' : 'Meine Unterweisungen', route($this->digest ? 'unterweisungen.overview' : 'unterweisungen.index'));
+        }
+
+        return $mail->salutation(app(OrganizationSettings::class)->salutation());
     }
 }

@@ -3,6 +3,7 @@
 namespace Modules\Unterweisungen\src\Services;
 
 use App\Models\User;
+use App\Services\LocationNotifications;
 use App\Services\ModuleRegistry;
 use App\Support\FileResponse;
 use App\Support\SignatureImage;
@@ -322,7 +323,7 @@ class InstructionService
                 $attendance->update(['reminded_on' => $cell['until']]);
                 $topicLine = $topic->label().($cell['state'] === 'expired' ? ' abgelaufen am ' : ' läuft ab am ').$cell['until']->format('d.m.Y');
                 $lines[] = $topicLine;
-                $digest[$topic->id][] = $user->name.': '.$topicLine;
+                $digest[] = ['topic' => $topic, 'location_id' => $user->getAttribute('ext_location_id'), 'line' => $user->name.': '.$topicLine];
             }
             if ($lines) {
                 $this->notify(collect([$user]), new InstructionDueNotification($lines));
@@ -330,19 +331,13 @@ class InstructionService
             }
         }
         if ($digest !== []) {
-            $topics = Topic::whereIn('id', array_keys($digest))->get()->keyBy('id');
-            foreach ($this->managers() as $manager) {
-                $managerLines = [];
-                foreach ($digest as $topicId => $lines) {
-                    $topic = $topics[$topicId] ?? null;
-                    if ($topic && self::canManageTopic($manager, $topic)) {
-                        array_push($managerLines, ...$lines);
-                    }
-                }
-                if ($managerLines !== []) {
-                    $this->notify(collect([$manager]), new InstructionDueNotification($managerLines, true));
-                }
-            }
+            $managers = $this->managers();
+            app(LocationNotifications::class)->digest(
+                collect($digest),
+                fn (array $entry) => $entry['location_id'],
+                fn (Collection $entries) => new InstructionDueNotification($entries->pluck('line')->all(), true),
+                fn (array $entry) => $managers->filter(fn (User $manager) => self::canManageTopic($manager, $entry['topic'])),
+            );
         }
 
         return $remindedCount;

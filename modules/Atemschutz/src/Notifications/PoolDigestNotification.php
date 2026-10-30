@@ -9,7 +9,7 @@ use Illuminate\Notifications\Notification;
 use Illuminate\Support\Collection;
 use Modules\Atemschutz\src\Filament\Resources\WearerResource;
 
-/** To the Atemschutzwarte: which Geräteträger have deadlines running out */
+/** To the global Atemschutzwarte and local Wehrführung: Geräteträger with expiring deadlines */
 class PoolDigestNotification extends Notification
 {
     use InApp;

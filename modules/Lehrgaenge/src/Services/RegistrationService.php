@@ -3,6 +3,7 @@
 namespace Modules\Lehrgaenge\src\Services;
 
 use App\Models\User;
+use App\Services\LocationNotifications;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Notifications\Notification;
@@ -339,7 +340,13 @@ class RegistrationService
             $this->notify(collect([$record->user]), new RefreshDueNotification($record));
         }
         if ($due->isNotEmpty()) {
-            $this->notify($this->managers(), new RefreshDigestNotification($due->values()));
+            $managers = $this->managers();
+            app(LocationNotifications::class)->digest(
+                $due,
+                fn (Record $record) => $record->user->getAttribute('ext_location_id'),
+                fn (Collection $entries) => new RefreshDigestNotification($entries),
+                fn () => $managers,
+            );
         }
 
         return $due->count();

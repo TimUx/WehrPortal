@@ -3,6 +3,7 @@
 namespace Modules\Atemschutz\src\Services;
 
 use App\Models\User;
+use App\Services\LocationNotifications;
 use App\Services\ModuleRegistry;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -143,7 +144,7 @@ class ReadinessService
 
     /**
      * Daily: each Kamerad gets one mail per deadline that runs out within SOON_DAYS (or has run out),
-     * the Atemschutzwarte one overview of all of them.
+     * the local Wehrführung its Standort's entries and global Atemschutzwarte the full overview.
      */
     public function remind(): int
     {
@@ -172,12 +173,18 @@ class ReadinessService
             }
 
             $lines = $due->map(fn ($item, $key) => (self::ITEMS[$key] ?? self::CSA_ITEMS[$key]).($item['until']->lt(self::today()) ? ' abgelaufen am ' : ' läuft ab am ').$item['until']->format('d.m.Y'))->values();
-            $digest->push(['name' => $wearer->user->name, 'lines' => $lines]);
+            $digest->push(['name' => $wearer->user->name, 'lines' => $lines, 'location_id' => $wearer->user->getAttribute('ext_location_id')]);
             $this->notify(collect([$wearer->user]), new DeadlineNotification($lines->all()));
         }
 
         if ($digest->isNotEmpty()) {
-            $this->notify(app(MonitorService::class)->managers(), new PoolDigestNotification($digest));
+            $managers = app(MonitorService::class)->managers();
+            app(LocationNotifications::class)->digest(
+                $digest,
+                fn (array $entry) => $entry['location_id'],
+                fn (Collection $entries) => new PoolDigestNotification($entries),
+                fn () => $managers,
+            );
         }
 
         return $digest->count();
