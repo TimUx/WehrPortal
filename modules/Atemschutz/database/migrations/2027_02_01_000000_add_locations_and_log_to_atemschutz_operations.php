@@ -32,9 +32,7 @@ return new class extends Migration
             Schema::create('as_log', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('operation_id')->constrained('as_operations')->cascadeOnDelete();
-                $table->string('kind', 10);          // note | event
-                $table->string('event', 30)->nullable();
-                $table->string('body', 1000)->nullable();
+                $table->string('body', 1000);
                 $table->timestampTz('noted_at');
                 $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
                 $table->index(['operation_id', 'noted_at']);

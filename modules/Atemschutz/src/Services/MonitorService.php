@@ -20,6 +20,7 @@ use Modules\Atemschutz\src\Models\Operation;
 use Modules\Atemschutz\src\Models\Reading;
 use Modules\Atemschutz\src\Models\Team;
 use Modules\Atemschutz\src\Models\TeamMember;
+use Modules\Atemschutz\src\Models\Training;
 use Modules\Atemschutz\src\Models\Warning;
 use Modules\Atemschutz\src\Models\Wearer;
 use Modules\Einsatzbericht\src\Models\CrewMember;
@@ -60,6 +61,64 @@ class MonitorService
     public static function canManage(User $user): bool
     {
         return self::canView($user) && ($user->is_admin || $user->hasModuleRole(self::MODULE, 'atemschutzwart'));
+    }
+
+    /** Whoever keeps Geräteträger: the Atemschutzwart (all) or a Wehrführung with that role at a Standort (its own) */
+    public static function canCare(User $user): bool
+    {
+        return self::canView($user) && ($user->is_admin || $user->hasAnyModuleRole(self::MODULE, 'atemschutzwart'));
+    }
+
+    /**
+     * Standorte whose Geräteträger $user keeps; null = all (Atemschutzwart, admin)
+     *
+     * @return list<int>|null
+     */
+    public static function careLocationIds(User $user): ?array
+    {
+        if (self::canManage($user) || ! config('locations.enabled')) {
+            return self::canCare($user) ? null : [];
+        }
+
+        return self::canCare($user) ? $user->standardRoleLocationIds(self::MODULE, ['atemschutzwart']) : [];
+    }
+
+    public static function canCareFor(User $user, int $wearerUserId): bool
+    {
+        $locations = self::careLocationIds($user);
+        if ($locations === null) {
+            return true;
+        }
+
+        return in_array((int) User::whereKey($wearerUserId)->value('ext_location_id'), $locations, true);
+    }
+
+    /** Nachweis for several Geräteträger at once (only those the user keeps) */
+    public function recordTraining(User $by, array $userIds, string $kind, string $doneOn, ?string $notes, ?int $minutes, bool $csa): int
+    {
+        $this->assert(self::canCare($by), 'Das dürfen nur Atemschutzwarte, Wehrführung und Admins.');
+        $day = Carbon::createFromFormat('!Y-m-d', $doneOn);
+        $errors = array_filter([
+            'kind' => array_key_exists($kind, Training::KINDS) ? null : 'Bitte die Art wählen.',
+            'done_on' => $day->gt(ReadinessService::today()) ? 'Das Datum liegt in der Zukunft.' : null,
+            'minutes' => $minutes !== null && ($minutes < 1 || $minutes > 600) ? 'Die Tragezeit liegt zwischen 1 und 600 Minuten.' : null,
+        ]);
+        if ($errors) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        $count = 0;
+        foreach (Wearer::whereIn('user_id', $userIds)->pluck('user_id') as $userId) {
+            if (! self::canCareFor($by, (int) $userId)) {
+                continue;
+            }
+            Training::create(['user_id' => $userId, 'kind' => $kind, 'done_on' => $day->toDateString(),
+                'notes' => trim((string) $notes) !== '' ? mb_substr(trim((string) $notes), 0, 300) : null, 'created_by' => $by->id,
+                'minutes' => $minutes, 'csa' => $csa || $kind === 'csa_uebung']);
+            $count++;
+        }
+
+        return $count;
     }
 
     /** Every Einsatzkraft with access to the module may run the monitoring at the Einsatz */
@@ -263,28 +322,17 @@ class MonitorService
 
     // ─── Protokoll ───────────────────────────────────────────────────────────
 
-    /** A timed comment (kind note) or special event; the time is taken now, the log is kept after the end as well */
-    public function addLog(User $by, Operation $operation, string $kind, ?string $event, ?string $body): LogEntry
+    /** A timed free-text comment; the time is taken now, any number of times, also after the end */
+    public function addLog(User $by, Operation $operation, ?string $body): LogEntry
     {
         $this->assertCanMonitorOperation($by, $operation);
-        $this->assert($operation->isRunning(), 'Die Überwachung ist beendet, das Protokoll lässt sich nicht mehr ergänzen.');
         $body = trim((string) $body);
-        if ($kind === 'event') {
-            if (! array_key_exists((string) $event, LogEntry::EVENTS)) {
-                throw ValidationException::withMessages(['log' => 'Bitte ein Ereignis auswählen.']);
-            }
-        } elseif ($body === '') {
+        if ($body === '') {
             throw ValidationException::withMessages(['log' => 'Bitte einen Kommentar eingeben.']);
-        } else {
-            $kind = 'note';
-            $event = null;
         }
 
         /** @var LogEntry $entry */
-        $entry = $operation->log()->create([
-            'kind' => $kind, 'event' => $event, 'body' => $body === '' ? null : mb_substr($body, 0, 1000),
-            'noted_at' => now(), 'user_id' => $by->id,
-        ]);
+        $entry = $operation->log()->create(['body' => mb_substr($body, 0, 1000), 'noted_at' => now(), 'user_id' => $by->id]);
 
         return $entry;
     }

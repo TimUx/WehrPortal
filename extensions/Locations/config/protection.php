@@ -312,6 +312,8 @@ return [
         'as_teams' => $entry('atemschutz', 'standortgebunden', 'operational', 'Breathing-apparatus operation', [$parent('operation_id', 'as_operations')], $required, $breathing),
         'as_team_members' => $entry('atemschutz', 'hybrid', 'health', 'Team plus optional linked own member; free-text external members are supported', [$parent('team_id', 'as_teams'), $parent('user_id', 'users', 'retain')], 'NULL user retains team-owned named member; never grants access.', $breathing),
         'as_readings' => $entry('atemschutz', 'standortgebunden', 'health', 'Team and required individual team member', [$parent('team_id', 'as_teams'), $parent('team_member_id', 'as_team_members')], $required, $breathing),
+        'as_operation_locations' => $entry('atemschutz', 'standortgebunden', 'operational', 'Participating Standort of a breathing-apparatus operation', [$parent('operation_id', 'as_operations')], $required, $breathing),
+        'as_log' => $entry('atemschutz', 'standortgebunden', 'operational', 'Timed free-text protocol entry of an operation; author is actor only', [$parent('operation_id', 'as_operations'), $parent('user_id', 'users', 'retain')], $required, $breathing),
         'as_warnings' => $entry('atemschutz', 'standortgebunden', 'health', 'Team warning; acknowledging user is actor only', [$parent('team_id', 'as_teams')], $required, $breathing),
         'ex_exposures' => $exposureRecords,
         'ex_events' => $entry('expositionen', 'hybrid', 'health', 'Exposure audit; actor is not the data owner', [$parent('exposure_id', 'ex_exposures')], $required, $exposure),

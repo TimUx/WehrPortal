@@ -48,16 +48,7 @@ class Board extends Component
     public function addNote(MonitorService $monitor): void
     {
         $this->run(function () use ($monitor) {
-            $monitor->addLog(auth()->user(), $this->operation, 'note', null, $this->logBody);
-            $this->logBody = '';
-        }, null);
-    }
-
-    /** A special event, optionally with the text typed so far as detail */
-    public function addEvent(string $event, MonitorService $monitor): void
-    {
-        $this->run(function () use ($event, $monitor) {
-            $monitor->addLog(auth()->user(), $this->operation, 'event', $event, $this->logBody);
+            $monitor->addLog(auth()->user(), $this->operation, $this->logBody);
             $this->logBody = '';
         }, null);
     }

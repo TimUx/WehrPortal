@@ -36,6 +36,7 @@ class StandardRoleCatalog
         ]],
         'wehrfuehrung' => ['name' => 'Wehrführung', 'scope' => 'location', 'group' => null, 'modules' => [
             'anwesenheit' => ['verwalter'],
+            'atemschutz' => ['atemschutzwart'],
             'ausruestung' => ['geraetewart'],
             'einsatzbericht' => ['wehrführung'],
             'finanzen' => ['wehrführung'],

@@ -27,8 +27,5 @@ Route::middleware(['auth', 'active', 'module:atemschutz'])->group(function () {
                 'Content-Disposition' => 'inline; filename="Atemschutzueberwachung-'.$operation->started_at->setTimezone('Europe/Berlin')->format('Y-m-d-Hi').'.pdf"',
             ]);
         })->whereNumber('operation')->name('pdf');
-
-        Route::get('/geraetetraeger', fn () => view('atemschutz::pages.page', ['livewireComponent' => 'atemschutz.wearers', 'title' => 'Atemschutzgeräteträger']))
-            ->middleware('can:atemschutz-manage')->name('wearers');
     });
 });

@@ -7,6 +7,7 @@ use App\Services\OrganizationSettings;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Collection;
+use Modules\Atemschutz\src\Filament\Resources\WearerResource;
 
 /** To the Atemschutzwarte: which Geräteträger have deadlines running out */
 class PoolDigestNotification extends Notification
@@ -26,7 +27,7 @@ class PoolDigestNotification extends Notification
             $mail->line('– '.$entry['name'].': '.collect($entry['lines'])->implode(', '));
         }
 
-        return $mail->action('Geräteträger ansehen', route('atemschutz.wearers'))
+        return $mail->action('Geräteträger ansehen', WearerResource::getUrl('index'))
             ->salutation(app(OrganizationSettings::class)->salutation());
     }
 }

@@ -56,11 +56,11 @@
         <p>Kein Trupp eingesetzt.</p>
     @endforelse
     @if($operation->log->isNotEmpty())
-        <h2>Protokoll &amp; besondere Ereignisse</h2>
+        <h2>Protokoll</h2>
         <table>
-            <tr><th>Zeit</th><th>Art</th><th>Eintrag</th><th>Von</th></tr>
+            <tr><th>Zeit</th><th>Eintrag</th><th>Von</th></tr>
             @foreach($operation->log as $entry)
-                <tr class="{{ $entry->event === 'mayday' ? 'warn' : '' }}"><td>{{ $entry->noted_at->setTimezone('Europe/Berlin')->format('H:i:s') }}</td><td>{{ $entry->label() }}</td><td>{{ $entry->body }}</td><td>{{ $entry->user?->name ?? '–' }}</td></tr>
+                <tr><td>{{ $entry->noted_at->setTimezone('Europe/Berlin')->format('H:i:s') }}</td><td>{{ $entry->body }}</td><td>{{ $entry->user?->name ?? '–' }}</td></tr>
             @endforeach
         </table>
     @endif
