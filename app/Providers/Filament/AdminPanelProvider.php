@@ -19,6 +19,7 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Modules\Atemschutz\AtemschutzPlugin;
 use Modules\Ausruestung\AusruestungPlugin;
 use Modules\Einsatzbericht\EinsatzberichtPlugin;
 use Modules\Fahrzeugbuchung\FahrzeugbuchungPlugin;
@@ -72,7 +73,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             // One panel for everyone who manages something: admins see all of it, module managers
             // (Kleiderwart, Wehrführung, Personalverwalter …) only their module's group (App\Filament\ModuleArea).
-            ->navigationGroups(['Fahrzeugbuchung', 'Kleiderkammer', 'Ausrüstung', 'Mängelmanagement', 'Einsatzbericht', 'Personalverwaltung'])
+            ->navigationGroups(['Fahrzeugbuchung', 'Kleiderkammer', 'Ausrüstung', 'Mängelmanagement', 'Einsatzbericht', 'Personalverwaltung', 'Atemschutz'])
             ->plugins([
                 FahrzeugbuchungPlugin::make(),
                 KleiderkammerPlugin::make(),
@@ -80,6 +81,7 @@ class AdminPanelProvider extends PanelProvider
                 MaengelmanagementPlugin::make(),
                 EinsatzberichtPlugin::make(),
                 PersonalverwaltungPlugin::make(),
+                AtemschutzPlugin::make(),
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([])

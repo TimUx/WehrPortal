@@ -16,10 +16,10 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use Modules\Atemschutz\src\Console\Commands\SendAtemschutzReminders;
+use Modules\Atemschutz\src\Filament\Resources\WearerResource;
 use Modules\Atemschutz\src\Livewire\Board;
 use Modules\Atemschutz\src\Livewire\MyStatus;
 use Modules\Atemschutz\src\Livewire\Overview;
-use Modules\Atemschutz\src\Livewire\Wearers;
 use Modules\Atemschutz\src\Models\Operation;
 use Modules\Atemschutz\src\Models\TeamMember;
 use Modules\Atemschutz\src\Models\Training;
@@ -66,7 +66,7 @@ class AtemschutzServiceProvider extends ServiceProvider
         Gate::define('atemschutz-monitor', fn (User $user) => MonitorService::canMonitor($user));
         Gate::define('atemschutz-monitor-operation', fn (User $user, Operation $operation) => MonitorService::canMonitorOperation($user, $operation));
 
-        foreach (['overview' => Overview::class, 'board' => Board::class, 'wearers' => Wearers::class, 'my-status' => MyStatus::class] as $name => $class) {
+        foreach (['overview' => Overview::class, 'board' => Board::class, 'my-status' => MyStatus::class] as $name => $class) {
             Livewire::component('atemschutz.'.$name, $class);
         }
 
@@ -125,8 +125,9 @@ class AtemschutzServiceProvider extends ServiceProvider
         app(ModuleRegistry::class)->navigation('atemschutz', fn (User $u) => [
             'tabs' => [
                 ModuleNav::tab('Überwachung', 'atemschutz.index', ['atemschutz.board']),
-                MonitorService::canManage($u) ? ModuleNav::tab('Geräteträger', 'atemschutz.wearers') : null,
             ],
+            // Pflege der Geräteträger is Verwaltung, apart from the tools used at the Einsatz
+            'manage' => MonitorService::canCare($u) ? WearerResource::getUrl('index') : null,
         ]);
     }
 }

@@ -6,13 +6,18 @@ use App\Models\Module;
 use App\Models\User;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\StandardRoleAssignments;
+use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
+use Modules\Atemschutz\src\Filament\Pages\SettingsPage;
+use Modules\Atemschutz\src\Filament\Resources\WearerResource;
+use Modules\Atemschutz\src\Filament\Resources\WearerResource\Pages\CreateWearer;
+use Modules\Atemschutz\src\Filament\Resources\WearerResource\Pages\EditWearer;
+use Modules\Atemschutz\src\Filament\Resources\WearerResource\Pages\ListWearers;
 use Modules\Atemschutz\src\Livewire\Board;
 use Modules\Atemschutz\src\Livewire\Overview;
-use Modules\Atemschutz\src\Livewire\Wearers;
 use Modules\Atemschutz\src\Models\Operation;
 use Modules\Atemschutz\src\Models\Team;
 use Modules\Atemschutz\src\Models\Training;
@@ -32,6 +37,7 @@ beforeEach(function () {
     Module::whereIn('key', ['atemschutz', 'einsatzbericht'])->update(['is_active' => true]);
     Cache::forget('modules_active_keys');
     Notification::fake();
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
 
     $this->wart = User::factory()->create(['name' => 'Anton Atemschutzwart']);
     $this->wart->moduleAccess()->create(['module' => 'atemschutz', 'role' => 'atemschutzwart']);
@@ -67,7 +73,7 @@ test('the global Atemschutzwart standard role grants module access and manager n
         ->and($this->m->managers()->pluck('id')->all())->toContain($hanna->id)
         ->and(MonitorService::operationLocations($hanna)->modelKeys())->toContain($north->id, $south->id);
 
-    Livewire::actingAs($hanna)->test(Wearers::class)->assertOk();
+    Livewire::actingAs($hanna)->test(ListWearers::class)->assertOk();
 });
 
 test('standalone Atemschutzübungen require an authorized Standort', function () {
@@ -81,9 +87,9 @@ test('standalone Atemschutzübungen require an authorized Standort', function ()
     expect($visibleLocations)->toContain($north->id)->not->toContain($south->id);
 
     Livewire::actingAs($this->watch)->test(Overview::class)
-        ->assertSet('locationId', (string) $north->id)
-        ->set('kind', 'uebung')->assertSee('Standort der Überwachung')->assertSee('Wache Nord')->assertDontSee('Wache Süd')
-        ->set('locationId', (string) $north->id)->call('start')->assertRedirect();
+        ->assertSet('locationIds', [(string) $north->id])
+        ->set('kind', 'uebung')->assertSee('Beteiligte Standorte')->assertSee('Wache Nord')->assertDontSee('Wache Süd')
+        ->set('locationIds', [(string) $north->id])->call('start')->assertRedirect();
     expect(Operation::sole()->ext_location_id)->toBe($north->id);
 
     expect(fn () => $this->m->startOperation($this->watch, 'Übungsabend', 'uebung', null, $south->id))
@@ -115,6 +121,28 @@ test('Überwacher can only view and manage operations at accessible locations', 
     expect(MonitorService::canMonitorOperation($this->watch, $northOperation))->toBeTrue()
         ->and(MonitorService::canMonitorOperation($this->watch, $southOperation))->toBeFalse()
         ->and(MonitorService::canMonitorOperation($this->watch, $unassignedOperation))->toBeFalse();
+});
+
+test('an Überwachung can involve several Standorte and keeps a free-text timed log, repeatable at any time', function () {
+    $north = Location::create(['name' => 'Wache Nord', 'slug' => 'atemschutz-multi-nord']);
+    $south = Location::create(['name' => 'Wache Süd', 'slug' => 'atemschutz-multi-sued']);
+
+    $operation = $this->m->startOperation($this->wart, 'Wohnungsbrand', 'einsatz', null, [$north->id, $south->id]);
+    expect($operation->ext_location_id)->toBe($north->id)->and($operation->locationIds())->toEqualCanonicalizing([$north->id, $south->id]);
+
+    $this->m->addLog($this->wart, $operation, 'Wasserversorgung steht');
+    $this->m->addLog($this->wart, $operation, 'Person im 1. OG gefunden');
+    $this->m->addLog($this->wart, $operation, 'Person im 1. OG gefunden');
+    expect(fn () => $this->m->addLog($this->wart, $operation, '  '))->toThrow(ValidationException::class);
+
+    Livewire::actingAs($this->wart)->test(Board::class, ['operation' => $operation])
+        ->set('logBody', 'Belüftung im 1. OG')->call('addNote')->assertSet('logBody', '')
+        ->assertSee('Belüftung im 1. OG')->assertSee('Wasserversorgung steht')->assertSee('Wache Nord, Wache Süd');
+    expect($operation->log()->count())->toBe(4);
+
+    $this->m->endOperation($this->wart, $operation);
+    $this->m->addLog($this->wart, $operation->fresh(), 'nach dem Ende');
+    expect($operation->log()->count())->toBe(5);
 });
 
 function readyWearer(User $user, array $overrides = []): Wearer
@@ -294,32 +322,69 @@ test('deadlines: one mail per deadline to the Geräteträger, an overview to the
 test('the Atemschutzwart keeps the pool: G26.3, chip, trainings for several at once, settings', function () {
     $klara = User::factory()->create(['name' => 'Klara Kübel']);
 
-    Livewire::actingAs($this->wart)->test(Wearers::class)
-        ->set('addUserId', (string) $klara->id)->call('addWearer')
-        ->set('form.is_agt', true)->set('form.g263_examined_on', now()->subMonth()->toDateString())
-        ->assertSet('form.g263_valid_until', now()->subMonth()->addYears(3)->toDateString())
-        ->set('form.rfid_uid', '04A1B2C3')->call('save')->assertHasErrors('form.rfid_uid')
-        ->set('form.rfid_uid', '04FFEE11')->call('save')->assertHasNoErrors()
-        ->set('selected', [$klara->id, $this->otto->id])->set('trainingKind', 'belastungsuebung')->call('recordTraining')->assertHasNoErrors()
-        ->set('trainingKind', 'unterweisung')->set('selected', [$klara->id])->call('recordTraining')
-        ->set('consumption', '50')->call('saveSettings')->assertHasNoErrors();
+    Livewire::actingAs($this->wart)->test(CreateWearer::class)
+        ->fillForm(['user_id' => $klara->id, 'is_agt' => true, 'g263_examined_on' => now()->subMonth()->toDateString(), 'rfid_uid' => '04A1B2C3'])
+        ->call('create')->assertHasFormErrors(['rfid_uid' => 'unique'])
+        ->fillForm(['rfid_uid' => '04FFEE11'])->call('create')->assertHasNoFormErrors();
+    $klaraWearer = Wearer::where('user_id', $klara->id)->sole();
+    $klaraWearer->update(['g263_valid_until' => now()->addYears(3)->toDateString()]);
+
+    Livewire::actingAs($this->wart)->test(ListWearers::class)
+        ->callTableBulkAction('training', [$klaraWearer, Wearer::where('user_id', $this->otto->id)->sole()], ['kind' => 'belastungsuebung', 'done_on' => now('Europe/Berlin')->toDateString()])
+        ->assertHasNoTableBulkActionErrors()
+        ->callTableBulkAction('training', [$klaraWearer], ['kind' => 'unterweisung', 'done_on' => now('Europe/Berlin')->toDateString()]);
+    Livewire::actingAs($this->wart)->test(SettingsPage::class)
+        ->fillForm(['liters' => 6.8, 'consumption' => 50, 'reserve' => 50])->call('save')->assertHasNoFormErrors();
 
     expect($this->r->forWearer(Wearer::where('user_id', $klara->id)->first())['ready'])->toBeTrue()
         ->and(Training::where('kind', 'belastungsuebung')->where('done_on', now('Europe/Berlin')->toDateString())->count())->toBe(2)
         ->and(MonitorService::settings()['consumption_lpm'])->toBe(50);
 });
 
+test('a Wehrführung keeps the Geräteträger of their own Standort only', function () {
+    $north = Location::create(['name' => 'Wache Nord', 'slug' => 'atemschutz-pflege-nord', 'is_active' => true]);
+    $south = Location::create(['name' => 'Wache Süd', 'slug' => 'atemschutz-pflege-sued', 'is_active' => true]);
+    $admin = User::factory()->create(['is_admin' => true]);
+    $chief = User::factory()->create(['name' => 'Wiebke Wehrführung']);
+    $chief->forceFill(['ext_location_id' => $north->id])->save();
+    app(StandardRoleAssignments::class)->grant($admin, $chief->id, 'wehrfuehrung', $north->id, null, 'Wehrführung Nord');
+    $this->hanna->forceFill(['ext_location_id' => $north->id])->save();
+    $this->otto->forceFill(['ext_location_id' => $south->id])->save();
+    $chief = $chief->fresh();
+
+    expect(MonitorService::canCare($chief))->toBeTrue()
+        ->and(MonitorService::canManage($chief))->toBeFalse()
+        ->and(MonitorService::canCareFor($chief, $this->hanna->id))->toBeTrue()
+        ->and(MonitorService::canCareFor($chief, $this->otto->id))->toBeFalse();
+
+    $northWearer = Wearer::where('user_id', $this->hanna->id)->sole();
+    $southWearer = Wearer::where('user_id', $this->otto->id)->sole();
+    $before = [Training::where('user_id', $this->hanna->id)->count(), Training::where('user_id', $this->otto->id)->count()];
+    Livewire::actingAs($chief)->test(ListWearers::class)
+        ->assertCanSeeTableRecords([$northWearer])->assertCanNotSeeTableRecords([$southWearer])
+        ->callTableBulkAction('training', [$northWearer, $southWearer], ['kind' => 'unterweisung', 'done_on' => now('Europe/Berlin')->toDateString()]);
+    expect(Training::where('user_id', $this->hanna->id)->count())->toBe($before[0] + 1)->and(Training::where('user_id', $this->otto->id)->count())->toBe($before[1]);
+
+    Livewire::actingAs($chief)->test(EditWearer::class, ['record' => $northWearer->id])->assertOk();
+    $this->actingAs($chief)->get(WearerResource::getUrl('edit', ['record' => $southWearer]))->assertNotFound();
+    expect(SettingsPage::canAccess())->toBeFalse();
+});
+
 test('who may do what, the pages and the PDF', function () {
     $team = startedTeam();
+    $kamerad = User::factory()->create(['ext_location_id' => $this->location->id]);
+    $kamerad->moduleAccess()->create(['module' => 'atemschutz']);
+    joinIncidentDepartment($kamerad, $this->location);
 
     $this->actingAs($this->hanna)->get(route('atemschutz.index'))->assertOk()->assertSee('Mein Status');
     $this->actingAs($this->hanna)->get(route('atemschutz.board', $team->operation))->assertForbidden();
-    $this->actingAs($this->hanna)->get(route('atemschutz.wearers'))->assertForbidden();
+    $this->actingAs($kamerad)->get(route('atemschutz.board', $team->operation))->assertOk();
+    $this->actingAs($this->hanna)->get(WearerResource::getUrl('index'))->assertForbidden();
     $this->actingAs($this->hanna)->get(route('atemschutz.personnel-file'))->assertOk()->assertSee('Einsatzbereit unter Atemschutz')->assertSee('Angriffstrupp 1');
-    $this->actingAs($this->watch)->get(route('atemschutz.wearers'))->assertForbidden();
+    $this->actingAs($this->watch)->get(WearerResource::getUrl('index'))->assertForbidden();
     $this->actingAs($this->watch)->get(route('atemschutz.index'))->assertOk()->assertSee('Überwachung starten')->assertSee('läuft seit');
     $this->actingAs($this->watch)->get(route('atemschutz.board', $team->operation))->assertOk()->assertSee('Angriffstrupp 1')->assertSee('← Übersicht', false);
-    $this->actingAs($this->wart)->get(route('atemschutz.wearers'))->assertOk()->assertSee('Otto Ortsbrand');
+    $this->actingAs($this->wart)->get(WearerResource::getUrl('index'))->assertOk()->assertSee('Otto Ortsbrand');
     expect(fn () => $this->m->startOperation($this->hanna, '', 'uebung', null))->toThrow(ValidationException::class);
 
     $response = $this->actingAs($this->watch)->get(route('atemschutz.pdf', $team->operation))->assertOk()->assertHeader('Content-Type', 'application/pdf');
@@ -370,9 +435,9 @@ test('the pool shows Dienstgrad and Abteilung and filters by Abteilung', functio
     $this->hanna->groups()->attach($ea);
     $this->bernd->groups()->attach($jf);
 
-    Livewire::actingAs($this->wart)->test(Wearers::class)
+    Livewire::actingAs($this->wart)->test(ListWearers::class)
         ->assertSee('Oberfeuerwehrfrau · Einsatzabteilung')->assertSee('Bernd Blaulicht')
-        ->set('group', (string) $ea->id)->assertSee('Hanna Hydrant')->assertDontSee('Bernd Blaulicht')->assertDontSee('Otto Ortsbrand');
+        ->filterTable('group', $ea->id)->assertSee('Hanna Hydrant')->assertDontSee('Bernd Blaulicht')->assertDontSee('Otto Ortsbrand');
 });
 
 test('the Personalverwaltung file and the Jahresbericht show Atemschutz', function () {
@@ -403,9 +468,10 @@ test('CSA-Träger: ready with Atemschutz, CSA training and a CSA-Übung of the l
         ->and($state($this->bernd)['csa'])->toBeNull();
 
     // The Atemschutzwart enters a CSA-Übung with Tragezeit for Hanna
-    Livewire::actingAs($this->wart)->test(Wearers::class)
-        ->set('selected', [$this->hanna->id])->set('trainingKind', 'csa_uebung')->set('trainingMinutes', '25')->call('recordTraining')->assertHasNoErrors()
-        ->set('carrier', 'csa')->assertSee('Hanna Hydrant')->assertDontSee('Bernd Blaulicht');
+    Livewire::actingAs($this->wart)->test(ListWearers::class)
+        ->callTableBulkAction('training', [Wearer::where('user_id', $this->hanna->id)->sole()], ['kind' => 'csa_uebung', 'done_on' => now('Europe/Berlin')->toDateString(), 'minutes' => 25])
+        ->assertHasNoTableBulkActionErrors()
+        ->filterTable('is_csa', true)->assertSee('Hanna Hydrant')->assertDontSee('Bernd Blaulicht');
     expect($state($this->hanna)['csa'])->ready->toBeTrue()
         ->and($this->r->poolCounts()['csa_ready'])->toBe(1);
 

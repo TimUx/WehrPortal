@@ -5,6 +5,7 @@ namespace Modules\Fahrzeuge\src\Services;
 use App\Models\Module;
 use App\Models\User;
 use App\Services\ImageResizer;
+use App\Services\LocationNotifications;
 use App\Services\ModuleRegistry;
 use App\Support\Money;
 use App\Support\SignatureImage;
@@ -809,7 +810,13 @@ class FleetService
             return 0;
         }
 
-        $this->notify($this->managers(), new DeadlineDigestNotification($due, $overdue));
+        $managers = $this->managers();
+        app(LocationNotifications::class)->digest(
+            $due->toBase()->concat($overdue),
+            fn (Deadline $deadline) => $deadline->vehicle->getAttribute('ext_location_id'),
+            fn (Collection $entries) => new DeadlineDigestNotification($entries->whereIn('id', $dueIds)->values(), $entries->whereIn('id', $overdueIds)->values()),
+            fn () => $managers,
+        );
 
         return $due->count() + $overdue->count();
     }

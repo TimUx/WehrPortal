@@ -3,6 +3,7 @@
 namespace Modules\Ausruestung\src\Services;
 
 use App\Models\User;
+use App\Services\LocationNotifications;
 use Extensions\Locations\Models\StandardRoleAssignment;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Notifications\Notification;
@@ -52,8 +53,10 @@ class AusruestungMailer
             ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->pluck('user_id');
 
-        return User::active()->whereKey($userIds)->get()
+        return User::withoutGlobalScopes()->active()->whereKey($userIds)->get()
             ->filter(fn (User $user) => EquipmentService::canManageLocation($user, $locationId))
+            ->merge(app(LocationNotifications::class)->leadership($locationId))
+            ->unique('id')
             ->values();
     }
 

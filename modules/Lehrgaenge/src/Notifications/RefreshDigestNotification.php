@@ -2,6 +2,7 @@
 
 namespace Modules\Lehrgaenge\src\Notifications;
 
+use App\Models\User;
 use App\Notifications\Concerns\InApp;
 use App\Services\OrganizationSettings;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -9,12 +10,18 @@ use Illuminate\Notifications\Notification;
 use Illuminate\Support\Collection;
 use Modules\Lehrgaenge\src\Models\Record;
 
-/** To the Ausbildungsleiter: whose refresher became due */
+/** To the Ausbildungsleiter and local Wehrführung: whose refresher became due */
 class RefreshDigestNotification extends Notification
 {
     use InApp;
 
     public function __construct(private readonly Collection $records) {}
+
+    /** @return array{url: ?string} */
+    public function inApp(object $notifiable): array
+    {
+        return ['url' => $this->toMail($notifiable)->actionUrl];
+    }
 
     public function toMail(object $notifiable): MailMessage
     {
@@ -25,6 +32,10 @@ class RefreshDigestNotification extends Notification
             $mail->line($r->user->name.': '.$r->course->name.' bis '.$r->validUntil()->format('d.m.Y'));
         }
 
-        return $mail->action('Ausbildungsstand', route('lehrgaenge.qualifications'))->salutation(app(OrganizationSettings::class)->salutation());
+        if ($notifiable instanceof User && $notifiable->canViewLehrgaenge()) {
+            $mail->action('Ausbildungsstand', route('lehrgaenge.qualifications'));
+        }
+
+        return $mail->salutation(app(OrganizationSettings::class)->salutation());
     }
 }

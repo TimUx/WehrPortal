@@ -15,10 +15,12 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
+use Modules\Atemschutz\src\Models\LogEntry;
 use Modules\Atemschutz\src\Models\Operation;
 use Modules\Atemschutz\src\Models\Reading;
 use Modules\Atemschutz\src\Models\Team;
 use Modules\Atemschutz\src\Models\TeamMember;
+use Modules\Atemschutz\src\Models\Training;
 use Modules\Atemschutz\src\Models\Warning;
 use Modules\Atemschutz\src\Models\Wearer;
 use Modules\Einsatzbericht\src\Models\CrewMember;
@@ -61,10 +63,68 @@ class MonitorService
         return self::canView($user) && ($user->is_admin || $user->hasModuleRole(self::MODULE, 'atemschutzwart'));
     }
 
-    /** Atemschutzüberwacher: run the monitoring at the Einsatz */
+    /** Whoever keeps Geräteträger: the Atemschutzwart (all) or a Wehrführung with that role at a Standort (its own) */
+    public static function canCare(User $user): bool
+    {
+        return self::canView($user) && ($user->is_admin || $user->hasAnyModuleRole(self::MODULE, 'atemschutzwart'));
+    }
+
+    /**
+     * Standorte whose Geräteträger $user keeps; null = all (Atemschutzwart, admin)
+     *
+     * @return list<int>|null
+     */
+    public static function careLocationIds(User $user): ?array
+    {
+        if (self::canManage($user) || ! config('locations.enabled')) {
+            return self::canCare($user) ? null : [];
+        }
+
+        return self::canCare($user) ? $user->standardRoleLocationIds(self::MODULE, ['atemschutzwart']) : [];
+    }
+
+    public static function canCareFor(User $user, int $wearerUserId): bool
+    {
+        $locations = self::careLocationIds($user);
+        if ($locations === null) {
+            return true;
+        }
+
+        return in_array((int) User::whereKey($wearerUserId)->value('ext_location_id'), $locations, true);
+    }
+
+    /** Nachweis for several Geräteträger at once (only those the user keeps) */
+    public function recordTraining(User $by, array $userIds, string $kind, string $doneOn, ?string $notes, ?int $minutes, bool $csa): int
+    {
+        $this->assert(self::canCare($by), 'Das dürfen nur Atemschutzwarte, Wehrführung und Admins.');
+        $day = Carbon::createFromFormat('!Y-m-d', $doneOn);
+        $errors = array_filter([
+            'kind' => array_key_exists($kind, Training::KINDS) ? null : 'Bitte die Art wählen.',
+            'done_on' => $day->gt(ReadinessService::today()) ? 'Das Datum liegt in der Zukunft.' : null,
+            'minutes' => $minutes !== null && ($minutes < 1 || $minutes > 600) ? 'Die Tragezeit liegt zwischen 1 und 600 Minuten.' : null,
+        ]);
+        if ($errors) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        $count = 0;
+        foreach (Wearer::whereIn('user_id', $userIds)->pluck('user_id') as $userId) {
+            if (! self::canCareFor($by, (int) $userId)) {
+                continue;
+            }
+            Training::create(['user_id' => $userId, 'kind' => $kind, 'done_on' => $day->toDateString(),
+                'notes' => trim((string) $notes) !== '' ? mb_substr(trim((string) $notes), 0, 300) : null, 'created_by' => $by->id,
+                'minutes' => $minutes, 'csa' => $csa || $kind === 'csa_uebung']);
+            $count++;
+        }
+
+        return $count;
+    }
+
+    /** Every Einsatzkraft with access to the module may run the monitoring at the Einsatz */
     public static function canMonitor(User $user): bool
     {
-        return self::canManage($user) || (self::canView($user) && $user->hasAnyModuleRole(self::MODULE, 'ueberwacher'));
+        return self::canView($user);
     }
 
     public static function canMonitorAtLocation(User $user, int $locationId): bool
@@ -83,8 +143,7 @@ class MonitorService
         }
 
         return Location::query()->active()->whereKey($locationId)->exists()
-            && app(LocationAccess::class)->canSee($user, $locationId)
-            && $user->hasModuleRole(self::MODULE, 'ueberwacher', $locationId);
+            && app(LocationAccess::class)->canSee($user, $locationId);
     }
 
     public static function canMonitorOperation(User $user, Operation $operation): bool
@@ -102,9 +161,13 @@ class MonitorService
             return false;
         }
 
-        $locationId = $operation->getAttribute('ext_location_id');
+        foreach ($operation->locationIds() as $locationId) {
+            if (self::canMonitorAtLocation($user, $locationId)) {
+                return true;
+            }
+        }
 
-        return $locationId !== null && self::canMonitorAtLocation($user, (int) $locationId);
+        return false;
     }
 
     /** Restrict operation lists to locations visible to the user; unassigned history is manager-only. */
@@ -124,7 +187,8 @@ class MonitorService
 
         return $locationIds === []
             ? $query->whereRaw('1 = 0')
-            : $query->whereIn('ext_location_id', $locationIds);
+            : $query->where(fn (Builder $q) => $q->whereIn('ext_location_id', $locationIds)
+                ->orWhereIn('id', DB::table('as_operation_locations')->whereIn('ext_location_id', $locationIds)->select('operation_id')));
     }
 
     /** @return Collection<int, Location> */
@@ -181,9 +245,9 @@ class MonitorService
 
     // ─── Überwachung ─────────────────────────────────────────────────────────
 
-    public function startOperation(User $by, string $title, string $kind, ?int $reportId, ?int $locationId = null): Operation
+    public function startOperation(User $by, string $title, string $kind, ?int $reportId, int|array|null $locationId = null): Operation
     {
-        $this->assert(self::canMonitor($by), 'Die Atemschutzüberwachung führen Atemschutzüberwacher und Atemschutzwarte.');
+        $this->assert(self::canMonitor($by), 'Die Atemschutzüberwachung dürfen Einsatzkräfte mit Zugang zum Modul führen.');
         if (! array_key_exists($kind, Operation::KINDS)) {
             throw ValidationException::withMessages(['kind' => 'Bitte Einsatz oder Übung wählen.']);
         }
@@ -192,25 +256,30 @@ class MonitorService
             throw ValidationException::withMessages(['report_id' => 'Diesen Einsatzbericht gibt es nicht.']);
         }
 
-        $operationLocationId = null;
+        $requested = array_values(array_unique(array_map('intval', array_filter((array) $locationId, fn ($id) => $id !== null && $id !== ''))));
+        $locationIds = [];
         if (config('locations.enabled') && Schema::hasColumn('as_operations', 'ext_location_id')) {
             $reportLocationId = $report && Schema::hasColumn('eb_reports', 'ext_location_id')
                 ? $report->getAttribute('ext_location_id')
                 : null;
             if ($reportLocationId !== null) {
-                if ($locationId !== null && $locationId !== (int) $reportLocationId) {
-                    throw ValidationException::withMessages(['location_id' => 'Der Standort wird aus dem verknüpften Einsatzbericht übernommen.']);
-                }
-                $operationLocationId = (int) $reportLocationId;
-                if (! self::canMonitorAtLocation($by, $operationLocationId)) {
+                $locationIds = [(int) $reportLocationId];
+                if (! self::canMonitorAtLocation($by, $locationIds[0])) {
                     throw ValidationException::withMessages(['report_id' => 'Diesen Einsatzbericht darfst du an diesem Standort nicht für eine Atemschutzüberwachung verwenden.']);
+                }
+                // Further Standorte involved in the Einsatz may be added
+                foreach (array_diff($requested, $locationIds) as $extra) {
+                    if (! Location::query()->active()->whereKey($extra)->exists() || ! self::canMonitorAtLocation($by, $extra)) {
+                        throw ValidationException::withMessages(['location_id' => 'Der Standort wird aus dem verknüpften Einsatzbericht übernommen.']);
+                    }
+                    $locationIds[] = $extra;
                 }
             } elseif ($reportId !== null) {
                 if (! self::canManage($by)) {
                     throw ValidationException::withMessages(['report_id' => 'Der verknüpfte Einsatzbericht hat keinen zugeordneten Standort.']);
                 }
             } else {
-                $operationLocationId = $this->authorizedOperationLocation($by, $locationId, $kind);
+                $locationIds = $this->authorizedOperationLocations($by, $requested, $kind);
             }
         } elseif (config('locations.enabled') && $reportId === null) {
             throw ValidationException::withMessages(['location_id' => 'Die Standortzuordnung für Atemschutzüberwachungen ist noch nicht verfügbar.']);
@@ -219,26 +288,53 @@ class MonitorService
         $title = trim($title) !== '' ? mb_substr(trim($title), 0, 150)
             : Operation::KINDS[$kind].' '.now('Europe/Berlin')->format('d.m.Y H:i');
 
-        return Operation::create([
-            'title' => $title, 'kind' => $kind, 'report_id' => $reportId,
-            ...($operationLocationId === null ? [] : ['ext_location_id' => $operationLocationId]),
-            'started_at' => now(), 'started_by' => $by->id,
-        ]);
+        return DB::transaction(function () use ($title, $kind, $reportId, $locationIds, $by) {
+            $operation = Operation::create([
+                'title' => $title, 'kind' => $kind, 'report_id' => $reportId,
+                ...($locationIds === [] ? [] : ['ext_location_id' => $locationIds[0]]),
+                'started_at' => now(), 'started_by' => $by->id,
+            ]);
+            if ($locationIds !== []) {
+                $operation->locations()->sync($locationIds);
+            }
+
+            return $operation;
+        });
     }
 
-    private function authorizedOperationLocation(User $by, ?int $locationId, string $kind): int
+    /** @param  list<int>  $locationIds
+     * @return list<int> */
+    private function authorizedOperationLocations(User $by, array $locationIds, string $kind): array
     {
-        if ($locationId === null) {
+        if ($locationIds === []) {
             $label = $kind === 'uebung' ? 'Atemschutzübung' : 'Atemschutzüberwachung';
             throw ValidationException::withMessages(['location_id' => 'Bitte einen Standort für die '.$label.' auswählen.']);
         }
 
-        $location = Location::query()->active()->find($locationId);
-        if (! $location || ! self::canMonitorAtLocation($by, $locationId)) {
-            throw ValidationException::withMessages(['location_id' => 'Diesen Standort darfst du nicht für eine Atemschutzüberwachung verwenden.']);
+        foreach ($locationIds as $locationId) {
+            if (! Location::query()->active()->whereKey($locationId)->exists() || ! self::canMonitorAtLocation($by, $locationId)) {
+                throw ValidationException::withMessages(['location_id' => 'Diesen Standort darfst du nicht für eine Atemschutzüberwachung verwenden.']);
+            }
         }
 
-        return (int) $location->getKey();
+        return $locationIds;
+    }
+
+    // ─── Protokoll ───────────────────────────────────────────────────────────
+
+    /** A timed free-text comment; the time is taken now, any number of times, also after the end */
+    public function addLog(User $by, Operation $operation, ?string $body): LogEntry
+    {
+        $this->assertCanMonitorOperation($by, $operation);
+        $body = trim((string) $body);
+        if ($body === '') {
+            throw ValidationException::withMessages(['log' => 'Bitte einen Kommentar eingeben.']);
+        }
+
+        /** @var LogEntry $entry */
+        $entry = $operation->log()->create(['body' => mb_substr($body, 0, 1000), 'noted_at' => now(), 'user_id' => $by->id]);
+
+        return $entry;
     }
 
     public function endOperation(User $by, Operation $operation): void

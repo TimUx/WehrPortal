@@ -26,19 +26,20 @@ class Overview extends Component
 
     public string $reportId = '';
 
-    public string $locationId = '';
+    /** @var list<string> */
+    public array $locationIds = [];
 
     public function updatedReportId(): void
     {
         $this->resetErrorBag('location_id');
         if (! $this->reportId || ! Schema::hasTable('eb_reports') || ! Schema::hasColumn('eb_reports', 'ext_location_id')) {
-            $this->locationId = '';
+            $this->locationIds = [];
 
             return;
         }
 
         $locationId = Report::whereKey((int) $this->reportId)->value('ext_location_id');
-        $this->locationId = $locationId === null ? '' : (string) $locationId;
+        $this->locationIds = $locationId === null ? [] : [(string) $locationId];
     }
 
     public function mount(LocationContext $locationContext): void
@@ -51,7 +52,7 @@ class Overview extends Component
         if ($this->reportId === '' && config('locations.enabled')) {
             $current = $locationContext->forUser(auth()->user())['current'];
             if ($current !== null && MonitorService::operationLocations(auth()->user())->contains('id', $current)) {
-                $this->locationId = (string) $current;
+                $this->locationIds = [(string) $current];
             }
         }
     }
@@ -62,7 +63,7 @@ class Overview extends Component
         try {
             $operation = $monitor->startOperation(
                 auth()->user(), $this->title, $this->kind, $this->reportId ? (int) $this->reportId : null,
-                filled($this->locationId) ? (int) $this->locationId : null,
+                array_map('intval', array_filter($this->locationIds)),
             );
         } catch (ValidationException $e) {
             foreach ($e->errors() as $field => $messages) {
@@ -92,11 +93,11 @@ class Overview extends Component
             'locations' => $locations,
             'reportLocationId' => $reportLocationId === null ? null : (int) $reportLocationId,
             'running' => MonitorService::applyOperationVisibility(Operation::running(), $user)
-                ->when(config('locations.enabled'), fn ($query) => $query->with('location'))
+                ->when(config('locations.enabled'), fn ($query) => $query->with(['location', 'locations']))
                 ->withCount(['teams as active_count' => fn ($q) => $q->where('status', 'active')])
                 ->latest('started_at')->get(),
             'recent' => $monitor ? MonitorService::applyOperationVisibility(Operation::whereNotNull('ended_at'), $user)
-                ->when(config('locations.enabled'), fn ($query) => $query->with('location'))
+                ->when(config('locations.enabled'), fn ($query) => $query->with(['location', 'locations']))
                 ->withCount('teams')->latest('started_at')->limit(15)->get() : collect(),
             'available' => $states->filter(fn ($s) => $s['ready'] && ! $busy->has($s['wearer']->user_id))->sortBy(fn ($s) => $s['wearer']->user->name)->values(),
             'busyCount' => $busy->count(),
