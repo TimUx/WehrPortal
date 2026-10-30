@@ -125,8 +125,9 @@ class AtemschutzServiceProvider extends ServiceProvider
         app(ModuleRegistry::class)->navigation('atemschutz', fn (User $u) => [
             'tabs' => [
                 ModuleNav::tab('Überwachung', 'atemschutz.index', ['atemschutz.board']),
-                MonitorService::canManage($u) ? ModuleNav::tab('Geräteträger', 'atemschutz.wearers') : null,
             ],
+            // Pflege der Geräteträger is Verwaltung, apart from the tools used at the Einsatz
+            'manage' => MonitorService::canManage($u) ? route('atemschutz.wearers') : null,
         ]);
     }
 }

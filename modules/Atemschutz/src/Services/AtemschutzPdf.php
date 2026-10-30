@@ -15,9 +15,9 @@ class AtemschutzPdf
 
     public function operation(Operation $operation): string
     {
-        $relations = ['teams.members', 'teams.readings.member', 'teams.warnings.acknowledger', 'starter', 'report'];
+        $relations = ['teams.members', 'teams.readings.member', 'teams.warnings.acknowledger', 'starter', 'report', 'log.user'];
         if (config('locations.enabled') && Schema::hasColumn('as_operations', 'ext_location_id')) {
-            $relations[] = 'location';
+            array_push($relations, 'location', 'locations');
         }
         $operation->load($relations);
 

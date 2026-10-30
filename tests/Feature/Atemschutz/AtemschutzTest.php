@@ -81,9 +81,9 @@ test('standalone Atemschutzübungen require an authorized Standort', function ()
     expect($visibleLocations)->toContain($north->id)->not->toContain($south->id);
 
     Livewire::actingAs($this->watch)->test(Overview::class)
-        ->assertSet('locationId', (string) $north->id)
-        ->set('kind', 'uebung')->assertSee('Standort der Überwachung')->assertSee('Wache Nord')->assertDontSee('Wache Süd')
-        ->set('locationId', (string) $north->id)->call('start')->assertRedirect();
+        ->assertSet('locationIds', [(string) $north->id])
+        ->set('kind', 'uebung')->assertSee('Beteiligte Standorte')->assertSee('Wache Nord')->assertDontSee('Wache Süd')
+        ->set('locationIds', [(string) $north->id])->call('start')->assertRedirect();
     expect(Operation::sole()->ext_location_id)->toBe($north->id);
 
     expect(fn () => $this->m->startOperation($this->watch, 'Übungsabend', 'uebung', null, $south->id))
@@ -115,6 +115,27 @@ test('Überwacher can only view and manage operations at accessible locations', 
     expect(MonitorService::canMonitorOperation($this->watch, $northOperation))->toBeTrue()
         ->and(MonitorService::canMonitorOperation($this->watch, $southOperation))->toBeFalse()
         ->and(MonitorService::canMonitorOperation($this->watch, $unassignedOperation))->toBeFalse();
+});
+
+test('an Überwachung can involve several Standorte and keeps a timed log with special events', function () {
+    $north = Location::create(['name' => 'Wache Nord', 'slug' => 'atemschutz-multi-nord']);
+    $south = Location::create(['name' => 'Wache Süd', 'slug' => 'atemschutz-multi-sued']);
+
+    $operation = $this->m->startOperation($this->wart, 'Wohnungsbrand', 'einsatz', null, [$north->id, $south->id]);
+    expect($operation->ext_location_id)->toBe($north->id)->and($operation->locationIds())->toEqualCanonicalizing([$north->id, $south->id]);
+
+    $this->m->addLog($this->wart, $operation, 'note', null, 'Wasserversorgung steht');
+    $this->m->addLog($this->wart, $operation, 'event', 'mayday', '');
+    expect(fn () => $this->m->addLog($this->wart, $operation, 'note', null, '  '))->toThrow(ValidationException::class);
+    expect(fn () => $this->m->addLog($this->wart, $operation, 'event', 'unknown', null))->toThrow(ValidationException::class);
+
+    Livewire::actingAs($this->wart)->test(Board::class, ['operation' => $operation])
+        ->set('logBody', 'Person im 1. OG')->call('addEvent', 'person')
+        ->assertSee('Person gefunden')->assertSee('Mayday')->assertSee('Wasserversorgung steht')->assertSee('Wache Nord, Wache Süd');
+    expect($operation->log()->count())->toBe(3);
+
+    $this->m->endOperation($this->wart, $operation);
+    expect(fn () => $this->m->addLog($this->wart, $operation->fresh(), 'note', null, 'zu spät'))->toThrow(ValidationException::class);
 });
 
 function readyWearer(User $user, array $overrides = []): Wearer
@@ -311,9 +332,13 @@ test('the Atemschutzwart keeps the pool: G26.3, chip, trainings for several at o
 
 test('who may do what, the pages and the PDF', function () {
     $team = startedTeam();
+    $kamerad = User::factory()->create(['ext_location_id' => $this->location->id]);
+    $kamerad->moduleAccess()->create(['module' => 'atemschutz']);
+    joinIncidentDepartment($kamerad, $this->location);
 
     $this->actingAs($this->hanna)->get(route('atemschutz.index'))->assertOk()->assertSee('Mein Status');
     $this->actingAs($this->hanna)->get(route('atemschutz.board', $team->operation))->assertForbidden();
+    $this->actingAs($kamerad)->get(route('atemschutz.board', $team->operation))->assertOk();
     $this->actingAs($this->hanna)->get(route('atemschutz.wearers'))->assertForbidden();
     $this->actingAs($this->hanna)->get(route('atemschutz.personnel-file'))->assertOk()->assertSee('Einsatzbereit unter Atemschutz')->assertSee('Angriffstrupp 1');
     $this->actingAs($this->watch)->get(route('atemschutz.wearers'))->assertForbidden();

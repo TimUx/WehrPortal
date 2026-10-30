@@ -21,7 +21,7 @@
     <h1>Atemschutzüberwachung – {{ $operation->title }}</h1>
     <p class="meta">{{ $org }} · {{ \Modules\Atemschutz\src\Models\Operation::KINDS[$operation->kind] }} am {{ $operation->started_at->setTimezone('Europe/Berlin')->format('d.m.Y') }}, {{ $t($operation->started_at) }}–{{ $t($operation->ended_at) }} Uhr
         @if($operation->report) · Einsatz {{ $operation->report->number }} ({{ $operation->report->keyword }})@endif
-        @if(config('locations.enabled') && $operation->ext_location_id) · {{ $operation->location?->name }}@endif · Überwachung: {{ $operation->starter?->name ?? '–' }}</p>
+        @if(config('locations.enabled') && $operation->ext_location_id) · {{ $operation->locationNames() }}@endif · Überwachung: {{ $operation->starter?->name ?? '–' }}</p>
 
     @forelse($operation->teams as $team)
         @php($state = $states[$team->id])
@@ -55,6 +55,15 @@
     @empty
         <p>Kein Trupp eingesetzt.</p>
     @endforelse
+    @if($operation->log->isNotEmpty())
+        <h2>Protokoll &amp; besondere Ereignisse</h2>
+        <table>
+            <tr><th>Zeit</th><th>Art</th><th>Eintrag</th><th>Von</th></tr>
+            @foreach($operation->log as $entry)
+                <tr class="{{ $entry->event === 'mayday' ? 'warn' : '' }}"><td>{{ $entry->noted_at->setTimezone('Europe/Berlin')->format('H:i:s') }}</td><td>{{ $entry->label() }}</td><td>{{ $entry->body }}</td><td>{{ $entry->user?->name ?? '–' }}</td></tr>
+            @endforeach
+        </table>
+    @endif
     <p class="small">Erstellt {{ now('Europe/Berlin')->format('d.m.Y H:i') }} · Dokumentation nach FwDV 7.</p>
 </body>
 </html>

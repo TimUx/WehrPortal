@@ -43,6 +43,25 @@ class Board extends Component
 
     public ?string $flash = null;
 
+    public string $logBody = '';
+
+    public function addNote(MonitorService $monitor): void
+    {
+        $this->run(function () use ($monitor) {
+            $monitor->addLog(auth()->user(), $this->operation, 'note', null, $this->logBody);
+            $this->logBody = '';
+        }, null);
+    }
+
+    /** A special event, optionally with the text typed so far as detail */
+    public function addEvent(string $event, MonitorService $monitor): void
+    {
+        $this->run(function () use ($event, $monitor) {
+            $monitor->addLog(auth()->user(), $this->operation, 'event', $event, $this->logBody);
+            $this->logBody = '';
+        }, null);
+    }
+
     public function mount(): void
     {
         abort_unless(MonitorService::canMonitorOperation(auth()->user(), $this->operation), 403);
@@ -202,6 +221,7 @@ class Board extends Component
 
         return view('atemschutz::livewire.board', [
             'teams' => $teams,
+            'log' => $this->operation->log()->with('user')->get()->reverse()->values(),
             'states' => $states,
             'pool' => $pool,
             'warningCount' => $states->sum(fn ($s) => count($s['warnings'])),

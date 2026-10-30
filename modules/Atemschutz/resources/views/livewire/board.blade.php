@@ -8,7 +8,7 @@
     <a href="{{ route('atemschutz.index') }}" class="inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fw-navy hover:text-fw-red">← Übersicht</a>
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-            <p class="text-sm text-gray-500">{{ \Modules\Atemschutz\src\Models\Operation::KINDS[$operation->kind] }} · seit {{ $operation->started_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }}@if($operation->report) · Einsatz {{ $operation->report->number }}@endif @if(config('locations.enabled') && $operation->ext_location_id)· {{ $operation->location?->name }}@endif</p>
+            <p class="text-sm text-gray-500">{{ \Modules\Atemschutz\src\Models\Operation::KINDS[$operation->kind] }} · seit {{ $operation->started_at->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }}@if($operation->report) · Einsatz {{ $operation->report->number }}@endif @if(config('locations.enabled') && $operation->ext_location_id)· {{ $operation->locationNames() }}@endif</p>
             <h1 class="text-xl font-bold text-gray-900">{{ $operation->title }}</h1>
         </div>
         <div class="flex flex-wrap items-center gap-3 text-sm">
@@ -172,4 +172,32 @@
             </div>
         </section>
     @endif
+
+    <section class="space-y-2">
+        <p class="text-sm font-semibold text-gray-900">Protokoll &amp; besondere Ereignisse</p>
+        @if($running)
+            <div class="space-y-2 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
+                <div class="flex flex-wrap gap-2">
+                    @foreach(\Modules\Atemschutz\src\Models\LogEntry::EVENTS as $key => $label)
+                        <button type="button" wire:click="addEvent('{{ $key }}')" class="rounded-lg border px-3 py-1.5 text-sm font-semibold {{ $key === 'mayday' ? 'border-red-600 bg-red-600 text-white' : 'border-gray-300 bg-white text-gray-800' }}">{{ $label }}</button>
+                    @endforeach
+                </div>
+                <form wire:submit="addNote" class="flex gap-2">
+                    <input type="text" wire:model="logBody" maxlength="1000" placeholder="Kommentar (Zeitstempel wird automatisch gesetzt) – bei einem Ereignis als Zusatz" class="{{ $input }}">
+                    <button type="submit" class="shrink-0 rounded-lg bg-fw-red px-4 py-2 text-sm font-semibold text-white">Eintragen</button>
+                </form>
+                @error('log')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
+            </div>
+        @endif
+        <div class="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white shadow-sm">
+            @forelse($log as $entry)
+                <div class="flex gap-3 p-3 text-sm" wire:key="log-{{ $entry->id }}">
+                    <span class="shrink-0 font-mono text-xs text-gray-500">{{ $entry->noted_at->setTimezone('Europe/Berlin')->format('H:i:s') }}</span>
+                    <span class="min-w-0"><span class="font-semibold {{ $entry->event === 'mayday' ? 'text-red-700' : 'text-gray-900' }}">{{ $entry->kind === 'event' ? $entry->label() : '' }}</span> {{ $entry->body }} <span class="text-xs text-gray-400">{{ $entry->user?->name }}</span></span>
+                </div>
+            @empty
+                <p class="p-3 text-sm text-gray-500">Noch keine Einträge.</p>
+            @endforelse
+        </div>
+    </section>
 </div>
