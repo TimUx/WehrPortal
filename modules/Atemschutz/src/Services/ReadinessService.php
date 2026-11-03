@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\DB;
 use Modules\Atemschutz\src\Models\Team;
 use Modules\Atemschutz\src\Models\Training;
 use Modules\Atemschutz\src\Models\Wearer;
+use Modules\Atemschutz\src\Models\WearerExamination;
+use Modules\Atemschutz\src\Models\WearerQualification;
 use Modules\Atemschutz\src\Notifications\DeadlineNotification;
 use Modules\Atemschutz\src\Notifications\PoolDigestNotification;
 use Throwable;
@@ -53,8 +55,8 @@ class ReadinessService
     }
 
     /**
-     * @return Collection<int, array{wearer: Wearer, ready: bool, soon: bool, reasons: list<string>, items: array<string, array{ok: bool, until: ?Carbon, last: ?Carbon, source: ?string}>}>
-     *                                                                                                                                                                                       keyed by user id
+     * @return Collection<int, array{wearer: Wearer, ready: bool, soon: bool, reasons: list<string>, items: array<string, array{ok: bool, until: ?Carbon, last: ?Carbon, source: ?string}>, csa: ?array{ready: bool, items: array<string, array{ok: bool, until: ?Carbon, last: ?Carbon, source: ?string}>, reasons: list<string>, soon: bool}}>
+     *                                                                                                                                                                                                                                                                                                                                           keyed by user id
      */
     public function forWearers(Collection $wearers): Collection
     {
@@ -62,6 +64,21 @@ class ReadinessService
         if ($ids === []) {
             return collect();
         }
+        /** @var Collection<int, Collection<int, WearerExamination>> $examinations */
+        $examinations = WearerExamination::query()
+            ->whereIn('wearer_id', $wearers->pluck('id'))
+            ->orderByRaw('examined_on DESC NULLS LAST')
+            ->orderByDesc('id')
+            ->get()
+            ->groupBy('wearer_id');
+        /** @var Collection<int, Collection<int, WearerQualification>> $qualifications */
+        $qualifications = WearerQualification::query()
+            ->whereIn('wearer_id', $wearers->pluck('id'))
+            ->orderByRaw('qualified_on DESC NULLS LAST')
+            ->orderByDesc('id')
+            ->get(['id', 'wearer_id', 'kind', 'title', 'qualified_on', 'valid_until', 'is_legacy'])
+            ->groupBy('wearer_id')
+            ->map(fn (Collection $rows) => $rows->unique('kind')->keyBy('kind'));
 
         $own = Training::whereIn('user_id', $ids)->selectRaw('user_id, kind, max(done_on) as last')->groupBy('user_id', 'kind')->get()
             ->groupBy('user_id')->map(fn ($rows) => $rows->pluck('last', 'kind'));
@@ -83,11 +100,21 @@ class ReadinessService
             ->whereIn('as_team_members.user_id', $ids)->where('as_teams.csa', true)->whereNotNull('as_teams.started_at')
             ->selectRaw('as_team_members.user_id, max(as_teams.started_at) as last')->groupBy('as_team_members.user_id')->pluck('last', 'user_id');
 
-        return $wearers->mapWithKeys(fn (Wearer $w) => [$w->user_id => $this->evaluate($w, $own[$w->user_id] ?? collect(), collect([$teams[$w->user_id] ?? null, $reports[$w->user_id] ?? null])->filter()->max(), $lq[$w->user_id] ?? [],
-            collect([$csaTrainings[$w->user_id] ?? null, $csaTeams[$w->user_id] ?? null])->filter()->max())]);
+        return $wearers->mapWithKeys(function (Wearer $wearer) use ($examinations, $qualifications, $own, $teams, $reports, $lq, $csaTrainings, $csaTeams) {
+            $wearer->setRelation('examinations', $examinations->get($wearer->id, collect()));
+
+            return [$wearer->user_id => $this->evaluate(
+                $wearer,
+                $qualifications->get($wearer->id, collect()),
+                $own[$wearer->user_id] ?? collect(),
+                collect([$teams[$wearer->user_id] ?? null, $reports[$wearer->user_id] ?? null])->filter()->max(),
+                $lq[$wearer->user_id] ?? [],
+                collect([$csaTrainings[$wearer->user_id] ?? null, $csaTeams[$wearer->user_id] ?? null])->filter()->max(),
+            )];
+        });
     }
 
-    /** @return array{wearer: Wearer, ready: bool, soon: bool, reasons: list<string>, items: array<string, array{ok: bool, until: ?Carbon, last: ?Carbon, source: ?string}>} */
+    /** @return array{wearer: Wearer, ready: bool, soon: bool, reasons: list<string>, items: array<string, array{ok: bool, until: ?Carbon, last: ?Carbon, source: ?string}>, csa: ?array{ready: bool, items: array<string, array{ok: bool, until: ?Carbon, last: ?Carbon, source: ?string}>, reasons: list<string>, soon: bool}} */
     public function forWearer(Wearer $wearer): array
     {
         return $this->forWearers(collect([$wearer]))->first();
@@ -135,7 +162,7 @@ class ReadinessService
         $states = $this->forWearers(Wearer::active()->get());
 
         return [
-            'csa_ready' => $states->filter(fn ($s) => $s['csa']['ready'] ?? false)->count(),
+            'csa_ready' => $states->filter(fn ($s) => $s['csa'] !== null && $s['csa']['ready'])->count(),
             'ready' => $states->where('ready', true)->where('soon', false)->count(),
             'soon' => $states->where('ready', true)->where('soon', true)->count(),
             'not_ready' => $states->where('ready', false)->count(),
@@ -157,9 +184,10 @@ class ReadinessService
 
         foreach ($this->forWearers(Wearer::active()->with('user')->get()) as $state) {
             $wearer = $state['wearer'];
+            /** @var array<string, string> $reminded */
             $reminded = $wearer->reminded ?? [];
             // CSA-Träger are also reminded of their CSA-Übung
-            $due = collect($state['items'])->only(self::BLOCKING)->merge($state['csa'] ? ['csa_uebung' => $state['csa']['items']['csa_uebung']] : [])
+            $due = collect($state['items'])->only(self::BLOCKING)->merge($state['csa'] !== null ? $state['csa']['items'] : [])
                 ->filter(fn ($item, $key) => $item['until'] && $item['until']->lte($limit) && ($reminded[$key] ?? null) !== $item['until']->toDateString());
             if ($due->isEmpty()) {
                 continue;
@@ -190,10 +218,13 @@ class ReadinessService
         return $digest->count();
     }
 
-    private function evaluate(Wearer $wearer, Collection $own, ?string $lastTeam, array $lq, ?string $lastCsa = null): array
+    /**
+     * @return array{wearer: Wearer, ready: bool, soon: bool, reasons: list<string>, items: array<string, array{ok: bool, until: ?Carbon, last: ?Carbon, source: ?string}>, csa: ?array{ready: bool, items: array<string, array{ok: bool, until: ?Carbon, last: ?Carbon, source: ?string}>, reasons: list<string>, soon: bool}}
+     */
+    private function evaluate(Wearer $wearer, Collection $qualifications, Collection $own, ?string $lastTeam, array $lq, ?string $lastCsa = null): array
     {
         $today = self::today();
-        $date = fn ($value) => $value ? Carbon::parse(Carbon::parse($value)->setTimezone('Europe/Berlin')->toDateString()) : null;
+        $date = fn ($value) => filled($value) ? Carbon::parse(Carbon::parse($value)->setTimezone('Europe/Berlin')->toDateString()) : null;
         $latest = fn (?Carbon ...$dates) => collect($dates)->filter()->sortDesc()->first();
         $yearly = function (?Carbon $last, ?string $source = null) use ($today) {
             $until = $last?->copy()->addMonths(self::VALID_MONTHS);
@@ -201,15 +232,29 @@ class ReadinessService
             return ['ok' => $until !== null && $until->gte($today), 'until' => $until, 'last' => $last, 'source' => $source];
         };
 
-        $agtLast = $latest($date($wearer->agt_qualified_on), $date($lq['agt'] ?? null));
+        $agtQualification = $qualifications->get('agt');
+        $hasLehrgangAgt = array_key_exists('agt', $lq);
+        $agtManualDate = $date($agtQualification?->qualified_on);
+        $agtLehrgangDate = $date($lq['agt'] ?? null);
+        $agtLast = $latest($agtManualDate, $agtLehrgangDate);
+        $lehrgangAgtIsCurrent = $hasLehrgangAgt && (! $agtLehrgangDate || ! $agtManualDate || $agtLehrgangDate->gte($agtManualDate));
+        $manualAgtIsCurrent = $agtQualification?->isValidOn($today) ?? false;
         $belOwn = $date($own['belastungsuebung'] ?? null);
         $belLq = $date($lq['belastungsuebung'] ?? null);
         $bel = $latest($belOwn, $belLq);
-        $g263 = $wearer->g263_valid_until ? Carbon::parse($wearer->g263_valid_until->toDateString()) : null;
+        $examination = $wearer->examinations->first();
+        $g263 = $examination?->valid_until
+            ? Carbon::parse((string) $examination->valid_until)
+            : null;
 
         $items = [
-            'agt' => ['ok' => $wearer->is_agt || isset($lq['agt']), 'until' => null, 'last' => $agtLast, 'source' => ! $wearer->is_agt && isset($lq['agt']) ? 'Lehrgänge' : null],
-            'g263' => ['ok' => $g263 !== null && $g263->gte($today), 'until' => $g263, 'last' => $date($wearer->g263_examined_on), 'source' => null],
+            'agt' => [
+                'ok' => $manualAgtIsCurrent || $lehrgangAgtIsCurrent,
+                'until' => $lehrgangAgtIsCurrent ? null : $date($agtQualification?->valid_until),
+                'last' => $agtLast,
+                'source' => $lehrgangAgtIsCurrent && ! $manualAgtIsCurrent ? 'Lehrgänge' : null,
+            ],
+            'g263' => ['ok' => $g263 !== null && $g263->gte($today), 'until' => $g263, 'last' => $date($examination?->examined_on), 'source' => null],
             'belastungsuebung' => $yearly($bel, $belLq && (! $belOwn || $belLq->gt($belOwn)) ? 'Lehrgänge' : null),
             'unterweisung' => $yearly($date($own['unterweisung'] ?? null)),
             'einsatzuebung' => $yearly($latest($date($own['einsatzuebung'] ?? null), $date($lastTeam))),
@@ -221,11 +266,25 @@ class ReadinessService
         $soonLimit = $today->copy()->addDays(self::SOON_DAYS);
 
         $csa = null;
-        if ($wearer->is_csa) {
-            $csaItems = ['csa' => ['ok' => true, 'until' => null, 'last' => $date($wearer->csa_qualified_on), 'source' => null], 'csa_uebung' => $yearly($date($lastCsa))];
-            $csaReasons = [...($ready ? [] : ['Atemschutz nicht einsatzbereit']), ...($csaItems['csa_uebung']['ok'] ? [] : [self::CSA_ITEMS['csa_uebung'].($csaItems['csa_uebung']['until'] ? ' abgelaufen' : ' fehlt')])];
+        $csaQualification = $qualifications->get('csa');
+        if ($csaQualification) {
+            $csaItems = [
+                'csa' => [
+                    'ok' => $csaQualification->isValidOn($today),
+                    'until' => $date($csaQualification->valid_until),
+                    'last' => $date($csaQualification->qualified_on),
+                    'source' => null,
+                ],
+                'csa_uebung' => $yearly($date($lastCsa)),
+            ];
+            $csaReasons = [...($ready ? [] : ['Atemschutz nicht einsatzbereit'])];
+            foreach ($csaItems as $key => $item) {
+                if (! $item['ok']) {
+                    $csaReasons[] = self::CSA_ITEMS[$key].($item['until'] ? ' abgelaufen' : ' fehlt');
+                }
+            }
             $csa = ['ready' => $csaReasons === [], 'items' => $csaItems, 'reasons' => $csaReasons,
-                'soon' => $csaReasons === [] && $csaItems['csa_uebung']['until']?->lte($soonLimit)];
+                'soon' => $csaReasons === [] && collect($csaItems)->contains(fn ($item) => $item['until']?->lte($soonLimit))];
         }
 
         return [
@@ -276,7 +335,7 @@ class ReadinessService
         }
     }
 
-    /** @return array<int, array{agt?: string, belastungsuebung?: string}> completed Lehrgänge by user */
+    /** @return array<int, array{agt?: ?string, belastungsuebung?: ?string}> completed Lehrgänge by user */
     private function fromLehrgaenge(array $userIds): array
     {
         if (! app(ModuleRegistry::class)->isActive('lehrgaenge')) {
@@ -298,8 +357,8 @@ class ReadinessService
         foreach ($rows as $row) {
             $key = stripos($row->name, 'Belastungsübung') !== false ? 'belastungsuebung' : 'agt';
             // Without a date (old Lehrgang entered afterwards) the Lehrgang counts, but gives no date
-            $when = (string) $row->completed_on;
-            if (! isset($result[$row->user_id][$key]) || $when > $result[$row->user_id][$key]) {
+            $when = $row->completed_on !== null ? (string) $row->completed_on : null;
+            if (! array_key_exists($key, $result[$row->user_id] ?? []) || ($when !== null && $when > ($result[$row->user_id][$key] ?? ''))) {
                 $result[$row->user_id][$key] = $when;
             }
         }

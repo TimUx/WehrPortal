@@ -541,24 +541,6 @@ parameters:
 			path: app/Services/PushService.php
 
 		-
-			message: '#^Offset ''csa'' on array\{wearer\: Modules\\Atemschutz\\src\\Models\\Wearer, ready\: bool, soon\: bool, reasons\: list\<string\>, items\: array\<string, array\{ok\: bool, until\: Illuminate\\Support\\Carbon\|null, last\: Illuminate\\Support\\Carbon\|null, source\: string\|null\}\>\} on left side of \?\? does not exist\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: modules/Atemschutz/AtemschutzServiceProvider.php
-
-		-
-			message: '#^Parameter \#1 \$array \(array\{0\?\: ''AGT''\}\) of array_values is already a list, call has no effect\.$#'
-			identifier: arrayValues.list
-			count: 1
-			path: modules/Atemschutz/AtemschutzServiceProvider.php
-
-		-
-			message: '#^Ternary operator condition is always false\.$#'
-			identifier: ternary.alwaysFalse
-			count: 1
-			path: modules/Atemschutz/AtemschutzServiceProvider.php
-
-		-
 			message: '#^Cannot call method setTimezone\(\) on string\.$#'
 			identifier: method.nonObject
 			count: 1
@@ -661,12 +643,6 @@ parameters:
 			path: modules/Atemschutz/src/Services/MonitorService.php
 
 		-
-			message: '#^Offset ''csa'' does not exist on array\{wearer\: Modules\\Atemschutz\\src\\Models\\Wearer, ready\: true, soon\: bool, reasons\: list\<string\>, items\: array\<string, array\{ok\: bool, until\: Illuminate\\Support\\Carbon\|null, last\: Illuminate\\Support\\Carbon\|null, source\: string\|null\}\>\}\.$#'
-			identifier: offsetAccess.notFound
-			count: 1
-			path: modules/Atemschutz/src/Services/MonitorService.php
-
-		-
 			message: '#^Offset ''start_pressure'' on array\{user_id\?\: int\|null, name\?\: string\|null, start_pressure\: int\|string, is_leader\?\: bool, override\?\: bool\} on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
 			count: 1
@@ -719,42 +695,6 @@ parameters:
 			identifier: property.notFound
 			count: 2
 			path: modules/Atemschutz/src/Services/ReadinessService.php
-
-		-
-			message: '#^Cannot call method toDateString\(\) on string\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: modules/Atemschutz/src/Services/ReadinessService.php
-
-		-
-			message: '#^Method Modules\\Atemschutz\\src\\Services\\ReadinessService\:\:forWearers\(\) should return Illuminate\\Support\\Collection\<int, array\{wearer\: Modules\\Atemschutz\\src\\Models\\Wearer, ready\: bool, soon\: bool, reasons\: list\<string\>, items\: array\<string, array\{ok\: bool, until\: Illuminate\\Support\\Carbon\|null, last\: Illuminate\\Support\\Carbon\|null, source\: string\|null\}\>\}\> but returns Illuminate\\Support\\Collection\<int, array\>\.$#'
-			identifier: return.type
-			count: 1
-			path: modules/Atemschutz/src/Services/ReadinessService.php
-
-		-
-			message: '#^Offset ''csa'' does not exist on array\{wearer\: Modules\\Atemschutz\\src\\Models\\Wearer, ready\: bool, soon\: bool, reasons\: list\<string\>, items\: array\<string, array\{ok\: bool, until\: Illuminate\\Support\\Carbon\|null, last\: Illuminate\\Support\\Carbon\|null, source\: string\|null\}\>\}\.$#'
-			identifier: offsetAccess.notFound
-			count: 1
-			path: modules/Atemschutz/src/Services/ReadinessService.php
-
-		-
-			message: '#^Offset ''csa'' on array\{wearer\: Modules\\Atemschutz\\src\\Models\\Wearer, ready\: bool, soon\: bool, reasons\: list\<string\>, items\: array\<string, array\{ok\: bool, until\: Illuminate\\Support\\Carbon\|null, last\: Illuminate\\Support\\Carbon\|null, source\: string\|null\}\>\} on left side of \?\? does not exist\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: modules/Atemschutz/src/Services/ReadinessService.php
-
-		-
-			message: '#^Offset string on array\{\}\|string on left side of \?\? does not exist\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: modules/Atemschutz/src/Services/ReadinessService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Ausruestung/AusruestungServiceProvider.php
 
 		-
 			message: '#^Cannot access property \$value on string\.$#'
@@ -913,18 +853,6 @@ parameters:
 			path: modules/Ausruestung/src/Models/Compartment.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$inspection_interval_months\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Ausruestung/src/Models/Equipment.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$lifetime_years\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Ausruestung/src/Models/Equipment.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
 			identifier: property.notFound
 			count: 1
@@ -1073,12 +1001,6 @@ parameters:
 			identifier: identical.alwaysFalse
 			count: 1
 			path: modules/Ausruestung/src/Services/EquipmentService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: modules/Ausruestung/src/Services/InventoryExport.php
 
 		-
 			message: '#^Cannot call method label\(\) on string\.$#'

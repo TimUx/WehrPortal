@@ -23,10 +23,14 @@ use Modules\Atemschutz\src\Models\Team;
 use Modules\Atemschutz\src\Models\Training;
 use Modules\Atemschutz\src\Models\Warning;
 use Modules\Atemschutz\src\Models\Wearer;
+use Modules\Atemschutz\src\Models\WearerExamination;
+use Modules\Atemschutz\src\Models\WearerQualification;
 use Modules\Atemschutz\src\Notifications\DeadlineNotification;
 use Modules\Atemschutz\src\Notifications\PoolDigestNotification;
 use Modules\Atemschutz\src\Services\MonitorService;
 use Modules\Atemschutz\src\Services\ReadinessService;
+use Modules\Atemschutz\src\Services\TagAssignmentService;
+use Modules\Atemschutz\src\Services\WearerService;
 use Modules\Einsatzbericht\src\Models\CrewMember;
 use Modules\Einsatzbericht\src\Services\ReportService;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
@@ -55,7 +59,7 @@ beforeEach(function () {
     }
     // Otto's G26.3 ran out
     readyWearer($this->otto, ['g263_valid_until' => now()->subDay()->toDateString()]);
-    Wearer::where('user_id', $this->hanna->id)->update(['rfid_uid' => '04A1B2C3']);
+    app(TagAssignmentService::class)->assignToWearer(Wearer::where('user_id', $this->hanna->id)->sole(), '04A1B2C3', $this->wart);
 
     $this->m = app(MonitorService::class);
     $this->r = app(ReadinessService::class);
@@ -147,13 +151,24 @@ test('an Überwachung can involve several Standorte and keeps a free-text timed 
 
 function readyWearer(User $user, array $overrides = []): Wearer
 {
-    $wearer = Wearer::create(['user_id' => $user->id, 'is_agt' => true, 'g263_examined_on' => now()->subYear()->toDateString(),
-        'g263_valid_until' => now()->addYears(2)->toDateString(), ...$overrides]);
+    $examinedOn = $overrides['g263_examined_on'] ?? now()->subYear()->toDateString();
+    $validUntil = $overrides['g263_valid_until'] ?? now()->addYears(2)->toDateString();
+    unset($overrides['g263_examined_on'], $overrides['g263_valid_until']);
+    $wearer = Wearer::create(['user_id' => $user->id, ...$overrides]);
+    $wearer->qualifications()->create(['kind' => 'agt']);
+    if ($examinedOn !== null || $validUntil !== null) {
+        $wearer->examinations()->create(['examined_on' => $examinedOn, 'valid_until' => $validUntil]);
+    }
     foreach (['belastungsuebung', 'unterweisung'] as $kind) {
         Training::create(['user_id' => $user->id, 'kind' => $kind, 'done_on' => now()->subMonths(2)->toDateString()]);
     }
 
     return $wearer;
+}
+
+function addG263Examination(Wearer $wearer, ?string $examinedOn, ?string $validUntil): WearerExamination
+{
+    return $wearer->examinations()->create(['examined_on' => $examinedOn, 'valid_until' => $validUntil]);
 }
 
 function startedTeam(): Team
@@ -183,13 +198,14 @@ test('einsatzbereit needs AGT, G26.3, Belastungsübung and Unterweisung of the l
 
 test('a completed AGT-Lehrgang and Belastungsübungen from the Lehrgänge count too', function () {
     $klara = User::factory()->create(['name' => 'Klara Kübel']);
-    $wearer = Wearer::create(['user_id' => $klara->id, 'g263_valid_until' => now()->addYear()->toDateString()]);
+    $wearer = Wearer::create(['user_id' => $klara->id]);
+    addG263Examination($wearer, null, now()->addYear()->toDateString());
     Training::create(['user_id' => $klara->id, 'kind' => 'unterweisung', 'done_on' => now()->subMonth()->toDateString()]);
     expect($this->r->forWearer($wearer)['reasons'])->toBe(['AGT-Lehrgang fehlt', 'Belastungsübung fehlt']);
 
     $agt = Course::create(['name' => 'Atemschutzgeräteträger (Wochenendlehrgang)']);
     $bel = Course::create(['name' => 'Atemschutz-Belastungsübung']);
-    Record::create(['user_id' => $klara->id, 'course_id' => $agt->id, 'status' => 'completed', 'completed_on' => '2025-03-01']);
+    Record::create(['user_id' => $klara->id, 'course_id' => $agt->id, 'status' => 'completed', 'completed_on' => null]);
     Record::create(['user_id' => $klara->id, 'course_id' => $bel->id, 'status' => 'completed', 'completed_on' => now()->subMonths(3)->toDateString()]);
 
     // Only while the Lehrgänge module is on
@@ -198,6 +214,46 @@ test('a completed AGT-Lehrgang and Belastungsübungen from the Lehrgänge count 
     Cache::forget('modules_active_keys');
     $state = $this->r->forWearer($wearer);
     expect($state['ready'])->toBeTrue()->and($state['items']['belastungsuebung']['source'])->toBe('Lehrgänge');
+});
+
+test('qualification history supports expiry and additional named qualifications without replacing course records', function () {
+    $member = User::factory()->create(['name' => 'Klara Kübel']);
+    $wearer = Wearer::create(['user_id' => $member->id]);
+    $service = app(WearerService::class);
+    addG263Examination($wearer, today()->subYear()->toDateString(), today()->addYear()->toDateString());
+    Training::create(['user_id' => $member->id, 'kind' => 'belastungsuebung', 'done_on' => today()->subMonth()->toDateString()]);
+    Training::create(['user_id' => $member->id, 'kind' => 'unterweisung', 'done_on' => today()->subMonth()->toDateString()]);
+
+    $expiredAgt = $service->recordQualification($wearer, [
+        'kind' => 'agt',
+        'qualified_on' => today()->subYears(2)->toDateString(),
+        'valid_until' => today()->subDay()->toDateString(),
+    ], $this->wart);
+    expect($this->r->forWearer($wearer)['items']['agt']['ok'])->toBeFalse()
+        ->and($this->r->forWearer($wearer)['items']['agt']['until']->toDateString())->toBe(today()->subDay()->toDateString());
+
+    $service->recordQualification($wearer, [
+        'kind' => 'agt',
+        'qualified_on' => today()->subMonth()->toDateString(),
+        'valid_until' => today()->addYear()->toDateString(),
+    ], $this->wart);
+    $csa = $service->recordQualification($wearer, [
+        'kind' => 'csa',
+        'qualified_on' => today()->subYears(2)->toDateString(),
+        'valid_until' => today()->subDay()->toDateString(),
+    ], $this->wart);
+    $service->recordQualification($wearer, [
+        'kind' => 'other',
+        'title' => 'Maskenprüfer',
+        'qualified_on' => today()->subMonth()->toDateString(),
+    ], $this->wart);
+
+    expect($this->r->forWearer($wearer)['ready'])->toBeTrue()
+        ->and($this->r->forWearer($wearer)['csa']['ready'])->toBeFalse()
+        ->and($this->r->forWearer($wearer)['csa']['reasons'])->toContain('CSA-Ausbildung abgelaufen')
+        ->and(WearerQualification::query()->where('wearer_id', $wearer->id)->where('kind', 'agt')->count())->toBe(2)
+        ->and($expiredAgt->fresh()->is_legacy)->toBeFalse()
+        ->and($csa->fresh()->is_legacy)->toBeFalse();
 });
 
 test('registering a Trupp: RFID scan, pool, and a confirmation for who is not einsatzbereit', function () {
@@ -306,7 +362,11 @@ test('linked to an Einsatzbericht: the Trupp is marked unter Atemschutz and show
 });
 
 test('deadlines: one mail per deadline to the Geräteträger, an overview to the Atemschutzwart', function () {
-    Wearer::where('user_id', $this->bernd->id)->update(['g263_valid_until' => now()->addDays(10)->toDateString()]);
+    $bernd = Wearer::where('user_id', $this->bernd->id)->sole();
+    app(WearerService::class)->recordExamination($bernd, [
+        'examined_on' => now()->toDateString(),
+        'valid_until' => now()->addDays(10)->toDateString(),
+    ], $this->wart);
     $this->artisan('atemschutz:remind')->assertSuccessful();
 
     Notification::assertSentTo($this->bernd, DeadlineNotification::class, fn ($n, $c, $u) => str_contains(implode(' ', $n->toMail($u)->introLines), 'G26.3 läuft ab am'));
@@ -323,11 +383,18 @@ test('the Atemschutzwart keeps the pool: G26.3, chip, trainings for several at o
     $klara = User::factory()->create(['name' => 'Klara Kübel']);
 
     Livewire::actingAs($this->wart)->test(CreateWearer::class)
-        ->fillForm(['user_id' => $klara->id, 'is_agt' => true, 'g263_examined_on' => now()->subMonth()->toDateString(), 'rfid_uid' => '04A1B2C3'])
-        ->call('create')->assertHasFormErrors(['rfid_uid' => 'unique'])
-        ->fillForm(['rfid_uid' => '04FFEE11'])->call('create')->assertHasNoFormErrors();
+        ->fillForm(['user_id' => $klara->id])
+        ->call('create')->assertHasNoFormErrors();
     $klaraWearer = Wearer::where('user_id', $klara->id)->sole();
-    $klaraWearer->update(['g263_valid_until' => now()->addYears(3)->toDateString()]);
+    app(WearerService::class)->recordQualification($klaraWearer, [
+        'kind' => 'agt',
+        'qualified_on' => now()->subMonth()->toDateString(),
+    ], $this->wart);
+    app(WearerService::class)->recordExamination($klaraWearer, [
+        'examined_on' => now()->subMonth()->toDateString(),
+        'valid_until' => now()->addYears(3)->toDateString(),
+    ], $this->wart);
+    app(TagAssignmentService::class)->assignToWearer($klaraWearer, '04FFEE11', $this->wart);
 
     Livewire::actingAs($this->wart)->test(ListWearers::class)
         ->callTableBulkAction('training', [$klaraWearer, Wearer::where('user_id', $this->otto->id)->sole()], ['kind' => 'belastungsuebung', 'done_on' => now('Europe/Berlin')->toDateString()])
@@ -461,7 +528,10 @@ test('the Personalverwaltung file and the Jahresbericht show Atemschutz', functi
 });
 
 test('CSA-Träger: ready with Atemschutz, CSA training and a CSA-Übung of the last twelve months; reminded of it', function () {
-    Wearer::where('user_id', $this->hanna->id)->update(['is_csa' => true, 'csa_qualified_on' => now()->subYears(2)->toDateString()]);
+    Wearer::where('user_id', $this->hanna->id)->sole()->qualifications()->create([
+        'kind' => 'csa',
+        'qualified_on' => now()->subYears(2)->toDateString(),
+    ]);
     $state = fn (User $u) => $this->r->forWearer(Wearer::where('user_id', $u->id)->sole());
 
     expect($state($this->hanna)['csa'])->ready->toBeFalse()->reasons->toBe(['CSA-Übung fehlt'])
@@ -489,6 +559,7 @@ test('CSA-Träger: ready with Atemschutz, CSA training and a CSA-Übung of the l
     // The CSA-Übung runs out: reminder
     Notification::fake();
     $this->travel(11)->months();
+    $this->travel(1)->days();
     Training::where('user_id', $this->hanna->id)->whereIn('kind', ['belastungsuebung', 'unterweisung'])->update(['done_on' => now()->toDateString()]);
     $this->artisan('atemschutz:remind')->assertSuccessful();
     Notification::assertSentTo($this->hanna, DeadlineNotification::class, fn ($n, $c, $u) => str_contains(implode(' ', $n->toMail($u)->introLines), 'CSA-Übung läuft ab am'));

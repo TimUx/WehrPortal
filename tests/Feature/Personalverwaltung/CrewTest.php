@@ -65,7 +65,9 @@ test('Dienstausweis and Atemschutzpass on the phone, checked by a QR code that r
 
     Livewire::actingAs($this->pv)->test(SettingsPage::class)->set('fields.digital_id', true)->call('save');
     MemberProfile::create(['user_id' => $this->hanna->id, 'id_card_number' => 'MS-0815', 'id_card_valid_until' => now()->addYear()->toDateString()]);
-    Wearer::create(['user_id' => $this->hanna->id, 'is_agt' => true, 'g263_examined_on' => now()->subYear()->toDateString(), 'g263_valid_until' => now()->addYears(2)->toDateString()]);
+    $wearer = Wearer::create(['user_id' => $this->hanna->id]);
+    $wearer->qualifications()->create(['kind' => 'agt']);
+    $wearer->examinations()->create(['examined_on' => now()->subYear()->toDateString(), 'valid_until' => now()->addYears(2)->toDateString()]);
     foreach (['belastungsuebung', 'unterweisung'] as $kind) {
         Training::create(['user_id' => $this->hanna->id, 'kind' => $kind, 'done_on' => now()->subMonth()->toDateString()]);
     }

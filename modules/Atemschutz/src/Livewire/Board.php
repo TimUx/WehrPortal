@@ -12,6 +12,7 @@ use Modules\Atemschutz\src\Models\Warning;
 use Modules\Atemschutz\src\Models\Wearer;
 use Modules\Atemschutz\src\Services\MonitorService;
 use Modules\Atemschutz\src\Services\ReadinessService;
+use Modules\Atemschutz\src\Services\TagAssignmentService;
 
 /**
  * The Atemschutzüberwachung board: register Trupps by RFID scan or from the pool, start them, note
@@ -59,13 +60,13 @@ class Board extends Component
         $this->teamName = $this->suggestName();
     }
 
-    public function addByRfid(ReadinessService $readiness): void
+    public function addByRfid(ReadinessService $readiness, TagAssignmentService $tags): void
     {
         $uid = trim($this->rfid);
         $this->rfid = '';
-        $wearer = $uid !== '' ? Wearer::where('rfid_uid', $uid)->with('user')->first() : null;
+        $wearer = $uid !== '' ? $tags->findActive($uid)?->wearer?->load('user') : null;
         if (! $wearer) {
-            $this->addError('rfid', 'Unbekannter Chip'.($uid !== '' ? ' ('.$uid.')' : '').'. Der Atemschutzwart ordnet Chips unter „Geräteträger“ zu.');
+            $this->addError('rfid', 'Unbekannter Chip'.($uid !== '' ? ' ('.$uid.')' : '').'. Der Atemschutzwart ordnet Chips unter „Kennzeichnungen“ zu.');
 
             return;
         }

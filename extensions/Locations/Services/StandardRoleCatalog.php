@@ -30,7 +30,7 @@ class StandardRoleCatalog
             'anwesenheit' => ['gemeindekinderwart'],
             'personalverwaltung' => ['personalverwalter'],
         ]],
-        'atemschutzwart' => ['name' => 'Atemschutzwart', 'scope' => 'global', 'group' => null, 'modules' => [
+        'atemschutzwart' => [        'name' => 'Atemschutzgerätewart', 'scope' => 'global', 'group' => null, 'modules' => [
             'atemschutz' => ['atemschutzwart'],
             'unterweisungen' => ['unterweisungsbeauftragter'],
         ]],

@@ -3,11 +3,13 @@
 use App\Models\User;
 use Extensions\Locations\Models\Location as Standort;
 use Extensions\Locations\Services\LocationAccess;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 use Modules\Ausruestung\src\Enums\DamageStatus;
 use Modules\Ausruestung\src\Enums\EquipmentStatus;
 use Modules\Ausruestung\src\Models\Category;
+use Modules\Ausruestung\src\Models\Equipment;
 use Modules\Ausruestung\src\Models\Location;
 use Modules\Ausruestung\src\Notifications\DamageReportedNotification;
 use Modules\Ausruestung\src\Services\EquipmentService;
@@ -20,10 +22,32 @@ beforeEach(function () {
     $this->service = app(EquipmentService::class);
 });
 
-test('the DGUV-style categories are there after installation', function () {
+test('the general equipment catalogue excludes Atemschutz categories', function () {
     expect(Category::where('name', 'Feuerwehrhelm')->value('lifetime_years'))->toBe(10)
-        ->and(Category::where('name', 'Pressluftatmer')->value('inspection_interval_months'))->toBe(12)
-        ->and(Category::count())->toBeGreaterThanOrEqual(10);
+        ->and(Category::whereIn('name', Category::ATEMSCHUTZ_CATEGORIES)->exists())->toBeFalse()
+        ->and(Category::forGeneralUse()->count())->toBeGreaterThan(0);
+});
+
+test('legacy Atemschutz categories and devices are hidden and cannot receive new items', function () {
+    $category = Category::query()->create([
+        'name' => 'Atemschutzmaske Altbestand',
+        'sort_order' => 999,
+    ]);
+
+    expect(Category::forGeneralUse()->whereKey($category->id)->exists())->toBeFalse()
+        ->and(fn () => Equipment::query()->create([
+            'name' => 'Neue Maske',
+            'category_id' => $category->id,
+        ]))->toThrow(ValidationException::class);
+
+    DB::table('ar_equipment')->insert([
+        'code' => 'AR-LEGACY-AS',
+        'name' => 'Alte Atemschutzmaske',
+        'category_id' => $category->id,
+        'status' => EquipmentStatus::Available->value,
+    ]);
+
+    expect(Equipment::query()->where('code', 'AR-LEGACY-AS')->exists())->toBeFalse();
 });
 
 test('items get running codes', function () {

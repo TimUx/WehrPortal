@@ -16,8 +16,12 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
+use Modules\Atemschutz\src\Filament\RelationManagers\TagAssignmentsRelationManager;
 use Modules\Atemschutz\src\Filament\Resources\WearerResource\Pages;
+use Modules\Atemschutz\src\Filament\Resources\WearerResource\RelationManagers\ExaminationsRelationManager;
+use Modules\Atemschutz\src\Filament\Resources\WearerResource\RelationManagers\QualificationsRelationManager;
 use Modules\Atemschutz\src\Filament\Resources\WearerResource\RelationManagers\TrainingsRelationManager;
+use Modules\Atemschutz\src\Models\TagAssignment;
 use Modules\Atemschutz\src\Models\Training;
 use Modules\Atemschutz\src\Models\Wearer;
 use Modules\Atemschutz\src\Services\MonitorService;
@@ -51,7 +55,7 @@ class WearerResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with('user.groups');
+        $query = parent::getEloquentQuery()->with(['user.groups', 'tagAssignments']);
         $user = auth()->user();
         $locations = $user instanceof User ? MonitorService::careLocationIds($user) : [];
 
@@ -91,26 +95,13 @@ class WearerResource extends Resource
                     ->helperText('Wer schon im Pool steht, wird nicht angeboten. Ein früherer Geräteträger wird wieder aufgenommen.'),
             ])->visibleOn('create'),
             Section::make('Qualifikation und Tauglichkeit')
-                ->description('Nur Daten, keine Befunde.')
+                ->description('AGT, CSA und weitere Qualifikationen werden mit Verlauf in der Qualifikationsakte gepflegt. Lehrgänge und Unterweisungen bleiben in ihren jeweiligen Modulen.')
                 ->schema([
-                    Forms\Components\Toggle::make('is_agt')->label('AGT-Lehrgang absolviert'),
-                    Forms\Components\DatePicker::make('agt_qualified_on')->label('AGT-Lehrgang am (optional)')->maxDate(now()),
-                    Forms\Components\DatePicker::make('g263_examined_on')->label('G26.3 untersucht am')->maxDate(now())->live()
-                        ->afterStateUpdated(function ($state, $set, $get) {
-                            // Usually valid for three years (under 50): a suggestion only
-                            if ($state && ! $get('g263_valid_until')) {
-                                $set('g263_valid_until', Carbon::parse($state)->addYears(3)->toDateString());
-                            }
-                        }),
-                    Forms\Components\DatePicker::make('g263_valid_until')->label('G26.3 gültig bis')->afterOrEqual('g263_examined_on'),
-                    Forms\Components\Toggle::make('is_csa')->label('CSA-Träger (Chemikalienschutzanzug)'),
-                    Forms\Components\DatePicker::make('csa_qualified_on')->label('CSA-Ausbildung am (optional)')->maxDate(now()),
-                ])->columns(['default' => 1, 'md' => 2]),
+                    Forms\Components\Placeholder::make('qualification_help')
+                        ->label('Qualifikationsverlauf')
+                        ->content('Qualifikationen und optionale Belege werden in der Relation „Qualifikationen“ ergänzt. G26.3 bleibt davon getrennt und enthält ausschließlich Untersuchungs- und Gültigkeitsdatum.'),
+                ]),
             Section::make('Chip und Notiz')->schema([
-                Forms\Components\TextInput::make('rfid_uid')->label('RFID-Chip')->maxLength(100)->autocomplete(false)
-                    ->unique(ignoreRecord: true)
-                    ->validationMessages(['unique' => 'Dieser Chip gehört schon einem anderen Kameraden.'])
-                    ->helperText('Feld anklicken und den Chip an den Leser halten.'),
                 Forms\Components\TextInput::make('notes')->label('Notiz (keine Befunde!)')->maxLength(500),
                 Forms\Components\Toggle::make('is_active')->label('Im Atemschutz-Pool')->default(true),
             ])->columns(['default' => 1, 'md' => 2]),
@@ -147,7 +138,8 @@ class WearerResource extends Resource
                     ->color(fn (string $state) => match ($state) {
                         'bereit' => 'success', 'nicht bereit' => 'danger', default => 'gray'
                     }),
-                Tables\Columns\IconColumn::make('rfid_uid')->label('Chip')->boolean()->state(fn (Wearer $record) => filled($record->rfid_uid)),
+                Tables\Columns\IconColumn::make('rfid_tag')->label('Chip')->boolean()
+                    ->state(fn (Wearer $record) => $record->tagAssignments->contains(fn (TagAssignment $assignment) => $assignment->deactivated_at === null)),
             ])
             ->defaultSort('user.name')
             ->filters([
@@ -167,7 +159,14 @@ class WearerResource extends Resource
                             default => ! $s['ready'],
                         })->pluck('wearer.id')->all());
                     }),
-                Tables\Filters\TernaryFilter::make('is_csa')->label('CSA-Träger'),
+                Tables\Filters\TernaryFilter::make('is_csa')->label('CSA-Träger')
+                    ->queries(
+                        true: fn (Builder $query) => $query->whereKey(static::states(static::getEloquentQuery()->get())
+                            ->filter(fn ($state) => $state['csa'] !== null)->pluck('wearer.id')->all()),
+                        false: fn (Builder $query) => $query->whereKey(static::states(static::getEloquentQuery()->get())
+                            ->filter(fn ($state) => $state['csa'] === null)->pluck('wearer.id')->all()),
+                        blank: fn (Builder $query) => $query,
+                    ),
                 Tables\Filters\SelectFilter::make('group')->label('Abteilung')
                     ->options(fn () => Group::query()->orderBy('sort_order')->orderBy('name')->get()->mapWithKeys(fn (Group $g) => [$g->id => $g->getDisplayNameAttribute()])->all())
                     ->query(fn (Builder $query, array $data) => $data['value'] ? $query->whereHas('user.groups', fn ($q) => $q->whereKey((int) $data['value'])) : $query),
@@ -202,7 +201,12 @@ class WearerResource extends Resource
 
     public static function getRelations(): array
     {
-        return [TrainingsRelationManager::class];
+        return [
+            QualificationsRelationManager::class,
+            ExaminationsRelationManager::class,
+            TrainingsRelationManager::class,
+            TagAssignmentsRelationManager::class,
+        ];
     }
 
     public static function getPages(): array
