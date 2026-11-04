@@ -302,8 +302,8 @@ class EventService
                 return [
                     'user' => $user,
                     'groups' => $user->groups()->withoutGlobalScope(LocationScope::class)->pluck('name')->implode(', '),
-                    'status' => $response?->status ? $response->label() : 'offen',
-                    'comment' => $response?->comment ?? '',
+                    'status' => (string) ($response?->status ? $response->label() : 'offen'),
+                    'comment' => (string) ($response?->comment ?? ''),
                     'attended' => match ($response?->attended) {
                         true => 'ja', false => 'nein', default => ''
                     },

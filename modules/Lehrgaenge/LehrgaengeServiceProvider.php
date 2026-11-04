@@ -118,7 +118,7 @@ class LehrgaengeServiceProvider extends ServiceProvider
             ->whereHas('record', fn ($q) => $q->whereIn('user_id', $ids)->whereIn('status', ['confirmed', 'completed']))
             ->whereBetween('date', [$from->toDateString(), min($to->toDateString(), RegistrationService::today()->toDateString())])
             ->whereNotNull('starts_at')->whereNotNull('ends_at')->get()
-            ->map(fn (Session $s) => ['user_id' => $s->record->user_id, 'date' => $s->date, 'title' => 'Lehrgang: '.$s->record->course?->name,
+            ->map(fn (Session $s) => ['user_id' => (int) $s->record->user_id, 'date' => Carbon::parse($s->date), 'title' => 'Lehrgang: '.$s->record->course?->name,
                 'minutes' => max(0, (int) Carbon::parse($s->starts_at)->diffInMinutes(Carbon::parse($s->ends_at), false))]));
 
         // Kürzel next to the Kameraden: absolvierte Lehrgänge with a Kürzel that are still valid

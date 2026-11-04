@@ -15,7 +15,7 @@ use Modules\Ausruestung\src\Models\Location;
 class LoadPlanService
 {
     /**
-     * @return Collection<int, array{compartment: Compartment, rows: Collection, unplanned: Collection}>
+     * @return Collection<int, array{compartment: Compartment, rows: Collection<int, array{category: string, target: int, present: int, usable: int, missing: int, surplus: int, problems: Collection<int, string>}>, unplanned: Collection<int, Equipment>}>
      */
     public function compare(Location $location): Collection
     {
@@ -29,23 +29,28 @@ class LoadPlanService
             ->get()
             ->groupBy('compartment_id');
 
-        return $location->compartments->map(function (Compartment $compartment) use ($present) {
+        /** @var \Illuminate\Database\Eloquent\Collection<int, Compartment> $compartments */
+        $compartments = $location->compartments;
+
+        return $compartments->map(function (Compartment $compartment) use ($present) {
+            /** @var Collection<int, Equipment> $items */
             $items = $present->get($compartment->id, collect());
             $planned = $compartment->loadPlanItems->pluck('category_id')->all();
 
             $rows = $compartment->loadPlanItems->map(function ($plan) use ($items) {
+                $target = (int) $plan->quantity;
                 $ofCategory = $items->where('category_id', $plan->category_id);
                 $usable = $ofCategory->filter(fn (Equipment $e) => $e->isUsable());
 
                 return [
-                    'category' => $plan->category->name,
-                    'target' => $plan->quantity,
+                    'category' => (string) $plan->category->name,
+                    'target' => $target,
                     'present' => $ofCategory->count(),
                     'usable' => $usable->count(),
-                    'missing' => max(0, $plan->quantity - $usable->count()),
-                    'surplus' => max(0, $ofCategory->count() - $plan->quantity),
+                    'missing' => max(0, $target - $usable->count()),
+                    'surplus' => max(0, $ofCategory->count() - $target),
                     'problems' => $ofCategory->reject(fn (Equipment $e) => $e->isUsable())
-                        ->map(fn (Equipment $e) => $e->code.' '.$e->name.': '.($e->status === EquipmentStatus::Available ? implode(', ', $e->warnings()) : $e->status->label()))
+                        ->map(fn (Equipment $e) => (string) ($e->code.' '.$e->name.': '.($e->status === EquipmentStatus::Available ? implode(', ', $e->warnings()) : $e->status->label())))
                         ->values(),
                 ];
             });

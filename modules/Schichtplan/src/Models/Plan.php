@@ -62,6 +62,7 @@ class Plan extends Model implements LocationAssignable
         return $this->hasMany(Station::class, 'plan_id')->orderBy('sort_order')->orderBy('id');
     }
 
+    /** @return HasMany<Slot, $this> */
     public function slots(): HasMany
     {
         return $this->hasMany(Slot::class, 'plan_id')->orderBy('starts_at');

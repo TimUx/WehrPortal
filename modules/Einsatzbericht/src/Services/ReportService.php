@@ -371,7 +371,7 @@ class ReportService
     /**
      * Verbrauch of a year (closed and released reports) per category and material.
      *
-     * @return Collection<string, array{label: string, items: Collection}>
+     * @return Collection<int|string, array{label: string, items: Collection<int, array{name: string, unit: string, quantity: mixed, reports: int}>}>
      */
     public function consumption(int $year): Collection
     {
@@ -380,8 +380,8 @@ class ReportService
         return ReportMaterial::whereHas('report', fn ($q) => $q->whereIn('status', self::countedStatuses())->whereBetween('alarmed_at', [$from, $from->copy()->addYear()]))
             ->get()
             ->groupBy('category')
-            ->map(fn (Collection $items, $category) => [
-                'label' => Material::CATEGORIES[$category] ?? $category,
+            ->map(fn (Collection $items, int|string $category) => [
+                'label' => (string) (Material::CATEGORIES[$category] ?? $category),
                 'items' => $items->groupBy(fn ($i) => $i->name.'|'.$i->unit)->map(fn (Collection $group) => [
                     'name' => $group->first()->name,
                     'unit' => $group->first()->unit,

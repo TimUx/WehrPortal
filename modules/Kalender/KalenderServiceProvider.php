@@ -114,8 +114,12 @@ class KalenderServiceProvider extends ServiceProvider
             ->whereNull('kal_events.source_id')->whereNull('kal_events.cancelled_at')->where('kal_events.all_day', false)
             ->whereBetween('kal_events.starts_at', [$from, $to])
             ->get(['kal_events.*', 'kal_responses.user_id as attendee_id'])
-            ->map(fn (Event $e) => ['user_id' => (int) $e->attendee_id, 'date' => $e->starts_at, 'title' => $e->typeLabel().': '.$e->title,
-                'minutes' => min(1440, (int) $e->starts_at->diffInMinutes($e->ends_at))]));
+            ->map(function (Event $e) {
+                $startsAt = Carbon::parse($e->starts_at);
+
+                return ['user_id' => (int) $e->attendee_id, 'date' => $startsAt, 'title' => $e->typeLabel().': '.$e->title,
+                    'minutes' => min(1440, (int) $startsAt->diffInMinutes(Carbon::parse($e->ends_at)))];
+            }));
 
         app(AnnualReportRegistry::class)->register('kalender', 'Dienste und Termine', function (int $year) {
             $from = Carbon::create($year, 1, 1, 0, 0, 0, 'Europe/Berlin')->utc();
