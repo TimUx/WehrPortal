@@ -9,6 +9,7 @@ use App\Services\CredentialRegistry;
 use App\Services\DashboardRegistry;
 use App\Services\ModuleRegistry;
 use App\Services\PersonnelFileRegistry;
+use App\Services\ScanRegistry;
 use App\Support\ModuleNav;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Gate;
@@ -16,10 +17,12 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use Modules\Atemschutz\src\Console\Commands\SendAtemschutzReminders;
+use Modules\Atemschutz\src\Filament\Resources\EquipmentResource;
 use Modules\Atemschutz\src\Filament\Resources\WearerResource;
 use Modules\Atemschutz\src\Livewire\Board;
 use Modules\Atemschutz\src\Livewire\MyStatus;
 use Modules\Atemschutz\src\Livewire\Overview;
+use Modules\Atemschutz\src\Models\Equipment;
 use Modules\Atemschutz\src\Models\Operation;
 use Modules\Atemschutz\src\Models\TeamMember;
 use Modules\Atemschutz\src\Models\Training;
@@ -27,11 +30,12 @@ use Modules\Atemschutz\src\Models\Wearer;
 use Modules\Atemschutz\src\Services\AtemschutzPdf;
 use Modules\Atemschutz\src\Services\MonitorService;
 use Modules\Atemschutz\src\Services\ReadinessService;
+use Modules\Atemschutz\src\Services\TagAssignmentService;
 
 /**
  * Atemschutzüberwachung: the operative monitoring of the Trupps at the Einsatz (time, pressures,
- * Rückweg, warnings) and the administration of the Atemschutzgeräteträger (G26.3, Unterweisung,
- * Belastungsübung) in one module. Every Trupp is documented and can go with the Einsatzbericht.
+ * Rückweg, warnings) and the administration of the Atemschutzgeräteträger (qualifications, G26.3,
+ * Unterweisung, Belastungsübung) in one module. Every Trupp is documented and can go with the Einsatzbericht.
  */
 class AtemschutzServiceProvider extends ServiceProvider
 {
@@ -63,6 +67,7 @@ class AtemschutzServiceProvider extends ServiceProvider
         });
 
         Gate::define('atemschutz-manage', fn (User $user) => MonitorService::canManage($user));
+        Gate::define('atemschutz-equipment-manage', fn (User $user) => MonitorService::canManageEquipment($user));
         Gate::define('atemschutz-monitor', fn (User $user) => MonitorService::canMonitor($user));
         Gate::define('atemschutz-monitor-operation', fn (User $user, Operation $operation) => MonitorService::canMonitorOperation($user, $operation));
 
@@ -72,12 +77,27 @@ class AtemschutzServiceProvider extends ServiceProvider
 
         app(ModuleRegistry::class)->register(
             'atemschutz',
-            'Atemschutzüberwachung',
-            'Digitale Atemschutzüberwachung – Echtzeit-Truppmonitoring, G26.3-Tauglichkeitsverwaltung und FwDV 7 konforme Dokumentation',
+            'Atemschutz',
+            'Atemschutzüberwachung und standortübergreifende Verwaltung der Atemschutzausrüstung',
             roles: ['atemschutzwart', 'ueberwacher'],
             provider: self::class,
             route: 'atemschutz.index',
         );
+
+        app(ScanRegistry::class)->register('atemschutz', function (string $code): ?string {
+            $equipment = Equipment::query()
+                ->where('code', trim($code))
+                ->first();
+            if ($equipment === null) {
+                $equipment = app(TagAssignmentService::class)->findActive($code)?->equipment;
+            }
+
+            $user = auth()->user();
+
+            return $equipment !== null && $user instanceof User && MonitorService::canManageEquipment($user)
+                ? EquipmentResource::getUrl('edit', ['record' => $equipment])
+                : null;
+        });
 
         app(PersonnelFileRegistry::class)->register('atemschutz', 'Atemschutz', 'atemschutz.personnel-file');
 
@@ -127,7 +147,9 @@ class AtemschutzServiceProvider extends ServiceProvider
                 ModuleNav::tab('Überwachung', 'atemschutz.index', ['atemschutz.board']),
             ],
             // Pflege der Geräteträger is Verwaltung, apart from the tools used at the Einsatz
-            'manage' => MonitorService::canCare($u) ? WearerResource::getUrl('index') : null,
+            'manage' => MonitorService::canManageEquipment($u)
+                ? EquipmentResource::getUrl('index')
+                : (MonitorService::canCare($u) ? WearerResource::getUrl('index') : null),
         ]);
     }
 }

@@ -63,6 +63,11 @@ class MonitorService
         return self::canView($user) && ($user->is_admin || $user->hasModuleRole(self::MODULE, 'atemschutzwart'));
     }
 
+    public static function canManageEquipment(User $user): bool
+    {
+        return self::canManage($user);
+    }
+
     /** Whoever keeps Geräteträger: the Atemschutzwart (all) or a Wehrführung with that role at a Standort (its own) */
     public static function canCare(User $user): bool
     {

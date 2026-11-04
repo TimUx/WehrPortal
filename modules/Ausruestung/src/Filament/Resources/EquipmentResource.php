@@ -49,9 +49,12 @@ class EquipmentResource extends Resource
 
     protected static ?int $navigationSort = 10;
 
+    /** @return Builder<Equipment> */
     public static function getEloquentQuery(): Builder
     {
+        /** @var Builder<Equipment> $query */
         $query = parent::getEloquentQuery();
+        $query->forGeneralUse();
         $user = auth()->user();
         if (! $user) {
             return $query->whereRaw('1 = 0');
@@ -87,7 +90,7 @@ class EquipmentResource extends Resource
                         ->placeholder('Wird vergeben (AR-0001)')
                         ->helperText('Steht im QR-Code. Nachträglich geändert, passen gedruckte Etiketten nicht mehr.'),
                     Forms\Components\Select::make('category_id')->label('Kategorie')
-                        ->options(fn () => Category::orderBy('sort_order')->orderBy('name')->pluck('name', 'id'))
+                        ->options(fn () => Category::forGeneralUse()->orderBy('sort_order')->orderBy('name')->pluck('name', 'id'))
                         ->searchable()->live(),
                     Forms\Components\TextInput::make('manufacturer')->label('Hersteller')->maxLength(255)
                         ->datalist(fn () => Equipment::whereNotNull('manufacturer')->distinct()->orderBy('manufacturer')->pluck('manufacturer')->all()),
@@ -195,7 +198,7 @@ class EquipmentResource extends Resource
 
         $filters = [
             Tables\Filters\SelectFilter::make('category_id')->label('Kategorie')
-                ->options(fn () => Category::orderBy('sort_order')->pluck('name', 'id'))->multiple(),
+                ->options(fn () => Category::forGeneralUse()->orderBy('sort_order')->pluck('name', 'id'))->multiple(),
             Tables\Filters\SelectFilter::make('location_id')->label('Lagerort / Fahrzeug')
                 ->options(fn () => Location::query()
                     ->when(config('locations.enabled', false), fn (Builder $query) => $query->whereIn(
