@@ -109,7 +109,9 @@ test('deadline overviews reach only the leadership of the affected Standort', fu
     foreach ([$this->northMember, $this->southMember, $this->unassigned] as $member) {
         switch ($module) {
             case 'atemschutz':
-                Wearer::create(['user_id' => $member->id, 'is_agt' => true, 'g263_valid_until' => now()->addDays(10)->toDateString(), 'is_active' => true]);
+                $wearer = Wearer::create(['user_id' => $member->id, 'is_active' => true]);
+                $wearer->qualifications()->create(['kind' => 'agt']);
+                $wearer->examinations()->create(['examined_on' => now()->subYears(2)->toDateString(), 'valid_until' => now()->addDays(10)->toDateString()]);
                 break;
             case 'fahrzeuge':
                 $vehicle = Vehicle::factory()->create(['name' => $member->name, 'ext_location_id' => $member->ext_location_id]);

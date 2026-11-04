@@ -8,6 +8,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Modules\Ausruestung\src\Filament\Concerns\AusruestungArea;
 use Modules\Ausruestung\src\Filament\Resources\CategoryResource\Pages;
 use Modules\Ausruestung\src\Models\Category;
@@ -39,10 +40,23 @@ class CategoryResource extends Resource
         return static::canAccessArea() && EquipmentService::canManageGlobal(auth()->user());
     }
 
+    /** @return Builder<Category> */
+    public static function getEloquentQuery(): Builder
+    {
+        /** @var Builder<Category> $query */
+        $query = parent::getEloquentQuery();
+
+        return $query->forGeneralUse();
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Forms\Components\TextInput::make('name')->label('Name')->required()->unique(ignoreRecord: true)->maxLength(255)->columnSpanFull(),
+            Forms\Components\TextInput::make('name')->label('Name')->required()->unique(ignoreRecord: true)
+                ->rules([fn (string $attribute, mixed $value, \Closure $fail) => Category::isAtemschutzCategoryName($value)
+                    ? $fail('Atemschutzkategorien werden ausschließlich im Atemschutzmodul geführt.')
+                    : null])
+                ->maxLength(255)->columnSpanFull(),
             Forms\Components\TextInput::make('lifetime_years')->label('Max. Lebensdauer (Jahre)')->numeric()->minValue(1)->maxValue(100)
                 ->helperText('Leer = unbegrenzt. Gezählt ab Herstellungsdatum.'),
             Forms\Components\TextInput::make('inspection_interval_months')->label('Prüfintervall (Monate)')->numeric()->minValue(1)->maxValue(240)

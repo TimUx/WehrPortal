@@ -57,14 +57,25 @@ class Equipment extends Model
             return null;
         }
 
-        return static::where('code', $code)->first()
-            ?? static::where('barcode', $code)->first()
-            ?? (($tag = static::normalizeTag($code)) ? static::where('rfid', $tag)->first() : null);
+        return static::forGeneralUse()->where('code', $code)->first()
+            ?? static::forGeneralUse()->where('barcode', $code)->first()
+            ?? (($tag = static::normalizeTag($code)) ? static::forGeneralUse()->where('rfid', $tag)->first() : null);
     }
 
     protected static function booted(): void
     {
+        static::addGlobalScope('general-use', fn (Builder $query) => $query->forGeneralUse());
+
         static::saving(function (Equipment $equipment) {
+            if ($equipment->category_id !== null) {
+                $categoryName = Category::query()->whereKey($equipment->category_id)->value('name');
+                if (Category::isAtemschutzCategoryName($categoryName)) {
+                    throw ValidationException::withMessages([
+                        'category_id' => 'Atemschutzgeräte werden ausschließlich im Atemschutzmodul verwaltet.',
+                    ]);
+                }
+            }
+
             if ($equipment->isDirty('rfid')) {
                 $equipment->rfid = static::normalizeTag($equipment->rfid);
             }
@@ -117,9 +128,18 @@ class Equipment extends Model
         return $this->belongsTo(\Extensions\Locations\Models\Location::class, 'ext_location_id');
     }
 
+    /** @return BelongsTo<Category, $this> */
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class, 'category_id');
+    }
+
+    public function scopeForGeneralUse(Builder $query): Builder
+    {
+        return $query->where(function (Builder $query) {
+            $query->whereNull('category_id')
+                ->orWhereIn('category_id', Category::query()->forGeneralUse()->select('id'));
+        });
     }
 
     public function location(): BelongsTo

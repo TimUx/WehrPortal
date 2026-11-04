@@ -31,7 +31,8 @@ class EquipmentService
 
         $locationIds = self::equipmentLocationScope($user);
 
-        return $locationIds === null || in_array((int) $equipment->getAttribute('ext_location_id'), $locationIds, true);
+        return ! $equipment->category?->isAtemschutzCategory()
+            && ($locationIds === null || in_array((int) $equipment->getAttribute('ext_location_id'), $locationIds, true));
     }
 
     public static function canManageEquipment(User $user, Equipment $equipment): bool
@@ -61,7 +62,7 @@ class EquipmentService
     public static function equipmentFor(User $user): Builder
     {
         $locationIds = self::equipmentLocationScope($user);
-        $query = Equipment::query();
+        $query = Equipment::query()->forGeneralUse();
         if ($locationIds === []) {
             return $query->whereRaw('1 = 0');
         }
@@ -83,7 +84,7 @@ class EquipmentService
     public static function managedEquipmentFor(User $user): Builder
     {
         $locationIds = self::equipmentManagementScope($user);
-        $query = Equipment::query();
+        $query = Equipment::query()->forGeneralUse();
         if ($locationIds === []) {
             return $query->whereRaw('1 = 0');
         }
