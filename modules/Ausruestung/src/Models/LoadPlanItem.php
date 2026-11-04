@@ -17,11 +17,13 @@ class LoadPlanItem extends Model
         return ['quantity' => 'integer'];
     }
 
+    /** @return BelongsTo<Compartment, $this> */
     public function compartment(): BelongsTo
     {
         return $this->belongsTo(Compartment::class, 'compartment_id');
     }
 
+    /** @return BelongsTo<Category, $this> */
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class, 'category_id');

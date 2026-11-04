@@ -18,11 +18,13 @@ class Compartment extends Model
         return $this->belongsTo(Location::class, 'location_id');
     }
 
+    /** @return HasMany<LoadPlanItem, $this> */
     public function loadPlanItems(): HasMany
     {
         return $this->hasMany(LoadPlanItem::class, 'compartment_id');
     }
 
+    /** @return HasMany<Equipment, $this> */
     public function equipment(): HasMany
     {
         return $this->hasMany(Equipment::class, 'compartment_id');

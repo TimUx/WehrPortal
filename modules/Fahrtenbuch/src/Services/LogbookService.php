@@ -330,7 +330,7 @@ class LogbookService
 
     // ─── evaluation and export ───────────────────────────────────────────────
 
-    /** @return Collection<int, array{vehicle: Vehicle, trips: int, km: int, by_purpose: array<string, int>, liters: float, cost: int, per100: ?float}> */
+    /** @return Collection<int, array{vehicle: Vehicle, trips: int, km: int, by_purpose: array<int>, liters: float, cost: int, per100: ?float}> */
     public function statistics(int $year, ?User $manager = null): Collection
     {
         [$from, $to] = [Carbon::create($year, 1, 1, 0, 0, 0, 'Europe/Berlin')->utc(), Carbon::create($year + 1, 1, 1, 0, 0, 0, 'Europe/Berlin')->utc()];
@@ -347,7 +347,8 @@ class LogbookService
 
                 return [
                     'vehicle' => $vehicle, 'trips' => $own->count(), 'km' => (int) $own->sum(fn (Trip $t) => $t->distance()),
-                    'by_purpose' => $own->groupBy('purpose')->map(fn ($g) => (int) $g->sum(fn (Trip $t) => $t->distance()))->all(),
+                    'by_purpose' => $own->groupBy(fn (Trip $trip): string => (string) $trip->purpose)
+                        ->map(fn ($g) => (int) $g->sum(fn (Trip $t) => $t->distance()))->all(),
                     'liters' => round($stops->where('fuel', '!=', 'adblue')->sum('liters'), 2), 'cost' => (int) $stops->sum('cost_cents'),
                     'per100' => $intervals->sum('km') > 0 ? round($intervals->sum('liters') / $intervals->sum('km') * 100, 1) : null,
                 ];

@@ -228,6 +228,8 @@ class EventService
     /**
      * Active Kameraden with access to the module: the members of the event's Abteilungen, those
      * with one of its Funktionen and the individually invited ones; everyone if none is set.
+     *
+     * @return EloquentCollection<int, User>
      */
     public function audience(Event $event): EloquentCollection
     {
@@ -302,8 +304,8 @@ class EventService
                 return [
                     'user' => $user,
                     'groups' => $user->groups()->withoutGlobalScope(LocationScope::class)->pluck('name')->implode(', '),
-                    'status' => $response?->status ? $response->label() : 'offen',
-                    'comment' => $response?->comment ?? '',
+                    'status' => (string) ($response?->status ? $response->label() : 'offen'),
+                    'comment' => (string) ($response?->comment ?? ''),
                     'attended' => match ($response?->attended) {
                         true => 'ja', false => 'nein', default => ''
                     },
