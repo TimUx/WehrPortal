@@ -178,15 +178,10 @@ return new class extends Migration
      */
     private const DEFAULT_CATEGORIES = [
         ['name' => 'Feuerwehrhelm', 'lifetime_years' => 10, 'inspection_interval_months' => 12, 'lifetime_basis' => 'Herstellerangabe beachten; jährliche Sichtprüfung'],
-        ['name' => 'Pressluftatmer', 'lifetime_years' => null, 'inspection_interval_months' => 12, 'lifetime_basis' => 'Wartung nach Herstellervorgaben; Grundüberholung laut Hersteller'],
-        ['name' => 'Atemschutzmaske', 'lifetime_years' => null, 'inspection_interval_months' => 24, 'lifetime_basis' => 'Prüfung nach Herstellervorgaben'],
-        ['name' => 'Druckluftflasche (Composite)', 'lifetime_years' => 20, 'inspection_interval_months' => 60, 'lifetime_basis' => 'Lebensdauer laut Flaschenstempel; wiederkehrende Prüfung'],
-        ['name' => 'Druckluftflasche (Stahl)', 'lifetime_years' => null, 'inspection_interval_months' => 120, 'lifetime_basis' => 'Wiederkehrende Prüfung laut Flaschenstempel'],
         ['name' => 'Feuerwehrleine', 'lifetime_years' => 10, 'inspection_interval_months' => 12, 'lifetime_basis' => 'Herstellerangabe beachten; Prüfung nach Gebrauch und jährlich'],
         ['name' => 'Auffang- und Haltegurt', 'lifetime_years' => 10, 'inspection_interval_months' => 12, 'lifetime_basis' => 'Herstellerangabe beachten; jährliche Prüfung durch Sachkundigen'],
         ['name' => 'Tragbare Leiter', 'lifetime_years' => null, 'inspection_interval_months' => 12, 'lifetime_basis' => 'Jährliche Prüfung'],
         ['name' => 'Hydraulisches Rettungsgerät', 'lifetime_years' => null, 'inspection_interval_months' => 12, 'lifetime_basis' => 'Jährliche Prüfung nach Herstellervorgaben'],
-        ['name' => 'Chemikalienschutzanzug', 'lifetime_years' => 10, 'inspection_interval_months' => 12, 'lifetime_basis' => 'Herstellerangabe beachten; Dichtprüfung'],
         ['name' => 'Elektrisches Gerät', 'lifetime_years' => null, 'inspection_interval_months' => 12, 'lifetime_basis' => 'Prüfung ortsveränderlicher elektrischer Betriebsmittel'],
         ['name' => 'Sonstiges', 'lifetime_years' => null, 'inspection_interval_months' => null, 'lifetime_basis' => null],
     ];

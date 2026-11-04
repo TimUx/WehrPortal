@@ -91,6 +91,26 @@ $defects = ['modules/Maengelmanagement/src/Services/DefectService.php'];
 $finance = ['modules/Finanzen/src/Services/FinanceService.php'];
 $fleet = ['modules/Fahrzeuge/src/Services/FleetService.php'];
 $breathing = ['modules/Atemschutz/src/Services/MonitorService.php'];
+$breathingEquipment = [
+    ...$breathing,
+    'modules/Atemschutz/AtemschutzServiceProvider.php',
+    'modules/Atemschutz/src/Services/EquipmentService.php',
+    'modules/Atemschutz/src/Filament/Resources/EquipmentResource.php',
+];
+$breathingTags = [...$breathingEquipment, 'modules/Atemschutz/src/Services/TagAssignmentService.php'];
+$breathingExaminations = [
+    ...$breathing,
+    'modules/Atemschutz/src/Services/WearerService.php',
+    'modules/Atemschutz/src/Filament/Resources/WearerResource.php',
+    'modules/Atemschutz/src/Filament/Resources/WearerResource/RelationManagers/ExaminationsRelationManager.php',
+];
+$breathingQualifications = [
+    ...$breathing,
+    'modules/Atemschutz/src/Services/WearerService.php',
+    'modules/Atemschutz/src/Filament/Resources/WearerResource.php',
+    'modules/Atemschutz/src/Filament/Resources/WearerResource/RelationManagers/QualificationsRelationManager.php',
+    'modules/Atemschutz/routes/web.php',
+];
 $exposure = [
     'modules/Expositionen/src/Services/ExposureService.php',
     'modules/Expositionen/src/Livewire/Manage.php',
@@ -308,6 +328,17 @@ return [
         // Health and breathing apparatus.
         'as_wearers' => $entry('atemschutz', 'hybrid', 'health', 'Own user readiness and medical examination dates', [$parent('user_id', 'users')], $required, $breathing),
         'as_trainings' => $entry('atemschutz', 'hybrid', 'health', 'Own user breathing-apparatus training', [$parent('user_id', 'users')], $required, $breathing),
+        'as_wearer_examinations' => $entry('atemschutz', 'hybrid', 'health', 'Wearer and date-only medical examination history', [$parent('wearer_id', 'as_wearers')], $required, $breathingExaminations),
+        'as_wearer_qualifications' => $entry('atemschutz', 'hybrid', 'health', 'Wearer qualification history and optional private evidence', [$parent('wearer_id', 'as_wearers'), $parent('recorded_by', 'users', 'retain')], $required, $breathingQualifications),
+        'as_tag_assignments' => $entry('atemschutz', 'hybrid', 'health', 'Exactly one wearer or equipment item; a tag may identify a wearer', [$parent('wearer_id', 'as_wearers', 'alternative'), $parent('equipment_id', 'as_equipment', 'alternative')], 'Exactly one target is required; the inactive target column is NULL and grants no access.', $breathingTags),
+        'as_equipment_types' => $entry('atemschutz', 'übergreifend', 'reference', 'Shared Atemschutz equipment type catalog', [], $catalog, $breathingEquipment),
+        'as_equipment_type_events' => $entry('atemschutz', 'übergreifend', 'audit', 'Equipment type; changed user is actor only', [$parent('type_id', 'as_equipment_types')], $required, $breathingEquipment),
+        'as_equipment' => $entry('atemschutz', 'standortgebunden', 'operational', 'Equipment; organizational Standort and physical location are distinct', [$parent('ext_location_id', 'x_locations', 'retain', 'conditional_logical'), $parent('type_id', 'as_equipment_types')], 'NULL Standort remains unassigned and does not grant local access.', $breathingEquipment),
+        'as_equipment_components' => $entry('atemschutz', 'standortgebunden', 'operational', 'Parent equipment and its independently managed component', [$parent('equipment_id', 'as_equipment'), $parent('component_equipment_id', 'as_equipment')], $required, $breathingEquipment),
+        'as_equipment_inspections' => $entry('atemschutz', 'standortgebunden', 'operational', 'Signed inspection and its equipment; inspector is actor only', [$parent('equipment_id', 'as_equipment')], $required, $breathingEquipment),
+        'as_equipment_events' => $entry('atemschutz', 'standortgebunden', 'audit', 'Equipment status/location history; event user is actor only', [$parent('equipment_id', 'as_equipment')], $required, $breathingEquipment),
+        'as_equipment_tasks' => $entry('atemschutz', 'standortgebunden', 'operational', 'Maintenance task and its equipment; optional inspection link is not ownership', [$parent('equipment_id', 'as_equipment'), $parent('inspection_id', 'as_equipment_inspections', 'retain')], $required, $breathingEquipment),
+        'as_equipment_documents' => $entry('atemschutz', 'standortgebunden', 'content', 'Private equipment document', [$parent('equipment_id', 'as_equipment')], $required, [...$breathingEquipment, 'modules/Atemschutz/routes/web.php']),
         'as_operations' => $breathingOperations,
         'as_teams' => $entry('atemschutz', 'standortgebunden', 'operational', 'Breathing-apparatus operation', [$parent('operation_id', 'as_operations')], $required, $breathing),
         'as_team_members' => $entry('atemschutz', 'hybrid', 'health', 'Team plus optional linked own member; free-text external members are supported', [$parent('team_id', 'as_teams'), $parent('user_id', 'users', 'retain')], 'NULL user retains team-owned named member; never grants access.', $breathing),

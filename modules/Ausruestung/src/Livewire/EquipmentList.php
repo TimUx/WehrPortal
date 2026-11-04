@@ -37,6 +37,7 @@ class EquipmentList extends Component
         }
 
         $equipment = EquipmentService::equipmentFor(auth()->user())->with($relations)
+            ->forGeneralUse()
             ->inService()
             ->when(trim($this->search) !== '', function ($q) {
                 $term = '%'.trim($this->search).'%';
@@ -50,7 +51,7 @@ class EquipmentList extends Component
 
         return view('ausruestung::livewire.equipment-list', [
             'equipment' => $equipment,
-            'categories' => Category::orderBy('sort_order')->pluck('name', 'id'),
+            'categories' => Category::forGeneralUse()->orderBy('sort_order')->pluck('name', 'id'),
             'statuses' => collect(EquipmentStatus::cases())->reject(fn ($s) => $s === EquipmentStatus::Retired),
         ]);
     }
