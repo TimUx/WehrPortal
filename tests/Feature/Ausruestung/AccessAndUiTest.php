@@ -145,10 +145,10 @@ test('a Gerätewart creates an item, records an inspection and lends it from the
     $this->actingAs($this->warden);
 
     Livewire::test(CreateEquipment::class)
-        ->fillForm(['name' => 'Pressluftatmer PSS 7000', 'category_id' => Category::where('name', 'Pressluftatmer')->value('id'), 'manufacturer' => 'Dräger'])
+        ->fillForm(['name' => 'Tragbare Leiter 1', 'category_id' => Category::where('name', 'Tragbare Leiter')->value('id'), 'manufacturer' => 'Bernd Blaulicht'])
         ->call('create')
         ->assertHasNoFormErrors();
-    $sca = Equipment::where('name', 'Pressluftatmer PSS 7000')->sole();
+    $sca = Equipment::where('name', 'Tragbare Leiter 1')->sole();
 
     Livewire::test(ListEquipment::class)
         ->callTableAction('inspect', $sca, data: ['inspected_at' => today()->toDateString(), 'passed' => true])

@@ -93,7 +93,9 @@ test('state per Kamerad, reminders, overview, Kürzel and Atemschutz', function 
     expect(app(BadgeRegistry::class)->for([$this->hanna->id])[$this->hanna->id])->toContain('UVV')->toContain('AS-U');
 
     // Counts as the Atemschutz-Unterweisung (FwDV 7)
-    $wearer = Wearer::create(['user_id' => $this->hanna->id, 'is_agt' => true, 'g263_valid_until' => now()->addYear()->toDateString()]);
+    $wearer = Wearer::create(['user_id' => $this->hanna->id]);
+    $wearer->qualifications()->create(['kind' => 'agt']);
+    $wearer->examinations()->create(['examined_on' => now()->subYear()->toDateString(), 'valid_until' => now()->addYear()->toDateString()]);
     Training::create(['user_id' => $this->hanna->id, 'kind' => 'belastungsuebung', 'done_on' => now()->subMonth()->toDateString()]);
     expect(app(ReadinessService::class)->forWearer($wearer)['ready'])->toBeTrue();
 });

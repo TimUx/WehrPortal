@@ -20,6 +20,8 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Modules\Atemschutz\src\Models\Training;
 use Modules\Atemschutz\src\Models\Wearer;
+use Modules\Atemschutz\src\Models\WearerExamination;
+use Modules\Atemschutz\src\Models\WearerQualification;
 use Modules\Ausruestung\src\Models\Category;
 use Modules\Ausruestung\src\Models\Equipment;
 use Modules\Einsatzbericht\src\Models\CrewMember;
@@ -250,11 +252,11 @@ class ScreenshotSeeder extends Seeder
 
     private function ausruestung(): void
     {
-        $category = Category::firstOrCreate(['name' => 'Atemschutzgeräte'], ['inspection_interval_months' => 12, 'sort_order' => 1]);
+        $tools = Category::firstOrCreate(['name' => 'Werkzeuge'], ['inspection_interval_months' => 12, 'sort_order' => 1]);
         $hoses = Category::firstOrCreate(['name' => 'Schläuche'], ['inspection_interval_months' => 12, 'sort_order' => 2]);
         $items = [
-            ['PA-001', 'Pressluftatmer PA 1', $category, 'Dräger', 'PSS 5000', 20],
-            ['PA-002', 'Pressluftatmer PA 2', $category, 'Dräger', 'PSS 5000', 75],
+            ['W-001', 'Akku-Bohrschrauber', $tools, 'Bosch', 'GSR 18V', 20],
+            ['W-002', 'Trennschleifer', $tools, 'Stihl', 'TS 420', 75],
             ['B-001', 'B-Druckschlauch 20 m', $hoses, 'Vetter', 'B 75', 200],
         ];
         foreach ($items as [$code, $name, $cat, $manufacturer, $model, $days]) {
@@ -267,10 +269,10 @@ class ScreenshotSeeder extends Seeder
 
     private function wartung(): void
     {
-        $category = Category::where('name', 'Atemschutzgeräte')->firstOrFail();
-        $template = Template::firstOrCreate(['name' => 'Jahresprüfung Pressluftatmer'], [
-            'description' => 'Sicht-, Funktions- und Dichtprüfung nach Herstellervorgabe', 'category_id' => $category->id, 'interval_months' => 12,
-            'lead_days' => 30, 'checklist' => ['Sichtprüfung', 'Dichtprüfung', 'Funktionsprüfung'], 'counts_as_inspection' => true,
+        $category = Category::where('name', 'Schläuche')->firstOrFail();
+        $template = Template::firstOrCreate(['name' => 'Jahresprüfung Schläuche'], [
+            'description' => 'Sicht-, Funktions- und Dichtheitsprüfung nach Herstellervorgabe', 'category_id' => $category->id, 'interval_months' => 12,
+            'lead_days' => 30, 'checklist' => ['Sichtprüfung', 'Dichtheitsprüfung', 'Kupplungsprüfung'], 'counts_as_inspection' => true,
             'performer' => 'internal', 'is_active' => true,
         ]);
         foreach (Equipment::where('category_id', $category->id)->get() as $equipment) {
@@ -414,10 +416,17 @@ class ScreenshotSeeder extends Seeder
     private function atemschutz(): void
     {
         foreach ([[$this->hanna, 10], [$this->bernd, 3]] as [$user, $months]) {
-            Wearer::firstOrCreate(['user_id' => $user->id], [
-                'is_agt' => true, 'agt_qualified_on' => now()->subYears(4)->toDateString(), 'g263_examined_on' => now()->subMonths(36 - $months)->toDateString(),
-                'g263_valid_until' => now()->addMonths($months)->toDateString(), 'is_active' => true,
-            ]);
+            $wearer = Wearer::firstOrCreate(['user_id' => $user->id], ['is_active' => true]);
+            WearerQualification::firstOrCreate(
+                ['wearer_id' => $wearer->id, 'kind' => 'agt'],
+                ['qualified_on' => now()->subYears(4)->toDateString()],
+            );
+            $examinedOn = now()->subMonths(36 - $months)->toDateString();
+            $validUntil = now()->addMonths($months)->toDateString();
+            WearerExamination::firstOrCreate(
+                ['wearer_id' => $wearer->id, 'examined_on' => $examinedOn, 'valid_until' => $validUntil],
+                ['recorded_by' => $this->admin->id],
+            );
             Training::firstOrCreate(['user_id' => $user->id, 'kind' => 'belastungsuebung'], ['done_on' => now()->subMonths(4)->toDateString(), 'created_by' => $this->admin->id]);
             Training::firstOrCreate(['user_id' => $user->id, 'kind' => 'unterweisung'], ['done_on' => now()->subMonths(6)->toDateString(), 'created_by' => $this->admin->id]);
         }
