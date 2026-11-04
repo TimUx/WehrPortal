@@ -753,7 +753,7 @@ class FleetService
     /**
      * Vehicles out at a running Einsatz (Einsatzbericht): left the station, not yet back.
      *
-     * @return Collection<int, array{vehicle_id: ?int, name: string, report_id: int, number: string, keyword: ?string, departed_at: ?Carbon, crew: int<0, max>}>
+     * @return Collection<int, array{vehicle_id: ?int, name: string, report_id: int, number: string, keyword: ?string, departed_at: ?Carbon, crew: int}>
      */
     public function runningAssignments(?array $vehicleIds = null): Collection
     {

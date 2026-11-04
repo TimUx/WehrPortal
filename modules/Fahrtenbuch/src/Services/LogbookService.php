@@ -330,7 +330,7 @@ class LogbookService
 
     // ─── evaluation and export ───────────────────────────────────────────────
 
-    /** @return Collection<int, array{vehicle: Vehicle, trips: int, km: int, by_purpose: array<int|string, int>, liters: float, cost: int, per100: ?float}> */
+    /** @return Collection<int, array{vehicle: Vehicle, trips: int, km: int, by_purpose: array<int>, liters: float, cost: int, per100: ?float}> */
     public function statistics(int $year, ?User $manager = null): Collection
     {
         [$from, $to] = [Carbon::create($year, 1, 1, 0, 0, 0, 'Europe/Berlin')->utc(), Carbon::create($year + 1, 1, 1, 0, 0, 0, 'Europe/Berlin')->utc()];
