@@ -112,7 +112,9 @@ class Equipment extends Model
         }
 
         $nextInspection = $this->getAttribute('next_inspection_at');
-        if ($nextInspection !== null && Carbon::parse($nextInspection)->isBefore(today())) {
+        if ($nextInspection === null
+            || trim((string) $this->inspection_basis) === ''
+            || Carbon::parse($nextInspection)->isBefore(today())) {
             return false;
         }
 

@@ -256,6 +256,26 @@ test('qualification history supports expiry and additional named qualifications 
         ->and($csa->fresh()->is_legacy)->toBeFalse();
 });
 
+test('an undated qualification renewal supersedes an older dated entry', function () {
+    $member = User::factory()->create(['name' => 'Klara Kübel']);
+    $wearer = Wearer::create(['user_id' => $member->id]);
+    $service = app(WearerService::class);
+
+    $service->recordQualification($wearer, [
+        'kind' => 'agt',
+        'qualified_on' => today()->subYears(2)->toDateString(),
+        'valid_until' => today()->subDay()->toDateString(),
+    ], $this->wart);
+    $renewal = $service->recordQualification($wearer, [
+        'kind' => 'agt',
+        'valid_until' => today()->addYear()->toDateString(),
+    ], $this->wart);
+
+    expect($this->r->forWearer($wearer)['items']['agt']['ok'])->toBeTrue()
+        ->and($this->r->forWearer($wearer)['items']['agt']['until']->toDateString())->toBe(today()->addYear()->toDateString())
+        ->and($renewal->qualified_on)->toBeNull();
+});
+
 test('registering a Trupp: RFID scan, pool, and a confirmation for who is not einsatzbereit', function () {
     $operation = $this->m->startOperation($this->watch, 'Wohnungsbrand', 'einsatz', null, $this->location->id);
 

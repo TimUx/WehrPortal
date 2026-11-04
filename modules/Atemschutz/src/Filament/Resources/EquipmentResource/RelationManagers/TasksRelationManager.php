@@ -9,6 +9,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Modules\Atemschutz\src\Models\Equipment;
 use Modules\Atemschutz\src\Models\EquipmentTask;
 use Modules\Atemschutz\src\Services\EquipmentService;
@@ -62,7 +63,11 @@ class TasksRelationManager extends RelationManager
                     ->visible(fn (EquipmentTask $record) => $record->status === 'open')
                     ->form([
                         Forms\Components\Select::make('inspection_id')->label('Zugehörige Prüfung')
-                            ->relationship('inspections', 'performed_on')
+                            ->relationship(
+                                'inspection',
+                                'performed_on',
+                                modifyQueryUsing: fn (Builder $query) => $query->where('equipment_id', $this->getOwnerRecord()->getKey()),
+                            )
                             ->placeholder('Ohne Prüfprotokoll erledigen'),
                     ])
                     ->action(function (EquipmentTask $record, array $data): void {

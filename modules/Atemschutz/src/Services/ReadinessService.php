@@ -74,7 +74,7 @@ class ReadinessService
         /** @var Collection<int, Collection<int, WearerQualification>> $qualifications */
         $qualifications = WearerQualification::query()
             ->whereIn('wearer_id', $wearers->pluck('id'))
-            ->orderByRaw('qualified_on DESC NULLS LAST')
+            ->orderByRaw('COALESCE(qualified_on, created_at::date) DESC NULLS LAST')
             ->orderByDesc('id')
             ->get(['id', 'wearer_id', 'kind', 'title', 'qualified_on', 'valid_until', 'is_legacy'])
             ->groupBy('wearer_id')

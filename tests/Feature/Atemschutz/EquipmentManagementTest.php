@@ -16,6 +16,7 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Modules\Atemschutz\src\Filament\Resources\EquipmentResource;
 use Modules\Atemschutz\src\Filament\Resources\EquipmentResource\Pages\EditEquipment;
+use Modules\Atemschutz\src\Filament\Resources\EquipmentResource\RelationManagers\TasksRelationManager;
 use Modules\Atemschutz\src\Models\Equipment;
 use Modules\Atemschutz\src\Models\EquipmentDocument;
 use Modules\Atemschutz\src\Models\EquipmentInspection;
@@ -94,6 +95,8 @@ test('a cylinder is ready at its configured minimum but not below it or when emp
         'name' => 'Flasche Stahl 1',
         'type_id' => $type->id,
         'fill_pressure_bar' => 200,
+        'next_inspection_at' => today()->addYear()->toDateString(),
+        'inspection_basis' => 'Geprüfte Herstellerangabe',
     ], $this->wart);
 
     expect($cylinder->isOperationallyReady())->toBeFalse();
@@ -118,6 +121,26 @@ test('a cylinder is ready at its configured minimum but not below it or when emp
         'fill_pressure_bar' => 0,
     ], $this->wart);
     expect($cylinder->isOperationallyReady())->toBeFalse();
+});
+
+test('equipment without a current inspection deadline and documented basis is not ready', function () {
+    $equipment = atemschutzEquipment($this->wart);
+
+    expect($equipment->isOperationallyReady())->toBeFalse();
+
+    $equipment = $this->service->updateEquipment($equipment, [
+        'name' => $equipment->name,
+        'type_id' => $equipment->type_id,
+        'next_inspection_at' => today()->addYear()->toDateString(),
+    ], $this->wart);
+    expect($equipment->isOperationallyReady())->toBeFalse();
+
+    $equipment = $this->service->updateEquipment($equipment, [
+        'name' => $equipment->name,
+        'type_id' => $equipment->type_id,
+        'inspection_basis' => 'Geprüfte Herstellerangabe',
+    ], $this->wart);
+    expect($equipment->isOperationallyReady())->toBeTrue();
 });
 
 test('workshop return requires a destination and explicit status confirmation', function () {
@@ -149,7 +172,9 @@ test('workshop return requires a destination and explicit status confirmation', 
 });
 
 test('an inspection is signed, updates the next due date, and cannot be changed afterwards', function () {
-    $equipment = atemschutzEquipment($this->wart);
+    $equipment = atemschutzEquipment($this->wart, [
+        'inspection_basis' => 'Geprüfte Herstellerangabe',
+    ]);
     $inspection = $this->service->recordInspection($equipment, [
         'performed_on' => today()->toDateString(),
         'next_due_on' => today()->addYear()->toDateString(),
@@ -169,6 +194,30 @@ test('an inspection is signed, updates the next due date, and cannot be changed 
 
     expect(fn () => $inspection->update(['findings' => 'Geändert']))
         ->toThrow(QueryException::class);
+});
+
+test('a maintenance task can be completed with an inspection for its equipment', function () {
+    $equipment = atemschutzEquipment($this->wart);
+    $inspection = $this->service->recordInspection($equipment, [
+        'performed_on' => today()->toDateString(),
+        'next_due_on' => today()->addYear()->toDateString(),
+        'result' => 'passed',
+        'checklist' => [['item' => 'Dichtheit', 'result' => 'passed']],
+        'inspector_name' => 'Hanna Hydrant',
+        'qualification' => 'Befähigte Person',
+        'signature' => signaturePng(),
+    ], $this->wart);
+    $task = $this->service->createTask($equipment, [
+        'title' => 'Prüfung dokumentieren',
+        'due_on' => today()->toDateString(),
+    ], $this->wart);
+
+    Livewire::actingAs($this->wart)
+        ->test(TasksRelationManager::class, ['ownerRecord' => $equipment, 'pageClass' => EditEquipment::class])
+        ->callTableAction('complete', $task, data: ['inspection_id' => $inspection->id])
+        ->assertHasNoTableActionErrors();
+
+    expect($task->fresh()->inspection_id)->toBe($inspection->id);
 });
 
 test('G26.3 examinations are date-only history and readiness uses the latest entry', function () {
