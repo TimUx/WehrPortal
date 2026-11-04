@@ -765,8 +765,12 @@ class FleetService
             ->when($vehicleIds !== null, fn ($q) => $q->whereIn('vehicle_id', $vehicleIds))
             ->whereHas('report', fn ($q) => $q->where('status', 'active')->whereNull('ended_at'))
             ->get()
-            ->map(fn (ReportVehicle $rv) => ['vehicle_id' => $rv->vehicle_id, 'name' => $rv->name, 'report_id' => $rv->report_id, 'number' => $rv->report->number,
-                'keyword' => $rv->report->keyword, 'departed_at' => $rv->departed_at, 'crew' => max(0, (int) $rv->crew_count)]);
+            ->map(function (ReportVehicle $rv): array {
+                $crewCount = (int) $rv->crew_count;
+
+                return ['vehicle_id' => $rv->vehicle_id, 'name' => $rv->name, 'report_id' => $rv->report_id, 'number' => $rv->report->number,
+                    'keyword' => $rv->report->keyword, 'departed_at' => $rv->departed_at, 'crew' => $crewCount > 0 ? $crewCount : 0];
+            });
     }
 
     /** @return Collection<int, object{report_id: int, number: string, keyword: ?string, alarmed_at: string, category: ?string, crew: int}> */

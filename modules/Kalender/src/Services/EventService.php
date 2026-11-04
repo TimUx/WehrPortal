@@ -228,6 +228,8 @@ class EventService
     /**
      * Active Kameraden with access to the module: the members of the event's Abteilungen, those
      * with one of its Funktionen and the individually invited ones; everyone if none is set.
+     *
+     * @return EloquentCollection<int, User>
      */
     public function audience(Event $event): EloquentCollection
     {

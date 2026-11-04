@@ -347,7 +347,8 @@ class LogbookService
 
                 return [
                     'vehicle' => $vehicle, 'trips' => $own->count(), 'km' => (int) $own->sum(fn (Trip $t) => $t->distance()),
-                    'by_purpose' => $own->groupBy('purpose')->map(fn ($g) => (int) $g->sum(fn (Trip $t) => $t->distance()))->all(),
+                    'by_purpose' => $own->groupBy(fn (Trip $trip): string => (string) $trip->purpose)
+                        ->map(fn ($g) => (int) $g->sum(fn (Trip $t) => $t->distance()))->all(),
                     'liters' => round($stops->where('fuel', '!=', 'adblue')->sum('liters'), 2), 'cost' => (int) $stops->sum('cost_cents'),
                     'per100' => $intervals->sum('km') > 0 ? round($intervals->sum('liters') / $intervals->sum('km') * 100, 1) : null,
                 ];

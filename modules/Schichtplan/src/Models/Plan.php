@@ -57,6 +57,7 @@ class Plan extends Model implements LocationAssignable
         ];
     }
 
+    /** @return HasMany<Station, $this> */
     public function stations(): HasMany
     {
         return $this->hasMany(Station::class, 'plan_id')->orderBy('sort_order')->orderBy('id');
@@ -68,6 +69,7 @@ class Plan extends Model implements LocationAssignable
         return $this->hasMany(Slot::class, 'plan_id')->orderBy('starts_at');
     }
 
+    /** @return HasMany<Participant, $this> */
     public function participants(): HasMany
     {
         return $this->hasMany(Participant::class, 'plan_id');
@@ -78,6 +80,7 @@ class Plan extends Model implements LocationAssignable
         return $this->belongsToMany(User::class, 'sp_participants', 'plan_id', 'user_id');
     }
 
+    /** @return HasMany<Assignment, $this> */
     public function assignments(): HasMany
     {
         return $this->hasMany(Assignment::class, 'plan_id');

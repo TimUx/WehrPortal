@@ -50,7 +50,7 @@ class LoadPlanService
                     'missing' => max(0, $target - $usable->count()),
                     'surplus' => max(0, $ofCategory->count() - $target),
                     'problems' => $ofCategory->reject(fn (Equipment $e) => $e->isUsable())
-                        ->map(fn (Equipment $e) => (string) ($e->code.' '.$e->name.': '.($e->status === EquipmentStatus::Available ? implode(', ', $e->warnings()) : $e->status->label())))
+                        ->map(fn (Equipment $e): string => (string) ($e->code.' '.$e->name.': '.($e->status === EquipmentStatus::Available ? implode(', ', $e->warnings()) : $e->status->label())))
                         ->values(),
                 ];
             });
