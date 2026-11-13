@@ -25,11 +25,15 @@ class StandardRoleCatalog
         'gemeindebrandinspektor' => ['name' => 'Gemeindebrandinspektor / Stadtbrandinspektor', 'scope' => 'global', 'group' => null, 'modules' => []],
         'gemeindejugendwart' => ['name' => 'Gemeindejugendwart', 'scope' => 'global', 'group' => 'jugendfeuerwehr', 'modules' => [
             'uebungsdienste' => ['gemeindejugendwart'],
+            // Termine for the own Abteilung only (User::canManageKalenderGroups)
+            'kalender' => ['terminverwalter'],
             'anwesenheit' => ['gemeindejugendwart'],
             'personalverwaltung' => ['personalverwalter'],
         ]],
         'gemeindekinderwart' => ['name' => 'Gemeindekinderwart', 'scope' => 'global', 'group' => 'kinderfeuerwehr', 'modules' => [
             'uebungsdienste' => ['gemeindekinderwart'],
+            // Termine for the own Abteilung only (User::canManageKalenderGroups)
+            'kalender' => ['terminverwalter'],
             'anwesenheit' => ['gemeindekinderwart'],
             'personalverwaltung' => ['personalverwalter'],
         ]],
@@ -67,11 +71,15 @@ class StandardRoleCatalog
         ]],
         'jugendwart' => ['name' => 'Jugendwart', 'scope' => 'group', 'group' => 'jugendfeuerwehr', 'modules' => [
             'uebungsdienste' => ['jugendwart'],
+            // Termine for the own Abteilung only (User::canManageKalenderGroups)
+            'kalender' => ['terminverwalter'],
             'anwesenheit' => ['jugendwart'],
             'personalverwaltung' => ['personalverwalter'],
         ]],
         'kinderwart' => ['name' => 'Kinderwart', 'scope' => 'group', 'group' => 'kinderfeuerwehr', 'modules' => [
             'uebungsdienste' => ['kinderwart'],
+            // Termine for the own Abteilung only (User::canManageKalenderGroups)
+            'kalender' => ['terminverwalter'],
             'anwesenheit' => ['kinderwart'],
             'personalverwaltung' => ['personalverwalter'],
         ]],
