@@ -28,6 +28,12 @@ class MemberProfile extends Component
         abort_unless(auth()->user()?->canViewLehrgaenge(), 403);
     }
 
+    /** After mount and every hydrate: the Wehrführung opens members of its Standort only */
+    public function booted(): void
+    {
+        abort_unless(RegistrationService::canViewMember(auth()->user(), (int) $this->member->id), 403);
+    }
+
     public function addCompleted(RegistrationService $registrations): void
     {
         abort_unless(auth()->user()->canManageLehrgaenge(), 403);

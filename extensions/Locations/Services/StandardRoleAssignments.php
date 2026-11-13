@@ -233,6 +233,36 @@ class StandardRoleAssignments
         return $this->assignedLocationIds($user, $module, $roles, false);
     }
 
+    /**
+     * The Kameraden someone looks after through a module role: null means everyone (admins, the
+     * classic module role, a role for the whole Kommune), a list the members of the Standorte where
+     * a standard role gives the role. For modules whose records hang on people, not on a Standort.
+     *
+     * @return list<int>|null
+     */
+    public function managedMemberIds(User $user, string $module, string $role): ?array
+    {
+        if ($user->is_admin || $user->hasModuleRole($module, $role)) {
+            return null;
+        }
+        $locations = config('locations.enabled') ? $this->locationWideIds($user, $module, [$role]) : [];
+
+        return $locations === [] ? [] : $this->memberIdsAt($locations);
+    }
+
+    /**
+     * @param  list<int>  $locationIds
+     * @return list<int> active and former members of these Standorte, by main Standort or membership
+     */
+    public function memberIdsAt(array $locationIds): array
+    {
+        return DB::table('users')
+            ->where(fn (Builder $query) => $query->whereIn('ext_location_id', $locationIds)
+                ->orWhereExists(fn (Builder $membership) => $membership->selectRaw('1')->from('x_location_user')
+                    ->whereColumn('x_location_user.user_id', 'users.id')->whereIn('location_id', $locationIds)))
+            ->pluck('id')->map(fn ($id) => (int) $id)->all();
+    }
+
     /** @return list<int> */
     private function assignedLocationIds(User $user, string $module, array $roles, bool $includeGroupProfiles): array
     {

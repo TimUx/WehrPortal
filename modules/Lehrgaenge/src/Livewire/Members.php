@@ -77,9 +77,11 @@ class Members extends Component
     {
         $term = trim($this->search);
         $canManage = auth()->user()->canManageLehrgaenge();
+        $viewable = RegistrationService::viewableMemberIds(auth()->user());
 
         return view('lehrgaenge::livewire.members', [
             'members' => User::active()->orderBy('name')
+                ->when($viewable !== null, fn ($q) => $q->whereIn('users.id', $viewable))
                 ->when($term !== '', fn ($q) => $q->where('name', 'ilike', '%'.$term.'%'))
                 ->select('users.*')
                 ->addSelect(['completed' => Record::selectRaw('count(*)')->whereColumn('lq_records.user_id', 'users.id')->where('status', 'completed')])

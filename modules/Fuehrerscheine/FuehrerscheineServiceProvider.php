@@ -88,7 +88,8 @@ class FuehrerscheineServiceProvider extends ServiceProvider
                 (bool) $license?->checkDue() => 'Führerscheinprüfung fällig – bitte neue Fotos hochladen',
                 default => null,
             };
-            $pending = LicenseService::canManage($user) ? License::where('status', 'pending')->count() : 0;
+            $managed = LicenseService::managedMemberIds($user);
+            $pending = $managed === [] ? 0 : License::where('status', 'pending')->when($managed !== null, fn ($query) => $query->whereIn('user_id', $managed))->count();
 
             return $own || $pending ? view('fuehrerscheine::cards.attention', compact('own', 'pending'))->render() : null;
         });

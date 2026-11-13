@@ -4,6 +4,7 @@ namespace Modules\Lehrgaenge\src\Services;
 
 use App\Models\User;
 use App\Services\LocationNotifications;
+use Extensions\Locations\Services\StandardRoleAssignments;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Notifications\Notification;
@@ -379,6 +380,29 @@ class RegistrationService
     }
 
     /** Ausbildungsleiter, or the admins if nobody holds the role */
+    /**
+     * Whose Lehrgänge this Kamerad may see: null = everyone's (Ausbildungsleiter, the module role
+     * Wehrführung, GBI/SBI, admins), a list = the members of the Standorte where they are Wehrführung.
+     *
+     * @return list<int>|null
+     */
+    public static function viewableMemberIds(User $user): ?array
+    {
+        if (! $user->canViewLehrgaenge()) {
+            return [];
+        }
+
+        return $user->canManageLehrgaenge() ? null
+            : app(StandardRoleAssignments::class)->managedMemberIds($user, 'lehrgaenge', 'wehrführung');
+    }
+
+    public static function canViewMember(User $user, int $memberId): bool
+    {
+        $viewable = self::viewableMemberIds($user);
+
+        return $viewable === null || in_array($memberId, $viewable, true);
+    }
+
     public function managers(): EloquentCollection
     {
         $managers = User::active()

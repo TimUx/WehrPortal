@@ -4,6 +4,7 @@ use App\Models\User;
 use App\Support\Csv;
 use Illuminate\Support\Facades\Route;
 use Modules\Lehrgaenge\src\Livewire\Qualifications;
+use Modules\Lehrgaenge\src\Services\RegistrationService;
 use Modules\Lehrgaenge\src\Support\CoursePlan;
 
 // Personalakte → Lehrgänge: the own absolvierte and coming Lehrgänge
@@ -25,11 +26,11 @@ Route::prefix('lehrgaenge')->name('lehrgaenge.')
             Route::get('/plan', function () {
                 $year = request()->filled('jahr') ? max(2000, min(2100, request()->integer('jahr'))) : null;
 
-                return view('lehrgaenge::pages.plan', ['year' => $year, 'months' => CoursePlan::rows($year)]);
+                return view('lehrgaenge::pages.plan', ['year' => $year, 'months' => CoursePlan::rows($year, RegistrationService::viewableMemberIds(auth()->user()))]);
             })->name('plan');
             Route::get('/ausbildungsstand', fn () => view('lehrgaenge::pages.page', ['livewireComponent' => 'lehrgaenge.qualifications', 'title' => 'Ausbildungsstand']))->name('qualifications');
             Route::get('/ausbildungsstand.csv', function () {
-                $t = Qualifications::table(request()->integer('abteilung') ?: null);
+                $t = Qualifications::table(request()->integer('abteilung') ?: null, RegistrationService::viewableMemberIds(auth()->user()));
                 $out = fopen('php://temp', 'r+');
                 fwrite($out, "\xEF\xBB\xBF");
                 Csv::put($out, ['Kamerad', ...$t['courses']->pluck('name')->all()], ';');
@@ -45,6 +46,6 @@ Route::prefix('lehrgaenge')->name('lehrgaenge.')
                 return response(stream_get_contents($out), 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="Ausbildungsstand.csv"']);
             })->name('qualifications.csv');
             Route::get('/kameraden', fn () => view('lehrgaenge::pages.members'))->name('members');
-            Route::get('/kameraden/{user}', fn (User $user) => view('lehrgaenge::pages.member', compact('user')))->whereNumber('user')->name('member');
+            Route::get('/kameraden/{user}', fn (User $user) => RegistrationService::canViewMember(auth()->user(), (int) $user->id) ? view('lehrgaenge::pages.member', compact('user')) : abort(403))->whereNumber('user')->name('member');
         });
     });

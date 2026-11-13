@@ -159,8 +159,12 @@ test('deadline overviews reach only the leadership of the affected Standort', fu
         });
     }
     Notification::assertSentTo($this->admin, $notificationClass, fn ($notification, $channels, $user) => str_contains(implode(' ', $notification->toMail($user)->introLines), 'Otto Ortsbrand'));
-    if (in_array($module, ['lehrgaenge', 'unterweisungen'], true)) {
+    if ($module === 'unterweisungen') {
         Notification::assertSentTo($this->chiefNorth, $notificationClass, fn ($notification, $channels, $user) => $notification->toMail($user)->actionUrl === null && $notification->toDatabase($user)['url'] === null);
+    }
+    if ($module === 'lehrgaenge') {
+        // The Wehrführung sees the Ausbildungsstand of its Standort, so the digest links to it
+        Notification::assertSentTo($this->chiefNorth, $notificationClass, fn ($notification, $channels, $user) => $notification->toMail($user)->actionUrl === route('lehrgaenge.qualifications'));
     }
     Notification::fake();
     $run();

@@ -226,11 +226,14 @@ class User extends Authenticatable implements FilamentUser
             && ($this->is_admin || $this->hasModuleRole('lehrgaenge', 'ausbildungsleiter'));
     }
 
-    /** The Wehrführung also sees everyone's Lehrgänge and the Ausbildungsstand, without changing anything */
+    /**
+     * The Wehrführung also sees Lehrgänge and the Ausbildungsstand, without changing anything: everyone's
+     * with the module role, with Standorte those of its members (RegistrationService::viewableMemberIds)
+     */
     public function canViewLehrgaenge(): bool
     {
         return $this->canManageLehrgaenge()
-            || ($this->is_active && $this->canUseModule('lehrgaenge') && $this->hasModuleRole('lehrgaenge', 'wehrführung'));
+            || ($this->is_active && $this->canUseModule('lehrgaenge') && $this->hasAnyModuleRole('lehrgaenge', 'wehrführung'));
     }
 
     /** Admins and Planer create and distribute shift plans; other members see the plans they are on */

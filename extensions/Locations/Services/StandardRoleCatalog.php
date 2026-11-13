@@ -43,6 +43,9 @@ class StandardRoleCatalog
             'finanzen' => ['wehrführung'],
             'fahrzeuge' => ['fahrzeugwart'],
             'fahrzeugbuchung' => ['entscheider'],
+            // Records that hang on people: for the members of the Standort (managedMemberIds)
+            'fuehrerscheine' => ['fuehrerscheinpruefer'],
+            'lehrgaenge' => ['wehrführung'],
             'hydrantenkontrolle' => ['hydrantenwart'],
             'fahrtenbuch' => ['fahrtenbuchwart'],
             'maengelmanagement' => ['verantwortlicher'],
