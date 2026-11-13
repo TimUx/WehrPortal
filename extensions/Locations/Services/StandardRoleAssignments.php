@@ -8,6 +8,7 @@ use App\Services\ModuleRegistry;
 use Carbon\CarbonImmutable;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Models\StandardRoleAssignment;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +18,22 @@ use Illuminate\Validation\ValidationException;
 
 class StandardRoleAssignments
 {
+    /**
+     * Live assignments and the active flag per Kamerad: permission checks ask several times per
+     * Kamerad and lists ask for every Kamerad. forget() runs on every change.
+     *
+     * @var array<string, mixed>
+     */
+    private const MEMO_SECONDS = 5;
+
+    private array $memo = [];
+
     public function __construct(private readonly StandardRoleCatalog $catalog) {}
+
+    public function forget(): void
+    {
+        $this->memo = [];
+    }
 
     public function grant(User $by, int $userId, string $profile, ?int $locationId, ?int $groupId, string $reason, ?string $expiresAt = null): StandardRoleAssignment
     {
@@ -311,6 +327,39 @@ class StandardRoleAssignments
         );
     }
 
+    /**
+     * Kameraden who hold a module role through a standard role naming it: at this Standort or
+     * for the whole Gemeinde; without a Standort only the latter. For recipients of mails and
+     * invitations. GBI/SBI is left out on purpose: access to everything is not a duty in everything.
+     *
+     * @return list<int>
+     */
+    public function userIdsWithModuleRole(string $module, string $role, ?int $locationId = null): array
+    {
+        $profiles = collect($this->catalog->all())
+            ->filter(fn (array $definition, string $profile) => $definition['group'] === null && $this->catalog->hasModuleRole($profile, $module, $role))
+            ->keys()->all();
+        if ($profiles === [] || ! Schema::hasTable('x_standard_role_assignments') || ! $this->activeModule($module)) {
+            return [];
+        }
+
+        return DB::table('x_standard_role_assignments as assignments')
+            ->join('users', 'users.id', '=', 'assignments.user_id')
+            ->leftJoin('x_locations', 'x_locations.id', '=', 'assignments.location_id')
+            ->whereIn('assignments.profile', $profiles)->whereNull('assignments.group_id')
+            ->whereNull('assignments.revoked_at')->where('assignments.granted_at', '<=', now())
+            ->where(fn (Builder $query) => $query->whereNull('assignments.expires_at')->orWhere('assignments.expires_at', '>', now()))
+            ->where('users.is_active', true)
+            ->where(fn (Builder $query) => $query->whereNull('assignments.location_id')
+                ->when($locationId !== null, fn (Builder $query) => $query->orWhere(fn (Builder $query) => $query
+                    ->where('assignments.location_id', $locationId)->where('x_locations.is_active', true)
+                    // The role only counts while the Kamerad still belongs to the Standort
+                    ->where(fn (Builder $query) => $query->where('users.ext_location_id', $locationId)
+                        ->orWhereExists(fn (Builder $membership) => $membership->selectRaw('1')->from('x_location_user')
+                            ->whereColumn('x_location_user.user_id', 'users.id')->where('x_location_user.location_id', $locationId))))))
+            ->pluck('assignments.user_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
+    }
+
     /** @return list<int> */
     public function activeGlobalProfileUserIds(string $profile): array
     {
@@ -327,6 +376,30 @@ class StandardRoleAssignments
             ->where('users.is_active', true)->pluck('assignments.user_id')->map(fn ($id) => (int) $id)->all();
     }
 
+    /**
+     * Loads the role answers for many Kameraden with two queries, for pages that check each of a
+     * list (the audience of a Termin) instead of two queries per Kamerad.
+     *
+     * @param  iterable<int>  $userIds
+     */
+    public function preload(iterable $userIds): void
+    {
+        $ids = collect($userIds)->map(fn ($id) => (int) $id)->unique()->values();
+        if ($ids->isEmpty() || ! Schema::hasTable('x_standard_role_assignments')) {
+            return;
+        }
+
+        $now = now();
+        $live = StandardRoleAssignment::query()->whereIn('user_id', $ids)->whereNull('revoked_at')
+            ->where('granted_at', '<=', $now)->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', $now))
+            ->get()->groupBy('user_id');
+        $active = DB::table('users')->whereIn('id', $ids)->where('is_active', true)->pluck('id')->flip();
+        foreach ($ids as $id) {
+            $this->memo['live:'.$id] = [$now->timestamp, $live->get($id, new EloquentCollection)->values()];
+            $this->memo['active:'.$id] = $active->has($id);
+        }
+    }
+
     /** @return Collection<int, StandardRoleAssignment> */
     private function live(User $user): Collection
     {
@@ -334,14 +407,24 @@ class StandardRoleAssignments
             return collect();
         }
 
-        return StandardRoleAssignment::query()->where('user_id', $user->id)->whereNull('revoked_at')
+        // Remembered for a few seconds only, so expiry dates (and a moved clock in tests) still count
+        [$loadedAt, $assignments] = $this->memo['live:'.$user->id] ?? [null, null];
+        $age = $loadedAt === null ? null : now()->timestamp - $loadedAt;
+        if ($age !== null && $age >= 0 && $age <= self::MEMO_SECONDS) {
+            return $assignments;
+        }
+
+        $assignments = StandardRoleAssignment::query()->where('user_id', $user->id)->whereNull('revoked_at')
             ->where('granted_at', '<=', now())->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->get();
+        $this->memo['live:'.$user->id] = [now()->timestamp, $assignments];
+
+        return $assignments;
     }
 
     private function active(User $user): bool
     {
-        return DB::table('users')->where('id', $user->id)->where('is_active', true)->exists();
+        return $this->memo['active:'.$user->id] ??= DB::table('users')->where('id', $user->id)->where('is_active', true)->exists();
     }
 
     private function activeLocation(int $locationId): bool

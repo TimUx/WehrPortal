@@ -10,5 +10,7 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
         $this->withoutVite();
+        // Deferred work (the login mail) runs at once, so tests see it without a full request
+        $this->withoutDefer();
     }
 }

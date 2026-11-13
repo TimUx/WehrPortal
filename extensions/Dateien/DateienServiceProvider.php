@@ -33,6 +33,7 @@ use Filament\Facades\Filament;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -75,7 +76,9 @@ class DateienServiceProvider extends ServiceProvider
                 $this->app->make(LocationFileProvisioner::class)->ensureAll();
             }
         });
-        if (! $this->app->runningInConsole()) {
+        // Safety net for locations that existed before the module (or the locations) were switched on.
+        // At most every ten minutes, not on every request: it locks each location row in a transaction.
+        if (! $this->app->runningInConsole() && Cache::add('dateien.location_spaces_checked', true, 600)) {
             $this->app->make(LocationFileProvisioner::class)->ensureAll();
         }
         Livewire::addPersistentMiddleware([EnsureDateienAccess::class]);

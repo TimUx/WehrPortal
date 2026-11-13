@@ -70,13 +70,17 @@ class StandardRolesPage extends Page implements HasForms, HasTable
             ->mapWithKeys(fn (array $definition, string $key) => [$key => $definition['name']])->all();
         $notReady = collect($catalog->all())
             ->reject(fn (array $definition, string $key) => $catalog->isAssignable($key))
-            ->pluck('name')->implode(', ');
+            ->map(fn (array $definition, string $key) => $definition['name'].' ('.$catalog->notAssignableReason($key).')')
+            ->implode('; ');
 
         return $schema
             ->statePath('data')
             ->schema([
                 Section::make('Rolle zuweisen')
-                    ->description('Profilzuweisungen sind befristbar und werden mit Grund protokolliert. Die verfügbaren Profile gewähren nur die bereits angebundenen Rechte: GBI/SBI standortübergreifend, Wehrführung für Anwesenheit und Übungsdienste, Jugend- und Kinderwarte für zugewiesene Abteilungen; Gemeindewarte können alle passenden Abteilungen standortübergreifend verwalten. Der Bürgermeister erhält bei aktivierter Führungsübersicht ausschließlich jährliche Einsatzzahlen über alle Standorte, aber keinen Zugang zu den Einsatzberichten oder anderen Modulen. Noch nicht freigegeben: '.$notReady.'.')
+                    ->description('Zuweisungen sind befristbar und werden mit Grund protokolliert. Wehrführung und Gerätewart gelten für einen Standort, Jugend- und Kinderwart für eine Abteilung, die Gemeindewarte für alle Abteilungen ihrer Art, der Atemschutzgerätewart für die ganze Gemeinde. '
+                        .'GBI/SBI öffnet jedes Modul an allen Standorten zum Verwalten – auch Verbandbuch, Expositionen, Finanzen und Personalakten. '
+                        .'Der Bürgermeister sieht ausschließlich die jährlichen Einsatzzahlen.'
+                        .($notReady === '' ? '' : ' Zurzeit nicht vergebbar: '.$notReady.'.'))
                     ->columns(2)
                     ->schema([
                         Select::make('user_id')

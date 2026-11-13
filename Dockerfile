@@ -4,9 +4,14 @@ USER root
 
 # Defaults for production; can be overridden in Coolify.
 # LOG_CHANNEL=stderr makes Laravel errors visible in the container runtime logs.
+# TRUSTED_PROXY=off: the base image's default ("cloudflare") lets nginx take the visitor's address
+# from the CF-Connecting-IP header of any private network, so everyone behind another proxy could
+# make it up. Laravel reads X-Forwarded-For from the trusted proxies instead (config/trustedproxy.php).
+# Behind Cloudflare set TRUSTED_PROXY=cloudflare.
 ENV AUTORUN_ENABLED=true \
     LOG_CHANNEL=stderr \
-    PHP_OPCACHE_ENABLE=1
+    PHP_OPCACHE_ENABLE=1 \
+    TRUSTED_PROXY=off
 
 # Security fixes of the Alpine packages (e.g. libX11 for gd, nghttp2) that the base image doesn't have yet,
 # then Node.js (LTS) and PHP extensions (intl; gd + exif for avatar resizing)
@@ -36,10 +41,15 @@ COPY --chmod=755 docker/entrypoint.d/ /etc/entrypoint.d/
 RUN docker-php-serversideup-s6-init
 
 # Laravel scheduler as an extra s6 service, so no separate scheduler container is needed.
-# s6-overlay 3.x: register service via user-bundles.d (user/contents.d in s6-rc.d is read-only at runtime).
+# s6-overlay 3.2.3+: a service only starts when it is listed in the "user" bundle, which lives in
+# user-bundles.d/user/contents.d. `test -d` fails the build if the base image moves it again,
+# instead of leaving the scheduler silently down.
 COPY --chmod=755 docker/s6-rc.d/ /etc/s6-overlay/s6-rc.d/
-RUN mkdir -p /etc/s6-overlay/user-bundles.d && \
-    touch /etc/s6-overlay/user-bundles.d/laravel-scheduler
+RUN test -d /etc/s6-overlay/user-bundles.d/user/contents.d && \
+    touch /etc/s6-overlay/user-bundles.d/user/contents.d/laravel-scheduler
+
+# Security headers come from the app; see the file for what the base image's version broke
+COPY --chown=www-data:www-data docker/nginx/security.conf /etc/nginx/server-opts.d/security.conf
 
 # Ensure writable directories are owned by web user
 RUN chown -R www-data:www-data storage bootstrap/cache

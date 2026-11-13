@@ -318,6 +318,10 @@ test('qualification evidence is private, extension-checked and removed with the 
     $ordinary->moduleAccess()->create(['module' => 'atemschutz']);
     $this->actingAs($ordinary)->get(route('atemschutz.qualification-proof', $qualification))->assertForbidden();
 
+    // A qualification without a Beleg has nothing to download
+    $bare = app(WearerService::class)->recordQualification($wearer, ['kind' => 'other', 'title' => 'Ohne Beleg'], $this->wart);
+    $this->actingAs($this->wart)->get(route('atemschutz.qualification-proof', $bare))->assertNotFound();
+
     expect(fn () => app(WearerService::class)->recordQualification($wearer, [
         'kind' => 'other',
         'title' => 'Nicht zulässiger Beleg',

@@ -3,11 +3,13 @@
 use App\Livewire\Dashboard\Home;
 use App\Models\ActivityLog;
 use App\Models\Group;
+use App\Models\MemberFunction;
 use App\Models\Module;
 use App\Models\User;
 use App\Support\MemberFields;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
@@ -136,6 +138,60 @@ test('Dienstbeteiligung from the Kalender attendance: only Dienste meant for the
         ->set('types', ['uebung', 'veranstaltung'])->assertSee('2 / 3');
     $csv = $this->actingAs($this->manager)->get(route('personalverwaltung.attendance.csv', ['jahr' => 2026]))->assertOk()->getContent();
     expect($csv)->toContain('"Hanna Hydrant";Einsatzabteilung;2;1;50');
+});
+
+test('the Dienstbeteiligung for a whole list equals the one computed per Kamerad', function () {
+    $parent = MemberFunction::create(['name' => 'Jugendwart', 'sort_order' => 1]);
+    $child = MemberFunction::create(['name' => 'Stellvertretung', 'parent_id' => $parent->id, 'sort_order' => 1]);
+    $this->bernd->functions()->attach($child);
+    $klara = User::factory()->create(['name' => 'Klara Lösch', 'joined_at' => '2026-04-01']);   // joined in the year
+    $klara->groups()->attach([$this->active->id, $this->youth->id]);
+    $tim = User::factory()->create(['name' => 'Tim Tanklösch']);                              // no Abteilung, no Eintritt
+    $tim->functions()->attach($parent);
+
+    $events = app(EventService::class);
+    $make = fn (string $day, array $groups = [], array $users = [], array $functions = [], string $type = 'uebung') => $events->create(
+        ['title' => 'Dienst '.$day, 'type' => $type, 'starts_at' => Carbon::parse($day.' 19:00', 'Europe/Berlin'), 'ends_at' => Carbon::parse($day.' 21:00', 'Europe/Berlin')],
+        $groups, $this->admin, userIds: $users, functionIds: $functions)->first();
+    $all = [
+        $make('2026-02-03'),                                            // for everyone, before Klara joined
+        $make('2026-04-01'),                                            // for everyone, on Klara's first day
+        $make('2026-04-14', [$this->active->id]),
+        $make('2026-04-21', [$this->youth->id]),
+        $make('2026-05-05', [], [$tim->id]),                            // invited by name
+        $make('2026-05-12', [], [], [$parent->id]),                     // Funktion: also its sub-function
+        $make('2026-05-19', [], [], [$child->id]),                      // sub-function only
+        $make('2026-05-26', [$this->active->id], [$this->bernd->id]),   // Abteilung and one more by name
+        $make('2026-06-02', [], [], [], 'veranstaltung'),               // not a Dienst by default
+    ];
+    $members = collect([$this->hanna, $this->bernd, $klara, $tim, $this->manager]);
+    foreach ($all as $index => $event) {
+        foreach ($members as $position => $member) {
+            // A mix of present, absent and not recorded
+            $events->setAttendance($event, $member, [true, false, null][($index + $position) % 3], $this->admin);
+        }
+    }
+    $events->create(['title' => 'Ohne Anwesenheit', 'type' => 'uebung', 'starts_at' => Carbon::parse('2026-06-03 19:00', 'Europe/Berlin'),
+        'ends_at' => Carbon::parse('2026-06-03 21:00', 'Europe/Berlin')], [], $this->admin);
+
+    foreach ([PersonnelService::DUTY_TYPES, ['uebung', 'veranstaltung']] as $types) {
+        $batch = $this->p->attendanceOf($members, 2026, $types);
+        foreach ($members as $member) {
+            expect($batch[$member->id])->toBe($this->p->attendance($member, 2026, $types), $member->name);
+        }
+    }
+    // Not everyone has the same figures, or the comparison would prove little
+    expect(collect($this->p->attendanceOf($members, 2026))->pluck('total')->unique()->count())->toBeGreaterThan(2)
+        ->and($this->p->attendanceOf([], 2026))->toBe([])
+        ->and($this->p->attendanceOf($members, 2025)[$this->hanna->id])->toBe(['total' => 0, 'attended' => 0, 'percent' => null]);
+
+    // The list needs a fixed handful of queries, however many Kameraden it has
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $this->p->attendanceOf($members, 2026);
+    $queries = count(DB::getQueryLog());
+    DB::disableQueryLog();
+    expect($queries)->toBeLessThanOrEqual(12);
 });
 
 test('the Dienstausweis is kept; one running out shows on the start page', function () {

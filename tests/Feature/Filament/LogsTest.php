@@ -42,15 +42,15 @@ beforeEach(function () {
 
 test('changes are logged with who did what: created, changed fields, deleted', function () {
     $this->actingAs($this->hanna);
-    $group = Group::create(['name' => 'Jugendfeuerwehr', 'sort_order' => 1]);
-    $group->update(['name' => 'Jugendfeuerwehr Musterstadt']);
+    $group = Group::create(['name' => 'Musikzug', 'sort_order' => 1]);
+    $group->update(['name' => 'Musikzug Musterstadt']);
     $group->delete();
 
     [$created, $updated, $deleted] = ActivityLog::orderBy('id')->get();
-    expect($created)->event->toBe('created')->user_id->toBe($this->hanna->id)->subject_label->toBe('Jugendfeuerwehr')
-        ->and($created->changes['name'])->toBe([null, 'Jugendfeuerwehr'])
+    expect($created)->event->toBe('created')->user_id->toBe($this->hanna->id)->subject_label->toBe('Musikzug')
+        ->and($created->changes['name'])->toBe([null, 'Musikzug'])
         ->and($updated->event)->toBe('updated')
-        ->and($updated->changes)->toBe(['name' => ['Jugendfeuerwehr', 'Jugendfeuerwehr Musterstadt']])
+        ->and($updated->changes)->toBe(['name' => ['Musikzug', 'Musikzug Musterstadt']])
         ->and($deleted->event)->toBe('deleted')
         ->and(ActivityLog::typeLabel(Group::class))->toBe('Abteilung');
 });

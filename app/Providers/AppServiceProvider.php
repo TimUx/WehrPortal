@@ -20,6 +20,7 @@ use App\Services\PersonnelFileRegistry;
 use App\Services\PushService;
 use App\Services\ScanRegistry;
 use App\Services\VehicleBlockRegistry;
+use App\Support\MemoizedSchema;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Notifications\DatabaseNotification;
@@ -50,6 +51,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(HoursRegistry::class);
         $this->app->singleton(DriverRegistry::class);
         $this->app->singleton(BadgeRegistry::class);
+
+        // Schema::hasTable()/hasColumn() answer from memory within a request (see MemoizedSchema)
+        $this->app->singleton(MemoizedSchema::class);
+        $this->app->bind('db.schema', fn ($app) => $app->make(MemoizedSchema::class));
     }
 
     public function boot(): void

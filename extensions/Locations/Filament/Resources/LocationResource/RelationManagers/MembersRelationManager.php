@@ -47,7 +47,13 @@ class MembersRelationManager extends RelationManager
             ->headerActions([
                 Actions\AttachAction::make()
                     ->label('Person hinzufügen')
-                    ->recordSelectOptionsQuery(fn ($query) => $query->withoutGlobalScope(LocationScope::class)->where('users.is_active', true))
+                    // Membership opens the Personalakte to the Wehrführung of the Standort, so only a global
+                    // admin brings in Kameraden of other Standorte. Everyone else chooses among those they
+                    // already see (their Standorte and Kameraden without one); the attach uses this query too.
+                    ->recordSelectOptionsQuery(fn ($query) => (auth()->user()?->is_admin ? $query->withoutGlobalScope(LocationScope::class) : $query)
+                        ->where('users.is_active', true))
+                    ->modalDescription(fn () => auth()->user()?->is_admin ? null
+                        : 'Zur Auswahl stehen Kameraden deiner Standorte und solche ohne Standort. Kameraden eines anderen Standorts ordnet ein Admin zu.')
                     ->schema(fn (Actions\AttachAction $action): array => [
                         $action->getRecordSelect(),
                         Forms\Components\Select::make('role')->label('Rolle')

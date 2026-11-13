@@ -78,7 +78,7 @@ Bei einer anderen Version beide Download-URLs und später `WEHRPORTAL_VERSION` e
 
 Compose startet App, Worker, PostgreSQL und Redis im gemeinsamen internen Netz. Datenbank und Redis veröffentlichen keine Ports. Die benannten Volumes `pgdata`, `redisdata` und `app_storage` bleiben bei Containerwechseln erhalten. `app_storage` ist unter `/var/www/html/storage/app` eingebunden und enthält insbesondere `private/dateien`. **Nie `docker compose down -v` ausführen**, solange diese Daten gebraucht werden.
 
-Für den hier beschriebenen Reverse-Proxy **auf dem VPS selbst** in `docker-compose.yml` beim Dienst `app` die Portfreigabe `"8080:8080"` durch **`"127.0.0.1:8080:8080"` ersetzen**. So ist die App nicht direkt aus dem Internet erreichbar; auf eine Firewall allein sollte man bei veröffentlichten Docker-Ports nicht vertrauen. Für automatischen Wiederanlauf nach einem Neustart bei allen vier Diensten auf derselben Ebene wie `image:` jeweils `restart: unless-stopped` ergänzen.
+Die App lauscht nur auf **`127.0.0.1:8080`** des Servers und ist damit nicht direkt aus dem Internet erreichbar, sondern nur über den hier beschriebenen Reverse-Proxy **auf dem VPS selbst**; auf eine Firewall allein sollte man bei veröffentlichten Docker-Ports nicht vertrauen. Läuft der Proxy auf einem anderen Rechner, in `.env` `APP_BIND=0.0.0.0` (oder die interne Adresse des Servers) setzen und den Port per Firewall auf den Proxy beschränken. Für automatischen Wiederanlauf nach einem Neustart bei allen vier Diensten auf derselben Ebene wie `image:` jeweils `restart: unless-stopped` ergänzen.
 
 #### 4. WehrPortal konfigurieren
 
@@ -196,7 +196,11 @@ Die technischen Basiseinstellungen laufen über Umgebungsvariablen. Beim Compose
 | `WEHRPORTAL_VERSION`      | Von Docker Compose verwendeter Release-Tag aus GHCR; Standard `v0.9.5.5`. App und Worker verwenden dieselbe Version. |
 | `MAIL_*`                 | SMTP-Server für alle Mails. Für Port 465 gilt `MAIL_SCHEME=smtps`. |
 | `ADMIN_EMAILS`           | Kommagetrennte Adressen, die beim Container-Start als Admin angelegt bzw. aktiviert werden |
-| `DISPLAY_TOKEN`          | Geheimer Schlüssel für den Wachen-Monitor ohne Login (`/monitor/<Schlüssel>`). Leer bedeutet nur für Admins. |
+| `APP_BIND`               | Adresse des Servers, auf der Port 8080 veröffentlicht wird. Standard `127.0.0.1` (nur ein Reverse-Proxy auf demselben Server). |
+| `TRUSTED_PROXIES`        | Proxys, denen die App die Besucheradresse (`X-Forwarded-For`) und HTTPS glaubt, kommagetrennt als Adressen oder Netze. Leer = private Netze (Proxy auf demselben Server oder im Docker-Netz). Wer sich direkt verbindet, zählt mit seiner eigenen Adresse – die Anfragelimits lassen sich nicht mit einem erfundenen Header umgehen. |
+| `TRUSTED_PROXY`          | Einstellung des Webservers im Image, Standard `off`. Nur hinter Cloudflare auf `cloudflare` setzen (Besucheradresse aus `CF-Connecting-IP`). |
+| `CSP_ENFORCE`            | `true` setzt die Content-Security-Policy durch. Standard `false`: Verstöße werden nur in der Browser-Konsole gemeldet. Vor dem Einschalten die genutzten Seiten auf Meldungen prüfen. |
+| `DISPLAY_TOKEN`          | Geheimer Schlüssel für den Wachen-Monitor ohne Login (`/fahrzeugbuchung/monitor/<Schlüssel>`). Leer bedeutet nur für Admins. |
 | `MAGIC_LINK_TTL_MINUTES` | Gültigkeit eines Login-Links in Minuten (Standard: 15)  |
 | `SESSION_LIFETIME`       | Session-Dauer in Minuten (Standard: 90 Tage)            |
 | `LOCATIONS_SCOPED_ROLE_MODULES` | Standardmäßig leer. `anwesenheit` und/oder `mitteilungen` aktivieren nach expliziter Rollenvergabe die jeweiligen Standortrollenadapter (kommagetrennt). Kein pauschaler Schalter für vollständige Mandantentrennung. |

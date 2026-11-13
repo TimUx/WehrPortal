@@ -81,7 +81,8 @@ class ModuleMembers extends Page implements HasTable
     {
         $key = $this->module;
         $roles = $this->definition()['roles'] ?? [];
-        $roleOptions = $roles ? array_combine($roles, array_map('ucfirst', $roles)) : [];
+        $roleOptions = app(ModuleRegistry::class)->roleOptions($key);
+        $ineffective = app(ModuleRegistry::class)->ineffectiveRoles($key);
         $access = fn ($query) => $query->from('module_user')->whereColumn('module_user.user_id', 'users.id')->where('module_user.module', $key);
         $registry = app(ModuleRegistry::class);
         $restricted = $registry->isRestricted($key);
@@ -143,6 +144,7 @@ class ModuleMembers extends Page implements HasTable
             $columns[] = SelectColumn::make('module_role')
                 ->label('Rolle')
                 ->options($roleOptions)
+                ->disableOptionWhen(fn (string $value): bool => isset($ineffective[$value]))
                 ->placeholder('keine')
                 ->getStateUsing(fn (User $record) => $record->module_role)
                 // Giving a role also unlocks the module
@@ -207,7 +209,9 @@ class ModuleMembers extends Page implements HasTable
                     ->label('Freischalten')
                     ->icon('heroicon-o-plus-circle')
                     ->schema(array_filter([
-                        $roles ? Select::make("role_{$key}")->label('Rolle (optional)')->options($roleOptions) : null,
+                        $roles ? Select::make("role_{$key}")->label('Rolle (optional)')->options($roleOptions)
+                            ->disableOptionWhen(fn (string $value): bool => isset($ineffective[$value]))
+                            ->helperText(app(ModuleRegistry::class)->ineffectiveRolesHint($key)) : null,
                         $restricted ? Checkbox::make('confirm_outside')->label('Auch Kameraden außerhalb der Zielgruppe „'.$audience.'“ freischalten')
                             ->helperText('„'.$this->definition()['name'].'“ ist nur für die Zielgruppe „'.$audience.'“ und Admins gedacht. Ohne Haken werden nur diese freigeschaltet.') : null,
                     ]))

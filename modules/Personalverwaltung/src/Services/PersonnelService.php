@@ -214,6 +214,27 @@ class PersonnelService
         return $groups->get();
     }
 
+    /**
+     * visibleGroups() for a whole list: sets each Kamerad's `groups` relation to the Abteilungen the
+     * manager may see, with one query instead of one per Kamerad.
+     *
+     * @param  EloquentCollection<int, covariant \Illuminate\Database\Eloquent\Model>  $members
+     */
+    public static function loadVisibleGroups(User $manager, EloquentCollection $members): void
+    {
+        $scope = self::isGroupScopeRestricted($manager) ? self::scopeOf($manager) : null;
+        $withLocation = Group::locationsAvailable();
+
+        $members->load(['groups' => function ($groups) use ($scope, $withLocation) {
+            if ($scope !== null) {
+                $groups->withoutGlobalScopes()->whereIn('groups.id', $scope);
+            }
+            if ($withLocation) {
+                $groups->with('location');
+            }
+        }]);
+    }
+
     /** @return list<int> */
     public static function locationScopeIds(User $manager): array
     {
@@ -1064,16 +1085,80 @@ class PersonnelService
         return ['total' => $total, 'attended' => $attended, 'percent' => $total > 0 ? (int) round($attended / $total * 100) : null];
     }
 
+    /**
+     * attendance() for many Kameraden at once, with a handful of queries instead of several per
+     * Kamerad: the Dienste of the year are loaded once with their target groups, and who they were
+     * meant for is decided here by the same rules as Audience::scope().
+     *
+     * @param  iterable<mixed>  $members  the Kameraden (User models)
+     * @return array<int, array{total: int, attended: int, percent: ?int}> by user id
+     */
+    public function attendanceOf(iterable $members, int $year, array $types = self::DUTY_TYPES): array
+    {
+        $members = collect($members)->keyBy(fn (User $member) => $member->id);
+        if ($members->isEmpty()) {
+            return [];
+        }
+
+        $yearStart = Carbon::create($year, 1, 1, 0, 0, 0, 'Europe/Berlin')->utc();
+        $until = Carbon::create($year + 1, 1, 1, 0, 0, 0, 'Europe/Berlin')->utc()->min(now());
+
+        $events = Event::query()->with(['groups', 'functions', 'invitees'])
+            ->whereNull('source_id')->whereNull('cancelled_at')->whereIn('type', $types)
+            ->where('starts_at', '>=', $yearStart)->where('ends_at', '<=', $until)
+            ->whereHas('responses', fn ($q) => $q->whereNotNull('attended'))
+            ->get()
+            ->map(fn (Event $event) => [
+                'id' => $event->id,
+                'starts_at' => $event->starts_at,
+                'groups' => $event->groups->modelKeys(),
+                'functions' => $event->functions->modelKeys(),
+                'invitees' => $event->invitees->modelKeys(),
+            ]);
+
+        // Abteilungen and Funktionen as the relations give them, not what a caller may have set on the models
+        $memberships = User::withoutGlobalScopes()->whereKey($members->keys())->with(['groups', 'functions'])->get()->keyBy('id');
+        $attended = $events->isEmpty() ? collect() : Response::whereIn('event_id', $events->pluck('id'))->whereIn('user_id', $members->keys())
+            ->where('attended', true)->get(['event_id', 'user_id'])->groupBy('user_id')->map(fn ($rows) => $rows->pluck('event_id')->flip());
+
+        $result = [];
+        foreach ($members as $id => $member) {
+            $from = $member->joined_at && $member->joined_at->gt($yearStart)
+                ? $member->joined_at->copy()->setTimezone('Europe/Berlin')->startOfDay()->utc()
+                : $yearStart;
+            $membership = $memberships->get($id);
+            $groups = $membership ? $membership->groups->modelKeys() : [];
+            $own = $membership ? $membership->functions : collect();
+            // A Funktion of the target group also covers its sub-functions, so look one level up
+            $functions = $own->pluck('id')->merge($own->pluck('parent_id')->filter())->unique()->all();
+
+            $meant = $events->filter(fn (array $event) => $event['starts_at'] >= $from && (
+                ($event['groups'] === [] && $event['functions'] === [] && $event['invitees'] === [])
+                || array_intersect($event['groups'], $groups) !== []
+                || array_intersect($event['functions'], $functions) !== []
+                || in_array($id, $event['invitees'], true)
+            ));
+            $total = $meant->count();
+            $present = $meant->filter(fn (array $event) => $attended->get($id)?->has($event['id']) ?? false)->count();
+            $result[$id] = ['total' => $total, 'attended' => $present, 'percent' => $total > 0 ? (int) round($present / $total * 100) : null];
+        }
+
+        return $result;
+    }
+
     /** CSV for Excel: one line per Kamerad */
     public function attendanceCsv(User $manager, int $year, array $types): string
     {
         $out = fopen('php://temp', 'r+');
         fwrite($out, "\xEF\xBB\xBF");
         Csv::put($out, ['Name', 'Abteilungen', 'Dienste', 'Anwesend', 'Dienstbeteiligung %'], ';');
-        foreach (self::visibleMembers($manager)->where('status', 'active')->orderBy('name')->get() as $member) {
+        $members = self::visibleMembers($manager)->where('status', 'active')->orderBy('name')->get();
+        $attendance = $this->attendanceOf($members, $year, $types);
+        self::loadVisibleGroups($manager, $members);
+        foreach ($members as $member) {
             /** @var User $member */
-            $a = $this->attendance($member, $year, $types);
-            Csv::put($out, [$member->name, self::visibleGroups($manager, $member)->pluck('display_name')->implode(', '), $a['total'], $a['attended'], $a['percent'] ?? ''], ';');
+            $a = $attendance[$member->id];
+            Csv::put($out, [$member->name, $member->groups->pluck('display_name')->implode(', '), $a['total'], $a['attended'], $a['percent'] ?? ''], ';');
         }
         rewind($out);
 
@@ -1106,7 +1191,7 @@ class PersonnelService
                 ->whereBetween('since', [$from->toDateString(), $end->toDateString()])->orderBy('since')->get(),
             'honors' => Honor::with('user')->whereYear('awarded_on', $year)->orderBy('awarded_on')->get(),
             'attendance' => self::attendanceAvailable()
-                ? User::where('status', 'active')->get()->map(fn (User $u) => $this->attendance($u, $year)['percent'])->filter(fn ($p) => $p !== null)->avg()
+                ? collect($this->attendanceOf(User::where('status', 'active')->get(), $year))->pluck('percent')->filter(fn ($p) => $p !== null)->avg()
                 : null,
         ];
     }

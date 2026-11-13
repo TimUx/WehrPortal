@@ -30,6 +30,27 @@ Für Gemeinden mit mehreren Feuerwehrhäusern. Code: `extensions/Locations/`, Ab
 
 Für jeden Standort werden bei der Erstellung die Abteilungen Einsatzabteilung, Jugendfeuerwehr, Kinderfeuerwehr, Alters- und Ehrenabteilung, Vorstand und Verein angelegt. Weitere Abteilungen bleiben möglich. Kameraden können mehreren Standorten und Abteilungen angehören und mehrere Funktionen gleichzeitig innehaben; die Mitgliedschaft in der Abteilung Vorstand wird unabhängig davon manuell gepflegt.
 
+### Standardrollen und klassische Modulrollen
+
+Unter **Admin → Standardrollen** vergibt ein globaler Admin die Profile aus `StandardRoleCatalog`. Die Seite nennt, was ein Profil öffnet, und bei zurzeit nicht vergebbaren Profilen den Grund.
+
+| Standardrolle | Gilt für | Öffnet |
+|---|---|---|
+| GBI / SBI | ganze Gemeinde | **jedes** Modul an allen Standorten zum Verwalten, auch Verbandbuch, Expositionen, Finanzen und Personalakten; nicht den Admin-Kernbereich. Bekommt keine Fach-Benachrichtigungen der Module. |
+| Wehrführung | ein Standort | Personal, Einsatzbericht, Finanzen, Fahrzeuge, Fahrtenbuch, Ausrüstung, Wartung, Mängel, Kalender, Schichtplan, Übungsdienste, Anwesenheit, Verbandbuch, Expositionen und Atemschutz-Pflege dieses Standorts; ist dort zugleich Standort-Admin |
+| Gerätewart | ein Standort | Fahrzeuge, Ausrüstung, Wartung, Mängel dieses Standorts; bekommt die Fahrzeugfristen und Geräte-Meldungen des Standorts |
+| Atemschutzgerätewart | ganze Gemeinde | Atemschutz und dessen Unterweisungen |
+| Jugendwart / Kinderwart | eine Abteilung | Personalakten, Übungsdienste und Anwesenheit dieser Abteilung |
+| Gemeindejugendwart / Gemeindekinderwart | alle Abteilungen dieser Art | wie oben, über alle Standorte |
+| Bürgermeister | ganze Gemeinde | nur die jährlichen Einsatzzahlen; braucht `LOCATIONS_LEADERSHIP_ENABLED=true` und das Modul Einsatzbericht |
+| Brandschutzamt | ganze Gemeinde | Ausrüstung und Kleiderkammer; braucht beide Module und beide Kleiderkammer-Standortschalter |
+
+Die **klassischen Modulrollen** unter Admin → Module (und im Kameradenformular) gelten weiter, aber immer für die ganze Gemeinde, zum Beispiel Gerätewart, Fahrzeugwart, Atemschutzwart, Kassenwart oder Entscheider. Vier davon beachtet ihr Modul bei aktiven Standorten nicht mehr: **Personalverwalter** und **Personaleinsicht** (Personalverwaltung), **Wehrführung** (Verbandbuch) und **Expositionsbeauftragter**. Die Rollenauswahl zeigt sie mit „(ohne Wirkung)" und bietet sie nicht mehr an; wer sie hat, behält den Eintrag. Module melden das über `ModuleRegistry::markRolesIneffective()`.
+
+Jugend- und Kinderwart-Rollen erkennen ihre Abteilung am Namen „Jugendfeuerwehr" bzw. „Kinderfeuerwehr". Diese Abteilungen lassen sich deshalb nicht umbenennen.
+
+Benachrichtigungen an Fachverantwortliche gehen bei Fahrzeugfristen und Geräte-Meldungen an die klassische Modulrolle, an die passende Standardrolle des betroffenen Standorts (`StandardRoleAssignments::userIdsWithModuleRole()`) und an die Wehrführung des Standorts; erst wenn niemand zuständig ist, an die Admins.
+
 Standort-Admins erreichen `/admin` über `MyLocationPage` (`ModuleArea`), `User::canAccessPanel` bleibt unverändert. Core-Ressourcen (`AdminOnly`) bleiben globalen Admins vorbehalten.
 
 ## Standortwappen
@@ -51,7 +72,7 @@ Das Wappen erscheint in der Standortliste, als Vorschau beim Bearbeiten und nebe
 - `LocationScope` (globaler Scope) filtert die konfigurierten Modelle auf die Standorte des angemeldeten Nutzers. Ohne angemeldeten Nutzer (Konsole, Queue, Scheduler, Login, Magic Link) und für globale Admins ist er aus.
 - Neue Datensätze erhalten für angemeldete Nutzer einen frisch geprüften aktiven Standort: gültige Auswahl, sonst berechtigter Primärstandort, sonst erster aktiver Mitgliedsstandort. Ohne solchen Standort wird die Vorbelegung abgewiesen; Schreiben in einen fremden Standort wirft `AuthorizationException`. Die Auswahl erweitert keine Berechtigung.
 - Abteilungen gehören verpflichtend zu einem Standort. Globale und Standort-Admins verwalten sie zentral unter **Admin → Abteilungen**; Standort-Admins sehen dort nur ihre Standorte. Die Standortseite ist für das Hinzufügen von Mitgliedern und die Zuordnung zu den Abteilungen des Standorts da. Eine Abteilung kann standortübergreifend denselben Namen haben; Tabellen und Auswahlfelder ergänzen den Standort zur eindeutigen Anzeige.
-- Mitglieder lassen sich im Kameradenformular mehreren Standorten zuordnen. Dort sind Abteilungsoptionen auf die gewählten Standorte begrenzt; Standort-Admins können Mitglieder außerdem direkt auf ihrer Standortseite hinzufügen.
+- Mitglieder lassen sich im Kameradenformular mehreren Standorten zuordnen. Dort sind Abteilungsoptionen auf die gewählten Standorte begrenzt; Standort-Admins können auf ihrer Standortseite Kameraden ihrer eigenen Standorte und Kameraden ohne Standort hinzufügen. Kameraden eines anderen Standorts ordnet nur ein globaler Admin zu, weil die Mitgliedschaft der Wehrführung des Standorts die Personalakte öffnet.
 - `PersonnelService::visibleMembers()` und alle Listen, die über Eloquent laufen, sind damit automatisch standortbezogen.
 - Bei Benutzern bleiben zusätzlich das eigene Konto und Mitglieder sichtbar, die über `x_location_user` einem der eigenen Standorte zugeordnet sind.
 - Mitteilungen tragen eine eigene optionale `announcements.ext_location_id`-Spalte. `NULL` bedeutet allgemein; ein Standortwert beschränkt Listen, Anhänge, Bestätigungen und Empfänger auf tatsächliche Mitgliedschaften dieses Standorts. Die Mitteilungs-Migration fügt vorhandene Mitteilungen nicht rückwirkend einem Standort zu.

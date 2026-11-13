@@ -22,6 +22,8 @@ Route::middleware(['auth', 'active', 'module:atemschutz'])->group(function () {
         $actor = auth()->user();
         abort_unless($actor instanceof User
             && MonitorService::canCareFor($actor, $qualification->wearer->user_id), 403);
+        // A qualification without an uploaded Beleg has nothing to show
+        abort_if(blank($qualification->proof_data) || blank($qualification->proof_filename), 404);
         $bytes = base64_decode((string) $qualification->proof_data, true);
         abort_if($bytes === false, 404);
 

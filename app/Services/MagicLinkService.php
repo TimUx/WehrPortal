@@ -11,13 +11,16 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
+use function Illuminate\Support\defer;
+
 class MagicLinkService
 {
     public function sendLink(string $email, Request $request): void
     {
         $this->checkRateLimits($email, $request->ip());
 
-        $user = User::where('email', $email)->where('is_active', true)->first();
+        // Addresses are compared without case: phones capitalise, and admins type them as written on paper
+        $user = User::whereRaw('lower(email) = ?', [mb_strtolower(trim($email))])->where('is_active', true)->first();
 
         // Always show the same response regardless of whether the email exists
         // (prevents user enumeration)
@@ -35,12 +38,16 @@ class MagicLinkService
             'created_at' => now(),
         ]);
 
-        // A mail error must not answer differently than an unknown address (enumeration)
-        try {
-            $user->notify(new MagicLinkNotification($rawToken));
-        } catch (\Throwable $e) {
-            report($e);
-        }
+        // Sent after the response has gone out: mail is sent synchronously, and a slow answer for
+        // known addresses would tell them apart from unknown ones just as a different text would.
+        // For the same reason a mail error is only reported (enumeration).
+        defer(function () use ($user, $rawToken) {
+            try {
+                $user->notify(new MagicLinkNotification($rawToken));
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        })->always();
     }
 
     public function consumeToken(string $rawToken, Request $request): User
@@ -99,7 +106,7 @@ class MagicLinkService
 
     private function checkRateLimits(string $email, ?string $ip): void
     {
-        $emailKey = 'magic-link:email:'.hash('sha256', strtolower($email));
+        $emailKey = 'magic-link:email:'.hash('sha256', mb_strtolower(trim($email)));
         $ipKey = 'magic-link:ip:'.($ip ?? 'unknown');
 
         $emailLimit = config('magic-link.rate_limit_per_email', 5);

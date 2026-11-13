@@ -161,6 +161,9 @@ test('export and statistics are for the Fahrtenbuchwart', function () {
     expect($csv)->toContain('Datum;Beginn;Ende')->toContain('48200;48300;100')->toContain('Hanna Hydrant');
     $this->actingAs($this->wart)->get(route('fahrtenbuch.export.print', [$this->mtw, $year]))->assertOk()->assertSee('Fahrtenbuch MTW');
     $this->actingAs($this->wart)->get(route('fahrtenbuch.statistics'))->assertOk()->assertSee('MTW')->assertSee('100');
+    // A year the database can't hold is no page, not an error
+    $this->actingAs($this->wart)->get('/fahrtenbuch/export/'.$this->mtw->id.'/1/druck')->assertNotFound();
+    $this->actingAs($this->wart)->get('/fahrtenbuch/export/'.$this->mtw->id.'/1/fahrten.csv')->assertNotFound();
 });
 
 test('open trips: reminder after hours, start page card, overview and the Fahrzeugverwaltung', function () {

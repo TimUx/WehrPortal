@@ -30,7 +30,7 @@ class StandardRoleCatalog
             'anwesenheit' => ['gemeindekinderwart'],
             'personalverwaltung' => ['personalverwalter'],
         ]],
-        'atemschutzwart' => [        'name' => 'Atemschutzgerätewart', 'scope' => 'global', 'group' => null, 'modules' => [
+        'atemschutzwart' => ['name' => 'Atemschutzgerätewart', 'scope' => 'global', 'group' => null, 'modules' => [
             'atemschutz' => ['atemschutzwart'],
             'unterweisungen' => ['unterweisungsbeauftragter'],
         ]],
@@ -68,6 +68,26 @@ class StandardRoleCatalog
             'wartung' => ['geraetewart'],
         ]],
     ];
+
+    /** @return list<string> lower-case names of the Abteilungen that profiles are tied to */
+    public function groupNames(): array
+    {
+        return array_values(array_unique(array_filter(array_column(self::PROFILES, 'group'))));
+    }
+
+    /** Why a profile can't be given yet; null when it can */
+    public function notAssignableReason(string $profile): ?string
+    {
+        if ($this->isAssignable($profile)) {
+            return null;
+        }
+
+        return match ($profile) {
+            'buergermeister' => 'braucht die Führungsübersicht (LOCATIONS_LEADERSHIP_ENABLED=true) und das aktive Modul Einsatzbericht',
+            'brandschutzamt' => 'braucht die aktiven Module Ausrüstung und Kleiderkammer sowie LOCATIONS_CLOTHING_STOCK_ENABLED=true und LOCATIONS_CLOTHING_PERSONAL_ENABLED=true',
+            default => 'ist nicht freigegeben',
+        };
+    }
 
     public function all(): array
     {
