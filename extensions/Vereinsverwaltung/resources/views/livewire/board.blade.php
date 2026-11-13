@@ -34,6 +34,9 @@
         <button type="button" wire:click="$set('tab', 'members')" class="border-b-2 px-3 py-2 {{ $tab === 'members' ? 'border-fw-navy font-semibold text-fw-navy' : 'border-transparent text-gray-600' }}">
             Mitglieder
         </button>
+        <button type="button" wire:click="$set('tab', 'board')" class="border-b-2 px-3 py-2 {{ $tab === 'board' ? 'border-fw-navy font-semibold text-fw-navy' : 'border-transparent text-gray-600' }}">
+            Vorstand
+        </button>
     </nav>
 
     @if ($tab === 'applications')
@@ -58,6 +61,60 @@
             @empty
                 <p class="rounded-lg bg-gray-50 p-4 text-gray-700">Es gibt keine offenen Beitrittsanträge.</p>
             @endforelse
+        </section>
+    @elseif ($tab === 'board')
+        <section class="space-y-4">
+            <h2 class="text-lg font-semibold">Vorstand</h2>
+            <ul class="divide-y divide-gray-200 rounded-lg border border-gray-200">
+                @forelse ($board as $person)
+                    <li class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                        <div>
+                            <p class="font-semibold">{{ $person->name }}</p>
+                            <p class="text-sm text-gray-600">{{ \Extensions\Vereinsverwaltung\Models\Association::officeLabel($person->pivot->office, (bool) $person->pivot->is_deputy) }}</p>
+                        </div>
+                        @if ($canManageBoard && ($person->id !== auth()->id() || auth()->user()->is_admin))
+                            <button type="button" wire:click="removeBoardMember({{ $person->id }})" wire:confirm="{{ $person->name }} aus dem Vorstand entfernen?" class="text-sm font-semibold text-red-700 underline">Entfernen</button>
+                        @endif
+                    </li>
+                @empty
+                    <li class="px-4 py-3 text-gray-700">Diesem Verein ist noch kein Vorstand zugewiesen.</li>
+                @endforelse
+            </ul>
+
+            @if ($canManageBoard)
+                <form wire:submit="saveBoardMember" class="space-y-3 rounded-lg border border-gray-200 p-4">
+                    <h3 class="font-semibold">Vorstandsmitglied eintragen oder Amt ändern</h3>
+                    <div class="grid gap-3 sm:grid-cols-3">
+                        <label class="block">Kamerad
+                            <select wire:model="boardUserId" class="mt-1 block w-full rounded border-gray-300">
+                                <option value="">Bitte wählen</option>
+                                @foreach ($users->merge($board)->unique('id')->sortBy('name') as $candidate)
+                                    @if ($candidate->id !== auth()->id() || auth()->user()->is_admin)
+                                        <option value="{{ $candidate->id }}">{{ $candidate->name }}</option>
+                                    @endif
+                                @endforeach
+                            </select>
+                        </label>
+                        <label class="block">Amt
+                            <select wire:model="boardOffice" class="mt-1 block w-full rounded border-gray-300">
+                                <option value="">Vorstandsmitglied ohne Amt</option>
+                                @foreach ($offices as $key => $label)
+                                    <option value="{{ $key }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+                        <label class="flex items-end gap-2 pb-2">
+                            <input type="checkbox" wire:model="boardDeputy" class="rounded border-gray-300"> Stellvertretung
+                        </label>
+                    </div>
+                    @foreach (['boardUserId', 'user_id', 'office'] as $field)
+                        @error($field) <p class="text-sm text-red-700">{{ $message }}</p> @enderror
+                    @endforeach
+                    <button type="submit" class="rounded bg-fw-navy px-4 py-2 font-semibold text-white">Speichern</button>
+                </form>
+            @else
+                <p class="text-sm text-gray-600">Den Vorstand stellen der Vorsitz des Vereins und die Admins zusammen.</p>
+            @endif
         </section>
     @else
         <section class="space-y-4">
