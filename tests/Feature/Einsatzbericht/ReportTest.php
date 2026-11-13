@@ -30,7 +30,7 @@ beforeEach(function () {
     $this->travelTo(Carbon::parse('2027-05-10 20:00', 'Europe/Berlin'));
 
     $this->leader = User::factory()->create(['name' => 'Bernd Blaulicht']);
-    $this->leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
+    $this->leader->moduleAccess()->create(['module' => 'einsatzbericht']);
     $this->chief = User::factory()->create(['name' => 'Wilma Wehrführer']);
     $this->chief->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'wehrführung']);
     $this->member = User::factory()->create(['name' => 'Hanna Hydrant']);
@@ -76,10 +76,11 @@ function fullReport(): Report
 
 // ─── access ──────────────────────────────────────────────────────────────────
 
-test('only Einsatzleiter, Wehrführung and admins open reports; Kameraden get their own Einsätze', function () {
+test('only the Wehrführung and admins open every report; a Kamerad opens the one he writes', function () {
     $report = $this->r->create($this->leader);
 
-    $this->actingAs($this->leader)->get('/einsatzbericht')->assertOk()->assertSee('Einsätze 2027');
+    $this->actingAs($this->leader)->get('/einsatzbericht')->assertOk()->assertSee('Bericht weiterschreiben');
+    $this->actingAs($this->chief)->get('/einsatzbericht')->assertOk()->assertSee('Einsätze 2027');
     $this->actingAs($this->leader)->get('/einsatzbericht/'.$report->id)->assertOk()->assertSee('Einsatz 2027/001');
     $this->actingAs($this->member)->get('/einsatzbericht')->assertOk()->assertSee('Laufende Einsätze');
     $this->actingAs($this->member)->get('/einsatzbericht/'.$report->id)->assertForbidden();
@@ -169,7 +170,7 @@ test('new reports get running numbers per year', function () {
     $outsider->forceFill(['is_active' => false])->save();
     expect(fn () => $this->r->create($outsider))->toThrow(ValidationException::class);
 
-    Livewire::actingAs($this->leader)->test(ReportList::class)->call('create')->assertRedirect(route('einsatzbericht.show', Report::latest('id')->first()));
+    Livewire::actingAs($this->chief)->test(ReportList::class)->call('create')->assertRedirect(route('einsatzbericht.show', Report::latest('id')->first()));
 });
 
 test('the suggested report number can be changed to a missed number', function () {
@@ -344,8 +345,9 @@ test('a closed report is locked for the Einsatzleiter; the Wehrführung releases
 test('the editor walks through close and release', function () {
     $report = fullReport();
 
+    // Closing hands the report over: its author is sent back to the start of the module
     Livewire::actingAs($this->leader)->test(ReportEditor::class, ['report' => $report])
-        ->call('close')->assertHasNoErrors()->assertSee('Bericht abgeschlossen');
+        ->call('close')->assertHasNoErrors()->assertRedirect(route('einsatzbericht.index'));
     Livewire::actingAs($this->chief)->test(Home::class)->assertSee('1 Bericht wartet auf Freigabe');
     Livewire::actingAs($this->chief)->test(ReportEditor::class, ['report' => $report])
         ->call('release')->assertSee('Bericht freigegeben');

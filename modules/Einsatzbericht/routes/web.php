@@ -28,6 +28,8 @@ Route::middleware(['auth', 'active', 'module:einsatzbericht'])->group(function (
             : view('einsatzbericht::pages.running', [
                 'running' => Report::where('status', 'active')->whereNull('ended_at')->orderByDesc('alarmed_at')->get(),
                 'own' => Report::where('created_by', auth()->id())->whereIn('status', Report::OPEN)->orderByDesc('alarmed_at')->get(),
+                // From the alarm, nobody writes them yet
+                'unclaimed' => Report::whereNull('created_by')->whereIn('status', Report::OPEN)->orderByDesc('alarmed_at')->get(),
             ]))->name('index');
         Route::post('/neu', function (ReportService $reports) {
             try {
@@ -36,6 +38,13 @@ Route::middleware(['auth', 'active', 'module:einsatzbericht'])->group(function (
                 return back()->with('status', collect($e->errors())->flatten()->first());
             }
         })->name('create');
+        Route::post('/{report}/uebernehmen', function (Report $report, ReportService $reports) {
+            try {
+                return redirect()->route('einsatzbericht.show', $reports->claim(auth()->user(), $report));
+            } catch (ValidationException $e) {
+                return back()->with('status', collect($e->errors())->flatten()->first());
+            }
+        })->whereNumber('report')->name('claim');
 
         // Lagemeldungen: everyone with the module while the Einsatz runs, Einsatzleiter and Wehrführung always
         Route::get('/{report}/lage', function (Report $report) {

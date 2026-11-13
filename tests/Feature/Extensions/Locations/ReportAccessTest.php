@@ -6,6 +6,7 @@ use App\Services\ModuleRegistry;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\StandardRoleAssignments;
 use Extensions\Locations\Services\StandardRoleCatalog;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Modules\Einsatzbericht\src\Livewire\ReportList;
 use Modules\Einsatzbericht\src\Models\Report;
@@ -87,4 +88,30 @@ it('lets the role Einsicht read the reports of every Standort without changing t
 
 it('gives the Brandschutzamt the role Einsicht', function () {
     expect(app(StandardRoleCatalog::class)->hasModuleRole('brandschutzamt', 'einsatzbericht', 'einsicht'))->toBeTrue();
+});
+
+it('lets a Kamerad take over a report that came from the alarm, once', function () {
+    $report = app(ReportService::class)->createFromAlarm(['keyword' => 'F2 Wohnung', 'ext_location_id' => $this->north->id], now());
+
+    expect(ReportService::canClaim($this->bernd, $report))->toBeTrue()
+        ->and(ReportService::canReadReport($this->bernd, $report))->toBeFalse();
+    $this->actingAs($this->bernd)->get(route('einsatzbericht.index'))->assertSee('Bericht übernehmen')->assertSee('F2 Wohnung');
+    // Reports of another Standort are not offered
+    $this->actingAs($this->sven)->get(route('einsatzbericht.index'))->assertDontSee('F2 Wohnung');
+
+    $this->actingAs($this->bernd)->post(route('einsatzbericht.claim', $report))->assertRedirect(route('einsatzbericht.show', $report));
+    expect($report->fresh()->created_by)->toBe($this->bernd->id)
+        ->and(ReportService::canEdit($this->bernd, $report->fresh()))->toBeTrue();
+
+    // Taken: nobody else gets it
+    expect(fn () => app(ReportService::class)->claim($this->frieda, $report->fresh()))->toThrow(ValidationException::class);
+    expect(ReportService::canReadReport($this->frieda, $report->fresh()))->toBeFalse();
+});
+
+it('gives the old Einsatzleiter role no rights any more', function () {
+    $report = app(ReportService::class)->create($this->bernd);
+    $this->frieda->moduleAccess()->updateOrCreate(['module' => 'einsatzbericht'], ['role' => 'einsatzleiter']);
+
+    expect(ReportService::canLead($this->frieda->fresh()))->toBeFalse()
+        ->and(ReportService::canReadReport($this->frieda->fresh(), $report))->toBeFalse();
 });

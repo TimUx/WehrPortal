@@ -88,8 +88,7 @@ class LocationScope implements Scope
 
         if ($model->getTable() === 'eb_reports'
             && $user->hasAnyModuleRole('einsatzbericht', 'wehrführung')
-            && ! $user->hasModuleRole('einsatzbericht', 'wehrführung')
-            && ! $user->hasModuleRole('einsatzbericht', 'einsatzleiter')) {
+            && ! $user->hasModuleRole('einsatzbericht', 'wehrführung')) {
             $reportLocations = $user->standardRoleLocationIds('einsatzbericht', ['wehrführung']);
             $builder->whereNotNull($column)->whereIn($column, $reportLocations);
 

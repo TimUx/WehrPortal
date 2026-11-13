@@ -66,11 +66,20 @@ class ReportService
         return self::canLeadReport($user, $report) || self::isReader($user);
     }
 
-    /** Einsatzleiter, Wehrführung and admins see and lead the reports */
+    /**
+     * Wehrführung and admins see and lead the reports. There is no role for leading every report
+     * any more: whoever was at the Einsatz writes it (canCreate, isOpenAuthor, claim).
+     */
     public static function canLead(User $user): bool
     {
         return $user->is_active && $user->canUseModule('einsatzbericht')
-            && ($user->is_admin || $user->hasAnyModuleRole('einsatzbericht', 'einsatzleiter') || $user->hasAnyModuleRole('einsatzbericht', 'wehrführung'));
+            && ($user->is_admin || $user->hasAnyModuleRole('einsatzbericht', 'wehrführung'));
+    }
+
+    /** An open report nobody writes yet (it came from the alarm): any Kamerad who sees it may take it */
+    public static function canClaim(User $user, Report $report): bool
+    {
+        return self::canCreate($user) && $report->created_by === null && in_array($report->status, Report::OPEN, true);
     }
 
     /** Wehrführung and admins release, correct and evaluate */
@@ -88,7 +97,7 @@ class ReportService
         if (! self::canLead($user)) {
             return false;
         }
-        if ($user->hasModuleRole('einsatzbericht', 'einsatzleiter') || self::canRelease($user)) {
+        if (self::canRelease($user)) {
             return true;
         }
 
@@ -132,6 +141,16 @@ class ReportService
     public static function setRequired(array $fields): void
     {
         Setting::set('einsatzbericht_required', json_encode(array_values(array_intersect($fields, array_keys(Report::REQUIRABLE)))));
+    }
+
+    /** Takes over a report that came from the alarm: from now on it is this Kamerad's to fill in and close */
+    public function claim(User $by, Report $report): Report
+    {
+        $taken = Report::whereKey($report->id)->whereNull('created_by')->whereIn('status', Report::OPEN)
+            ->update(['created_by' => $by->id]);
+        $this->assert(self::canCreate($by) && $taken === 1, 'Diesen Bericht schreibt schon jemand.');
+
+        return $report->refresh();
     }
 
     /** A new draft with the next running number of the year ("2026/007") */

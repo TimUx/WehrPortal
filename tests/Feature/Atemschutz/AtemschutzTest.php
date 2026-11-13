@@ -353,7 +353,7 @@ test('an Überwachung ends only when every Trupp is out; warnings are acknowledg
 test('linked to an Einsatzbericht: the Trupp is marked unter Atemschutz and shows in the report', function () {
     $location = Location::create(['name' => 'Wache Bericht', 'slug' => 'atemschutz-bericht']);
     $leader = User::factory()->create(['name' => 'Bernd Einsatzleiter', 'ext_location_id' => $location->id]);
-    $leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
+    $leader->moduleAccess()->create(['module' => 'einsatzbericht']);
     $leader->moduleAccess()->create(['module' => 'atemschutz', 'role' => 'ueberwacher']);
     $this->actingAs($leader);
     $reports = app(ReportService::class);
@@ -484,7 +484,7 @@ test('who may do what, the pages and the PDF', function () {
 test('an Einsatz marked unter Atemschutz in the Einsatzbericht counts, also without Überwachung', function () {
     $location = Location::create(['name' => 'Wache Bericht', 'slug' => 'atemschutz-report']);
     $leader = User::factory()->create(['ext_location_id' => $location->id]);
-    $leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
+    $leader->moduleAccess()->create(['module' => 'einsatzbericht']);
     $this->hanna->forceFill(['ext_location_id' => $location->id])->save();
     $this->bernd->forceFill(['ext_location_id' => $location->id])->save();
     joinIncidentDepartment($this->hanna, $location);

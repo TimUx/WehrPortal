@@ -21,7 +21,7 @@ beforeEach(function () {
     $this->chief = User::factory()->create(['name' => 'Wilma Wehrführer', 'joined_at' => '1999-02-01']);
     $this->chief->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'wehrführung']);
     $this->leader = User::factory()->create(['name' => 'Bernd Blaulicht', 'joined_at' => '2010-01-01']);
-    $this->leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
+    $this->leader->moduleAccess()->create(['module' => 'einsatzbericht']);
     $this->hanna = User::factory()->create(['name' => 'Hanna Hydrant', 'joined_at' => '2027-03-01']);
     $this->active = Group::create(['name' => 'Einsatzabteilung', 'sort_order' => 1]);
     foreach ([$this->chief, $this->leader, $this->hanna] as $u) {

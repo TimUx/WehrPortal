@@ -83,7 +83,7 @@ test('the vehicle of a running booking and the running Einsatz are filled in by 
     expect(Trip::sole()->booking?->purpose)->toBe('Jugendfeuerwehr Ausflug');
 
     $leader = User::factory()->create();
-    $leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
+    $leader->moduleAccess()->create(['module' => 'einsatzbericht']);
     $reports = app(ReportService::class);
     $report = $reports->create($leader);
     $reports->update($leader, $report, ['keyword' => 'TH 1']);

@@ -33,8 +33,7 @@ class SituationService
         }
 
         if ($user->hasAnyModuleRole('einsatzbericht', 'wehrführung')
-            && ! $user->hasModuleRole('einsatzbericht', 'wehrführung')
-            && ! $user->hasModuleRole('einsatzbericht', 'einsatzleiter')) {
+            && ! $user->hasModuleRole('einsatzbericht', 'wehrführung')) {
             return false;
         }
 
