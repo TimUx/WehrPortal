@@ -35,9 +35,10 @@ class StandardRoleAssignments
         $this->memo = [];
     }
 
-    public function grant(User $by, int $userId, string $profile, ?int $locationId, ?int $groupId, string $reason, ?string $expiresAt = null): StandardRoleAssignment
+    /** $deputy marks a Stellvertretung; any number of them may hold a profile next to its holder */
+    public function grant(User $by, int $userId, string $profile, ?int $locationId, ?int $groupId, string $reason, ?string $expiresAt = null, bool $deputy = false): StandardRoleAssignment
     {
-        return DB::transaction(function () use ($by, $userId, $profile, $locationId, $groupId, $reason, $expiresAt) {
+        return DB::transaction(function () use ($by, $userId, $profile, $locationId, $groupId, $reason, $expiresAt, $deputy) {
             $members = User::withoutGlobalScopes()->whereIn('id', [$by->id, $userId])->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             $this->authorize($by);
             $definition = $this->catalog->get($profile);
@@ -100,6 +101,8 @@ class StandardRoleAssignments
                 'granted_at' => now(),
                 'reason' => $reason,
                 'expires_at' => $expiresAt === null ? null : CarbonImmutable::parse($expiresAt)->utc(),
+                // Same profile, same rights: a Stellvertretung differs in name only
+                'is_deputy' => $deputy,
             ]);
 
             app(LocationAccess::class)->forget($member);

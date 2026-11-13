@@ -45,6 +45,10 @@ Unter **Admin → Standardrollen** vergibt ein globaler Admin die Profile aus `S
 | Bürgermeister | ganze Gemeinde | nur die jährlichen Einsatzzahlen; braucht `LOCATIONS_LEADERSHIP_ENABLED=true` und das Modul Einsatzbericht |
 | Brandschutzamt | ganze Gemeinde | Ausrüstung und Kleiderkammer; braucht beide Module und beide Kleiderkammer-Standortschalter |
 
+**Gemeinde oder Stadt:** Auf der Seite Standardrollen legt der Admin über **„Gemeinde oder Stadt“** fest, wie die Positionen der ganzen Kommune heißen: Gemeindebrandinspektor (GBI), Gemeindejugendwart und Gemeindekinderwart – oder Stadtbrandinspektor (SBI), Stadtjugendwart und Stadtkinderwart. Solange nichts gewählt ist, steht überall die neutrale Doppelbezeichnung „GBI/SBI“. Die Wahl ändert nur Bezeichnungen, keine Rechte (Einstellung `locations.municipality`).
+
+**Stellvertretung:** Jede Position kann Stellvertreter haben, GBI/SBI üblicherweise zwei. Dafür bekommt der Stellvertreter dieselbe Standardrolle mit dem Schalter **„Stellvertretung“**. Er hat dieselben Rechte und bekommt dieselben Benachrichtigungen wie der Inhaber; in der Liste steht „Stv.“ vor der Rolle (z. B. „Stv. Wehrführung“). Es gibt keine Obergrenze, und „Gültig bis“ deckt die befristete Vertretung ab. Der Schalter lässt sich wie alle Angaben einer Vergabe nachträglich nicht ändern: Wird aus dem Stellvertreter der Inhaber, wird die Vergabe widerrufen und neu angelegt.
+
 Die **klassischen Modulrollen** unter Admin → Module (und im Kameradenformular) gelten weiter, aber immer für die ganze Gemeinde, zum Beispiel Gerätewart, Fahrzeugwart, Atemschutzwart, Kassenwart oder Entscheider. Vier davon beachtet ihr Modul bei aktiven Standorten nicht mehr: **Personalverwalter** und **Personaleinsicht** (Personalverwaltung), **Wehrführung** (Verbandbuch) und **Expositionsbeauftragter**. Die Rollenauswahl zeigt sie mit „(ohne Wirkung)" und bietet sie nicht mehr an; wer sie hat, behält den Eintrag. Module melden das über `ModuleRegistry::markRolesIneffective()`.
 
 Jugend- und Kinderwart-Rollen erkennen ihre Abteilung am Namen „Jugendfeuerwehr" bzw. „Kinderfeuerwehr". Diese Abteilungen lassen sich deshalb nicht umbenennen.

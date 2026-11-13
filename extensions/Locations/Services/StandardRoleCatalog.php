@@ -2,6 +2,7 @@
 
 namespace Extensions\Locations\Services;
 
+use App\Models\Setting;
 use App\Services\ModuleRegistry;
 use InvalidArgumentException;
 
@@ -68,6 +69,56 @@ class StandardRoleCatalog
             'wartung' => ['geraetewart'],
         ]],
     ];
+
+    /** Setting: is the Kommune a Gemeinde or a Stadt? Unset keeps the neutral double names. */
+    public const MUNICIPALITY_SETTING = 'locations.municipality';
+
+    public const MUNICIPALITIES = ['gemeinde' => 'Gemeinde', 'stadt' => 'Stadt'];
+
+    /** Names of the Kommune-wide positions in a Stadt */
+    private const CITY_NAMES = [
+        'gemeindebrandinspektor' => 'Stadtbrandinspektor',
+        'gemeindejugendwart' => 'Stadtjugendwart',
+        'gemeindekinderwart' => 'Stadtkinderwart',
+    ];
+
+    /** 'gemeinde', 'stadt' or null while nobody has chosen */
+    public function municipality(): ?string
+    {
+        $value = Setting::get(self::MUNICIPALITY_SETTING);
+
+        return is_string($value) && isset(self::MUNICIPALITIES[$value]) ? $value : null;
+    }
+
+    /** "Gemeinde" or "Stadt" in running text; "Gemeinde" while nobody has chosen */
+    public function municipalityWord(): string
+    {
+        return self::MUNICIPALITIES[$this->municipality() ?? 'gemeinde'];
+    }
+
+    /** What a profile is called here: the keys stay, a Stadt has a Stadtbrandinspektor */
+    public function name(string $profile, bool $deputy = false): string
+    {
+        $name = $this->get($profile)['name'];
+        $municipality = $this->municipality();
+        if ($municipality === 'stadt' && isset(self::CITY_NAMES[$profile])) {
+            $name = self::CITY_NAMES[$profile];
+        } elseif ($municipality === 'gemeinde' && $profile === 'gemeindebrandinspektor') {
+            $name = 'Gemeindebrandinspektor';
+        }
+
+        return $deputy ? 'Stv. '.$name : $name;
+    }
+
+    /** The short form used in running text: GBI, SBI, or both while nobody has chosen */
+    public function inspector(): string
+    {
+        return match ($this->municipality()) {
+            'gemeinde' => 'GBI',
+            'stadt' => 'SBI',
+            default => 'GBI/SBI',
+        };
+    }
 
     /** @return list<string> lower-case names of the Abteilungen that profiles are tied to */
     public function groupNames(): array
