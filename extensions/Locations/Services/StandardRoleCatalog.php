@@ -46,6 +46,7 @@ class StandardRoleCatalog
             // Records that hang on people: for the members of the Standort (managedMemberIds)
             'fuehrerscheine' => ['fuehrerscheinpruefer'],
             'lehrgaenge' => ['wehrführung'],
+            'unterweisungen' => ['unterweisungsbeauftragter'],
             'hydrantenkontrolle' => ['hydrantenwart'],
             'fahrtenbuch' => ['fahrtenbuchwart'],
             'maengelmanagement' => ['verantwortlicher'],

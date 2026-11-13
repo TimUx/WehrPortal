@@ -21,6 +21,10 @@ use Modules\Lehrgaenge\src\Livewire\Qualifications;
 use Modules\Lehrgaenge\src\Services\RegistrationService;
 use Modules\Objektplaene\src\Services\ObjectPlanService;
 use Modules\Schluessel\src\Services\KeyService;
+use Modules\Unterweisungen\src\Livewire\SessionDetail;
+use Modules\Unterweisungen\src\Livewire\Topics;
+use Modules\Unterweisungen\src\Models\Topic;
+use Modules\Unterweisungen\src\Services\InstructionService;
 use Modules\Wasserkarte\src\Services\WaterService;
 
 beforeEach(function () {
@@ -164,4 +168,41 @@ it('shows the Wehrführung the Lehrgänge of the members of its Standort, read-o
     $this->actingAs($this->hanna)->get(route('lehrgaenge.member', $this->bernd))->assertOk();
     $this->actingAs($this->hanna)->get(route('lehrgaenge.member', $sven))->assertForbidden();
     $this->actingAs($this->hanna)->get(route('lehrgaenge.registrations'))->assertForbidden();
+});
+
+it('lets the Wehrführung hold Unterweisungen for its members and look after its own ones', function () {
+    Module::where('key', 'unterweisungen')->update(['is_active' => true, 'auto_assign' => true]);
+    app(ModuleRegistry::class)->clearCache();
+    $sven = User::factory()->create(['name' => 'Sven Süd']);
+    $sven->forceFill(['ext_location_id' => $this->south->id])->save();
+    $topic = Topic::create(['name' => 'Jährliche Unterweisung', 'kind' => 'unterweisung', 'interval_months' => 12, 'for_all' => true]);
+    $service = app(InstructionService::class);
+    $data = ['topic_id' => $topic->id, 'held_on' => now('Europe/Berlin')->toDateString(), 'instructor_name' => 'Hanna Hydrant'];
+
+    expect(InstructionService::canManage($this->hanna))->toBeTrue()
+        ->and(InstructionService::isLocalManager($this->hanna))->toBeTrue()
+        ->and(InstructionService::canManageAll($this->hanna))->toBeFalse()
+        ->and(InstructionService::canUseTopic($this->hanna, $topic))->toBeTrue()
+        ->and(InstructionService::canManageTopic($this->hanna, $topic))->toBeFalse()
+        ->and(InstructionService::isLocalManager($this->admin))->toBeFalse()
+        ->and(InstructionService::canManage($this->bernd))->toBeFalse();
+
+    // Her own Kameraden yes, the other Standort no
+    $own = $service->recordSession($this->hanna, $data, [$this->bernd->id, $this->hanna->id]);
+    expect(fn () => $service->recordSession($this->hanna, $data, [$this->bernd->id, $sven->id]))->toThrow(ValidationException::class);
+    $foreign = $service->recordSession($this->admin, $data, [$sven->id, $this->bernd->id]);
+
+    expect(InstructionService::canManageSession($this->hanna, $own))->toBeTrue()
+        ->and(InstructionService::canManageSession($this->hanna, $foreign))->toBeFalse()
+        ->and(InstructionService::sessionsForManager($this->hanna)->pluck('id')->all())->toBe([$own->id])
+        ->and($service->matrix(null, $this->hanna)['users']->pluck('name')->all())->toContain('Bernd Blaulicht')->not->toContain('Sven Süd')
+        ->and($service->matrix(null, $this->admin)['users']->pluck('name')->all())->toContain('Sven Süd');
+
+    // The kinds stay with the Unterweisungsbeauftragte
+    expect(fn () => $service->saveTopic($this->hanna, null, ['name' => 'Eigene Art', 'kind' => 'unterweisung']))->toThrow(ValidationException::class)
+        ->and(fn () => $service->addPresets($this->hanna))->toThrow(ValidationException::class);
+    Livewire::actingAs($this->hanna)->test(Topics::class)->assertForbidden();
+    Livewire::actingAs($this->hanna)->test(SessionDetail::class, ['session' => $foreign])->assertForbidden();
+    Livewire::actingAs($this->hanna)->test(SessionDetail::class, ['session' => $own])->assertOk();
+    $this->actingAs($this->hanna)->get(route('unterweisungen.overview'))->assertOk()->assertDontSee('Sven Süd');
 });

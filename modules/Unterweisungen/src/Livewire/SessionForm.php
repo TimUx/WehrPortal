@@ -65,7 +65,8 @@ class SessionForm extends Component
     public function render()
     {
         $topic = $this->form['topic_id'] !== '' ? InstructionService::topicsForManager(auth()->user())->find((int) $this->form['topic_id']) : null;
-        $users = User::active()->with(['groups', 'functions'])->orderBy('name')->get();
+        $managed = InstructionService::managedMemberIds(auth()->user());
+        $users = User::active()->with(['groups', 'functions'])->when($managed !== null, fn ($q) => $q->whereIn('id', $managed))->orderBy('name')->get();
 
         return view('unterweisungen::livewire.session-form', [
             'topics' => InstructionService::topicsForManager(auth()->user())->where('is_active', true)->orderBy('name')->get(),
