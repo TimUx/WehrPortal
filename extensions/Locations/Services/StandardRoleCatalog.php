@@ -53,6 +53,11 @@ class StandardRoleCatalog
             'expositionen' => ['wehrführung'],
             'kalender' => ['terminverwalter'],
             'wartung' => ['geraetewart'],
+            // Records of the whole Kommune without a Standort of their own: kept by every Wehrführung
+            'schluessel' => ['schluesselwart'],
+            'objektplaene' => ['planverwalter'],
+            'wasserkarte' => ['hydrantenwart'],
+            'gefahrstoffe' => ['gefahrstoffbeauftragter'],
         ]],
         'jugendwart' => ['name' => 'Jugendwart', 'scope' => 'group', 'group' => 'jugendfeuerwehr', 'modules' => [
             'uebungsdienste' => ['jugendwart'],

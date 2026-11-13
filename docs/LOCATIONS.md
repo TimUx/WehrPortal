@@ -37,7 +37,7 @@ Unter **Admin → Standardrollen** vergibt ein globaler Admin die Profile aus `S
 | Standardrolle | Gilt für | Öffnet |
 |---|---|---|
 | GBI / SBI | ganze Gemeinde | **jedes** Modul an allen Standorten zum Verwalten, auch Verbandbuch, Expositionen, Finanzen und Personalakten; nicht den Admin-Kernbereich. Bekommt keine Fach-Benachrichtigungen der Module. |
-| Wehrführung | ein Standort | Personal, Einsatzbericht (führen und freigeben), Finanzen, Fahrzeuge, Fahrzeugbuchung (Entscheider für die Fahrzeuge des Standorts), Hydrantenkontrolle, Mitteilungen an den Standort, Fahrtenbuch, Ausrüstung, Wartung, Mängel, Kalender, Schichtplan, Übungsdienste, Anwesenheit, Verbandbuch, Expositionen und Atemschutz-Pflege dieses Standorts; ist dort zugleich Standort-Admin |
+| Wehrführung | ein Standort | Personal, Einsatzbericht (führen und freigeben), Finanzen, Fahrzeuge, Fahrzeugbuchung (Entscheider für die Fahrzeuge des Standorts), Hydrantenkontrolle, Mitteilungen an den Standort, Fahrtenbuch, Ausrüstung, Wartung, Mängel, Kalender, Schichtplan, Übungsdienste, Anwesenheit, Verbandbuch, Expositionen und Atemschutz-Pflege dieses Standorts; ist dort zugleich Standort-Admin. Außerdem pflegt jede Wehrführung die Daten der ganzen Kommune mit, die keinen eigenen Standort haben: Schlüssel, Objektpläne, Wasserkarte und Gefahrstoffe (Meldungen dieser Module gehen weiter an die klassischen Modulrollen oder die Admins) |
 | Gerätewart | ein Standort | Fahrzeuge, Ausrüstung, Wartung, Mängel dieses Standorts; bekommt die Fahrzeugfristen und Geräte-Meldungen des Standorts |
 | Atemschutzgerätewart | ganze Gemeinde | Atemschutz und dessen Unterweisungen |
 | Jugendwart / Kinderwart | eine Abteilung | Personalakten, Übungsdienste und Anwesenheit dieser Abteilung |

@@ -13,6 +13,9 @@ use Modules\Fahrzeugbuchung\src\Models\Booking;
 use Modules\Fahrzeugbuchung\src\Models\BookingDecision;
 use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 use Modules\Fahrzeugbuchung\src\Services\DecisionService;
+use Modules\Objektplaene\src\Services\ObjectPlanService;
+use Modules\Schluessel\src\Services\KeyService;
+use Modules\Wasserkarte\src\Services\WaterService;
 
 beforeEach(function () {
     config(['locations.enabled' => true]);
@@ -84,4 +87,18 @@ it('lets the Wehrführung run the Hydrantenkontrolle', function () {
     expect(InspectionService::canManage($this->hanna))->toBeTrue()
         ->and(InspectionService::canSeeAll($this->hanna))->toBeFalse()
         ->and(InspectionService::canManage($this->bernd))->toBeFalse();
+});
+
+it('lets every Wehrführung keep the records of the whole Kommune', function () {
+    Module::whereIn('key', ['schluessel', 'objektplaene', 'wasserkarte', 'gefahrstoffe'])->update(['is_active' => true, 'auto_assign' => true]);
+    app(ModuleRegistry::class)->clearCache();
+
+    expect(KeyService::canManage($this->hanna))->toBeTrue()
+        ->and(ObjectPlanService::canManage($this->hanna))->toBeTrue()
+        ->and(WaterService::canManage($this->hanna))->toBeTrue()
+        ->and($this->hanna->can('gefahrstoffe-manage'))->toBeTrue()
+        ->and(KeyService::canManage($this->bernd))->toBeFalse()
+        ->and(ObjectPlanService::canManage($this->bernd))->toBeFalse()
+        ->and(WaterService::canManage($this->bernd))->toBeFalse()
+        ->and($this->bernd->can('gefahrstoffe-manage'))->toBeFalse();
 });
