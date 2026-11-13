@@ -63,7 +63,7 @@ The `bookings` table has a GiST exclusion constraint `bookings_no_overlap` on `(
 - After any update or cancel of a booking, `DecisionService::releaseSlotsFreedBy($booking)` must run. It automatically re-confirms the booking that lost an earlier decision once the winner no longer needs the slot.
 - Cancelling a pending request means withdrawing its decision, not releasing slots.
 - Decision mutations run in `DB::transaction` with `lockForUpdate`, so the first of two concurrent decisions wins.
-- Deciders are active users with the module role `entscheider` in `fahrzeugbuchung`. If no active decider exists, the admins are used (`DecisionService::deciders()`). The `decide-bookings` gate is defined in `FahrzeugbuchungServiceProvider`.
+- Deciders are active users with the module role `entscheider` in `fahrzeugbuchung`, plus who holds it through a standard role at the Standort of the booking's vehicle (Wehrführung). If no active decider exists, the admins are used (`DecisionService::deciders($booking)`). `User::canDecide()` means deciding everywhere; per booking ask `DecisionService::canDecideBooking()`, for lists `scopeDecidable()`. The `decide-bookings` gate (with or without a decision) is defined in `FahrzeugbuchungServiceProvider`.
 
 ### Notifications are synchronous and non-fatal
 All mail is sent immediately; no queue worker is needed in production. Sends go through a wrapper (`DecisionService::notify`) that reports failures without throwing, so a mail error never rolls back the action. Notifications run after the transaction commits. Shared booking-formatting helpers are in `modules/Fahrzeugbuchung/src/Notifications/BookingSummary.php`.

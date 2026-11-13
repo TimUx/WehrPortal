@@ -45,7 +45,8 @@ class InspectionService
     public static function canManage(User $user): bool
     {
         return $user->is_active && $user->canUseModule('hydrantenkontrolle')
-            && ($user->is_admin || $user->hasModuleRole('hydrantenkontrolle', 'hydrantenwart')
+            // hasAnyModuleRole: also the Wehrführung of a Standort; the scope keeps it to its Standorte
+            && ($user->is_admin || $user->hasAnyModuleRole('hydrantenkontrolle', 'hydrantenwart')
                 || $user->hasModuleRole('hydrantenkontrolle', self::ROLE_CROSS_LOCATION));
     }
 

@@ -42,6 +42,8 @@ class StandardRoleCatalog
             'einsatzbericht' => ['wehrführung'],
             'finanzen' => ['wehrführung'],
             'fahrzeuge' => ['fahrzeugwart'],
+            'fahrzeugbuchung' => ['entscheider'],
+            'hydrantenkontrolle' => ['hydrantenwart'],
             'fahrtenbuch' => ['fahrtenbuchwart'],
             'maengelmanagement' => ['verantwortlicher'],
             'personalverwaltung' => ['personalverwalter'],

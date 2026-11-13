@@ -4,6 +4,7 @@ namespace Modules\Fahrzeugbuchung\src\Policies;
 
 use App\Models\User;
 use Modules\Fahrzeugbuchung\src\Models\Booking;
+use Modules\Fahrzeugbuchung\src\Services\DecisionService;
 
 class BookingPolicy
 {
@@ -61,7 +62,7 @@ class BookingPolicy
             return false;
         }
 
-        return $user->canDecide() || $booking->user_id === $user->id;
+        return $booking->user_id === $user->id || DecisionService::canDecideBooking($user, $booking);
     }
 
     public function forceDelete(User $user, Booking $booking): bool

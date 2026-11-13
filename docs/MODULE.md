@@ -26,7 +26,7 @@
 
 ### Fahrzeuge, Geräte und Material
 
-- **[Fahrzeugbuchung](KERNFUNKTIONEN.md#fahrzeugbuchung):** Gemeinsamer Buchungskalender mit Konfliktentscheidung und Wachen-Monitor. Zuständig: Entscheider; Fahrzeugverwaltung im Admin-Bereich durch globale Admins.
+- **[Fahrzeugbuchung](KERNFUNKTIONEN.md#fahrzeugbuchung):** Gemeinsamer Buchungskalender mit Konfliktentscheidung und Wachen-Monitor. Zuständig: Entscheider; mit Standorten entscheidet außerdem die Wehrführung über Konflikte bei den Fahrzeugen ihres Standorts (sie wird gefragt, sieht nur diese Entscheidungen und darf dort Buchungen vorzeitig beenden). Fahrzeugverwaltung im Admin-Bereich durch globale Admins.
 - **[Fahrzeugverwaltung & Flotte](#fahrzeugverwaltung--flotte):** Fahrzeugakte, Status, Werkstattzeiten, Fristen und Prüfungen. Zuständig: Fahrzeugwart.
 - **[Fahrtenbuch](#fahrtenbuch):** Fahrten, Kilometerstände, Tanken, Verbrauch und nachvollziehbare Korrekturen. Zuständig: Fahrtenbuchwart.
 - **[Ausrüstungsverwaltung](#ausrüstungsverwaltung):** Geräte, Prüffristen, Ausleihe, Beladung und optional öffentliche Geräteinfo. Zuständig: Gerätewart.
@@ -595,7 +595,7 @@ Wer welchen Schlüssel der Wehr hat – statt Liste im Schlüsselkasten. Das Mod
 
 ![Screenshot: Hydrantenkontrolle – Hydranten](screenshots/hydrantenkontrolle/hydranten.png)
 
-Das Modul **Hydrantenkontrolle** wird unter **Admin → Module** aktiviert. Dort Modulzugang und Rolle `hydrantenwart` oder `uebergreifend` vergeben; aktive Admins benötigen keine zusätzliche Rolle. `HYDRANTENKONTROLLE_ENABLED=false` lädt das Modul nicht. Die Modulleiste bietet **Jahreskontrollen** und **Hydranten**. `hydrantenwart` sieht nur Hydranten des im Kameradenprofil hinterlegten Orts; `uebergreifend` ist für Kommune, Brandschutzamt/GBI, SPI und andere Stellen mit Sicht auf alle Orte.
+Das Modul **Hydrantenkontrolle** wird unter **Admin → Module** aktiviert. Dort Modulzugang und Rolle `hydrantenwart` oder `uebergreifend` vergeben; mit Standorten ist die Wehrführung über ihre Standardrolle Hydrantenwart ihres Standorts; aktive Admins benötigen keine zusätzliche Rolle. `HYDRANTENKONTROLLE_ENABLED=false` lädt das Modul nicht. Die Modulleiste bietet **Jahreskontrollen** und **Hydranten**. `hydrantenwart` sieht nur Hydranten des im Kameradenprofil hinterlegten Orts; `uebergreifend` ist für Kommune, Brandschutzamt/GBI, SPI und andere Stellen mit Sicht auf alle Orte.
 
 - **Stammdaten:** Pflicht-Ort, Nummer, Straße, optionale Hausnummer, Lagebeschreibung und Koordinaten. Beim `hydrantenwart` wird der Ort aus dem Kameradenprofil übernommen und kann nicht geändert werden; für `uebergreifend` ist er frei eintragbar. Straße oder Lagebeschreibung oder ein vollständiges Koordinatenpaar ist Pflicht. Archivieren statt Löschen erhält bestehende Jahresdaten.
 - **Jahreskontrolle:** Erst Stammdaten erfassen, dann das Jahr über **Öffnen / ergänzen** anlegen. Alle aktiven Hydranten des aktuellen Standorts werden als ungeprüft aufgenommen. Das erneute Öffnen ergänzt nur fehlende aktive Hydranten; vorhandene Kontrollwerte und eingefrorene Stammdaten bleiben erhalten. Über die Jahreslinks kann die Bearbeitung an späteren Tagen fortgesetzt werden.
