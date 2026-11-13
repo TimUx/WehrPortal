@@ -43,7 +43,7 @@ Unter **Admin → Standardrollen** vergibt ein globaler Admin die Profile aus `S
 | Jugendwart / Kinderwart | eine Abteilung | Personalakten, Übungsdienste und Anwesenheit dieser Abteilung |
 | Gemeindejugendwart / Gemeindekinderwart | alle Abteilungen dieser Art | wie oben, über alle Standorte |
 | Bürgermeister | ganze Gemeinde | nur die jährlichen Einsatzzahlen; braucht `LOCATIONS_LEADERSHIP_ENABLED=true` und das Modul Einsatzbericht |
-| Brandschutzamt | ganze Gemeinde | Ausrüstung und Kleiderkammer; braucht beide Module und beide Kleiderkammer-Standortschalter |
+| Brandschutzamt | ganze Gemeinde | Ausrüstung und Kleiderkammer, Einsatzberichte aller Standorte nur lesend; braucht beide Module und beide Kleiderkammer-Standortschalter |
 
 **Gemeinde oder Stadt:** Auf der Seite Standardrollen legt der Admin über **„Gemeinde oder Stadt“** fest, wie die Positionen der ganzen Kommune heißen: Gemeindebrandinspektor (GBI), Gemeindejugendwart und Gemeindekinderwart – oder Stadtbrandinspektor (SBI), Stadtjugendwart und Stadtkinderwart. Solange nichts gewählt ist, steht überall die neutrale Doppelbezeichnung „GBI/SBI“. Die Wahl ändert nur Bezeichnungen, keine Rechte (Einstellung `locations.municipality`).
 

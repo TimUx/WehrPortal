@@ -19,6 +19,8 @@ class StandardRoleCatalog
         'brandschutzamt' => ['name' => 'Brandschutzamt', 'scope' => 'global', 'group' => null, 'modules' => [
             'ausruestung' => ['geraetewart'],
             'kleiderkammer' => ['bestand', 'kleiderwart'],
+            // Reads the Einsatzberichte of every Standort, changes none
+            'einsatzbericht' => ['einsicht'],
         ]],
         'gemeindebrandinspektor' => ['name' => 'Gemeindebrandinspektor / Stadtbrandinspektor', 'scope' => 'global', 'group' => null, 'modules' => []],
         'gemeindejugendwart' => ['name' => 'Gemeindejugendwart', 'scope' => 'global', 'group' => 'jugendfeuerwehr', 'modules' => [

@@ -84,7 +84,7 @@ class EinsatzberichtServiceProvider extends ServiceProvider
             'einsatzbericht',
             'Einsatzbericht',
             'Einsätze digital erfassen und freigeben, Besatzung und Stärke, Jahresstatistik und Einsätze in der Personalakte',
-            roles: ['einsatzleiter', 'wehrführung'],
+            roles: ['einsatzleiter', 'wehrführung', 'einsicht'],
             provider: self::class,
             route: 'einsatzbericht.index',
         );

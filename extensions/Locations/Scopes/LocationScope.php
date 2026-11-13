@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Modules\Ausruestung\src\Models\Location as EquipmentLocation;
+use Modules\Einsatzbericht\src\Models\Report;
+use Modules\Einsatzbericht\src\Services\ReportService;
 use Modules\Kalender\src\Models\Event;
 use Modules\Kalender\src\Models\Poll;
 use Modules\Kleiderkammer\src\Models\Item;
@@ -50,6 +52,10 @@ class LocationScope implements Scope
             return;
         }
 
+        // Readers of the Einsatzberichte (Brandschutzamt) read those of every Standort
+        if ($model instanceof Report && ReportService::isReader($user)) {
+            return;
+        }
         if (($model instanceof Event || $model instanceof Poll) && $user->canManageKalender()) {
             return;
         }

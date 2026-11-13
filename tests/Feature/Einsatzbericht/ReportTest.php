@@ -163,7 +163,11 @@ test('new reports get running numbers per year', function () {
     expect($this->r->create($this->leader)->number)->toBe('2027/001')
         ->and($this->r->create($this->leader)->number)->toBe('2027/002')
         ->and($this->r->create($this->leader, Carbon::parse('2028-01-02 03:00', 'Europe/Berlin'))->number)->toBe('2028/001');
-    expect(fn () => $this->r->create($this->member))->toThrow(ValidationException::class);
+    // Every Kamerad with the module writes a report; without the module nobody does
+    expect($this->r->create($this->member)->created_by)->toBe($this->member->id);
+    $outsider = User::factory()->create();
+    $outsider->forceFill(['is_active' => false])->save();
+    expect(fn () => $this->r->create($outsider))->toThrow(ValidationException::class);
 
     Livewire::actingAs($this->leader)->test(ReportList::class)->call('create')->assertRedirect(route('einsatzbericht.show', Report::latest('id')->first()));
 });

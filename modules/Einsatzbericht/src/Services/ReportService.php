@@ -36,7 +36,37 @@ use Throwable;
  */
 class ReportService
 {
-    /** Einsatzleiter, Gruppenführer, Wehrführung and admins write reports */
+    /** Every Kamerad with the module writes a report: who was at the Einsatz and writes it down varies */
+    public static function canCreate(User $user): bool
+    {
+        return $user->is_active && $user->canUseModule('einsatzbericht');
+    }
+
+    /** Wrote the report and it is still open: until it is closed it is theirs to fill in */
+    public static function isOpenAuthor(User $user, Report $report): bool
+    {
+        return self::canCreate($user) && (int) $report->created_by === (int) $user->id && in_array($report->status, Report::OPEN, true);
+    }
+
+    /** Reads every report without changing any: the role Einsicht (the Brandschutzamt has it) */
+    public static function isReader(User $user): bool
+    {
+        return self::canCreate($user) && $user->hasModuleRole('einsatzbericht', 'einsicht');
+    }
+
+    /** Sees the list of reports: who leads or reads them */
+    public static function canSeeList(User $user): bool
+    {
+        return self::canLead($user) || self::isReader($user);
+    }
+
+    /** Opens this report: who leads it, its author while it is open, and the readers */
+    public static function canReadReport(User $user, Report $report): bool
+    {
+        return self::canLeadReport($user, $report) || self::isReader($user);
+    }
+
+    /** Einsatzleiter, Wehrführung and admins see and lead the reports */
     public static function canLead(User $user): bool
     {
         return $user->is_active && $user->canUseModule('einsatzbericht')
@@ -52,6 +82,9 @@ class ReportService
 
     public static function canLeadReport(User $user, Report $report): bool
     {
+        if (self::isOpenAuthor($user, $report)) {
+            return true;
+        }
         if (! self::canLead($user)) {
             return false;
         }
@@ -104,7 +137,7 @@ class ReportService
     /** A new draft with the next running number of the year ("2026/007") */
     public function create(User $by, ?Carbon $alarmedAt = null): Report
     {
-        $this->assert(self::canLead($by));
+        $this->assert(self::canCreate($by));
 
         $attributes = ['commander_id' => $by->id, 'created_by' => $by->id];
         if (config('locations.enabled') && $by->hasAnyModuleRole('einsatzbericht', 'wehrführung')
