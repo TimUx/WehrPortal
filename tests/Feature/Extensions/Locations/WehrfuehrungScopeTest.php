@@ -6,6 +6,7 @@ use App\Services\ModuleRegistry;
 use Extensions\Hydrantenkontrolle\Services\InspectionService;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\StandardRoleAssignments;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Modules\Fahrzeugbuchung\src\Livewire\Decisions\DecisionDetail;
@@ -17,7 +18,12 @@ use Modules\Fahrzeugbuchung\src\Services\DecisionService;
 use Modules\Fuehrerscheine\src\Livewire\Review;
 use Modules\Fuehrerscheine\src\Models\License;
 use Modules\Fuehrerscheine\src\Services\LicenseService;
+use Modules\Lehrgaenge\src\Livewire\MemberProfile;
 use Modules\Lehrgaenge\src\Livewire\Qualifications;
+use Modules\Lehrgaenge\src\Livewire\Registrations;
+use Modules\Lehrgaenge\src\Models\Course;
+use Modules\Lehrgaenge\src\Models\Record;
+use Modules\Lehrgaenge\src\Notifications\RequestReceivedNotification;
 use Modules\Lehrgaenge\src\Services\RegistrationService;
 use Modules\Objektplaene\src\Services\ObjectPlanService;
 use Modules\Schluessel\src\Services\KeyService;
@@ -145,7 +151,7 @@ it('lets the Wehrführung check the Führerscheine of the members of its Standor
     expect(fn () => $service->validate($this->hanna, $other))->toThrow(ValidationException::class);
 });
 
-it('shows the Wehrführung the Lehrgänge of the members of its Standort, read-only', function () {
+it('shows the Wehrführung the Lehrgänge of the members of its Standort', function () {
     Module::where('key', 'lehrgaenge')->update(['is_active' => true, 'auto_assign' => true]);
     app(ModuleRegistry::class)->clearCache();
     $sven = User::factory()->create(['name' => 'Sven Süd']);
@@ -167,7 +173,52 @@ it('shows the Wehrführung the Lehrgänge of the members of its Standort, read-o
 
     $this->actingAs($this->hanna)->get(route('lehrgaenge.member', $this->bernd))->assertOk();
     $this->actingAs($this->hanna)->get(route('lehrgaenge.member', $sven))->assertForbidden();
-    $this->actingAs($this->hanna)->get(route('lehrgaenge.registrations'))->assertForbidden();
+    // The catalogue stays with the Ausbildungsleiter
+    $this->actingAs($this->hanna)->get(route('lehrgaenge.courses'))->assertForbidden();
+    $this->actingAs($this->hanna)->get(route('lehrgaenge.import'))->assertForbidden();
+});
+
+it('lets the Wehrführung keep registrations and absolvierte Lehrgänge of its members', function () {
+    Notification::fake();
+    Module::where('key', 'lehrgaenge')->update(['is_active' => true, 'auto_assign' => true]);
+    app(ModuleRegistry::class)->clearCache();
+    $sven = User::factory()->create(['name' => 'Sven Süd']);
+    $sven->forceFill(['ext_location_id' => $this->south->id])->save();
+    $course = Course::create(['name' => 'Truppführer', 'is_standard' => true]);
+    $registrations = app(RegistrationService::class);
+
+    expect(RegistrationService::canManageAny($this->hanna))->toBeTrue()
+        ->and($this->hanna->canManageLehrgaenge())->toBeFalse()
+        ->and(RegistrationService::canManageMember($this->hanna, $this->bernd->id))->toBeTrue()
+        ->and(RegistrationService::canManageMember($this->hanna, $sven->id))->toBeFalse()
+        ->and(RegistrationService::manageableMemberIds($this->admin))->toBeNull()
+        ->and(RegistrationService::canManageAny($this->bernd))->toBeFalse();
+
+    // Requests reach the Wehrführung of the Kamerad's Standort
+    $own = $registrations->request($this->bernd, $course, null);
+    $other = $registrations->request($sven, $course, null);
+    Notification::assertSentTo($this->hanna, RequestReceivedNotification::class, 1);
+
+    Livewire::actingAs($this->hanna)->test(Registrations::class)
+        ->assertViewHas('demand', fn ($demand) => $demand->flatMap(fn ($row) => $row['records'])->pluck('id')->all() === [$own->id])
+        ->assertViewHas('canManageAll', false)
+        ->call('waitlist', $own->id)->assertHasNoErrors()
+        ->call('waitlist', $other->id)->assertForbidden();
+    Livewire::actingAs($this->hanna)->test(Registrations::class)->call('import')->assertForbidden();
+    expect($own->fresh()->waitlisted_at)->not->toBeNull()->and($other->fresh()->waitlisted_at)->toBeNull();
+
+    // Absolvierte Lehrgänge: enter for own Kameraden, never for others
+    $result = $registrations->recordCompletedMany($this->hanna, 'Maschinist', [$this->bernd->id], '2025-03-01');
+    expect($result['added'])->toBe(['Bernd Blaulicht']);
+    expect(fn () => $registrations->recordCompletedMany($this->hanna, 'Maschinist', [$this->bernd->id, $sven->id], '2025-03-01'))->toThrow(ValidationException::class)
+        ->and(fn () => $registrations->registerFor($this->hanna, $course, [$sven->id]))->toThrow(ValidationException::class)
+        ->and(fn () => $registrations->recordCompletedMany($this->bernd, 'Maschinist', [$this->bernd->id], '2025-03-01'))->toThrow(ValidationException::class);
+
+    Livewire::actingAs($this->hanna)->test(MemberProfile::class, ['member' => $this->bernd])
+        ->assertViewHas('canManage', true)
+        ->set('entry', ['course' => 'Sprechfunker', 'completed_on' => '2024-06-01', 'note' => ''])
+        ->call('addCompleted')->assertHasNoErrors();
+    expect(Record::where('user_id', $this->bernd->id)->where('status', 'completed')->count())->toBe(2);
 });
 
 it('lets the Wehrführung hold Unterweisungen for its members and look after its own ones', function () {

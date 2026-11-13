@@ -40,13 +40,13 @@ class Members extends Component
     /** Ticks every Kamerad of the list (filtered by Abteilung) who doesn't have the Lehrgang yet */
     public function selectAll(): void
     {
-        abort_unless(auth()->user()->canManageLehrgaenge(), 403);
+        abort_unless(RegistrationService::canManageAny(auth()->user()), 403);
         $this->bulkMembers = $this->bulkCandidates()->reject(fn (User $m) => $m->getAttribute('has_course'))->pluck('id')->map(fn ($id) => (string) $id)->all();
     }
 
     public function addMany(RegistrationService $registrations): void
     {
-        abort_unless(auth()->user()->canManageLehrgaenge(), 403);
+        abort_unless(RegistrationService::canManageAny(auth()->user()), 403);
         $this->resetErrorBag();
         $this->flash = null;
         try {
@@ -67,7 +67,10 @@ class Members extends Component
         $course = trim($this->bulkCourse) === '' ? null : Course::whereRaw('lower(name) = ?', [mb_strtolower(trim(preg_replace('/\s+/u', ' ', $this->bulkCourse)))])->first();
         $done = $course ? Record::where('course_id', $course->id)->where('status', 'completed')->pluck('user_id')->flip() : collect();
 
+        $manageable = RegistrationService::manageableMemberIds(auth()->user());
+
         return User::active()->orderBy('name')
+            ->when($manageable !== null, fn ($q) => $q->whereIn('id', $manageable))
             ->when($this->bulkGroup !== '', fn ($q) => $q->whereHas('groups', fn ($g) => $g->whereKey((int) $this->bulkGroup)))
             ->get(['id', 'name'])
             ->each(fn (User $m) => $m->setAttribute('has_course', $done->has($m->id)));
@@ -76,7 +79,7 @@ class Members extends Component
     public function render()
     {
         $term = trim($this->search);
-        $canManage = auth()->user()->canManageLehrgaenge();
+        $canManage = RegistrationService::canManageAny(auth()->user());
         $viewable = RegistrationService::viewableMemberIds(auth()->user());
 
         return view('lehrgaenge::livewire.members', [

@@ -16,7 +16,7 @@ Route::prefix('lehrgaenge')->name('lehrgaenge.')
     ->group(function () {
         Route::get('/', fn () => view('lehrgaenge::pages.index'))->name('index');
 
-        Route::get('/anmeldungen', fn () => view('lehrgaenge::pages.registrations'))->middleware('can:manage-lehrgaenge')->name('registrations');
+        Route::get('/anmeldungen', fn () => view('lehrgaenge::pages.registrations'))->middleware('can:manage-lehrgaenge-members')->name('registrations');
         Route::get('/lehrgangsliste', fn () => view('lehrgaenge::pages.courses'))->middleware('can:manage-lehrgaenge')->name('courses');
         Route::get('/import', fn () => view('lehrgaenge::pages.page', ['livewireComponent' => 'lehrgaenge.result-imports', 'title' => 'Ergebnisse importieren']))
             ->middleware('can:manage-lehrgaenge')->name('import');
