@@ -63,6 +63,9 @@ class StandardRoleCatalog
             'expositionen' => ['wehrführung'],
             'kalender' => ['terminverwalter'],
             'wartung' => ['geraetewart'],
+            // Only with the Standort adapters of the Kleiderkammer (LocationModuleRoles::capabilityLocationIds):
+            // without them the Kleiderkammer is one store for the whole Kommune
+            'kleiderkammer' => ['bestand', 'kleiderwart'],
             // Records of the whole Kommune without a Standort of their own: kept by every Wehrführung
             'schluessel' => ['schluesselwart'],
             'objektplaene' => ['planverwalter'],
