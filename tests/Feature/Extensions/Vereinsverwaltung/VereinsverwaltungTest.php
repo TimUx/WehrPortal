@@ -3,6 +3,8 @@
 use App\Models\Module;
 use App\Models\User;
 use Extensions\Locations\Models\Location;
+use Extensions\Vereinsverwaltung\Filament\Resources\AssociationResource\Pages\EditAssociation;
+use Extensions\Vereinsverwaltung\Filament\Resources\AssociationResource\RelationManagers\BoardMembersRelationManager;
 use Extensions\Vereinsverwaltung\Livewire\Board;
 use Extensions\Vereinsverwaltung\Models\Association;
 use Extensions\Vereinsverwaltung\Models\Member;
@@ -451,4 +453,21 @@ it('names the Ämter of the Vorstand and lets the Vorsitz put it together', func
     // A Schriftführer keeps members, not the Vorstand
     Livewire::actingAs($member->fresh())->test(Board::class)->call('removeBoardMember', $chair->id)->assertForbidden();
     expect($access->canManageBoard($chair->fresh(), $association))->toBeTrue();
+});
+
+it('shows and keeps the Amt of a board member in the admin relation manager', function () {
+    $admin = User::factory()->admin()->create();
+    $association = testAssociation();
+    $chair = User::factory()->create(['name' => 'Hanna Hydrant']);
+    app(AssociationAccess::class)->setBoardMember($admin, $association, $chair->id, 'vorsitz', true);
+
+    $manager = Livewire::actingAs($admin)->test(BoardMembersRelationManager::class, ['ownerRecord' => $association, 'pageClass' => EditAssociation::class])
+        ->assertSuccessful()
+        ->assertTableColumnStateSet('office', 'Stv. Vorsitzender', $chair)
+        // "Amt ändern" starts from the Amt the Kamerad has, so saving unchanged does not take it away
+        ->mountTableAction('setOffice', $chair)
+        ->assertTableActionDataSet(['office' => 'vorsitz', 'is_deputy' => true]);
+    $manager->callMountedTableAction()->assertHasNoTableActionErrors();
+
+    expect(app(AssociationAccess::class)->canManageBoard($chair->fresh(), $association))->toBeTrue();
 });
