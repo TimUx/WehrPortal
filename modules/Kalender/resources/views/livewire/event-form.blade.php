@@ -49,7 +49,7 @@
         @endif
         @foreach(['startsAt', 'endsAt', 'startDate', 'endDate'] as $field)@error($field)<p class="text-sm text-red-600">{{ $message }}</p>@enderror @endforeach
 
-        @include('partials.place-dress-fields', ['input' => $input, 'places' => $places, 'dressCodes' => $dressCodes, 'placeId' => $placeId, 'manageUrl' => route('kalender.places')])
+        @include('partials.place-dress-fields', ['input' => $input, 'places' => $places, 'dressCodes' => $dressCodes, 'placeId' => $placeId, 'manageUrl' => auth()->user()->can('manageCalendar', \Modules\Kalender\src\Models\Event::class) ? route('kalender.places') : null])
         <label class="block text-sm font-medium text-gray-700">Gemeinsam mit (optional)
             <input type="text" wire:model="partners" maxlength="300" placeholder="z. B. FF Nachbarstadt, THW Ortsverband – für gemeinsame Übungen" class="mt-1 {{ $input }}">
         </label>
@@ -71,7 +71,7 @@
         @endif
 
         <div>
-            <p class="text-sm font-medium text-gray-700 mb-1">Für (leer = alle Kameraden der ausgewählten Standorte)</p>
+            <p class="text-sm font-medium text-gray-700 mb-1">{{ $ownGroupsOnly ? 'Für deine Abteilung' : 'Für (leer = alle Kameraden der ausgewählten Standorte)' }}</p>
             <div class="flex flex-wrap gap-3">
                 @foreach($groups as $id => $name)
                     <label class="inline-flex items-center gap-1.5 text-sm text-gray-700"><input type="checkbox" value="{{ $id }}" wire:model="groupIds" class="rounded border-gray-300 text-fw-red focus:ring-fw-red"> {{ $name }}</label>
@@ -95,7 +95,7 @@
             <select id="kal-invitees" multiple size="5" wire:model="inviteeIds" class="{{ $input }}">
                 @foreach($people as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
             </select>
-            <p class="mt-1 text-xs text-gray-500">Mehrere mit Strg/Cmd. Ohne Abteilungen, Funktionen und Einladungen gilt der Termin für alle Kameraden an den ausgewählten Standorten.</p>
+            <p class="mt-1 text-xs text-gray-500">Mehrere mit Strg/Cmd. {{ $ownGroupsOnly ? 'Der Termin gilt für deine Abteilung und die hier Eingeladenen.' : 'Ohne Abteilungen, Funktionen und Einladungen gilt der Termin für alle Kameraden an den ausgewählten Standorten.' }}</p>
         </div>
 
         <div class="rounded-xl bg-gray-50 p-3 space-y-2">

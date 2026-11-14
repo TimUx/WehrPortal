@@ -3,6 +3,7 @@
 namespace Modules\Einsatzbericht\src\Models;
 
 use App\Models\User;
+use Extensions\Locations\Scopes\LocationScope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -116,12 +117,12 @@ class Report extends Model
 
     public function commander(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'commander_id');
+        return $this->belongsTo(User::class, 'commander_id')->withoutGlobalScope(LocationScope::class);
     }
 
     public function closer(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'closed_by');
+        return $this->belongsTo(User::class, 'closed_by')->withoutGlobalScope(LocationScope::class);
     }
 
     /** A Nebenbericht belongs to its Hauptbericht; only Hauptberichte count as Einsätze in the statistics */
@@ -142,7 +143,7 @@ class Report extends Model
 
     public function releaser(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'released_by');
+        return $this->belongsTo(User::class, 'released_by')->withoutGlobalScope(LocationScope::class);
     }
 
     public function statusLabel(): string

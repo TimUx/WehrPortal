@@ -375,6 +375,7 @@ class EventForm extends Component
 
         return view('kalender::livewire.event-form', [
             'types' => Event::TYPES,
+            'ownGroupsOnly' => $ownGroupsOnly,
             'groups' => $groups,
             'people' => $people,
             'repeats' => EventService::REPEATS,

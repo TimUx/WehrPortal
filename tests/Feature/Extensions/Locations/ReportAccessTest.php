@@ -67,6 +67,9 @@ it('lets every Kamerad write a report that only the Wehrführung of the Standort
 it('lets the role Einsicht read the reports of every Standort without changing them', function () {
     $north = app(ReportService::class)->create($this->bernd);
     $south = app(ReportService::class)->create($this->sven);
+    // The crew belongs to a Standort the reader is no member of: its names are part of the report
+    $vehicle = $south->vehicles()->create(['name' => 'HLF Süd', 'sort_order' => 1]);
+    $south->crew()->create(['report_vehicle_id' => $vehicle->id, 'user_id' => $this->sven->id, 'function' => 'gruppenfuehrer']);
     $reader = User::factory()->create(['name' => 'Berta Brandschutz']);
     $reader->forceFill(['ext_location_id' => $this->north->id])->save();
     $reader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsicht']);
@@ -80,8 +83,12 @@ it('lets the role Einsicht read the reports of every Standort without changing t
 
     $this->actingAs($reader);
     expect(Report::pluck('id')->all())->toEqualCanonicalizing([$north->id, $south->id]);
-    $this->get(route('einsatzbericht.show', $south))->assertOk();
-    $this->get(route('einsatzbericht.print', $south))->assertOk();
+    $this->get(route('einsatzbericht.show', $south))->assertOk()->assertSee('Sven Süd');
+    // A finished Einsatz offers the reader no Lagemeldung form
+    $south->forceFill(['status' => 'released', 'ended_at' => now()])->save();
+    $this->get(route('einsatzbericht.show', $south))->assertOk()->assertDontSee('Lage kurz beschreiben');
+    $south->forceFill(['status' => 'active', 'ended_at' => null])->save();
+    $this->get(route('einsatzbericht.print', $south))->assertOk()->assertSee('Sven Süd');
     Livewire::actingAs($reader)->test(ReportList::class)->assertOk();
     $this->get(route('einsatzbericht.statistics'))->assertForbidden();
 });

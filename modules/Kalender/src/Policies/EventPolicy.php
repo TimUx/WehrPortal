@@ -28,6 +28,12 @@ class EventPolicy
         return $canManage && ($event === null || ! $event->isExternal());
     }
 
+    /** Terminabfragen, Orte & Kleidung, external calendars: for who keeps a whole Standort, not one Abteilung */
+    public function manageCalendar(User $user): bool
+    {
+        return $user->canManageAnyKalenderLocation();
+    }
+
     /** Jugend- and Kinderwarte: a Termin for their own Abteilung and nobody else's */
     private function leadsAudience(User $user, Event $event): bool
     {

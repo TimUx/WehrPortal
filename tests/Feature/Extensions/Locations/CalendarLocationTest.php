@@ -190,6 +190,10 @@ it('lets a Jugendwart keep the Termine of the own Abteilung and nobody else\'s',
     Livewire::actingAs($lead)->test(EventDetail::class, ['event' => $own])->call('cancelEvent');
     expect($own->refresh()->isCancelled())->toBeTrue();
     // Terminabfragen stay with whoever keeps a whole Standort
+    $this->actingAs($lead)->get(route('kalender.create'))->assertOk();
+    foreach (['kalender.polls.create', 'kalender.places', 'kalender.sources'] as $route) {
+        $this->actingAs($lead)->get(route($route))->assertForbidden();
+    }
     Livewire::actingAs($lead)->test(PollForm::class)->assertForbidden();
 });
 
