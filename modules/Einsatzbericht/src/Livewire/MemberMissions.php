@@ -14,7 +14,7 @@ class MemberMissions extends Component
     public function mount(?User $member = null): void
     {
         $this->member = $member?->exists ? $member : auth()->user();
-        abort_unless($this->member->is(auth()->user()) || ReportService::canRelease(auth()->user()), 403);
+        abort_unless($this->member->is(auth()->user()) || ReportService::canEvaluateMember(auth()->user(), $this->member), 403);
     }
 
     public function render(ReportService $reports)

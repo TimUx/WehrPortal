@@ -8,7 +8,10 @@ use Extensions\Locations\Services\StandardRoleAssignments;
 use Extensions\Locations\Services\StandardRoleCatalog;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
+use Modules\Einsatzbericht\src\Livewire\MemberMissions;
+use Modules\Einsatzbericht\src\Livewire\Members;
 use Modules\Einsatzbericht\src\Livewire\ReportList;
+use Modules\Einsatzbericht\src\Livewire\Statistics;
 use Modules\Einsatzbericht\src\Models\Report;
 use Modules\Einsatzbericht\src\Services\ReportService;
 
@@ -121,4 +124,43 @@ it('gives the old Einsatzleiter role no rights any more', function () {
 
     expect(ReportService::canLead($this->frieda->fresh()))->toBeFalse()
         ->and(ReportService::canReadReport($this->frieda->fresh(), $report))->toBeFalse();
+});
+
+it('shows the Wehrführung of a Standort the Statistik and the Kameraden of its own Standort only', function () {
+    $released = function (User $author, string $keyword): Report {
+        $report = app(ReportService::class)->create($author);
+        $vehicle = $report->vehicles()->create(['name' => 'HLF', 'sort_order' => 1]);
+        $report->crew()->create(['report_vehicle_id' => $vehicle->id, 'user_id' => $author->id, 'function' => 'gruppenfuehrer']);
+        $report->forceFill(['status' => 'released', 'keyword' => $keyword, 'ext_location_id' => $author->ext_location_id, 'alarmed_at' => now()->subHour(), 'ended_at' => now()])->save();
+
+        return $report;
+    };
+    $released($this->bernd, 'Brand Nord');
+    $released($this->bernd, 'Hilfe Nord');
+    $released($this->sven, 'Brand Süd');
+
+    $this->actingAs($this->hanna)->get(route('einsatzbericht.statistics'))->assertOk();
+    $this->actingAs($this->hanna)->get(route('einsatzbericht.members'))->assertOk();
+    // The Jahresbericht of all modules stays with the Wehrführung of the whole Kommune
+    $this->actingAs($this->hanna)->get(route('einsatzbericht.annual'))->assertForbidden();
+    $this->actingAs($this->bernd)->get(route('einsatzbericht.statistics'))->assertForbidden();
+    $this->actingAs($this->bernd)->get(route('einsatzbericht.members'))->assertForbidden();
+
+    Livewire::actingAs($this->hanna)->test(Statistics::class)
+        ->assertViewHas('stats', fn (array $stats) => $stats['total'] === 2)
+        ->assertViewHas('annual', false)
+        ->assertDontSee('Jahresbericht');
+    Livewire::actingAs($this->hanna)->test(Members::class)
+        ->assertSee('Bernd Blaulicht')->assertSee('2 gesamt')
+        ->assertDontSee('Sven Süd');
+
+    $this->actingAs($this->hanna)->get(route('einsatzbericht.member', $this->bernd))->assertOk()->assertSee('Brand Nord');
+    $this->actingAs($this->hanna)->get(route('einsatzbericht.member', $this->sven))->assertForbidden();
+    Livewire::actingAs($this->hanna)->test(MemberMissions::class, ['member' => $this->sven])->assertForbidden();
+
+    // An admin still counts everything
+    Livewire::actingAs($this->admin)->test(Statistics::class)
+        ->assertViewHas('stats', fn (array $stats) => $stats['total'] === 3)
+        ->assertViewHas('annual', true);
+    Livewire::actingAs($this->admin)->test(Members::class)->assertSee('Sven Süd');
 });

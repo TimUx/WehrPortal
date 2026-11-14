@@ -88,16 +88,24 @@ Route::middleware(['auth', 'active', 'module:einsatzbericht'])->group(function (
             })->whereNumber('report')->name('print');
         });
 
-        Route::middleware('can:einsatzbericht-release')->group(function () {
+        // Statistik and Kameraden: also the Wehrführung of a Standort, for its own Standorte
+        Route::middleware('can:einsatzbericht-lead')->group(function () {
             Route::get('/statistik', fn () => view('einsatzbericht::pages.manage', ['livewireComponent' => 'einsatzbericht.statistics', 'title' => 'Jahresstatistik']))->name('statistics');
+            Route::get('/kameraden', fn () => view('einsatzbericht::pages.manage', ['livewireComponent' => 'einsatzbericht.members', 'title' => 'Einsätze der Kameraden']))->name('members');
+            Route::get('/kameraden/{user}', function (User $user) {
+                abort_unless(ReportService::canEvaluateMember(auth()->user(), $user), 403);
+
+                return view('einsatzbericht::pages.member', compact('user'));
+            })->whereNumber('user')->name('member');
+        });
+
+        Route::middleware('can:einsatzbericht-release')->group(function () {
             // Jahresbericht: what every switched-on module has to say about the year, printable
             Route::get('/jahresbericht', function () {
                 $year = max(2000, min(2100, request()->integer('jahr') ?: (int) now('Europe/Berlin')->year));
 
                 return view('einsatzbericht::pages.annual', ['year' => $year, 'sections' => app(AnnualReportRegistry::class)->for($year)]);
             })->name('annual');
-            Route::get('/kameraden', fn () => view('einsatzbericht::pages.manage', ['livewireComponent' => 'einsatzbericht.members', 'title' => 'Einsätze der Kameraden']))->name('members');
-            Route::get('/kameraden/{user}', fn (User $user) => view('einsatzbericht::pages.member', compact('user')))->whereNumber('user')->name('member');
         });
     });
 });

@@ -122,8 +122,8 @@ class EinsatzberichtServiceProvider extends ServiceProvider
         app(ModuleRegistry::class)->navigation('einsatzbericht', fn (User $u) => [
             'tabs' => [
                 ModuleNav::tab('Einsätze', 'einsatzbericht.index', ['einsatzbericht.show', 'einsatzbericht.situation']),
-                ReportService::canRelease($u) ? ModuleNav::tab('Jahresstatistik', 'einsatzbericht.statistics', ['einsatzbericht.annual']) : null,
-                ReportService::canRelease($u) ? ModuleNav::tab('Kameraden', 'einsatzbericht.members', ['einsatzbericht.member']) : null,
+                ReportService::canLead($u) ? ModuleNav::tab('Jahresstatistik', 'einsatzbericht.statistics', ['einsatzbericht.annual']) : null,
+                ReportService::canLead($u) ? ModuleNav::tab('Kameraden', 'einsatzbericht.members', ['einsatzbericht.member']) : null,
                 $u->can('einsatzbericht-materials') ? ModuleNav::tab('Material', 'einsatzbericht.materials') : null,
             ],
             'manage' => ReportService::canRelease($u) ? SettingsPage::getUrl() : null,

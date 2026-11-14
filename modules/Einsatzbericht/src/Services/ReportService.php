@@ -9,6 +9,7 @@ use App\Support\SignatureImage;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\LocationAccess;
 use Extensions\Locations\Services\LocationContext;
+use Extensions\Locations\Services\StandardRoleAssignments;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
@@ -87,6 +88,28 @@ class ReportService
     {
         return $user->is_active && $user->canUseModule('einsatzbericht')
             && ($user->is_admin || $user->hasModuleRole('einsatzbericht', 'wehrführung'));
+    }
+
+    /**
+     * The Kameraden whose Einsätze someone evaluates: null means everyone (admins, the Wehrführung
+     * of the whole Kommune), otherwise the members of the Standorte where they are Wehrführung.
+     *
+     * @return list<int>|null
+     */
+    public static function evaluatedMemberIds(User $user): ?array
+    {
+        if (! self::canLead($user)) {
+            return [];
+        }
+
+        return self::canRelease($user) ? null : app(StandardRoleAssignments::class)->managedMemberIds($user, 'einsatzbericht', 'wehrführung');
+    }
+
+    public static function canEvaluateMember(User $user, User $member): bool
+    {
+        $ids = self::evaluatedMemberIds($user);
+
+        return $ids === null || in_array((int) $member->id, $ids, true);
     }
 
     public static function canLeadReport(User $user, Report $report): bool
