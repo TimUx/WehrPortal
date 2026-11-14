@@ -214,7 +214,7 @@ test('the Wehrführung switches the webhook, copies the address, sets mapping an
     expect(DiveraWebhook::enabled())->toBeFalse()->and(DiveraWebhook::mapping()['keyword'])->toBe('stichwort')->and(DiveraWebhook::filters())->toBe(['Probealarm', 'Übung']);
 
     $leader = User::factory()->create();
-    $leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
+    $leader->moduleAccess()->create(['module' => 'einsatzbericht']);
     $this->actingAs($leader)->get('/admin/einsatzbericht/einstellungen')->assertForbidden();
     $this->actingAs($chief)->get('/admin/einsatzbericht/einstellungen')->assertOk()->assertSee('DIVERA 24/7 (Webhook)');
 });

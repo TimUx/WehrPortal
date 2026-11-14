@@ -2,6 +2,7 @@
 
 namespace Extensions\Vereinsverwaltung\Livewire;
 
+use Extensions\Vereinsverwaltung\Models\Association;
 use Extensions\Vereinsverwaltung\Models\Member;
 use Extensions\Vereinsverwaltung\Models\MembershipApplication;
 use Extensions\Vereinsverwaltung\Services\AssociationAccess;
@@ -27,6 +28,13 @@ class Board extends Component
 
     public array $form = [];
 
+    /** Vorstand tab: the Kamerad and Amt the Vorsitz is about to enter */
+    public string $boardUserId = '';
+
+    public string $boardOffice = '';
+
+    public bool $boardDeputy = false;
+
     public function mount(AssociationAccess $access): void
     {
         Gate::authorize('manage-verein');
@@ -37,6 +45,22 @@ class Board extends Component
     {
         $access->association(auth()->user(), (int) $this->associationId);
         $this->resetPage();
+    }
+
+    public function saveBoardMember(AssociationAccess $access): void
+    {
+        $association = $access->association(auth()->user(), (int) $this->associationId);
+        $this->validate(['boardUserId' => ['required', 'integer']], ['boardUserId.required' => 'Bitte einen Kameraden wählen.']);
+        $access->setBoardMember(auth()->user(), $association, (int) $this->boardUserId, $this->boardOffice, $this->boardDeputy);
+        $this->reset('boardUserId', 'boardOffice', 'boardDeputy');
+        session()->flash('flash', 'Vorstand gespeichert.');
+    }
+
+    public function removeBoardMember(int $userId, AssociationAccess $access): void
+    {
+        $association = $access->association(auth()->user(), (int) $this->associationId);
+        $access->removeBoardMember(auth()->user(), $association, $userId);
+        session()->flash('flash', 'Aus dem Vorstand entfernt.');
     }
 
     public function approve(int $applicationId, MembershipService $service): void
@@ -205,6 +229,9 @@ class Board extends Component
                 ->with(['user' => fn ($query) => $query->withoutGlobalScopes()->select(['id', 'name', 'email', 'phone', 'mobile'])])
                 ->orderByDesc('id')->paginate(20)
                 : Member::query()->whereRaw('1 = 0')->paginate(20),
+            'board' => $association ? $association->boardMembers()->withoutGlobalScopes()->orderBy('name')->get() : collect(),
+            'canManageBoard' => $association && $access->canManageBoard(auth()->user(), $association),
+            'offices' => Association::OFFICES,
             'users' => $association ? $service->personnelForAssociation($association) : collect(),
             'editing' => $this->memberId && $association ? $service->memberForAssociation(auth()->user(), $association->id, $this->memberId) : null,
         ]);

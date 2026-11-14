@@ -18,7 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->trustProxies(at: '*');
+        // Which proxies are trusted is set in config/trustedproxy.php (TRUSTED_PROXIES)
         // No search engine or AI crawler may take up anything of the app
         $middleware->append(NoIndex::class);
         $middleware->append(SecurityHeaders::class);

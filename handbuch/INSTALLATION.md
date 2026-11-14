@@ -54,7 +54,7 @@ Die mitgelieferte `docker-compose.yml` lädt das fertige Release-Image aus **Git
 1. `docker-compose.yml` und `.env.example` aus dem gewünschten Release in ein eigenes Betriebsverzeichnis übernehmen; `.env.example` dort als `.env` speichern.
 2. In `.env` `WEHRPORTAL_VERSION` auf einen tatsächlich veröffentlichten Tag setzen. Einen einmaligen `APP_KEY` mit dem oben gezeigten Befehl sowie ein starkes `DB_PASSWORD` eintragen. Compose verweigert den Start ohne diese beiden Werte.
 3. `ADMIN_EMAILS`, die öffentliche `APP_URL` und die `MAIL_*`-Werte für euren SMTP-Server eintragen. Compose liest diese Werte aus `.env` und übergibt sie den Containern. Der Mailer ist ohne Konfiguration `log`, es werden dann keine Mails versendet.
-4. Bei einem Reverse-Proxy direkt auf dem VPS im Dienst `app` die Portfreigabe `"8080:8080"` durch `"127.0.0.1:8080:8080"` ersetzen. Andernfalls veröffentlicht Docker die App auf allen Netzwerkschnittstellen. Für automatischen Wiederanlauf bei allen vier Diensten jeweils `restart: unless-stopped` auf derselben Ebene wie `image:` ergänzen.
+4. Die App lauscht nur auf `127.0.0.1:8080` und ist so nur für einen Reverse-Proxy auf demselben VPS erreichbar. Läuft der Proxy auf einem anderen Rechner, in `.env` `APP_BIND=0.0.0.0` setzen und den Port per Firewall auf den Proxy beschränken. Für automatischen Wiederanlauf bei allen vier Diensten jeweils `restart: unless-stopped` auf derselben Ebene wie `image:` ergänzen.
 5. Images laden und die Dienste starten:
 
    ```bash

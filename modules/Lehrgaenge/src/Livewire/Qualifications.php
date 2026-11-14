@@ -9,6 +9,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 use Modules\Lehrgaenge\src\Models\Course;
 use Modules\Lehrgaenge\src\Models\Record;
+use Modules\Lehrgaenge\src\Services\RegistrationService;
 
 /** Ausbildungsstand: who has which Lehrgang – Kameraden × Lehrgänge, with refreshers that are due */
 class Qualifications extends Component
@@ -21,10 +22,14 @@ class Qualifications extends Component
         abort_unless(auth()->user()?->canViewLehrgaenge(), 403);
     }
 
-    /** @return array{members: Collection, courses: Collection, cells: Collection} */
-    public static function table(?int $groupId = null): array
+    /**
+     * @param  list<int>|null  $memberIds  only these Kameraden; null = everyone
+     * @return array{members: Collection, courses: Collection, cells: Collection}
+     */
+    public static function table(?int $groupId = null, ?array $memberIds = null): array
     {
-        $members = User::active()->when($groupId, fn ($q) => $q->whereHas('groups', fn ($g) => $g->whereKey($groupId)))->orderBy('name')->get(['id', 'name']);
+        $members = User::active()->when($groupId, fn ($q) => $q->whereHas('groups', fn ($g) => $g->whereKey($groupId)))
+            ->when($memberIds !== null, fn ($q) => $q->whereIn('id', $memberIds))->orderBy('name')->get(['id', 'name']);
         $records = Record::with('course')->where('status', 'completed')->whereIn('user_id', $members->pluck('id'))->get();
         $courses = Course::whereIn('id', $records->pluck('course_id')->unique())->orderBy('name')->get();
 
@@ -34,7 +39,7 @@ class Qualifications extends Component
     public function render()
     {
         return view('lehrgaenge::livewire.qualifications', [
-            ...self::table($this->groupId !== '' ? (int) $this->groupId : null),
+            ...self::table($this->groupId !== '' ? (int) $this->groupId : null, RegistrationService::viewableMemberIds(auth()->user())),
             'groups' => Group::options(),
         ]);
     }

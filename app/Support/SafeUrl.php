@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\IpUtils;
 
 /**
  * Outbound requests to addresses a user typed in (e.g. external calendars): only http(s) on the
@@ -16,6 +17,17 @@ use RuntimeException;
 class SafeUrl
 {
     public const MAX_REDIRECTS = 3;
+
+    /**
+     * Not public either, but let through by PHP's private/reserved filter: carrier-grade NAT (used
+     * by VPN meshes and cloud-internal networks), protocol assignments, benchmark and documentation
+     * networks, and the IPv6 forms that carry an IPv4 address inside (mapped, NAT64, 6to4, Teredo),
+     * which would reach an internal IPv4 host through a gateway.
+     */
+    private const NOT_PUBLIC = [
+        '100.64.0.0/10', '192.0.0.0/24', '192.0.2.0/24', '192.88.99.0/24', '198.18.0.0/15', '198.51.100.0/24', '203.0.113.0/24',
+        '::ffff:0:0/96', '64:ff9b::/96', '64:ff9b:1::/48', '2001::/23', '2001:db8::/32', '2002::/16',
+    ];
 
     /** Resolves a host to its IP addresses; replaceable in tests */
     private static ?Closure $resolver = null;
@@ -54,7 +66,8 @@ class SafeUrl
         }
         $ips = filter_var(trim($host, '[]'), FILTER_VALIDATE_IP) !== false ? [trim($host, '[]')]
             : (self::$resolver ? (self::$resolver)($host) : self::resolve($host));
-        $public = array_values(array_filter($ips, fn ($ip) => filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false));
+        $public = array_values(array_filter($ips, fn ($ip) => filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false
+            && ! IpUtils::checkIp($ip, self::NOT_PUBLIC)));
         if ($ips === [] || count($public) !== count($ips)) {
             throw new RuntimeException('Die Adresse ist nicht erreichbar.');
         }

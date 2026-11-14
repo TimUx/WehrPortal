@@ -84,16 +84,31 @@ function applyValues(form, values) {
     }
 }
 
+// The panel floats over the page, so it only shows when there is something to say: no connection,
+// local drafts, or a storage problem. Otherwise it would cover buttons at the bottom of the page.
+let online = navigator.onLine;
+let draftCount = 0;
+let storageError = false;
+
+function renderPanel() {
+    const panel = root?.querySelector('[data-offline-panel]');
+    if (panel) panel.hidden = online && draftCount === 0 && !storageError;
+}
+
 function renderStatus(isOnline = navigator.onLine) {
     const indicator = root?.querySelector('[data-offline-indicator]');
     const banner = root?.querySelector('[data-offline-banner]');
+    online = isOnline;
     if (indicator) indicator.textContent = isOnline ? 'Online' : 'Offline';
     if (banner) banner.hidden = isOnline;
+    renderPanel();
 }
 
 function showStorageError(show) {
     const error = root?.querySelector('[data-offline-storage-error]');
+    storageError = show;
     if (error) error.hidden = !show;
+    renderPanel();
 }
 
 async function listDrafts() {
@@ -119,8 +134,10 @@ async function refreshDrafts() {
     const count = root?.querySelector('[data-offline-count]');
     const list = root?.querySelector('[data-offline-drafts]');
     const button = root?.querySelector('[data-offline-open-drafts]');
+    draftCount = drafts.length;
     if (count) count.textContent = String(drafts.length);
     if (button) button.hidden = drafts.length === 0;
+    renderPanel();
     if (!list) return;
 
     list.replaceChildren();

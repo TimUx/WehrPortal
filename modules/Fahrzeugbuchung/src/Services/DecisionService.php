@@ -3,6 +3,8 @@
 namespace Modules\Fahrzeugbuchung\src\Services;
 
 use App\Models\User;
+use Extensions\Locations\Services\StandardRoleAssignments;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Carbon;
@@ -11,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Modules\Fahrzeugbuchung\src\Models\Booking;
 use Modules\Fahrzeugbuchung\src\Models\BookingDecision;
+use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 use Modules\Fahrzeugbuchung\src\Notifications\BookingReactivatedNotification;
 use Modules\Fahrzeugbuchung\src\Notifications\DecisionClosedNotification;
 use Modules\Fahrzeugbuchung\src\Notifications\DecisionMadeNotification;
@@ -20,6 +23,63 @@ use Throwable;
 
 class DecisionService
 {
+    private const MODULE = 'fahrzeugbuchung';
+
+    /**
+     * The Standorte whose vehicles this Kamerad decides about: null means all of them (admins, the
+     * classic Entscheider role, GBI/SBI), a list the Standorte where a standard role makes them
+     * Entscheider (Wehrführung). Empty: no decider at all.
+     *
+     * @return list<int>|null
+     */
+    public static function deciderLocationIds(User $user): ?array
+    {
+        if ($user->canDecide()) {
+            return null;
+        }
+        if (! $user->is_active || ! config('locations.enabled') || ! $user->canUseModule(self::MODULE)) {
+            return [];
+        }
+
+        return $user->standardRoleLocationIds(self::MODULE, ['entscheider']);
+    }
+
+    /** Decides at least somewhere: the tab, the list and the route are for them */
+    public static function decidesAnywhere(User $user): bool
+    {
+        return self::deciderLocationIds($user) !== [];
+    }
+
+    /** May this Kamerad decide about this booking? Depends on where its vehicle is stationed. */
+    public static function canDecideBooking(User $user, ?Booking $booking): bool
+    {
+        $locations = self::deciderLocationIds($user);
+        if ($locations === null) {
+            return true;
+        }
+        if ($locations === [] || $booking === null) {
+            return false;
+        }
+        $locationId = Vehicle::withoutGlobalScopes()->whereKey($booking->vehicle_id)->value('ext_location_id');
+
+        return $locationId !== null && in_array((int) $locationId, $locations, true);
+    }
+
+    /**
+     * Limits decisions to the ones this Kamerad decides about
+     *
+     * @param  Builder<BookingDecision>  $decisions
+     * @return Builder<BookingDecision>
+     */
+    public static function scopeDecidable(Builder $decisions, User $user): Builder
+    {
+        $locations = self::deciderLocationIds($user);
+
+        return $locations === null ? $decisions : $decisions->whereIn('booking_id', Booking::query()
+            ->whereIn('vehicle_id', Vehicle::withoutGlobalScopes()->whereIn('ext_location_id', $locations)->select('id'))
+            ->select('id'));
+    }
+
     /**
      * Store a booking that overlaps confirmed bookings as a pending request
      * and ask the deciders to resolve the conflict.
@@ -58,7 +118,7 @@ class DecisionService
                 'replaces_booking_id' => $replaces?->id,
                 'conflicting_booking_ids' => $conflicts->pluck('id')->all(),
                 'reason' => $reason,
-                'notified_user_ids' => $this->deciders()->pluck('id')->all(),
+                'notified_user_ids' => $this->deciders($booking)->pluck('id')->all(),
             ]);
             $decision->addHistory('requested', $requester, $reason);
             $decision->save();
@@ -198,15 +258,22 @@ class DecisionService
     }
 
     /** Active deciders; falls back to admins so a request never goes unanswered */
-    public function deciders(): Collection
+    public function deciders(?Booking $booking = null): Collection
     {
-        $deciders = User::active()
-            ->whereHas('moduleAccess', fn ($q) => $q
-                ->where('module', 'fahrzeugbuchung')
-                ->where('role', 'entscheider'))
+        // With a booking also who decides at the Standort of its vehicle through a standard role
+        $standard = [];
+        if ($booking !== null && config('locations.enabled')) {
+            $locationId = Vehicle::withoutGlobalScopes()->whereKey($booking->vehicle_id)->value('ext_location_id');
+            $standard = $locationId === null ? []
+                : app(StandardRoleAssignments::class)->userIdsWithModuleRole(self::MODULE, 'entscheider', (int) $locationId);
+        }
+        $deciders = User::withoutGlobalScopes()->active()
+            ->where(fn ($query) => $query
+                ->whereHas('moduleAccess', fn ($q) => $q->where('module', self::MODULE)->where('role', 'entscheider'))
+                ->orWhereIn('id', $standard))
             ->get();
 
-        return $deciders->isNotEmpty() ? $deciders : User::active()->where('is_admin', true)->get();
+        return $deciders->isNotEmpty() ? $deciders : User::withoutGlobalScopes()->active()->where('is_admin', true)->get();
     }
 
     private function applyOutcome(BookingDecision $decision, bool $approve): void

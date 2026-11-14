@@ -96,7 +96,7 @@ test('photos of plans become WebP; other files are refused', function () {
 test('at an Einsatz the plans of the Einsatzstelle come up everywhere; a far object does not', function () {
     $this->p->addDocument($this->planer, $this->school, 'feuerwehrplan', 'Feuerwehrplan Hauptgebäude', pdf());
     $leader = User::factory()->create();
-    $leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
+    $leader->moduleAccess()->create(['module' => 'einsatzbericht']);
     $leader->moduleAccess()->create(['module' => 'objektplaene']);
     $reports = app(ReportService::class);
     $report = $reports->create($leader);

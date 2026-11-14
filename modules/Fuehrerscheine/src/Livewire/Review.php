@@ -40,6 +40,7 @@ class Review extends Component
 
     public function saveInterval(): void
     {
+        abort_unless(LicenseService::canManageAll(auth()->user()), 403);
         $this->interval = max(1, min(36, $this->interval));
         Setting::set(LicenseService::INTERVAL_KEY, (string) $this->interval);
         $this->flash = 'Geprüft wird alle '.$this->interval.' Monate.';
@@ -49,6 +50,7 @@ class Review extends Component
     {
         $this->resetErrorBag();
         $license = License::with('user')->findOrFail($id);
+        abort_unless(LicenseService::canManageMember(auth()->user(), $license->user_id), 403);
         try {
             $action($license);
         } catch (ValidationException $e) {
@@ -62,13 +64,16 @@ class Review extends Component
 
     public function render(LicenseService $service)
     {
-        $matrix = $service->matrix();
-        $all = License::with(['user', 'photos'])->get()->filter(fn (License $l) => $l->user)->sortBy(fn (License $l) => $l->user->name);
+        // The Wehrführung sees and checks the members of its Standort only
+        $managed = LicenseService::managedMemberIds(auth()->user());
+        $matrix = $service->matrix($managed);
+        $all = License::with(['user', 'photos'])->when($managed !== null, fn ($query) => $query->whereIn('user_id', $managed))->get()->filter(fn (License $l) => $l->user)->sortBy(fn (License $l) => $l->user->name);
 
         return view('fuehrerscheine::livewire.review', [
             'pending' => $all->where('status', 'pending')->values(),
             'all' => $all->values(),
             'matrix' => $matrix,
+            'canManageAll' => $managed === null,
             'classes' => collect([...License::CLASSES, ...array_keys(License::FIRE)])->filter(fn ($c) => collect($matrix)->contains(fn ($row) => isset($row[$c])))->values(),
         ]);
     }

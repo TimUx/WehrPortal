@@ -5,6 +5,7 @@ namespace Modules\Fahrzeugbuchung\src\Policies;
 use App\Models\User;
 use Modules\Fahrzeugbuchung\src\Models\Booking;
 use Modules\Fahrzeugbuchung\src\Models\BookingComment;
+use Modules\Fahrzeugbuchung\src\Services\DecisionService;
 
 class BookingCommentPolicy
 {
@@ -25,8 +26,8 @@ class BookingCommentPolicy
     }
 
     /** Deciders (Wehrführung) and admins also see deleted messages and earlier versions */
-    public function viewHistory(User $user): bool
+    public function viewHistory(User $user, ?Booking $booking = null): bool
     {
-        return $user->canDecide();
+        return DecisionService::canDecideBooking($user, $booking);
     }
 }

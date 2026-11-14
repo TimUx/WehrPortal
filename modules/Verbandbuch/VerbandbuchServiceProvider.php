@@ -53,6 +53,10 @@ class VerbandbuchServiceProvider extends ServiceProvider
             provider: self::class,
             route: 'verbandbuch.index',
         );
+        // The classic module roles are not honoured with Standorte (see the access rules of the service)
+        if (config('locations.enabled')) {
+            app(ModuleRegistry::class)->markRolesIneffective('verbandbuch', VerbandbuchService::MANAGER_ROLES, 'Mit Standorten führt das Verbandbuch, wer die Standardrolle Wehrführung am Standort hat (Admin → Standardrollen).');
+        }
 
         app(PersonnelFileRegistry::class)->register('verbandbuch', 'Verbandbuch', 'verbandbuch.personnel-file');
 

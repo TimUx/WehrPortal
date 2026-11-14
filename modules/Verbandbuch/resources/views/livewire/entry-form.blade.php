@@ -84,7 +84,7 @@
             @error('first_aid_at')<p class="{{ $error }}">{{ $message }}</p>@enderror
             <label class="flex items-start gap-2 text-sm text-gray-700">
                 <input type="checkbox" wire:model="doctorVisited" class="mt-0.5 rounded text-fw-red focus:ring-fw-red">
-                <span>Arztbesuch oder Krankenhaus (z. B. Durchgangsarzt) – dann prüft die zuständige Wehrführung oder GBI/SBI, ob eine Unfallanzeige an die Unfallkasse nötig ist.</span>
+                <span>Arztbesuch oder Krankenhaus (z. B. Durchgangsarzt) – dann prüft die zuständige Wehrführung oder {{ app(\Extensions\Locations\Services\StandardRoleCatalog::class)->inspector() }}, ob eine Unfallanzeige an die Unfallkasse nötig ist.</span>
             </label>
         </section>
     @endif
@@ -102,7 +102,7 @@
             </div>
             @error('injured_signature')<p class="{{ $error }}">{{ $message }}</p>@enderror
         @endif
-        <p class="text-xs text-gray-500">Gesundheitsdaten werden verschlüsselt gespeichert. Den Eintrag sehen nur du, die verletzte Person, der Ersthelfer, GBI/SBI, Admins und die zuständige Wehrführung. Er wird {{ \Modules\Verbandbuch\src\Models\Entry::RETENTION_YEARS }} Jahre nach Ende des Jahres gelöscht (DGUV Vorschrift 1 § 24).</p>
+        <p class="text-xs text-gray-500">Gesundheitsdaten werden verschlüsselt gespeichert. Den Eintrag sehen nur du, die verletzte Person, der Ersthelfer, {{ app(\Extensions\Locations\Services\StandardRoleCatalog::class)->inspector() }}, Admins und die zuständige Wehrführung. Er wird {{ \Modules\Verbandbuch\src\Models\Entry::RETENTION_YEARS }} Jahre nach Ende des Jahres gelöscht (DGUV Vorschrift 1 § 24).</p>
     </section>
 
     @error('entry')<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{ $message }}</p>@enderror

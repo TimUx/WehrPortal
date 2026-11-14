@@ -43,6 +43,48 @@ class ModuleRegistry
         return str_starts_with($route, '/') ? url($route) : route($route);
     }
 
+    /** @var array<string, array<string, string>> module => role => why it does nothing */
+    private array $ineffectiveRoles = [];
+
+    /**
+     * Classic module roles a module no longer honours in this setup (with Standorte the rights
+     * come from standard roles). The admin pages still show them on who has one, but don't offer them.
+     *
+     * @param  string[]  $roles
+     */
+    public function markRolesIneffective(string $key, array $roles, string $why): void
+    {
+        foreach ($roles as $role) {
+            $this->ineffectiveRoles[$key][$role] = $why;
+        }
+    }
+
+    /** @return array<string, string> role => why */
+    public function ineffectiveRoles(string $key): array
+    {
+        return $this->ineffectiveRoles[$key] ?? [];
+    }
+
+    /** @return array<string, string> role => label for the role selects of the admin pages */
+    public function roleOptions(string $key): array
+    {
+        $options = [];
+        foreach ($this->definitions[$key]['roles'] ?? [] as $role) {
+            $options[$role] = ucfirst($role).(isset($this->ineffectiveRoles[$key][$role]) ? ' (ohne Wirkung)' : '');
+        }
+
+        return $options;
+    }
+
+    /** The hint under a role select, null when every role works */
+    public function ineffectiveRolesHint(string $key): ?string
+    {
+        $roles = $this->ineffectiveRoles($key);
+
+        return $roles === [] ? null
+            : 'Ohne Wirkung: '.implode(', ', array_map('ucfirst', array_keys($roles))).'. '.array_values($roles)[0];
+    }
+
     /** @var array<string, Closure> */
     private array $navigations = [];
 

@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\InitialsAvatarProvider;
 use App\Services\OrganizationSettings;
 use App\Support\BrandColor;
 use Filament\Http\Middleware\Authenticate;
@@ -47,6 +48,8 @@ class AdminPanelProvider extends PanelProvider
             ->brandLogo(fn () => view('filament.brand', ['name' => app(OrganizationSettings::class)->shortName().' Admin']))
             ->brandLogoHeight('auto')
             ->favicon(asset('images/wehrportal-icon.svg'))
+            // No request to an outside avatar service
+            ->defaultAvatarProvider(InitialsAvatarProvider::class)
             ->navigationItems([
                 NavigationItem::make('Zur Übersicht')
                     ->url(fn () => route('home'))

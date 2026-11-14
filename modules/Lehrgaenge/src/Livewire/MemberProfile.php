@@ -28,9 +28,15 @@ class MemberProfile extends Component
         abort_unless(auth()->user()?->canViewLehrgaenge(), 403);
     }
 
+    /** After mount and every hydrate: the Wehrführung opens members of its Standort only */
+    public function booted(): void
+    {
+        abort_unless(RegistrationService::canViewMember(auth()->user(), (int) $this->member->id), 403);
+    }
+
     public function addCompleted(RegistrationService $registrations): void
     {
-        abort_unless(auth()->user()->canManageLehrgaenge(), 403);
+        abort_unless(RegistrationService::canManageMember(auth()->user(), (int) $this->member->id), 403);
         $this->resetErrorBag();
 
         try {
@@ -104,7 +110,7 @@ class MemberProfile extends Component
 
     private function completedRecord(int $id): Record
     {
-        abort_unless(auth()->user()->canManageLehrgaenge(), 403);
+        abort_unless(RegistrationService::canManageMember(auth()->user(), (int) $this->member->id), 403);
 
         return Record::with(['course', 'user'])->where('user_id', $this->member->id)->where('status', 'completed')->findOrFail($id);
     }
@@ -117,9 +123,9 @@ class MemberProfile extends Component
             'completed' => $records->where('status', 'completed')->sortByDesc(fn (Record $r) => $r->completed_on?->timestamp ?? 0)->values(),
             'open' => $records->whereIn('status', Record::OPEN)->sortBy('created_at')->values(),
             'cancelled' => $records->whereIn('status', ['cancelled', 'rejected'])->sortByDesc('cancelled_at')->values(),
-            'canManage' => auth()->user()->canManageLehrgaenge(),
+            'canManage' => RegistrationService::canManageMember(auth()->user(), (int) $this->member->id),
             'deletions' => Deletion::with('deleter')->where('user_id', $this->member->id)->latest()->get(),
-            'courseNames' => auth()->user()->canManageLehrgaenge() ? Course::orderBy('name')->pluck('name') : collect(),
+            'courseNames' => RegistrationService::canManageMember(auth()->user(), (int) $this->member->id) ? Course::orderBy('name')->pluck('name') : collect(),
         ]);
     }
 }

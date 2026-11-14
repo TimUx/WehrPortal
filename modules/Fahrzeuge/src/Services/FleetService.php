@@ -13,6 +13,7 @@ use Carbon\CarbonInterface;
 use Extensions\Locations\Models\Location as Standort;
 use Extensions\Locations\Services\LocationAccess;
 use Extensions\Locations\Services\LocationContext;
+use Extensions\Locations\Services\StandardRoleAssignments;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\QueryException;
@@ -117,6 +118,23 @@ class FleetService
         $managers = User::active()->whereHas('moduleAccess', fn ($q) => $q->where('module', self::MODULE)->where('role', 'fahrzeugwart'))->get();
 
         return $managers->isNotEmpty() ? $managers : User::active()->where('is_admin', true)->get();
+    }
+
+    /**
+     * Who looks after the vehicles of a Standort: the Fahrzeugwarte of the classic module role and
+     * who holds that role through a standard role there (Gerätewart, Wehrführung); the admins when
+     * there is nobody.
+     */
+    public function managersAt(?int $locationId): EloquentCollection
+    {
+        $standard = config('locations.enabled')
+            ? app(StandardRoleAssignments::class)->userIdsWithModuleRole(self::MODULE, 'fahrzeugwart', $locationId)
+            : [];
+        $managers = User::withoutGlobalScopes()->active()->where(fn ($query) => $query
+            ->whereHas('moduleAccess', fn ($q) => $q->where('module', self::MODULE)->where('role', 'fahrzeugwart'))
+            ->orWhereIn('id', $standard))->get();
+
+        return $managers->isNotEmpty() ? $managers : User::withoutGlobalScopes()->active()->where('is_admin', true)->get();
     }
 
     public static function today(): Carbon
@@ -446,7 +464,7 @@ class FleetService
                 $vehicle = $deadline->vehicle()->first();
                 $eventId = app(EventService::class)->create(['title' => ($vehicle?->name ?? 'Fahrzeug').': '.$deadline->title, 'type' => 'wartung', 'all_day' => true,
                     'starts_at' => $start, 'ends_at' => $start->copy()->addDay(), 'managed_by' => self::MODULE,
-                    'description' => 'Frist aus der Fahrzeugverwaltung – erledigt wird sie im Fahrzeugprofil.'], [], null, null, false, $this->managers()->pluck('id')->all(),
+                    'description' => 'Frist aus der Fahrzeugverwaltung – erledigt wird sie im Fahrzeugprofil.'], [], null, null, false, $this->managersAt($vehicle?->ext_location_id ? (int) $vehicle->ext_location_id : null)->pluck('id')->all(),
                     locationIds: $vehicle?->ext_location_id ? [(int) $vehicle->ext_location_id] : [])
                     ->first()?->id;
             }
@@ -814,12 +832,17 @@ class FleetService
             return 0;
         }
 
-        $managers = $this->managers();
+        $managers = [];
+        $managersOf = function (Deadline $deadline) use (&$managers) {
+            $locationId = $deadline->vehicle->getAttribute('ext_location_id');
+
+            return $managers[$locationId ?? 0] ??= $this->managersAt($locationId === null ? null : (int) $locationId);
+        };
         app(LocationNotifications::class)->digest(
             $due->toBase()->concat($overdue),
             fn (Deadline $deadline) => $deadline->vehicle->getAttribute('ext_location_id'),
             fn (Collection $entries) => new DeadlineDigestNotification($entries->whereIn('id', $dueIds)->values(), $entries->whereIn('id', $overdueIds)->values()),
-            fn () => $managers,
+            $managersOf,
         );
 
         return $due->count() + $overdue->count();

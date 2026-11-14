@@ -27,13 +27,13 @@ class SituationService
 
     public static function canSee(User $user, Report $report): bool
     {
-        if (ReportService::canLeadReport($user, $report)) {
+        // Who opens the report sees its Lagemeldungen too (the readers without writing any)
+        if (ReportService::canReadReport($user, $report)) {
             return true;
         }
 
         if ($user->hasAnyModuleRole('einsatzbericht', 'wehrführung')
-            && ! $user->hasModuleRole('einsatzbericht', 'wehrführung')
-            && ! $user->hasModuleRole('einsatzbericht', 'einsatzleiter')) {
+            && ! $user->hasModuleRole('einsatzbericht', 'wehrführung')) {
             return false;
         }
 
@@ -43,7 +43,8 @@ class SituationService
     /** @param  list<UploadedFile>  $photos */
     public function post(User $by, Report $report, ?string $text, bool $important, array $photos = []): SituationMessage
     {
-        if (! self::canSee($by, $report)) {
+        // Reading a report that is over is not writing into it
+        if (! self::canSee($by, $report) || (! ReportService::canLeadReport($by, $report) && ! $report->isRunning())) {
             throw ValidationException::withMessages(['message' => 'Der Einsatz ist beendet; Lagemeldungen schreiben nur noch Einsatzleiter und Wehrführung.']);
         }
 

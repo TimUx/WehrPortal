@@ -47,7 +47,7 @@ class Extras extends Component
     private function report(): Report
     {
         $report = Report::findOrFail($this->reportId);
-        abort_unless(ReportService::canLead(auth()->user()), 403);
+        abort_unless(ReportService::canReadReport(auth()->user(), $report), 403);
 
         return $report;
     }

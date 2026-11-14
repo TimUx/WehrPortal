@@ -21,7 +21,8 @@ class Topics extends Component
 
     public function boot(): void
     {
-        abort_unless(InstructionService::canManage(auth()->user()), 403);
+        // The kinds are not for the Wehrführung of a Standort, who only holds Unterweisungen
+        abort_unless(InstructionService::canManage(auth()->user()) && ! InstructionService::isLocalManager(auth()->user()), 403);
     }
 
     public function mount(): void

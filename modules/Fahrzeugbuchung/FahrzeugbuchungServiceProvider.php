@@ -28,6 +28,7 @@ use Modules\Fahrzeugbuchung\src\Models\Vehicle;
 use Modules\Fahrzeugbuchung\src\Policies\BookingCommentPolicy;
 use Modules\Fahrzeugbuchung\src\Policies\BookingPolicy;
 use Modules\Fahrzeugbuchung\src\Policies\VehiclePolicy;
+use Modules\Fahrzeugbuchung\src\Services\DecisionService;
 
 class FahrzeugbuchungServiceProvider extends ServiceProvider
 {
@@ -62,7 +63,10 @@ class FahrzeugbuchungServiceProvider extends ServiceProvider
         Gate::policy(Vehicle::class, VehiclePolicy::class);
         Gate::policy(BookingComment::class, BookingCommentPolicy::class);
 
-        Gate::define('decide-bookings', fn (User $user) => $user->canDecide());
+        // With a decision: this one; without: deciding anywhere (the list filters by Standort)
+        Gate::define('decide-bookings', fn (User $user, ?BookingDecision $decision = null) => $decision === null
+            ? DecisionService::decidesAnywhere($user)
+            : DecisionService::canDecideBooking($user, Booking::find($decision->booking_id)));
 
         // Explicit aliases so existing Blade wire tags keep working after the namespace move
         Livewire::component('booking.booking-form', BookingForm::class);
@@ -89,7 +93,7 @@ class FahrzeugbuchungServiceProvider extends ServiceProvider
             'tabs' => [
                 ModuleNav::tab('Kalender', 'fahrzeugbuchung.calendar'),
                 ModuleNav::tab('Meine Buchungen', 'fahrzeugbuchung.my-bookings'),
-                $u->canDecide() ? ModuleNav::tab('Entscheidungen', 'fahrzeugbuchung.decisions.index', ['fahrzeugbuchung.decisions.*'], BookingDecision::pending()->count()) : null,
+                DecisionService::decidesAnywhere($u) ? ModuleNav::tab('Entscheidungen', 'fahrzeugbuchung.decisions.index', ['fahrzeugbuchung.decisions.*'], DecisionService::scopeDecidable(BookingDecision::pending(), $u)->count()) : null,
             ],
             'manage' => $u->is_admin ? FahrzeugbuchungDashboard::getUrl() : null,
         ]);

@@ -8,6 +8,7 @@ use App\Support\Csv;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\LocationContext;
 use Extensions\Locations\Services\StandardRoleAssignments;
+use Extensions\Locations\Services\StandardRoleCatalog;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Carbon;
@@ -296,7 +297,7 @@ class ExposureService
     public function proposeForCrew(User $by, Report $report, array $userIds, array $data): int
     {
         if (! self::canPropose($by, $report)) {
-            throw ValidationException::withMessages(['exposure' => 'Das dürfen GBI/SBI und die zuständige Wehrführung.']);
+            throw ValidationException::withMessages(['exposure' => 'Das dürfen '.app(StandardRoleCatalog::class)->inspector().' und die zuständige Wehrführung.']);
         }
         $crew = $report->crew()->with('user')->whereIn('user_id', $userIds)->get();
         if ($crew->isEmpty()) {

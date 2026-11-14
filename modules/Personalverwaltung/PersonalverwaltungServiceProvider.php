@@ -105,6 +105,10 @@ class PersonalverwaltungServiceProvider extends ServiceProvider
             // Personalverwalter and Personaleinsicht open the module (Kameraden), everyone else their Laufbahn in the Personalakte
             startRoute: fn (User $user) => PersonnelService::canView($user) ? 'personalverwaltung.index' : 'personalverwaltung.own',
         );
+        // The classic module roles are not honoured with Standorte (see the access rules of the service)
+        if (config('locations.enabled')) {
+            app(ModuleRegistry::class)->markRolesIneffective('personalverwaltung', ['personalverwalter', 'personaleinsicht'], 'Mit Standorten kommen die Rechte aus den Standardrollen (Wehrführung, Jugend- und Kinderwart, GBI/SBI) unter Admin → Standardrollen.');
+        }
 
         app(PersonnelFileRegistry::class)->register('personalverwaltung', 'Laufbahn & Ehrungen', 'personalverwaltung.own');
         app(PersonnelFileRegistry::class)->register('personalverwaltung', 'Persönliche Daten', 'personalverwaltung.own-data', fn () => PersonnelService::selfService());

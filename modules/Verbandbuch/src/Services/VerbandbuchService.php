@@ -7,6 +7,7 @@ use App\Support\SignatureImage;
 use Extensions\Locations\Services\LocationAccess;
 use Extensions\Locations\Services\LocationContext;
 use Extensions\Locations\Services\StandardRoleAssignments;
+use Extensions\Locations\Services\StandardRoleCatalog;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Notifications\Notification;
@@ -465,7 +466,7 @@ class VerbandbuchService
     private function assertManager(User $user, Entry $entry): void
     {
         if (! self::canManageEntry($user, $entry)) {
-            throw ValidationException::withMessages(['entry' => 'Das dürfen nur die zuständige Wehrführung, GBI/SBI und Admins.']);
+            throw ValidationException::withMessages(['entry' => 'Das dürfen nur die zuständige Wehrführung, '.app(StandardRoleCatalog::class)->inspector().' und Admins.']);
         }
     }
 

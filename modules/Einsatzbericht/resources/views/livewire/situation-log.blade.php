@@ -3,6 +3,8 @@
     @if($flash)<p class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{{ $flash }}</p>@endif
     @error('message')<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{ $message }}</p>@enderror
 
+    {{-- Who only reads a finished Einsatz gets no form --}}
+    @if($lead || $running)
     <form wire:submit="send" class="space-y-2 rounded-xl border border-gray-200 bg-white p-3">
         <textarea wire:model="text" rows="2" maxlength="2000" placeholder="Lage kurz beschreiben …" class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-base sm:text-sm focus:border-fw-red focus:ring-fw-red"></textarea>
         @if($photos)
@@ -30,6 +32,7 @@
         </div>
         <p class="text-xs text-gray-500">Fotos sollen die Lage zeigen, keine erkennbaren Personen. Höchstens {{ \Modules\Einsatzbericht\src\Services\SituationService::MAX_PHOTOS }} je Meldung.</p>
     </form>
+    @endif
 
     <ul class="space-y-2">
         @forelse($messages as $msg)

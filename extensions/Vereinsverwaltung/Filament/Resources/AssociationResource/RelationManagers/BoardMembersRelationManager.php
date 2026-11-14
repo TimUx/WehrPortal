@@ -34,6 +34,8 @@ class BoardMembersRelationManager extends RelationManager
             ->recordTitleAttribute('name')
             ->columns([
                 Tables\Columns\TextColumn::make('name')->label('Name')->searchable(),
+                Tables\Columns\TextColumn::make('office')->label('Amt')
+                    ->state(fn (User $record) => Association::officeLabel($record->getAttribute('office'), (bool) $record->getAttribute('is_deputy'))),
                 Tables\Columns\TextColumn::make('email')->label('E-Mail'),
             ])
             ->headerActions([
@@ -45,23 +47,43 @@ class BoardMembersRelationManager extends RelationManager
                             ->options(fn () => User::query()->withoutGlobalScopes()->where('is_active', true)->orderBy('name')->pluck('name', 'id'))
                             ->searchable()
                             ->required(),
+                        ...$this->officeFields(),
                     ])
-                    ->action(function (array $data): void {
-                        $user = User::query()->withoutGlobalScopes()->where('is_active', true)->findOrFail($data['user_id']);
-                        $this->getOwnerRecord()->boardMembers()->syncWithoutDetaching([$user->id]);
-                        app(AssociationAccess::class)->syncModuleAccess($user);
-                    }),
+                    ->action(fn (array $data) => app(AssociationAccess::class)->setBoardMember(
+                        auth()->user(), $this->association(), (int) $data['user_id'], $data['office'] ?? null, (bool) ($data['is_deputy'] ?? false),
+                    )),
             ])
             ->recordActions([
+                Actions\Action::make('setOffice')
+                    ->label('Amt ändern')
+                    ->fillForm(fn (User $record) => ['office' => $record->getAttribute('office'), 'is_deputy' => (bool) $record->getAttribute('is_deputy')])
+                    ->form($this->officeFields())
+                    ->action(fn (User $record, array $data) => app(AssociationAccess::class)->setBoardMember(
+                        auth()->user(), $this->association(), $record->id, $data['office'] ?? null, (bool) ($data['is_deputy'] ?? false),
+                    )),
                 Actions\Action::make('removeBoardMember')
                     ->label('Zuweisung entfernen')
                     ->color('danger')
                     ->requiresConfirmation()
-                    ->action(function (User $record): void {
-                        $association = $this->getOwnerRecord();
-                        $association->boardMembers()->detach($record->id);
-                        app(AssociationAccess::class)->syncModuleAccess($record);
-                    }),
+                    ->action(fn (User $record) => app(AssociationAccess::class)->removeBoardMember(auth()->user(), $this->association(), $record->id)),
             ]);
+    }
+
+    private function association(): Association
+    {
+        /** @var Association $association */
+        $association = $this->getOwnerRecord();
+
+        return $association;
+    }
+
+    /** @return list<Forms\Components\Field> */
+    private function officeFields(): array
+    {
+        return [
+            Forms\Components\Select::make('office')->label('Amt')->options(Association::OFFICES)->placeholder('Vorstandsmitglied ohne Amt')
+                ->helperText('Der Vorsitz und seine Stellvertretung stellen den Vorstand ihres Vereins selbst zusammen.'),
+            Forms\Components\Toggle::make('is_deputy')->label('Stellvertretung'),
+        ];
     }
 }

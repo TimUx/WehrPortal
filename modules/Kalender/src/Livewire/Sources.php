@@ -19,6 +19,12 @@ class Sources extends Component
 
     public ?string $flash = null;
 
+    /** External calendars belong to who keeps a whole Standort; checked on every request */
+    public function boot(): void
+    {
+        $this->authorize('manageCalendar', Event::class);
+    }
+
     public function add(SourceSync $sync): void
     {
         $this->validate([

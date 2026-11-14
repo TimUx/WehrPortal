@@ -83,7 +83,7 @@ class UnterweisungenServiceProvider extends ServiceProvider
             }
             $manage = 0;
             if (InstructionService::canManage($user)) {
-                $m = $service->matrix();
+                $m = $service->matrix(null, $user);
                 $manage = $m['users']->filter(fn ($u) => collect($m['cells'][$u->id] ?? [])->contains(fn ($c) => $c['required'] && in_array($c['state'], ['expired', 'missing'], true)))->count();
             }
 
@@ -104,7 +104,7 @@ class UnterweisungenServiceProvider extends ServiceProvider
         app(ModuleRegistry::class)->navigation('unterweisungen', fn (User $u) => [
             'tabs' => [
                 InstructionService::canManage($u) ? ModuleNav::tab('Übersicht', 'unterweisungen.overview', ['unterweisungen.session', 'unterweisungen.new']) : null,
-                InstructionService::canManage($u) ? ModuleNav::tab('Arten', 'unterweisungen.topics') : null,
+                InstructionService::canManage($u) && ! InstructionService::isLocalManager($u) ? ModuleNav::tab('Arten', 'unterweisungen.topics') : null,
             ],
         ]);
     }

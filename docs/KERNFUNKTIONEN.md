@@ -162,7 +162,7 @@ Nur-Lese-Ansicht für den Bildschirm in der Wache im Stil von Divera. Sie aktual
 - **Fahrzeugkacheln:** Grün heißt frei (mit nächster Buchung). Gelb heißt ab einer Uhrzeit innerhalb der nächsten 2 Stunden gebucht. Rot heißt unterwegs bis …, jeweils mit Zweck und Name.
 - **Liste:** die nächsten Buchungen der kommenden 7 Tage, offene Anfragen mit „Angefragt“ markiert.
 - **Datenschutz:** Namen werden verkürzt angezeigt („Hanna H.“). Es gibt keinerlei Bearbeitungsfunktionen, und die Seite ist keinem Benutzer zugeordnet.
-- **Zugriff:** Der Wachen-PC öffnet `/monitor/<DISPLAY_TOKEN>` ohne Login. Ohne oder mit falschem Schlüssel antwortet die Seite mit 404. Admins öffnen `/monitor` direkt. Den fertigen Link zeigt das Admin-Dashboard. Wird `DISPLAY_TOKEN` in der Betriebskonfiguration geändert und die App mit `docker compose up -d` neu erstellt, ist der alte Link ungültig.
+- **Zugriff:** Der Wachen-PC öffnet `/fahrzeugbuchung/monitor/<DISPLAY_TOKEN>` ohne Login. Ohne oder mit falschem Schlüssel antwortet die Seite mit 404. Admins öffnen `/fahrzeugbuchung/monitor` direkt. Den fertigen Link zeigt das Admin-Dashboard. Wird `DISPLAY_TOKEN` in der Betriebskonfiguration geändert und die App mit `docker compose up -d` neu erstellt, ist der alte Link ungültig.
 
 #### E-Mails
 

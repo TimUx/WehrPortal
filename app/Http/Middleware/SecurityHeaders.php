@@ -10,8 +10,8 @@ use Symfony\Component\HttpFoundation\Response;
  * Security headers on every response: no MIME sniffing (stored uploads are served with their own
  * type), no framing by other sites (except the public calendar, which Wehren embed on their
  * website), a strict Referrer-Policy, only the browser features the app uses, HSTS over HTTPS and a
- * Content-Security-Policy. The CSP is report-only for now: it shows violations in the browser
- * console without blocking anything, until it has proven itself on real instances.
+ * Content-Security-Policy. The CSP is report-only by default: it shows violations in the browser
+ * console without blocking anything. CSP_ENFORCE=true (config app.csp_enforce) makes it binding.
  */
 class SecurityHeaders
 {
@@ -34,7 +34,7 @@ class SecurityHeaders
         if (! $request->routeIs(...self::EMBEDDABLE)) {
             $headers->set('X-Frame-Options', 'SAMEORIGIN');
             if (! $headers->has('Content-Security-Policy') && ! $headers->has('Content-Security-Policy-Report-Only')) {
-                $headers->set('Content-Security-Policy-Report-Only', self::CSP);
+                $headers->set(config('app.csp_enforce') ? 'Content-Security-Policy' : 'Content-Security-Policy-Report-Only', self::CSP);
             }
         }
         if ($request->isSecure()) {

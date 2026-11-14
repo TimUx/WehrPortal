@@ -65,6 +65,8 @@ class LehrgaengeServiceProvider extends ServiceProvider
         });
 
         Gate::define('manage-lehrgaenge', fn (User $user) => $user->canManageLehrgaenge());
+        // Registrations and absolvierte Lehrgänge: the Ausbildungsleiter for everyone, the Wehrführung for its Standort
+        Gate::define('manage-lehrgaenge-members', fn (User $user) => RegistrationService::canManageAny($user));
         Gate::define('view-lehrgaenge', fn (User $user) => $user->canViewLehrgaenge());
 
         foreach (['my-courses' => MyCourses::class, 'registrations' => Registrations::class, 'members' => Members::class, 'member-profile' => MemberProfile::class, 'course-list' => CourseList::class, 'qualifications' => Qualifications::class, 'result-imports' => ResultImports::class] as $name => $class) {
@@ -143,7 +145,7 @@ class LehrgaengeServiceProvider extends ServiceProvider
                 $u->canViewLehrgaenge() ? ModuleNav::tab('Lehrgangsplan', 'lehrgaenge.plan') : null,
                 $u->canViewLehrgaenge() ? ModuleNav::tab('Ausbildungsstand', 'lehrgaenge.qualifications') : null,
                 $u->canViewLehrgaenge() ? ModuleNav::tab('Kameraden', 'lehrgaenge.members', ['lehrgaenge.member']) : null,
-                $u->canManageLehrgaenge() ? ModuleNav::tab('Anmeldungen', 'lehrgaenge.registrations') : null,
+                RegistrationService::canManageAny($u) ? ModuleNav::tab('Anmeldungen', 'lehrgaenge.registrations') : null,
                 $u->canManageLehrgaenge() ? ModuleNav::tab('Lehrgangsliste', 'lehrgaenge.courses') : null,
                 $u->canManageLehrgaenge() ? ModuleNav::tab('Import', 'lehrgaenge.import') : null,
             ],

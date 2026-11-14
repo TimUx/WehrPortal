@@ -211,7 +211,7 @@ test('who is out at an Einsatz or booked right now, and the Einsatzhistorie', fu
     $this->hanna->forceFill(['ext_location_id' => $location->id])->save();
     $this->hlf->update(['ext_location_id' => $location->id]);
     joinIncidentDepartment($this->hanna, $location);
-    $leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
+    $leader->moduleAccess()->create(['module' => 'einsatzbericht']);
     $reports = app(ReportService::class);
     $report = $reports->create($leader);
     $reports->start($leader, $report);

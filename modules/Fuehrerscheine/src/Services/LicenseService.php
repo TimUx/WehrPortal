@@ -5,6 +5,7 @@ namespace Modules\Fuehrerscheine\src\Services;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\ModuleRegistry;
+use Extensions\Locations\Services\StandardRoleAssignments;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
@@ -48,10 +49,37 @@ class LicenseService
         return Carbon::parse(now('Europe/Berlin')->toDateString());
     }
 
+    /** Checks licences of at least some Kameraden; whose, says managedMemberIds() */
     public static function canManage(User $user): bool
     {
         return $user->is_active && $user->canUseModule(self::MODULE)
-            && ($user->is_admin || $user->hasModuleRole(self::MODULE, 'fuehrerscheinpruefer'));
+            && ($user->is_admin || $user->hasAnyModuleRole(self::MODULE, 'fuehrerscheinpruefer'));
+    }
+
+    /**
+     * Whose licences this Kamerad checks: null = everyone's (admins, Führerscheinprüfer, GBI/SBI),
+     * a list = the members of the Standorte where they are Wehrführung.
+     *
+     * @return list<int>|null
+     */
+    public static function managedMemberIds(User $user): ?array
+    {
+        return self::canManage($user)
+            ? app(StandardRoleAssignments::class)->managedMemberIds($user, self::MODULE, 'fuehrerscheinpruefer')
+            : [];
+    }
+
+    /** Settings and the like: only who checks everyone's */
+    public static function canManageAll(User $user): bool
+    {
+        return self::managedMemberIds($user) === null;
+    }
+
+    public static function canManageMember(User $user, ?int $memberId): bool
+    {
+        $managed = self::managedMemberIds($user);
+
+        return $managed === null || ($memberId !== null && in_array($memberId, $managed, true));
     }
 
     public static function interval(): int
@@ -59,11 +87,18 @@ class LicenseService
         return max(1, min(36, (int) Setting::get(self::INTERVAL_KEY, 6)));
     }
 
-    public function managers(): EloquentCollection
+    /** Who checks the licence of this Kamerad: the Führerscheinprüfer and the Wehrführung of their Standort */
+    public function managers(?User $member = null): EloquentCollection
     {
-        $managers = User::active()->whereHas('moduleAccess', fn ($q) => $q->where('module', self::MODULE)->where('role', 'fuehrerscheinpruefer'))->get();
+        $locationId = $member?->getAttribute('ext_location_id');
+        $standard = $locationId !== null && config('locations.enabled')
+            ? app(StandardRoleAssignments::class)->userIdsWithModuleRole(self::MODULE, 'fuehrerscheinpruefer', (int) $locationId)
+            : [];
+        $managers = User::withoutGlobalScopes()->active()->where(fn ($query) => $query
+            ->whereHas('moduleAccess', fn ($q) => $q->where('module', self::MODULE)->where('role', 'fuehrerscheinpruefer'))
+            ->orWhereIn('id', $standard))->get();
 
-        return $managers->isNotEmpty() ? $managers : User::active()->where('is_admin', true)->get();
+        return $managers->isNotEmpty() ? $managers : User::withoutGlobalScopes()->active()->where('is_admin', true)->get();
     }
 
     /**
@@ -95,7 +130,7 @@ class LicenseService
                 }
             }
         });
-        $this->notify($this->managers()->reject(fn (User $u) => $u->is($member)), new LicenseSubmittedNotification($license->load('user')));
+        $this->notify($this->managers($member)->reject(fn (User $u) => $u->is($member)), new LicenseSubmittedNotification($license->load('user')));
 
         return $license;
     }
@@ -103,7 +138,7 @@ class LicenseService
     /** The Prüfer confirms: the photos match. A card that has run out can't be validated, a class that has run out can */
     public function validate(User $by, License $license, ?string $note = null): void
     {
-        $this->assertManager($by);
+        $this->assertManager($by, $license);
         if ($license->status !== 'pending') {
             throw ValidationException::withMessages(['license' => 'Dieser Führerschein wartet nicht auf eine Prüfung.']);
         }
@@ -115,7 +150,7 @@ class LicenseService
 
     public function reject(User $by, License $license, string $reason): void
     {
-        $this->assertManager($by);
+        $this->assertManager($by, $license);
         if (trim($reason) === '') {
             throw ValidationException::withMessages(['reason' => 'Bitte kurz sagen, was nicht passt – der Kamerad bekommt es.']);
         }
@@ -205,11 +240,16 @@ class LicenseService
 
     // ─── Auswertung, Erinnerungen, Kalender ──────────────────────────────────
 
-    /** @return array<string, array<string, int>> Abteilung → class → number of Kameraden with it valid and checked */
-    public function matrix(): array
+    /**
+     * @param  list<int>|null  $memberIds  only these Kameraden; null = everyone
+     * @return array<string, array<string, int>> Abteilung → class → number of Kameraden with it valid and checked
+     */
+    public function matrix(?array $memberIds = null): array
     {
         $matrix = [];
-        foreach (License::with('user.groups')->where('status', 'validated')->get() as $license) {
+        $licenses = License::with('user.groups')->where('status', 'validated')
+            ->when($memberIds !== null, fn ($query) => $query->whereIn('user_id', $memberIds))->get();
+        foreach ($licenses as $license) {
             if (! $license->user?->is_active || $license->documentExpired()) {
                 continue;
             }
@@ -301,10 +341,10 @@ class LicenseService
         return ['document_valid_until' => $document, 'classes' => $clean];
     }
 
-    private function assertManager(User $user): void
+    private function assertManager(User $user, License $license): void
     {
-        if (! self::canManage($user)) {
-            throw ValidationException::withMessages(['license' => 'Das dürfen nur Führerscheinprüfer und Admins.']);
+        if (! self::canManageMember($user, $license->user_id)) {
+            throw ValidationException::withMessages(['license' => 'Das dürfen nur Führerscheinprüfer, die Wehrführung des Standorts und Admins.']);
         }
     }
 

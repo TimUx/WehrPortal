@@ -137,7 +137,7 @@ class Event extends Model implements LocationAssignable
     }
 
     /**
-     * Terminverwalter see everything; everyone else the events for all (no target group set), for
+     * Terminverwalter see everything, the Wehrführung all of its Standort; everyone else the events for all (no target group set), for
      * their Abteilungen or Funktionen, and those they are invited to personally.
      */
     public function scopeVisibleTo(Builder $query, User $user): Builder
@@ -146,21 +146,31 @@ class Event extends Model implements LocationAssignable
             return $query;
         }
 
-        $locationIds = $user->standardRoleLocationIds('kalender', ['terminverwalter']);
-        if ($locationIds !== []) {
-            return $query->where(function (Builder $query) use ($locationIds, $user) {
-                $query->where(function (Builder $query) use ($locationIds) {
+        $locationIds = $user->kalenderLocationIds();
+        // Jugend- and Kinderwarte see what is planned for their Abteilung, member of it or not
+        $groupIds = $user->kalenderGroupIds();
+        if ($locationIds === [] && $groupIds === []) {
+            return Audience::scope($query, $user);
+        }
+
+        return $query->where(function (Builder $query) use ($locationIds, $groupIds, $user) {
+            $query->where(fn (Builder $query) => Audience::scope($query, $user));
+            if ($locationIds !== []) {
+                $query->orWhere(function (Builder $query) use ($locationIds) {
                     $query->whereIn('kal_events.ext_location_id', $locationIds);
                     if (config('locations.enabled') && Schema::hasTable('kal_event_location')) {
                         $query->orWhereExists(fn ($locations) => $locations->selectRaw('1')->from('kal_event_location')
                             ->whereColumn('kal_event_location.event_id', 'kal_events.id')
                             ->whereIn('kal_event_location.location_id', $locationIds));
                     }
-                })->orWhere(fn (Builder $query) => Audience::scope($query, $user));
-            });
-        }
-
-        return Audience::scope($query, $user);
+                });
+            }
+            if ($groupIds !== []) {
+                $query->orWhereExists(fn ($groups) => $groups->selectRaw('1')->from('kal_event_group')
+                    ->whereColumn('kal_event_group.event_id', 'kal_events.id')
+                    ->whereIn('kal_event_group.group_id', $groupIds));
+            }
+        });
     }
 
     public function scopePublic(Builder $query): Builder

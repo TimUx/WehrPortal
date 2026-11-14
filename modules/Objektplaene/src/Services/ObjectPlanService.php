@@ -50,7 +50,8 @@ class ObjectPlanService
 
     public static function canManage(User $user): bool
     {
-        return self::canView($user) && ($user->is_admin || $user->hasModuleRole(self::MODULE, 'planverwalter'));
+        // hasAnyModuleRole: these records belong to the whole Kommune, so the Wehrführung of any Standort keeps them too
+        return self::canView($user) && ($user->is_admin || $user->hasAnyModuleRole(self::MODULE, 'planverwalter'));
     }
 
     public function managers(): EloquentCollection

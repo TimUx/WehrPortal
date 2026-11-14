@@ -22,7 +22,7 @@ class ReportList extends Component
 
     public function mount(): void
     {
-        abort_unless(ReportService::canLead(auth()->user()), 403);
+        abort_unless(ReportService::canSeeList(auth()->user()), 403);
         $this->year ??= now('Europe/Berlin')->year;
     }
 

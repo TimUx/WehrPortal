@@ -19,7 +19,7 @@ beforeEach(function () {
     $this->travelTo(Carbon::parse('2027-05-10 20:00', 'Europe/Berlin'));
 
     $this->leader = User::factory()->create(['name' => 'Bernd Blaulicht']);
-    $this->leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
+    $this->leader->moduleAccess()->create(['module' => 'einsatzbericht']);
     $this->member = User::factory()->create(['name' => 'Hanna Hydrant']);
     $this->member->moduleAccess()->create(['module' => 'einsatzbericht']);
     $this->r = app(ReportService::class);

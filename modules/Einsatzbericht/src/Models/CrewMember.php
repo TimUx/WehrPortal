@@ -3,6 +3,7 @@
 namespace Modules\Einsatzbericht\src\Models;
 
 use App\Models\User;
+use Extensions\Locations\Scopes\LocationScope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -46,7 +47,7 @@ class CrewMember extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class)->withoutGlobalScope(LocationScope::class);
     }
 
     public function report(): BelongsTo

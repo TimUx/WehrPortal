@@ -93,7 +93,7 @@ class Poll extends Model implements LocationAssignable
             return $query;
         }
 
-        $locationIds = $user->standardRoleLocationIds('kalender', ['terminverwalter']);
+        $locationIds = $user->kalenderLocationIds();
         if ($locationIds !== []) {
             return $query->where(function (Builder $query) use ($locationIds, $user) {
                 $query->where(function (Builder $query) use ($locationIds) {

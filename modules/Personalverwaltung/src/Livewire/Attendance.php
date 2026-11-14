@@ -27,12 +27,11 @@ class Attendance extends Component
     {
         $types = array_values(array_intersect($this->types, array_keys(Event::TYPES)));
         $manager = auth()->user();
-        $rows = PersonnelService::visibleMembers($manager)->where('status', 'active')->orderBy('name')->get()
-            ->map(function (User $member) use ($manager, $personnel, $types) {
-                $member->setRelation('groups', PersonnelService::visibleGroups($manager, $member));
-
-                return ['user' => $member, ...$personnel->attendance($member, $this->year, $types)];
-            })
+        $members = PersonnelService::visibleMembers($manager)->where('status', 'active')->orderBy('name')->get();
+        $attendance = $personnel->attendanceOf($members, $this->year, $types);
+        PersonnelService::loadVisibleGroups($manager, $members);
+        $rows = $members
+            ->map(fn (User $member) => ['user' => $member, ...$attendance[$member->id]])
             ->sortByDesc(fn ($r) => [$r['percent'] ?? -1, $r['attended']])->values();
 
         return view('personalverwaltung::livewire.attendance', [

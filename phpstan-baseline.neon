@@ -3847,12 +3847,6 @@ parameters:
 			path: modules/Personalverwaltung/src/Livewire/MemberFile.php
 
 		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:mapWithKeys\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\<int\<0, max\>, array\{total\: int, attended\: int, percent\: int\|null\}\>, Closure\(App\\Models\\User\)\: non\-empty\-array\<int\<0, max\>, array\{total\: int, attended\: int, percent\: int\|null\}\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: modules/Personalverwaltung/src/Livewire/MemberList.php
-
-		-
 			message: '#^Cannot call method toDateString\(\) on string\.$#'
 			identifier: method.nonObject
 			count: 1

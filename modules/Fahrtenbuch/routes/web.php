@@ -46,7 +46,7 @@ Route::prefix('fahrtenbuch')->name('fahrtenbuch.')
                     'Content-Type' => 'text/csv; charset=UTF-8',
                     'Content-Disposition' => 'attachment; filename="Fahrtenbuch-'.str($vehicle->name)->slug().'-'.$year.'.csv"',
                 ]);
-            })->whereNumber(['vehicle', 'year'])->name('export.trips');
+            })->whereNumber('vehicle')->where('year', '(19|20)[0-9]{2}')->name('export.trips');
 
             Route::get('/export/{vehicle}/{year}/tanken.csv', function (Vehicle $vehicle, int $year, LogbookService $logbook) {
                 abort_unless(LogbookService::canManageVehicle(auth()->user(), $vehicle), 403);
@@ -55,7 +55,7 @@ Route::prefix('fahrtenbuch')->name('fahrtenbuch.')
                     'Content-Type' => 'text/csv; charset=UTF-8',
                     'Content-Disposition' => 'attachment; filename="Tankbuch-'.str($vehicle->name)->slug().'-'.$year.'.csv"',
                 ]);
-            })->whereNumber(['vehicle', 'year'])->name('export.fuel');
+            })->whereNumber('vehicle')->where('year', '(19|20)[0-9]{2}')->name('export.fuel');
 
             Route::get('/export/{vehicle}/{year}/druck', function (Vehicle $vehicle, int $year, LogbookService $logbook) {
                 abort_unless(LogbookService::canManageVehicle(auth()->user(), $vehicle), 403);
@@ -64,6 +64,6 @@ Route::prefix('fahrtenbuch')->name('fahrtenbuch.')
                     'vehicle' => $vehicle, 'year' => $year, 'trips' => $logbook->yearTrips($vehicle, $year, withVoided: true),
                     'consumption' => $logbook->consumption($vehicle, $year),
                 ]);
-            })->whereNumber(['vehicle', 'year'])->name('export.print');
+            })->whereNumber('vehicle')->where('year', '(19|20)[0-9]{2}')->name('export.print');
         });
     });

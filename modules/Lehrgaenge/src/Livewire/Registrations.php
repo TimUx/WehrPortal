@@ -45,12 +45,13 @@ class Registrations extends Component
     /** Also on every Livewire update, not only when the page is opened */
     public function boot(): void
     {
-        abort_unless(auth()->user()?->canManageLehrgaenge(), 403);
+        abort_unless(auth()->user() && RegistrationService::canManageAny(auth()->user()), 403);
     }
 
     public function editSessions(int $recordId): void
     {
         $record = Record::with('sessions')->whereIn('status', Record::OPEN)->findOrFail($recordId);
+        $this->authorizeRecord($record);
         $this->resetErrorBag();
         $this->sessionsRecordId = $record->id;
         $this->sessions = $record->sessions->map(fn ($s) => [
@@ -80,6 +81,7 @@ class Registrations extends Component
     public function saveSessions(RegistrationService $registrations): void
     {
         $record = Record::with(['user', 'course'])->findOrFail($this->sessionsRecordId);
+        $this->authorizeRecord($record);
 
         try {
             $registrations->confirm($record, $this->sessions);
@@ -98,6 +100,7 @@ class Registrations extends Component
     public function complete(int $recordId, RegistrationService $registrations): void
     {
         $record = Record::with(['user', 'course'])->findOrFail($recordId);
+        $this->authorizeRecord($record);
 
         try {
             $registrations->complete($record);
@@ -114,6 +117,7 @@ class Registrations extends Component
     public function waitlist(int $recordId, bool $on = true): void
     {
         $record = Record::with(['user', 'course'])->findOrFail($recordId);
+        $this->authorizeRecord($record);
         $this->reset('flash', 'error');
         try {
             app(RegistrationService::class)->waitlist($record, $on);
@@ -129,6 +133,7 @@ class Registrations extends Component
     public function markCancelSeen(int $recordId, bool $seen = true): void
     {
         $record = Record::with(['user', 'course'])->findOrFail($recordId);
+        $this->authorizeRecord($record);
         $this->reset('flash', 'error');
         try {
             app(RegistrationService::class)->markCancelSeen($record, $seen);
@@ -139,6 +144,7 @@ class Registrations extends Component
 
     public function startReject(int $recordId): void
     {
+        $this->authorizeRecord(Record::findOrFail($recordId));
         $this->closeSessions();
         $this->rejectRecordId = $recordId;
         $this->rejectComment = '';
@@ -148,6 +154,7 @@ class Registrations extends Component
     {
         $this->validate(['rejectComment' => ['required', 'string', 'max:1000']], ['rejectComment.required' => 'Bitte einen Kommentar angeben – der Kamerad bekommt ihn per E-Mail.']);
         $record = Record::with(['user', 'course'])->findOrFail($this->rejectRecordId);
+        $this->authorizeRecord($record);
 
         try {
             $registrations->reject($record, $this->rejectComment);
@@ -161,8 +168,16 @@ class Registrations extends Component
         $this->reset('rejectRecordId', 'rejectComment');
     }
 
+    /** The Wehrführung of a Standort handles the registrations of its members only */
+    private function authorizeRecord(Record $record): void
+    {
+        abort_unless(RegistrationService::canManageMember(auth()->user(), (int) $record->user_id), 403);
+    }
+
     public function import(CatalogImporter $importer): void
     {
+        // The catalogue belongs to the Ausbildungsleiter
+        abort_unless(auth()->user()->canManageLehrgaenge(), 403);
         $this->reset('flash', 'error');
 
         try {
@@ -196,7 +211,9 @@ class Registrations extends Component
 
     public function render()
     {
+        $manageable = RegistrationService::manageableMemberIds(auth()->user());
         $records = Record::with(['user', 'course', 'sessions'])
+            ->when($manageable !== null, fn ($q) => $q->whereIn('user_id', $manageable))
             ->where(fn ($q) => $q->whereIn('status', Record::OPEN)
                 ->orWhere(fn ($c) => $c->whereIn('status', ['cancelled', 'rejected'])->where('cancelled_at', '>=', now()->subDays(90))))
             ->oldest()->get();
@@ -214,7 +231,8 @@ class Registrations extends Component
             'confirmed' => $records->where('status', 'confirmed')->sortBy('starts_on')->values(),
             'lastRun' => CatalogImporter::lastRun(),
             'offeredCourses' => Course::offered()->orderBy('name')->get(['id', 'name']),
-            'memberOptions' => $this->registerCourse === '' ? collect() : User::active()->when(trim($this->memberSearch) !== '', fn ($q) => $q->where('name', 'ilike', '%'.trim($this->memberSearch).'%'))
+            'canManageAll' => $manageable === null,
+            'memberOptions' => $this->registerCourse === '' ? collect() : User::active()->when($manageable !== null, fn ($q) => $q->whereIn('id', $manageable))->when(trim($this->memberSearch) !== '', fn ($q) => $q->where('name', 'ilike', '%'.trim($this->memberSearch).'%'))
                 ->orderBy('name')->limit(200)->get(['id', 'name']),
         ]);
     }

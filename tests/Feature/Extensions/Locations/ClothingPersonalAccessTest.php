@@ -8,6 +8,7 @@ use App\Services\ScanRegistry;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\ClothingPersonalAccess;
 use Extensions\Locations\Services\LocationModuleRoles;
+use Extensions\Locations\Services\StandardRoleAssignments;
 use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
@@ -43,6 +44,7 @@ use Modules\Kleiderkammer\src\Services\InventoryReport;
 use Modules\Kleiderkammer\src\Services\IssuingService;
 use Modules\Kleiderkammer\src\Services\LabelSheetGenerator;
 use Modules\Kleiderkammer\src\Services\PersonalAccess;
+use Modules\Kleiderkammer\src\Services\StockAccess;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 beforeEach(function () {
@@ -589,4 +591,31 @@ it('does not disclose a foreign member through a known physical items current is
     expect($this->itemA->currentIssuance()->count())->toBe(0)
         ->and($this->itemA->currentIssuance()->with('user')->get())->toBeEmpty()
         ->and(app(ScanRegistry::class)->resolveKnown('PERSONAL-A'))->not->toContain('/kameraden/');
+});
+
+it('lets the Wehrführung of a Standort keep its Kleiderkammer through the standard role', function () {
+    $hanna = User::factory()->create(['name' => 'Hanna Hydrant', 'ext_location_id' => $this->a->id]);
+    $standard = app(StandardRoleAssignments::class);
+    $assignment = $standard->grant($this->admin, $hanna->id, 'wehrfuehrung', $this->a->id, null, 'Wehrführerin Nord');
+
+    expect($hanna->canManageKleiderkammer())->toBeTrue()
+        ->and($this->access->locationIds($hanna))->toBe([$this->a->id])
+        ->and($this->access->members($hanna)->pluck('id')->all())->toContain($this->shared->id)->not->toContain($this->foreign->id)
+        ->and($this->access->canManageIssuance($hanna, $this->issuedA))->toBeTrue()
+        ->and($this->access->canManageIssuance($hanna, $this->issuedB))->toBeFalse()
+        // The catalogue stays with those who keep the whole Kleiderkammer
+        ->and($this->access->canManageCatalog($hanna))->toBeFalse();
+
+    // Mengenbestand of the own Standort, once that adapter is on too
+    config(['locations.clothing_stock_enabled' => true]);
+    expect(app(StockAccess::class)->query($hanna)->pluck('id')->all())->toBe([$this->stockA->id]);
+
+    // Without the Standort adapter the Kleiderkammer is one store: the role of a Standort gives nothing
+    config(['locations.clothing_personal_enabled' => false, 'locations.clothing_stock_enabled' => false]);
+    expect($hanna->canManageKleiderkammer())->toBeFalse();
+
+    config(['locations.clothing_personal_enabled' => true]);
+    $standard->revoke($this->admin, $assignment->id, 'Amt abgegeben');
+    expect($hanna->canManageKleiderkammer())->toBeFalse()
+        ->and($this->access->locationIds($hanna))->toBe([]);
 });

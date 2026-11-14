@@ -25,7 +25,8 @@ class GefahrstoffeServiceProvider extends ServiceProvider
 
         Gate::define('gefahrstoffe-manage', fn (User $user) => $user->is_active
             && $user->canUseModule('gefahrstoffe')
-            && ($user->is_admin || $user->hasModuleRole('gefahrstoffe', 'gefahrstoffbeauftragter')));
+            // hasAnyModuleRole: the catalogue belongs to the whole Kommune, so the Wehrführung of any Standort keeps it too
+            && ($user->is_admin || $user->hasAnyModuleRole('gefahrstoffe', 'gefahrstoffbeauftragter')));
 
         Livewire::component('gefahrstoffe.import-catalog', ImportCatalog::class);
 

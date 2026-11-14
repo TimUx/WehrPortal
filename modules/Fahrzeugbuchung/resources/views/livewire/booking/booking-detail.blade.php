@@ -102,7 +102,7 @@
                 </div>
                 @endif
 
-                @if($booking->isPending() && $booking->decision && auth()->user()->canDecide())
+                @if($booking->isPending() && $booking->decision && \Modules\Fahrzeugbuchung\src\Services\DecisionService::canDecideBooking(auth()->user(), $booking))
                 <a href="{{ route('fahrzeugbuchung.decisions.show', $booking->decision) }}"
                    class="block text-center py-2 px-4 rounded-xl bg-fw-red hover:bg-fw-red-dark text-sm font-semibold text-white">
                     Zur Entscheidung

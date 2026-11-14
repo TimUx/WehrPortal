@@ -301,13 +301,14 @@ class UserResource extends Resource
                         }
 
                         if (! empty($def['roles'])) {
-                            $roleOptions = array_combine($def['roles'], array_map('ucfirst', $def['roles']));
+                            $roleOptions = app(ModuleRegistry::class)->roleOptions($key);
                             $fields[] = Forms\Components\Select::make("module_role_{$key}")
                                 ->label('Rolle in '.$def['name'])
                                 ->helperText(fn () => app(LocationModuleRoles::class)->enabled($key)
                                     ? 'Standortrollen sind aktiv: Diese Auswahl ändert nur Legacy-Zugänge, nicht die Verwaltungsrechte. Standortrollen unter Standorte → Bearbeiten → Standort-Modulrollen vergeben.'
-                                    : null)
+                                    : app(ModuleRegistry::class)->ineffectiveRolesHint($key))
                                 ->options($roleOptions)
+                                ->disableOptionWhen(fn (string $value): bool => isset(app(ModuleRegistry::class)->ineffectiveRoles($key)[$value]))
                                 ->afterStateHydrated(function (Forms\Components\Select $component, ?User $record) use ($key) {
                                     $component->state(
                                         $record

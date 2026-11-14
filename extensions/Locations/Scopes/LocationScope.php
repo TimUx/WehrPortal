@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Modules\Ausruestung\src\Models\Location as EquipmentLocation;
+use Modules\Einsatzbericht\src\Models\Report;
+use Modules\Einsatzbericht\src\Services\ReportService;
 use Modules\Kalender\src\Models\Event;
 use Modules\Kalender\src\Models\Poll;
 use Modules\Kleiderkammer\src\Models\Item;
@@ -50,6 +52,10 @@ class LocationScope implements Scope
             return;
         }
 
+        // Readers of the Einsatzberichte (Brandschutzamt) read those of every Standort
+        if ($model instanceof Report && ReportService::isReader($user)) {
+            return;
+        }
         if (($model instanceof Event || $model instanceof Poll) && $user->canManageKalender()) {
             return;
         }
@@ -70,11 +76,17 @@ class LocationScope implements Scope
             || ($model instanceof Poll && Schema::hasTable('kal_poll_location'))) {
             $pivot = $model instanceof Event ? 'kal_event_location' : 'kal_poll_location';
             $parentKey = $model->getTable().'.'.$model->getKeyName();
-            $builder->where(function (Builder $query) use ($ids, $column, $pivot, $parentKey) {
+            // A Jugend- or Kinderwart of the Kommune also reaches the Termine of that Abteilung elsewhere
+            $leadGroups = $model instanceof Event ? $user->kalenderGroupIds() : [];
+            $builder->where(function (Builder $query) use ($ids, $column, $pivot, $parentKey, $leadGroups) {
                 $query->whereNull($column)->orWhereIn($column, $ids)->orWhereExists(
                     DB::table($pivot)->selectRaw('1')->whereColumn($pivot.'.'.($pivot === 'kal_event_location' ? 'event_id' : 'poll_id'), $parentKey)
                         ->whereIn($pivot.'.location_id', $ids),
                 );
+                if ($leadGroups !== []) {
+                    $query->orWhereExists(DB::table('kal_event_group')->selectRaw('1')
+                        ->whereColumn('kal_event_group.event_id', $parentKey)->whereIn('kal_event_group.group_id', $leadGroups));
+                }
             });
 
             return;
@@ -82,8 +94,7 @@ class LocationScope implements Scope
 
         if ($model->getTable() === 'eb_reports'
             && $user->hasAnyModuleRole('einsatzbericht', 'wehrführung')
-            && ! $user->hasModuleRole('einsatzbericht', 'wehrführung')
-            && ! $user->hasModuleRole('einsatzbericht', 'einsatzleiter')) {
+            && ! $user->hasModuleRole('einsatzbericht', 'wehrführung')) {
             $reportLocations = $user->standardRoleLocationIds('einsatzbericht', ['wehrführung']);
             $builder->whereNotNull($column)->whereIn($column, $reportLocations);
 

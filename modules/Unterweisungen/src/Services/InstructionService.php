@@ -40,7 +40,37 @@ class InstructionService
 
     public static function canManage(User $user): bool
     {
-        return self::canManageAll($user) || self::isAtemschutzOnlyManager($user);
+        return self::canManageAll($user) || self::isAtemschutzOnlyManager($user) || self::isLocalManager($user);
+    }
+
+    /**
+     * Whose Unterweisungen this Kamerad looks after: null = everyone's (Unterweisungsbeauftragte,
+     * GBI/SBI, admins, the Atemschutzgerätewart for his kinds), a list = the members of the
+     * Standorte where a standard role makes them responsible (Wehrführung).
+     *
+     * @return list<int>|null
+     */
+    public static function managedMemberIds(User $user): ?array
+    {
+        if (self::canManageAll($user) || self::isAtemschutzOnlyManager($user)) {
+            return null;
+        }
+        if (! config('locations.enabled') || ! $user->is_active || ! $user->canUseModule(self::MODULE)) {
+            return [];
+        }
+        $roles = app(StandardRoleAssignments::class);
+        $locations = $roles->locationWideIds($user, self::MODULE, ['unterweisungsbeauftragter']);
+
+        return $locations === [] ? [] : $roles->memberIdsAt($locations);
+    }
+
+    /**
+     * The Wehrführung of a Standort: holds Unterweisungen of the existing kinds for its members and
+     * looks after the ones it recorded itself. The kinds stay with the Unterweisungsbeauftragte.
+     */
+    public static function isLocalManager(User $user): bool
+    {
+        return ! in_array(self::managedMemberIds($user), [null, []], true);
     }
 
     public static function canManageAll(User $user): bool
@@ -61,15 +91,23 @@ class InstructionService
             && app(StandardRoleAssignments::class)->hasGlobalProfile($user, 'atemschutzwart');
     }
 
-    public static function canManageTopic(User $user, Topic $topic): bool
+    /** May hold an Unterweisung of this kind */
+    public static function canUseTopic(User $user, Topic $topic): bool
     {
         return self::canManage($user)
             && (! self::isAtemschutzOnlyManager($user) || $topic->counts_as === 'atemschutz');
     }
 
+    /** May change the kind itself */
+    public static function canManageTopic(User $user, Topic $topic): bool
+    {
+        return self::canUseTopic($user, $topic) && ! self::isLocalManager($user);
+    }
+
     public static function canManageSession(User $user, Session $session): bool
     {
-        return self::canManage($user) && self::canManageTopic($user, $session->topic);
+        return self::canUseTopic($user, $session->topic)
+            && (! self::isLocalManager($user) || (int) $session->created_by === (int) $user->id);
     }
 
     /** @return Builder<Topic> */
@@ -87,7 +125,7 @@ class InstructionService
         return Session::query()->when(
             self::isAtemschutzOnlyManager($user),
             fn (Builder $query) => $query->whereHas('topic', fn (Builder $topics) => $topics->where('counts_as', 'atemschutz')),
-        );
+        )->when(self::isLocalManager($user), fn (Builder $query) => $query->where('created_by', $user->id));
     }
 
     /** @return EloquentCollection<int, User> */
@@ -107,7 +145,7 @@ class InstructionService
     public function saveTopic(User $by, ?Topic $topic, array $data): Topic
     {
         $this->assertManager($by);
-        if ($topic && ! self::canManageTopic($by, $topic)) {
+        if (self::isLocalManager($by) || ($topic && ! self::canManageTopic($by, $topic))) {
             throw ValidationException::withMessages(['topic_name' => 'Diese Art darfst du nicht verwalten.']);
         }
         $name = trim((string) ($data['name'] ?? ''));
@@ -139,6 +177,9 @@ class InstructionService
     public function addPresets(User $by): int
     {
         $this->assertManager($by);
+        if (self::isLocalManager($by)) {
+            throw ValidationException::withMessages(['topic_name' => 'Die Arten legen Unterweisungsbeauftragte und Admins an.']);
+        }
         $added = 0;
         $presets = self::isAtemschutzOnlyManager($by)
             ? array_filter(Topic::PRESETS, fn ($preset) => $preset[5] === 'atemschutz')
@@ -166,8 +207,12 @@ class InstructionService
     {
         $this->assertManager($by);
         $topic = Topic::find((int) ($data['topic_id'] ?? 0));
-        if ($topic && ! self::canManageTopic($by, $topic)) {
+        if ($topic && ! self::canUseTopic($by, $topic)) {
             throw ValidationException::withMessages(['session_topic' => 'Diese Art darfst du nicht verwalten.']);
+        }
+        $managed = self::managedMemberIds($by);
+        if ($managed !== null && array_diff(array_map('intval', $userIds), $managed) !== []) {
+            throw ValidationException::withMessages(['session_users' => 'Du kannst nur Kameraden deines Standorts eintragen.']);
         }
         $date = filled($data['held_on'] ?? null) ? rescue(fn () => Carbon::createFromFormat('!Y-m-d', $data['held_on']), null, false) : null;
         $users = User::whereIn('id', array_map('intval', $userIds))->get();
@@ -229,7 +274,11 @@ class InstructionService
             return [];
         }
 
-        return DB::table('kal_responses')->where('event_id', $eventId)->where('attended', true)->pluck('user_id')->map(fn ($id) => (int) $id)->all();
+        $managed = self::managedMemberIds($by);
+
+        return DB::table('kal_responses')->where('event_id', $eventId)->where('attended', true)
+            ->when($managed !== null, fn ($query) => $query->whereIn('user_id', $managed))
+            ->pluck('user_id')->map(fn ($id) => (int) $id)->all();
     }
 
     // ─── state ───────────────────────────────────────────────────────────────
@@ -283,8 +332,10 @@ class InstructionService
      */
     public function matrix(?int $groupId = null, ?User $manager = null): array
     {
+        $managed = $manager ? self::managedMemberIds($manager) : null;
         /** @var EloquentCollection<int, User> $users */
-        $users = User::active()->with(['groups', 'functions'])->when($groupId, fn ($q) => $q->whereHas('groups', fn ($g) => $g->whereKey($groupId)))->orderBy('name')->get();
+        $users = User::active()->with(['groups', 'functions'])->when($groupId, fn ($q) => $q->whereHas('groups', fn ($g) => $g->whereKey($groupId)))
+            ->when($managed !== null, fn ($q) => $q->whereIn('id', $managed))->orderBy('name')->get();
         /** @var EloquentCollection<int, Topic> $topics */
         $topics = ($manager ? self::topicsForManager($manager) : Topic::query())->where('is_active', true)->orderBy('name')->get();
         $last = $this->lastDates($users->pluck('id')->all());

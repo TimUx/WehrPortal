@@ -128,11 +128,25 @@ class EventForm extends Component
         } else {
             $this->authorize('manage', Event::class);
             $this->locationIds = array_map('strval', app(CalendarLocationAccess::class)->defaultIds(auth()->user()));
+            // A Jugend- or Kinderwart plans for the own Abteilung: it is the target group from the start
+            if ($this->ownGroupsOnly()) {
+                $this->groupIds = Group::query()->withoutGlobalScope(LocationScope::class)->whereIn('id', auth()->user()->kalenderGroupIds())
+                    ->whereIn('ext_location_id', array_map('intval', $this->locationIds) ?: [-1])->pluck('id')->map(fn ($id) => (string) $id)->all();
+            }
             $start = now('Europe/Berlin')->addDay()->setTime(19, 0);
             $this->startsAt = $start->format(self::LOCAL);
             $this->endsAt = $start->copy()->addMinutes(self::DEFAULT_MINUTES)->format(self::LOCAL);
             $this->startDate = $this->endDate = $start->format('Y-m-d');
         }
+    }
+
+    /** With Standorte: true for who keeps the chosen ones only through the own Abteilung */
+    private function ownGroupsOnly(): bool
+    {
+        $user = auth()->user();
+
+        return app(CalendarLocationAccess::class)->enabled() && $user->kalenderGroupIds() !== []
+            && ! $user->canManageKalenderLocations(array_map('intval', $this->locationIds));
     }
 
     /** Moving the start moves the end along, keeping the duration (60 minutes if there was none) */
@@ -174,6 +188,10 @@ class EventForm extends Component
                 ->selectRaw('1')->from('x_location_user')->whereColumn('x_location_user.user_id', 'users.id')
                 ->whereIn('x_location_user.location_id', $locations ?: [-1]));
         })->pluck('id')->map(fn ($id) => (string) $id)->all();
+        if ($this->ownGroupsOnly()) {
+            $allowedGroups = array_values(array_intersect($allowedGroups, array_map('strval', auth()->user()->kalenderGroupIds())));
+            $allowedFunctions = [];
+        }
         $this->groupIds = array_values(array_intersect($this->groupIds, $allowedGroups));
         $this->functionIds = array_values(array_intersect($this->functionIds, $allowedFunctions));
         $this->inviteeIds = array_values(array_intersect($this->inviteeIds, $allowedPeople));
@@ -339,8 +357,10 @@ class EventForm extends Component
         $locationAccess = app(CalendarLocationAccess::class);
         $locations = $locationAccess->options(auth()->user());
         $selectedLocations = array_map('intval', $this->locationIds);
+        $ownGroupsOnly = $this->ownGroupsOnly();
         $groups = Group::options(fn ($query) => $locationAccess->enabled()
             ? $query->withoutGlobalScope(LocationScope::class)->whereIn('ext_location_id', $selectedLocations ?: [-1])
+                ->when($ownGroupsOnly, fn ($query) => $query->whereIn('id', auth()->user()->kalenderGroupIds()))
             : null);
         $functions = MemberFunction::query()->when($locationAccess->enabled(), fn ($query) => $query
             ->withoutGlobalScope(LocationScope::class)->where(function ($query) use ($selectedLocations) {
@@ -355,11 +375,12 @@ class EventForm extends Component
 
         return view('kalender::livewire.event-form', [
             'types' => Event::TYPES,
+            'ownGroupsOnly' => $ownGroupsOnly,
             'groups' => $groups,
             'people' => $people,
             'repeats' => EventService::REPEATS,
             'inSeries' => (bool) $this->event?->series_id,
-            'functions' => $functions,
+            'functions' => $ownGroupsOnly ? collect() : $functions,
             'locations' => $locations,
             'templates' => Template::orderBy('name')->pluck('name', 'id'),
             'places' => Place::options(),

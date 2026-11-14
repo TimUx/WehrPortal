@@ -8,6 +8,7 @@ use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Modules\Fahrzeugbuchung\src\Models\Booking;
 use Modules\Fahrzeugbuchung\src\Models\BookingDecision;
+use Modules\Fahrzeugbuchung\src\Services\DecisionService;
 
 /**
  * The booking that won a decision was cancelled or changed, so the one that lost is active again.
@@ -38,7 +39,10 @@ class BookingReactivatedNotification extends Notification
 
         $salutation = app(OrganizationSettings::class)->salutation();
 
-        return $notifiable->canDecide()
+        /** @var Booking|null $request */
+        $request = $this->decision->booking;
+
+        return DecisionService::canDecideBooking($notifiable, $request)
             ? $mail->action('Zur Entscheidung', route('fahrzeugbuchung.decisions.show', $this->decision))->salutation($salutation)
             : $mail->action('Meine Buchungen', route('fahrzeugbuchung.my-bookings'))->salutation($salutation);
     }

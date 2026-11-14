@@ -5,6 +5,7 @@ namespace Modules\Kalender\src\Support;
 use App\Models\MemberFunction;
 use App\Models\User;
 use Extensions\Locations\Scopes\LocationScope;
+use Extensions\Locations\Services\StandardRoleAssignments;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
@@ -24,14 +25,16 @@ class Audience
             : MemberFunction::idsWithChildren($functionIds->all());
         $everyone = $groupIds->isEmpty() && $functionIds->isEmpty() && $userIds->isEmpty();
 
-        return User::active()->when(config('locations.enabled'), fn ($query) => $query->withoutGlobalScope(LocationScope::class))->orderBy('name')
+        $users = User::active()->when(config('locations.enabled'), fn ($query) => $query->withoutGlobalScope(LocationScope::class))->orderBy('name')
             ->when(! $everyone, fn ($q) => $q->where(fn ($w) => $w
                 ->whereHas('groups', fn ($g) => $g->when(config('locations.enabled'), fn ($g) => $g->withoutGlobalScope(LocationScope::class))->whereIn('groups.id', $groupIds))
                 ->orWhereHas('functions', fn ($f) => $f->when(config('locations.enabled'), fn ($f) => $f->withoutGlobalScope(LocationScope::class))->whereIn('member_functions.id', $functions))
                 ->orWhereIn('id', $userIds)))
-            ->get()
-            ->filter(fn (User $u) => $u->canUseModule('kalender'))
-            ->values();
+            ->get();
+        // canUseModule() asks for each Kamerad's roles: load them for all at once
+        app(StandardRoleAssignments::class)->preload($users->modelKeys());
+
+        return $users->filter(fn (User $u) => $u->canUseModule('kalender'))->values();
     }
 
     /** Restricts a query of events or polls to those meant for the Kamerad */

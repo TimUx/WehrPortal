@@ -25,7 +25,7 @@ beforeEach(function () {
 
     $location = Location::create(['name' => 'Wache Einsatzbericht Plus', 'slug' => 'ebp-test']);
     $this->leader = User::factory()->create(['name' => 'Bernd Blaulicht', 'is_admin' => true, 'ext_location_id' => $location->id]);
-    $this->leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
+    $this->leader->moduleAccess()->create(['module' => 'einsatzbericht']);
     $this->member = User::factory()->create(['name' => 'Hanna Hydrant', 'ext_location_id' => $location->id]);
     $this->member->moduleAccess()->create(['module' => 'einsatzbericht']);
     joinIncidentDepartment($this->leader, $location);
@@ -143,20 +143,21 @@ it('adds an external vehicle as free text', function () {
     expect($vehicle->name)->toBe('TLF 3000 FF Beispieldorf')->and($vehicle->is_standby)->toBeFalse();
 });
 
-it('refuses users without the Einsatzleiter role', function () {
+it('refuses Kameraden who neither lead nor write the report', function () {
     $this->actingAs($this->member);
     Livewire::test(Extras::class, ['reportId' => $this->report->id])->assertNotFound();
 });
 
-it('refuses editing a released report for the Einsatzleiter', function () {
-    $this->report->forceFill(['status' => 'released'])->save();
+it('refuses editing a released report for the Kamerad who wrote it', function () {
     $leader = User::factory()->create(['name' => 'Egon Einsatz']);
-    $leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
+    $leader->forceFill(['ext_location_id' => $this->member->ext_location_id])->save();
+    joinIncidentDepartment($leader, Location::findOrFail($this->member->ext_location_id));
+    $leader->moduleAccess()->create(['module' => 'einsatzbericht']);
+    $this->report->forceFill(['status' => 'released', 'created_by' => $leader->id, 'ext_location_id' => $leader->ext_location_id])->save();
 
     $this->actingAs($leader);
-    Livewire::test(Extras::class, ['reportId' => $this->report->id])
-        ->set('person', ['role' => 'zeuge', 'name' => 'Zora Zeuge', 'contact' => '', 'note' => ''])
-        ->call('addPerson')->assertForbidden();
+    // Once released the report is closed to its author: the page itself refuses
+    Livewire::test(Extras::class, ['reportId' => $this->report->id])->assertForbidden();
     expect(InvolvedPerson::count())->toBe(0);
 });
 
@@ -166,7 +167,7 @@ it('does not reach reports of another Standort', function () {
     $this->report->forceFill(['ext_location_id' => $b->id])->save();
 
     $keeper = User::factory()->create(['name' => 'Lena Leitung']);
-    $keeper->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
+    $keeper->moduleAccess()->create(['module' => 'einsatzbericht']);
     $keeper->forceFill(['ext_location_id' => $a->id])->save();
     DB::table('x_location_user')->insert(['location_id' => $a->id, 'user_id' => $keeper->id, 'role' => 'member']);
 

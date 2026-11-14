@@ -84,7 +84,7 @@ class EinsatzberichtServiceProvider extends ServiceProvider
             'einsatzbericht',
             'Einsatzbericht',
             'Einsätze digital erfassen und freigeben, Besatzung und Stärke, Jahresstatistik und Einsätze in der Personalakte',
-            roles: ['einsatzleiter', 'wehrführung'],
+            roles: ['wehrführung', 'einsicht'],
             provider: self::class,
             route: 'einsatzbericht.index',
         );
@@ -92,11 +92,13 @@ class EinsatzberichtServiceProvider extends ServiceProvider
         // The own Einsätze right on the Profil
         app(PersonnelFileRegistry::class)->section('einsatzbericht', 'Meine Einsätze', 'einsatzbericht.member-missions');
 
-        // Start page: drafts and current Einsätze for the Einsatzleiter, reports to release for the Wehrführung
+        // Start page: drafts and current Einsätze (own ones for Kameraden without a role), reports to release for the Wehrführung
         app(DashboardRegistry::class)->register('einsatzbericht', 'open', function (User $user) {
             $lead = ReportService::canLead($user);
-            $drafts = $lead ? Report::where('status', 'draft')->count() : 0;
-            $active = $lead ? Report::where('status', 'active')->count() : 0;
+            // Who leads counts every open report, everybody else the ones they write
+            $open = fn (string $status) => Report::where('status', $status)->when(! $lead, fn ($query) => $query->where('created_by', $user->id))->count();
+            $drafts = $open('draft');
+            $active = $open('active');
             $toRelease = (ReportService::canRelease($user) || $user->hasAnyModuleRole('einsatzbericht', 'wehrführung'))
                 ? Report::where('status', 'closed')->get()->filter(fn (Report $report) => ReportService::canReleaseReport($user, $report))->count()
                 : 0;
@@ -120,8 +122,8 @@ class EinsatzberichtServiceProvider extends ServiceProvider
         app(ModuleRegistry::class)->navigation('einsatzbericht', fn (User $u) => [
             'tabs' => [
                 ModuleNav::tab('Einsätze', 'einsatzbericht.index', ['einsatzbericht.show', 'einsatzbericht.situation']),
-                ReportService::canRelease($u) ? ModuleNav::tab('Jahresstatistik', 'einsatzbericht.statistics', ['einsatzbericht.annual']) : null,
-                ReportService::canRelease($u) ? ModuleNav::tab('Kameraden', 'einsatzbericht.members', ['einsatzbericht.member']) : null,
+                ReportService::canLead($u) ? ModuleNav::tab('Jahresstatistik', 'einsatzbericht.statistics', ['einsatzbericht.annual']) : null,
+                ReportService::canLead($u) ? ModuleNav::tab('Kameraden', 'einsatzbericht.members', ['einsatzbericht.member']) : null,
                 $u->can('einsatzbericht-materials') ? ModuleNav::tab('Material', 'einsatzbericht.materials') : null,
             ],
             'manage' => ReportService::canRelease($u) ? SettingsPage::getUrl() : null,

@@ -11,7 +11,7 @@
                         @endif
                         Alle Verletzungen, Unfälle und Vorfälle nach DGUV Information 204-021. Gesundheitsdaten sind verschlüsselt; jeder Zugriff wird protokolliert.
                     @else
-                        Einträge, in denen du verletzt wurdest, Erste Hilfe geleistet oder den Eintrag geschrieben hast. Andere Einträge sehen nur GBI/SBI, Admins und die zuständige Wehrführung.
+                        Einträge, in denen du verletzt wurdest, Erste Hilfe geleistet oder den Eintrag geschrieben hast. Andere Einträge sehen nur {{ app(\Extensions\Locations\Services\StandardRoleCatalog::class)->inspector() }}, Admins und die zuständige Wehrführung.
                     @endif
                 </p>
             </div>

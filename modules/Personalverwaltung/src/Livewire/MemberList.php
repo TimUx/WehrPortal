@@ -4,7 +4,6 @@ namespace Modules\Personalverwaltung\src\Livewire;
 
 use App\Models\Group;
 use App\Models\MemberFunction;
-use App\Models\User;
 use App\Services\BadgeRegistry;
 use App\Support\FireRanks;
 use Illuminate\Validation\ValidationException;
@@ -105,7 +104,7 @@ class MemberList extends Component
             'members' => $members,
             'groups' => PersonnelService::groupOptions($manager),
             'year' => $year,
-            'attendance' => $withAttendance ? $members->getCollection()->mapWithKeys(fn (User $m) => [$m->id => $personnel->attendance($m, $year)]) : collect(),
+            'attendance' => $withAttendance ? collect($personnel->attendanceOf($members->getCollection(), $year)) : collect(),
             'due' => $personnel->dueHonors($manager, $year)->groupBy(fn ($row) => $row['user']->id),
             'withAttendance' => $withAttendance,
             'scoped' => $scope !== [],
