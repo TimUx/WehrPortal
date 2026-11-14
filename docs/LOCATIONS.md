@@ -32,7 +32,7 @@ Für jeden Standort werden bei der Erstellung die Abteilungen Einsatzabteilung, 
 
 ### Standardrollen und klassische Modulrollen
 
-Unter **Admin → Standardrollen** vergibt ein globaler Admin die Profile aus `StandardRoleCatalog`. Die Seite nennt, was ein Profil öffnet, und bei zurzeit nicht vergebbaren Profilen den Grund.
+Unter **Admin → Standardrollen** vergibt ein globaler Admin die Profile aus `StandardRoleCatalog`. Welche Modulrolle jedes Profil in welchem Modul mitbringt, zeigt die [Berechtigungsmatrix](BERECHTIGUNGEN.md); wie eine Rolle den Inhaber wechselt, steht unter [Abläufe](ABLAEUFE.md#wehrführung-eines-standorts-wechseln). Die Seite nennt, was ein Profil öffnet, und bei zurzeit nicht vergebbaren Profilen den Grund.
 
 | Standardrolle | Gilt für | Öffnet |
 |---|---|---|
