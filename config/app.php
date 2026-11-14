@@ -29,6 +29,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Content-Security-Policy
+    |--------------------------------------------------------------------------
+    |
+    | Off: the policy is sent report-only (violations show in the browser
+    | console, nothing is blocked). On: the browser enforces it.
+    |
+    */
+
+    'csp_enforce' => (bool) env('CSP_ENFORCE', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Environment
     |--------------------------------------------------------------------------
     |

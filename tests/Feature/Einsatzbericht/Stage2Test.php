@@ -24,7 +24,7 @@ beforeEach(function () {
     Cache::forget('modules_active_keys');
 
     $this->leader = User::factory()->create(['name' => 'Bernd Blaulicht']);
-    $this->leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
+    $this->leader->moduleAccess()->create(['module' => 'einsatzbericht']);
     $this->chief = User::factory()->create(['name' => 'Wilma Wehrführer']);
     $this->chief->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'wehrführung']);
     $this->member = User::factory()->create(['name' => 'Hanna Hydrant']);

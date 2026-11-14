@@ -17,7 +17,7 @@ Route::middleware(['auth', 'active', 'module:fuehrerscheine'])->group(function (
         // A photo until the check: for the Prüfer and the Kamerad it belongs to; never cached
         Route::get('/foto/{photo}', function (Photo $photo) {
             $owner = License::whereKey($photo->license_id)->value('user_id');
-            abort_unless(LicenseService::canManage(auth()->user()) || $owner === auth()->id(), 403);
+            abort_unless($owner === auth()->id() || LicenseService::canManageMember(auth()->user(), $owner), 403);
 
             return response(base64_decode(Photo::whereKey($photo->id)->value('data')), 200, ['Content-Type' => $photo->mime, 'Cache-Control' => 'no-store']);
         })->whereNumber('photo')->name('photo');

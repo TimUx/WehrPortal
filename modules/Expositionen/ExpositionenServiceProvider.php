@@ -50,6 +50,10 @@ class ExpositionenServiceProvider extends ServiceProvider
             provider: self::class,
             route: 'expositionen.index',
         );
+        // The classic module roles are not honoured with Standorte (see the access rules of the service)
+        if (config('locations.enabled')) {
+            app(ModuleRegistry::class)->markRolesIneffective('expositionen', ['expositionsbeauftragter'], 'Mit Standorten verwaltet die Expositionen, wer die Standardrolle Wehrführung am Standort hat (Admin → Standardrollen).');
+        }
 
         app(PersonnelFileRegistry::class)->register('expositionen', 'Expositionen', 'expositionen.personnel-file');
 

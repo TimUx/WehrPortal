@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\MemberFunction;
 use App\Models\Module;
 use App\Models\User;
 use App\Services\ModuleRegistry;
@@ -145,4 +146,69 @@ it('rejects groups, invitees and management locations outside the selected event
         ->toThrow(ValidationException::class)
         ->and(fn () => app(EventService::class)->create($base, [], $manager, locationIds: [$this->south->id]))
         ->toThrow(ValidationException::class);
+});
+
+it('lets a Jugendwart keep the Termine of the own Abteilung and nobody else\'s', function () {
+    $lead = calendarLocationMember($this->north, 'Jule Jugendwart');
+    $this->roles->grant($this->admin, $lead->id, 'jugendwart', $this->north->id, $this->northGroup->id, 'Jugendwartin Nord');
+    $einsatz = $this->north->groups()->create(['name' => 'Einsatzabteilung']);
+    $function = MemberFunction::create(['name' => 'Maschinist']);
+    $when = fn (string $day) => ['type' => 'uebung',
+        'starts_at' => Carbon::parse($day.' 17:00', 'Europe/Berlin'), 'ends_at' => Carbon::parse($day.' 19:00', 'Europe/Berlin')];
+    $events = app(EventService::class);
+
+    $own = $events->create(['title' => 'Jugendübung', ...$when('2027-07-14')], [$this->northGroup->id], $lead, locationIds: [$this->north->id])->first();
+    $other = $events->create(['title' => 'Einsatzübung', ...$when('2027-07-15')], [$einsatz->id], $this->admin, locationIds: [$this->north->id])->first();
+    $south = $events->create(['title' => 'Jugendübung Süd', ...$when('2027-07-16')], [$this->southGroup->id], $this->admin, locationIds: [$this->south->id])->first();
+
+    expect($lead->canManageAnyKalenderLocation())->toBeFalse()
+        ->and($lead->canManageKalenderAt($this->north->id))->toBeFalse()
+        ->and(Gate::forUser($lead)->allows('manage', Event::class))->toBeTrue()
+        ->and(Gate::forUser($lead)->allows('manage', $own))->toBeTrue()
+        ->and(Gate::forUser($lead)->allows('manage', $other))->toBeFalse()
+        ->and(Gate::forUser($lead)->allows('manage', $south))->toBeFalse();
+    // Not a member of the Abteilung, still sees its Termine; not the ones of others
+    expect(Event::visibleTo($lead)->pluck('id')->all())->toContain($own->id)->not->toContain($other->id)->not->toContain($south->id);
+
+    // Another Abteilung, all of the Standort, a Funktion or another Standort: refused
+    foreach ([[[$einsatz->id], [], [$this->north->id]], [[], [], [$this->north->id]],
+        [[$this->northGroup->id, $einsatz->id], [], [$this->north->id]],
+        [[$this->northGroup->id], [$function->id], [$this->north->id]],
+        [[$this->southGroup->id], [], [$this->south->id]]] as [$groups, $functions, $locations]) {
+        expect(fn () => $events->create(['title' => 'Fremd', ...$when('2027-07-20')], $groups, $lead, functionIds: $functions, locationIds: $locations))
+            ->toThrow(ValidationException::class);
+    }
+    expect(fn () => $events->update($own, ['title' => 'Jugendübung', ...$when('2027-07-14')], [$einsatz->id], by: $lead))
+        ->toThrow(ValidationException::class);
+
+    Livewire::actingAs($lead)->test(EventForm::class)
+        ->assertSet('groupIds', [(string) $this->northGroup->id])
+        ->assertSee('Jugendfeuerwehr (Wache Nord)')
+        ->assertDontSee('Einsatzabteilung')
+        ->assertDontSee('Maschinist');
+    Livewire::actingAs($lead)->test(EventForm::class, ['event' => $other])->assertForbidden();
+    Livewire::actingAs($lead)->test(EventDetail::class, ['event' => $own])->call('cancelEvent');
+    expect($own->refresh()->isCancelled())->toBeTrue();
+    // Terminabfragen stay with whoever keeps a whole Standort
+    $this->actingAs($lead)->get(route('kalender.create'))->assertOk();
+    foreach (['kalender.polls.create', 'kalender.places', 'kalender.sources'] as $route) {
+        $this->actingAs($lead)->get(route($route))->assertForbidden();
+    }
+    Livewire::actingAs($lead)->test(PollForm::class)->assertForbidden();
+});
+
+it('lets the Jugendwart of the Kommune keep the Termine of every Jugendfeuerwehr', function () {
+    $lead = calendarLocationMember($this->north, 'Gero Gemeindejugendwart');
+    $this->roles->grant($this->admin, $lead->id, 'gemeindejugendwart', null, null, 'Jugendwart der Kommune');
+    $when = ['type' => 'uebung', 'starts_at' => Carbon::parse('2027-07-14 17:00', 'Europe/Berlin'), 'ends_at' => Carbon::parse('2027-07-14 19:00', 'Europe/Berlin')];
+
+    $joint = app(EventService::class)->create(['title' => 'Gemeinsame Jugendübung', ...$when],
+        [$this->northGroup->id, $this->southGroup->id], $lead, locationIds: [$this->north->id, $this->south->id])->first();
+    $south = app(EventService::class)->create(['title' => 'Jugendübung Süd', ...$when], [$this->southGroup->id], $this->admin, locationIds: [$this->south->id])->first();
+
+    expect($joint->locationIds())->toEqualCanonicalizing([$this->north->id, $this->south->id])
+        ->and(Gate::forUser($lead)->allows('manage', $south))->toBeTrue();
+    // The Termin of a Standort the Jugendwart is no member of still opens
+    $this->actingAs($lead);
+    expect(Event::visibleTo($lead)->pluck('id')->all())->toContain($joint->id, $south->id);
 });

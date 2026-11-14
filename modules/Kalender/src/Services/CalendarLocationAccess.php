@@ -105,9 +105,18 @@ class CalendarLocationAccess
         }
 
         $activeIds = Location::query()->active()->whereIn('id', $locationIds)->pluck('id')->map(fn ($id) => (int) $id)->all();
-        if (count($activeIds) !== count($locationIds)
-            || ($requireManager && (! $user || ! $user->canManageKalenderLocations($locationIds)))) {
+        if (count($activeIds) !== count($locationIds)) {
             throw ValidationException::withMessages(['locationIds' => 'Mindestens ein ausgewählter Standort darf nicht verwaltet werden.']);
+        }
+        if ($requireManager && (! $user || ! $user->canManageKalenderLocations($locationIds))) {
+            if (! $user || $user->kalenderGroupIds() === []) {
+                throw ValidationException::withMessages(['locationIds' => 'Mindestens ein ausgewählter Standort darf nicht verwaltet werden.']);
+            }
+            // Jugend- and Kinderwarte: their own Abteilung, at its Standort, nobody else
+            $groupLocations = DB::table('groups')->whereIn('id', array_map('intval', $groupIds))->pluck('ext_location_id')->map(fn ($id) => (int) $id)->all();
+            if (! $user->canManageKalenderGroups($groupIds) || $functionIds !== [] || array_diff($locationIds, $groupLocations) !== []) {
+                throw ValidationException::withMessages(['groupIds' => 'Du legst Termine für deine eigene Abteilung an: Bitte nur sie als Zielgruppe wählen, ohne Funktionen und ohne weitere Standorte.']);
+            }
         }
 
         $this->assertTargetsAtLocations('groups', $groupIds, $locationIds);

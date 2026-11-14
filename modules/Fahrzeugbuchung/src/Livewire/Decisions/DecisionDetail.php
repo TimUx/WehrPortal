@@ -13,6 +13,11 @@ class DecisionDetail extends Component
 
     public string $note = '';
 
+    public function mount(): void
+    {
+        $this->authorize('decide-bookings', $this->decision);
+    }
+
     public function approve(DecisionService $service): void
     {
         $this->decide($service, true);
@@ -42,7 +47,7 @@ class DecisionDetail extends Component
 
     private function run(callable $action): void
     {
-        $this->authorize('decide-bookings');
+        $this->authorize('decide-bookings', $this->decision);
         $this->validate(['note' => ['nullable', 'string', 'max:2000']]);
 
         try {

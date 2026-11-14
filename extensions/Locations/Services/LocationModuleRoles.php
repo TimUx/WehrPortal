@@ -181,8 +181,11 @@ class LocationModuleRoles
             return [];
         }
 
-        return $this->live($user, $module)->where('grants.role', $role)->pluck('grants.location_id')
+        $granted = $this->live($user, $module)->where('grants.role', $role)->pluck('grants.location_id')
             ->map(fn ($id) => (int) $id)->all();
+
+        // The Wehrführung of a Standort keeps its Kleiderkammer through its standard role
+        return array_values(array_unique([...$granted, ...app(StandardRoleAssignments::class)->locationWideIds($user, $module, [$role])]));
     }
 
     public function grant(User $by, int $locationId, int $userId, string $module, ?string $role, string $reason, ?string $expiresAt = null): LocationModuleRole

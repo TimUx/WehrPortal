@@ -85,7 +85,7 @@ test('inspections set the next date and the measured flow; a defect found marks 
 
 test('at the Einsatz: report and Lagemeldungen show the nearest Löschwasser; the map highlights it', function () {
     $leader = User::factory()->create();
-    $leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
+    $leader->moduleAccess()->create(['module' => 'einsatzbericht']);
     $leader->moduleAccess()->create(['module' => 'wasserkarte']);
     $reports = app(ReportService::class);
     $report = $reports->create($leader);
@@ -175,7 +175,7 @@ test('a QR label leads to the source; the Prüfnachweis comes as CSV', function 
 
 test('the map shows where an Einsatz was only while it runs, or to the Einsatzleitung', function () {
     $leader = User::factory()->create();
-    $leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
+    $leader->moduleAccess()->create(['module' => 'einsatzbericht']);
     $reports = app(ReportService::class);
     $report = $reports->create($leader);
     $reports->update($leader, $report, ['keyword' => 'RD Tragehilfe', 'latitude' => WK_LAT, 'longitude' => WK_LNG]);

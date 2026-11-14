@@ -24,7 +24,7 @@ beforeEach(function () {
     $this->travelTo(Carbon::parse('2027-05-10 20:00', 'Europe/Berlin'));
 
     $this->leader = User::factory()->create(['name' => 'Bernd Blaulicht']);
-    $this->leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
+    $this->leader->moduleAccess()->create(['module' => 'einsatzbericht']);
     $this->chief = User::factory()->create(['name' => 'Wilma Wehrführer']);
     $this->chief->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'wehrführung']);
     $this->hanna = User::factory()->create(['name' => 'Hanna Hydrant']);
@@ -64,7 +64,7 @@ test('the report asks for what its Einsatzart needs, and the Jahresstatistik cou
     $this->r->close($this->leader, $report);
     $this->r->release($this->chief, $report->refresh());
     Livewire::actingAs($this->chief)->test(Statistics::class)->assertSee('Art der Hilfeleistung')->assertSee('Verkehrsunfall');
-    $this->actingAs($this->leader)->get(route('einsatzbericht.print', $report))->assertSee('Eingeklemmte / eingeschlossene Personen')->assertSee('Verkehrsunfall');
+    $this->actingAs($this->chief)->get(route('einsatzbericht.print', $report))->assertSee('Eingeklemmte / eingeschlossene Personen')->assertSee('Verkehrsunfall');
 });
 
 test('Einsatzleiter and Wehrführung sign; the checksum shows corrections after the release', function () {
@@ -120,7 +120,7 @@ test('Nebenberichte: own crew and number, counted once in the statistics', funct
     }
     $stats = $this->r->statistics(2027);
     expect($stats['total'])->toBe(1)->and($stats['sides'])->toBe(1)->and($stats['breathing'])->toBe(1);
-    Livewire::actingAs($this->leader)->test(ReportList::class)->assertSee('Nebenbericht: Löschzug Nord');
+    Livewire::actingAs($this->chief)->test(ReportList::class)->assertSee('Nebenbericht: Löschzug Nord');
 });
 
 test('the Statusliste shows what is open per Einsatzart, and reports left lying are reminded', function () {
@@ -133,7 +133,7 @@ test('the Statusliste shows what is open per Einsatzart, and reports left lying 
     Report::whereKey($waiting->id)->update(['closed_at' => now()->subDays(9)]);
     $this->r->create($this->leader);   // today: not yet due
 
-    Livewire::actingAs($this->leader)->test(ReportList::class)
+    Livewire::actingAs($this->chief)->test(ReportList::class)
         ->assertSee('Zur Freigabe')->assertSee('Noch nicht freigegeben: ')->assertSee('Brand – Kleinbrand 1');
 
     expect($this->r->remind())->toBe(2)->and($this->r->remind())->toBe(0);

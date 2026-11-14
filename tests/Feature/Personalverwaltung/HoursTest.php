@@ -26,7 +26,7 @@ beforeEach(function () {
     $this->travelTo(Carbon::parse('2027-06-20 12:00', 'Europe/Berlin'));
     $this->chief = User::factory()->create();
     $this->chief->moduleAccess()->create(['module' => 'kalender', 'role' => 'terminverwalter']);
-    $this->chief->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
+    $this->chief->moduleAccess()->create(['module' => 'einsatzbericht']);
     $this->hanna = User::factory()->create(['name' => 'Hanna Hydrant']);
     joinIncidentDepartment($this->hanna);
     foreach (['kalender', 'einsatzbericht', 'lehrgaenge', 'schichtplan', 'personalverwaltung'] as $m) {

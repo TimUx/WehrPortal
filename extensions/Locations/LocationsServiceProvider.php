@@ -2,6 +2,7 @@
 
 namespace Extensions\Locations;
 
+use App\Models\Group;
 use App\Models\User;
 use Extensions\Locations\Console\AssignAttendanceCommand;
 use Extensions\Locations\Console\AssignClothingCommand;
@@ -16,6 +17,7 @@ use Extensions\Locations\Console\LeadershipCommand;
 use Extensions\Locations\Console\TransferClothingStockCommand;
 use Extensions\Locations\Filament\LocationsPlugin;
 use Extensions\Locations\Models\Location;
+use Extensions\Locations\Models\StandardRoleAssignment;
 use Extensions\Locations\Scopes\LocationScope;
 use Extensions\Locations\Services\ClothingPersonalAccess;
 use Extensions\Locations\Services\ClothingStockAccess;
@@ -23,6 +25,8 @@ use Extensions\Locations\Services\LocationAccess;
 use Extensions\Locations\Services\LocationModuleRoles;
 use Extensions\Locations\Services\ScopedAnnouncementService;
 use Extensions\Locations\Services\StandardDepartments;
+use Extensions\Locations\Services\StandardRoleAssignments;
+use Extensions\Locations\Services\StandardRoleCatalog;
 use Extensions\Locations\Support\AssignsLocation;
 use Filament\Facades\Filament;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -34,6 +38,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\ValidationException;
 use Modules\Kleiderkammer\src\Models\EquipmentMessage;
 use Modules\Kleiderkammer\src\Models\IssuedItem;
 use Modules\Kleiderkammer\src\Models\Item;
@@ -61,6 +66,7 @@ class LocationsServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__.'/config/locations.php', 'locations');
         $this->mergeConfigFrom(__DIR__.'/config/protection.php', 'locations.protection');
         $this->app->singleton(LocationAccess::class);
+        $this->app->singleton(StandardRoleAssignments::class);
         $this->app->singleton(ClothingStockAccess::class);
         $this->app->bind(StockAccess::class, fn ($app) => $app->make(ClothingStockAccess::class));
         $this->app->singleton(ClothingPersonalAccess::class);
@@ -75,6 +81,12 @@ class LocationsServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Role answers are remembered per request (StandardRoleAssignments::$memo); any change drops them
+        $forgetRoles = fn () => $this->app->make(StandardRoleAssignments::class)->forget();
+        foreach (['saved', 'deleted'] as $event) {
+            StandardRoleAssignment::{$event}($forgetRoles);
+            User::{$event}($forgetRoles);
+        }
         $this->app->make(LocationModuleRoles::class)->configuredModules();
         if ($this->app->make(LocationModuleRoles::class)->enabled('mitteilungen')) {
             $this->app->singleton(AnnouncementService::class, ScopedAnnouncementService::class);
@@ -140,6 +152,16 @@ class LocationsServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([EnsureLocationsCommand::class, InventoryModuleRolesCommand::class, AuditLocationDataCommand::class, AuditClothingCommand::class, AssignAttendanceCommand::class, AssignClothingCommand::class, AssignClothingStockCommand::class, CheckOperationalReadinessCommand::class, LeadershipCommand::class, TransferClothingStockCommand::class, CorrectClothingHistoryCommand::class]);
         }
+
+        // Jugend- and Kinderwart roles find their Abteilung by its name: a renamed one would drop out
+        // of every such role without a word
+        Group::updating(function (Group $group): void {
+            $before = mb_strtolower(trim((string) $group->getOriginal('name')));
+            if ($group->isDirty('name') && $before !== mb_strtolower(trim((string) $group->name))
+                && in_array($before, $this->app->make(StandardRoleCatalog::class)->groupNames(), true)) {
+                throw ValidationException::withMessages(['name' => 'Diese Abteilung kann nicht umbenannt werden: Die Standardrollen der Jugend- und Kinderwarte erkennen sie an ihrem Namen.']);
+            }
+        });
 
         Gate::define('manage-location', fn (User $user, Location $location) => $this->app->make(LocationAccess::class)->canManage($user, $location));
 

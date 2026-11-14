@@ -3,6 +3,7 @@
 use App\Models\User;
 use App\Services\AnnualReportRegistry;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Validation\ValidationException;
 use Modules\Einsatzbericht\src\Models\Report;
 use Modules\Einsatzbericht\src\Models\SituationPhoto;
 use Modules\Einsatzbericht\src\Services\ExternalAccess;
@@ -21,11 +22,29 @@ Route::middleware(['auth', 'active', 'module:einsatzbericht'])->group(function (
 
     Route::prefix('einsatzbericht')->name('einsatzbericht.')->group(function () {
         // Kameraden without a role see the running Einsätze (for Lagemeldungen) and their own
-        Route::get('/', fn () => ReportService::canLead(auth()->user())
+        // and write reports: their own open ones are listed until they close them
+        Route::get('/', fn () => ReportService::canSeeList(auth()->user())
             ? view('einsatzbericht::pages.index')
             : view('einsatzbericht::pages.running', [
                 'running' => Report::where('status', 'active')->whereNull('ended_at')->orderByDesc('alarmed_at')->get(),
+                'own' => Report::where('created_by', auth()->id())->whereIn('status', Report::OPEN)->orderByDesc('alarmed_at')->get(),
+                // From the alarm, nobody writes them yet
+                'unclaimed' => Report::whereNull('created_by')->whereIn('status', Report::OPEN)->orderByDesc('alarmed_at')->get(),
             ]))->name('index');
+        Route::post('/neu', function (ReportService $reports) {
+            try {
+                return redirect()->route('einsatzbericht.show', $reports->create(auth()->user()));
+            } catch (ValidationException $e) {
+                return back()->with('status', collect($e->errors())->flatten()->first());
+            }
+        })->name('create');
+        Route::post('/{report}/uebernehmen', function (Report $report, ReportService $reports) {
+            try {
+                return redirect()->route('einsatzbericht.show', $reports->claim(auth()->user(), $report));
+            } catch (ValidationException $e) {
+                return back()->with('status', collect($e->errors())->flatten()->first());
+            }
+        })->whereNumber('report')->name('claim');
 
         // Lagemeldungen: everyone with the module while the Einsatz runs, Einsatzleiter and Wehrführung always
         Route::get('/{report}/lage', function (Report $report) {
@@ -51,15 +70,16 @@ Route::middleware(['auth', 'active', 'module:einsatzbericht'])->group(function (
         Route::get('/material', fn () => view('einsatzbericht::pages.manage', ['livewireComponent' => 'einsatzbericht.material-catalog', 'title' => 'Material-Katalog']))
             ->middleware('can:einsatzbericht-materials')->name('materials');
 
-        // The full report only for Einsatzleiter and Wehrführung (data of third parties)
-        Route::middleware('can:einsatzbericht-lead')->group(function () {
+        // The full report (data of third parties): Einsatzleiter, the Wehrführung of its Standort, the
+        // readers, and whoever wrote it until it is closed
+        Route::group([], function () {
             Route::get('/{report}', function (Report $report) {
-                abort_unless(ReportService::canLeadReport(auth()->user(), $report), 403);
+                abort_unless(ReportService::canReadReport(auth()->user(), $report), 403);
 
                 return view('einsatzbericht::pages.report', compact('report'));
             })->whereNumber('report')->name('show');
             Route::get('/{report}/druck', function (Report $report) {
-                abort_unless(ReportService::canLeadReport(auth()->user(), $report), 403);
+                abort_unless(ReportService::canReadReport(auth()->user(), $report), 403);
 
                 return view('einsatzbericht::pages.print', [
                     'report' => $report->load(['vehicles.crew.user', 'commander', 'closer', 'releaser', 'materials', 'messages.user', 'messages.photos', 'messages.externalUnit', 'externalUnits.statuses']),
@@ -68,16 +88,24 @@ Route::middleware(['auth', 'active', 'module:einsatzbericht'])->group(function (
             })->whereNumber('report')->name('print');
         });
 
-        Route::middleware('can:einsatzbericht-release')->group(function () {
+        // Statistik and Kameraden: also the Wehrführung of a Standort, for its own Standorte
+        Route::middleware('can:einsatzbericht-lead')->group(function () {
             Route::get('/statistik', fn () => view('einsatzbericht::pages.manage', ['livewireComponent' => 'einsatzbericht.statistics', 'title' => 'Jahresstatistik']))->name('statistics');
+            Route::get('/kameraden', fn () => view('einsatzbericht::pages.manage', ['livewireComponent' => 'einsatzbericht.members', 'title' => 'Einsätze der Kameraden']))->name('members');
+            Route::get('/kameraden/{user}', function (User $user) {
+                abort_unless(ReportService::canEvaluateMember(auth()->user(), $user), 403);
+
+                return view('einsatzbericht::pages.member', compact('user'));
+            })->whereNumber('user')->name('member');
+        });
+
+        Route::middleware('can:einsatzbericht-release')->group(function () {
             // Jahresbericht: what every switched-on module has to say about the year, printable
             Route::get('/jahresbericht', function () {
                 $year = max(2000, min(2100, request()->integer('jahr') ?: (int) now('Europe/Berlin')->year));
 
                 return view('einsatzbericht::pages.annual', ['year' => $year, 'sections' => app(AnnualReportRegistry::class)->for($year)]);
             })->name('annual');
-            Route::get('/kameraden', fn () => view('einsatzbericht::pages.manage', ['livewireComponent' => 'einsatzbericht.members', 'title' => 'Einsätze der Kameraden']))->name('members');
-            Route::get('/kameraden/{user}', fn (User $user) => view('einsatzbericht::pages.member', compact('user')))->whereNumber('user')->name('member');
         });
     });
 });

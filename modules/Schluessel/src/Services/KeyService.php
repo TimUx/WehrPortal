@@ -35,8 +35,9 @@ class KeyService
 
     public static function canManage(User $user): bool
     {
+        // hasAnyModuleRole: these records belong to the whole Kommune, so the Wehrführung of any Standort keeps them too
         return $user->is_active && $user->canUseModule(self::MODULE)
-            && ($user->is_admin || $user->hasModuleRole(self::MODULE, 'schluesselwart'));
+            && ($user->is_admin || $user->hasAnyModuleRole(self::MODULE, 'schluesselwart'));
     }
 
     public function managers(): EloquentCollection

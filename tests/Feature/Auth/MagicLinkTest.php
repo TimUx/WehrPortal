@@ -156,3 +156,15 @@ test('login form component validates email', function () {
         ->assertHasErrors(['email' => 'email'])
         ->assertSet('sent', false);
 });
+
+test('the address is matched without case, however it was typed or stored', function () {
+    Notification::fake();
+    $bernd = User::factory()->create(['email' => 'bernd.blaulicht@example.com']);
+    $hanna = User::factory()->create(['email' => 'Hanna.Hydrant@example.com']);
+
+    $this->post(route('auth.magic-link.send'), ['email' => 'Bernd.Blaulicht@Example.com'])->assertRedirect(route('auth.magic-link.sent'));
+    $this->post(route('auth.magic-link.send'), ['email' => 'hanna.hydrant@example.com'])->assertRedirect(route('auth.magic-link.sent'));
+
+    Notification::assertSentTo($bernd, MagicLinkNotification::class);
+    Notification::assertSentTo($hanna, MagicLinkNotification::class);
+});

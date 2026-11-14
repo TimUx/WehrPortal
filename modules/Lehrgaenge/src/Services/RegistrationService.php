@@ -4,6 +4,7 @@ namespace Modules\Lehrgaenge\src\Services;
 
 use App\Models\User;
 use App\Services\LocationNotifications;
+use Extensions\Locations\Services\StandardRoleAssignments;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Notifications\Notification;
@@ -60,7 +61,7 @@ class RegistrationService
         }
 
         $record = Record::create(['user_id' => $user->id, 'course_id' => $course->id, 'status' => 'requested', 'notes' => filled($note) ? trim($note) : null]);
-        $this->notify($this->managers()->reject(fn (User $m) => $m->is($user)), new RequestReceivedNotification($record));
+        $this->notify($this->managers($user)->reject(fn (User $m) => $m->is($user)), new RequestReceivedNotification($record));
 
         return $record;
     }
@@ -76,9 +77,7 @@ class RegistrationService
      */
     public function registerFor(User $by, Course $course, array $memberIds, ?string $note = null): array
     {
-        if (! $by->canManageLehrgaenge()) {
-            throw ValidationException::withMessages(['register' => 'Anmelden können die Ausbildungsleiter.']);
-        }
+        $this->assertManages($by, $memberIds, 'register');
         if (! $course->isOffered()) {
             throw ValidationException::withMessages(['register' => 'Dieser Lehrgang wird nicht angeboten.']);
         }
@@ -173,7 +172,8 @@ class RegistrationService
         }
 
         $record->update(['status' => 'cancelled', 'cancelled_at' => now(), 'cancel_reason' => trim($reason)]);
-        $this->notify($this->managers()->reject(fn (User $m) => $m->is($record->user)), new RegistrationCancelledNotification($record->fresh(['course', 'user', 'sessions'])));
+        $member = User::withoutGlobalScopes()->find($record->user_id);
+        $this->notify($this->managers($member)->reject(fn (User $m) => $m->is($member)), new RegistrationCancelledNotification($record->fresh(['course', 'user', 'sessions'])));
     }
 
     /** Admin or Ausbildungsleiter decline a registration with a comment; the Kamerad gets it by mail */
@@ -272,9 +272,7 @@ class RegistrationService
      */
     public function recordCompletedMany(User $by, string $courseName, array $memberIds, ?string $completedOn = null, ?string $note = null): array
     {
-        if (! $by->canManageLehrgaenge()) {
-            throw ValidationException::withMessages(['entry_course' => 'Nachtragen können die Ausbildungsleiter.']);
-        }
+        $this->assertManages($by, $memberIds, 'entry_course');
         $this->completedEntry($courseName, $completedOn);
         $members = User::whereIn('id', array_map('intval', $memberIds))->orderBy('name')->get();
         if ($members->isEmpty()) {
@@ -379,13 +377,90 @@ class RegistrationService
     }
 
     /** Ausbildungsleiter, or the admins if nobody holds the role */
-    public function managers(): EloquentCollection
+    /**
+     * Whose Lehrgänge this Kamerad may see: null = everyone's (Ausbildungsleiter, the module role
+     * Wehrführung, GBI/SBI, admins), a list = the members of the Standorte where they are Wehrführung.
+     *
+     * @return list<int>|null
+     */
+    public static function viewableMemberIds(User $user): ?array
     {
-        $managers = User::active()
-            ->whereHas('moduleAccess', fn ($q) => $q->where('module', 'lehrgaenge')->where('role', 'ausbildungsleiter'))
-            ->get();
+        if (! $user->canViewLehrgaenge()) {
+            return [];
+        }
 
-        return $managers->isNotEmpty() ? $managers : User::active()->where('is_admin', true)->get();
+        return $user->canManageLehrgaenge() ? null
+            : app(StandardRoleAssignments::class)->managedMemberIds($user, 'lehrgaenge', 'wehrführung');
+    }
+
+    /**
+     * Whose Lehrgänge this Kamerad keeps (registrations, absolvierte Lehrgänge): null = everyone's
+     * (Ausbildungsleiter, GBI/SBI, admins), a list = the members of the Standorte where a standard
+     * role makes them Wehrführung. The classic module role Wehrführung only reads.
+     *
+     * @return list<int>|null
+     */
+    public static function manageableMemberIds(User $user): ?array
+    {
+        if ($user->canManageLehrgaenge()) {
+            return null;
+        }
+        if (! config('locations.enabled') || ! $user->is_active || ! $user->canUseModule('lehrgaenge')) {
+            return [];
+        }
+        $roles = app(StandardRoleAssignments::class);
+        $locations = $roles->locationWideIds($user, 'lehrgaenge', ['wehrführung']);
+
+        return $locations === [] ? [] : $roles->memberIdsAt($locations);
+    }
+
+    /** Keeps the Lehrgänge of at least some Kameraden */
+    public static function canManageAny(User $user): bool
+    {
+        return self::manageableMemberIds($user) !== [];
+    }
+
+    public static function canManageMember(User $user, ?int $memberId): bool
+    {
+        $manageable = self::manageableMemberIds($user);
+
+        return $manageable === null || ($memberId !== null && in_array($memberId, $manageable, true));
+    }
+
+    /** Refuses Kameraden outside the own Standort; the message goes to the given field */
+    private function assertManages(User $by, array $memberIds, string $field): void
+    {
+        $manageable = self::manageableMemberIds($by);
+        if ($manageable === []) {
+            throw ValidationException::withMessages([$field => 'Das können die Ausbildungsleiter und die Wehrführung des Standorts.']);
+        }
+        if ($manageable !== null && array_diff(array_map('intval', $memberIds), $manageable) !== []) {
+            throw ValidationException::withMessages([$field => 'Du kannst nur Kameraden deines Standorts eintragen.']);
+        }
+    }
+
+    public static function canViewMember(User $user, int $memberId): bool
+    {
+        $viewable = self::viewableMemberIds($user);
+
+        return $viewable === null || in_array($memberId, $viewable, true);
+    }
+
+    /**
+     * The Ausbildungsleiter; with a Kamerad also the Wehrführung of their Standort, who keeps their
+     * Lehrgänge. The admins when there is nobody.
+     */
+    public function managers(?User $member = null): EloquentCollection
+    {
+        $locationId = $member?->getAttribute('ext_location_id');
+        $standard = $locationId !== null && config('locations.enabled')
+            ? app(StandardRoleAssignments::class)->userIdsWithModuleRole('lehrgaenge', 'wehrführung', (int) $locationId)
+            : [];
+        $managers = User::withoutGlobalScopes()->active()->where(fn ($query) => $query
+            ->whereHas('moduleAccess', fn ($q) => $q->where('module', 'lehrgaenge')->where('role', 'ausbildungsleiter'))
+            ->orWhereIn('id', $standard))->get();
+
+        return $managers->isNotEmpty() ? $managers : User::withoutGlobalScopes()->active()->where('is_admin', true)->get();
     }
 
     /** @return list<array{date: string, starts_at: ?string, ends_at: ?string, location: ?string}> sorted by day */

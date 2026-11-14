@@ -36,7 +36,7 @@ beforeEach(function () {
     $this->north = Location::create(['name' => 'Wache Nord', 'slug' => 'exposure-nord']);
     $this->officer = User::factory()->create(['name' => 'Erika Exposition', 'ext_location_id' => $this->north->id]);
     $this->leader = User::factory()->create(['name' => 'Bernd Blaulicht', 'ext_location_id' => $this->north->id]);
-    $this->leader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
+    $this->leader->moduleAccess()->create(['module' => 'einsatzbericht']);
     $this->hanna = User::factory()->create(['name' => 'Hanna Hydrant', 'ext_location_id' => $this->north->id]);
     $this->fritz = User::factory()->create(['name' => 'Fritz Feuer', 'ext_location_id' => $this->north->id]);
     foreach ([$this->hanna, $this->fritz] as $u) {
@@ -195,7 +195,7 @@ test('local Wehrführung is limited to its Standort and legacy global exposure r
     $this->actingAs($legacy)->get(route('expositionen.manage'))->assertForbidden();
 
     $incidentLeader = User::factory()->create(['name' => 'Lars Einsatzleiter', 'ext_location_id' => $this->north->id]);
-    $incidentLeader->moduleAccess()->create(['module' => 'einsatzbericht', 'role' => 'einsatzleiter']);
+    $incidentLeader->moduleAccess()->create(['module' => 'einsatzbericht']);
     $incidentLeader->moduleAccess()->create(['module' => 'expositionen']);
     expect(ExposureService::canPropose($incidentLeader, $this->report))->toBeFalse();
     $this->actingAs($incidentLeader)->get(route('expositionen.crew', $this->report))->assertForbidden();

@@ -3,14 +3,18 @@
 use App\Models\Module;
 use App\Models\User;
 use Extensions\Locations\Models\Location;
+use Extensions\Vereinsverwaltung\Filament\Resources\AssociationResource\Pages\EditAssociation;
+use Extensions\Vereinsverwaltung\Filament\Resources\AssociationResource\RelationManagers\BoardMembersRelationManager;
 use Extensions\Vereinsverwaltung\Livewire\Board;
 use Extensions\Vereinsverwaltung\Models\Association;
 use Extensions\Vereinsverwaltung\Models\Member;
 use Extensions\Vereinsverwaltung\Models\MembershipApplication;
+use Extensions\Vereinsverwaltung\Services\AssociationAccess;
 use Extensions\Vereinsverwaltung\Services\MembershipService;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -409,4 +413,61 @@ it('redacts rejected application data and permits active and passive board membe
         'mandate_status' => 'awaiting_signature',
     ]);
     expect($member->membership_type)->toBe('active');
+});
+
+it('names the Ämter of the Vorstand and lets the Vorsitz put it together', function () {
+    $association = testAssociation();
+    $access = app(AssociationAccess::class);
+    $admin = User::factory()->admin()->create();
+    $at = ['ext_location_id' => $association->location_id];
+    $chair = User::factory()->create(['name' => 'Hanna Hydrant', ...$at]);
+    $treasurer = User::factory()->create(['name' => 'Bernd Blaulicht', ...$at]);
+    $member = User::factory()->create(['name' => 'Karla Kasse', ...$at]);
+    $elsewhere = User::factory()->create(['ext_location_id' => Location::create(['name' => 'Wache Süd', 'slug' => 'verein-sued'])->id]);
+
+    $access->setBoardMember($admin, $association, $chair->id, 'vorsitz', true);
+    $access->setBoardMember($admin, $association, $treasurer->id, 'kasse');
+
+    expect(Association::officeLabel('vorsitz', true))->toBe('Stv. Vorsitzender')
+        ->and(Association::officeLabel(null, true))->toBe('Vorstandsmitglied')
+        ->and($access->canManage($treasurer->fresh(), $association))->toBeTrue()
+        // The Stellvertretung of the Vorsitz has its rights, the Kassierer not
+        ->and($access->canManageBoard($chair->fresh(), $association))->toBeTrue()
+        ->and($access->canManageBoard($treasurer->fresh(), $association))->toBeFalse();
+
+    Livewire::actingAs($chair->fresh())->test(Board::class)->set('tab', 'board')
+        ->assertSee('Stv. Vorsitzender')->assertSee('Kassierer')
+        ->set('boardUserId', (string) $member->id)->set('boardOffice', 'schrift')->call('saveBoardMember')
+        ->assertHasNoErrors()->assertSee('Schriftführer')
+        ->call('removeBoardMember', $treasurer->id);
+
+    expect($member->fresh()->canUseModule('verein'))->toBeTrue()
+        ->and($treasurer->fresh()->canUseModule('verein'))->toBeFalse()
+        ->and($association->boardMembers()->withoutGlobalScopes()->pluck('users.id')->all())->toEqualCanonicalizing([$chair->id, $member->id]);
+
+    // Not the own Amt, no Amt that does not exist, nobody from another Standort
+    expect(fn () => $access->removeBoardMember($chair->fresh(), $association, $chair->id))->toThrow(ValidationException::class)
+        ->and(fn () => $access->setBoardMember($chair->fresh(), $association, $member->id, 'kaiser'))->toThrow(ValidationException::class)
+        ->and(fn () => $access->setBoardMember($chair->fresh(), $association, $elsewhere->id, 'beisitz'))->toThrow(ValidationException::class);
+
+    // A Schriftführer keeps members, not the Vorstand
+    Livewire::actingAs($member->fresh())->test(Board::class)->call('removeBoardMember', $chair->id)->assertForbidden();
+    expect($access->canManageBoard($chair->fresh(), $association))->toBeTrue();
+});
+
+it('shows and keeps the Amt of a board member in the admin relation manager', function () {
+    $admin = User::factory()->admin()->create();
+    $association = testAssociation();
+    $chair = User::factory()->create(['name' => 'Hanna Hydrant']);
+    app(AssociationAccess::class)->setBoardMember($admin, $association, $chair->id, 'vorsitz', true);
+
+    $manager = Livewire::actingAs($admin)->test(BoardMembersRelationManager::class, ['ownerRecord' => $association, 'pageClass' => EditAssociation::class])
+        ->assertSuccessful()
+        ->assertTableColumnStateSet('office', 'Stv. Vorsitzender', $chair)
+        // "Amt ändern" starts from the Amt the Kamerad has, so saving unchanged does not take it away
+        ->mountTableAction('setOffice', $chair)
+        ->assertTableActionDataSet(['office' => 'vorsitz', 'is_deputy' => true]);
+    $manager->callMountedTableAction()->assertHasNoTableActionErrors();
+
+    expect(app(AssociationAccess::class)->canManageBoard($chair->fresh(), $association))->toBeTrue();
 });

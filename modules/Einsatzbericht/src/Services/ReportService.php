@@ -9,6 +9,7 @@ use App\Support\SignatureImage;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Services\LocationAccess;
 use Extensions\Locations\Services\LocationContext;
+use Extensions\Locations\Services\StandardRoleAssignments;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
@@ -36,11 +37,50 @@ use Throwable;
  */
 class ReportService
 {
-    /** Einsatzleiter, Gruppenführer, Wehrführung and admins write reports */
+    /** Every Kamerad with the module writes a report: who was at the Einsatz and writes it down varies */
+    public static function canCreate(User $user): bool
+    {
+        return $user->is_active && $user->canUseModule('einsatzbericht');
+    }
+
+    /** Wrote the report and it is still open: until it is closed it is theirs to fill in */
+    public static function isOpenAuthor(User $user, Report $report): bool
+    {
+        return self::canCreate($user) && (int) $report->created_by === (int) $user->id && in_array($report->status, Report::OPEN, true);
+    }
+
+    /** Reads every report without changing any: the role Einsicht (the Brandschutzamt has it) */
+    public static function isReader(User $user): bool
+    {
+        return self::canCreate($user) && $user->hasModuleRole('einsatzbericht', 'einsicht');
+    }
+
+    /** Sees the list of reports: who leads or reads them */
+    public static function canSeeList(User $user): bool
+    {
+        return self::canLead($user) || self::isReader($user);
+    }
+
+    /** Opens this report: who leads it, its author while it is open, and the readers */
+    public static function canReadReport(User $user, Report $report): bool
+    {
+        return self::canLeadReport($user, $report) || self::isReader($user);
+    }
+
+    /**
+     * Wehrführung and admins see and lead the reports. There is no role for leading every report
+     * any more: whoever was at the Einsatz writes it (canCreate, isOpenAuthor, claim).
+     */
     public static function canLead(User $user): bool
     {
         return $user->is_active && $user->canUseModule('einsatzbericht')
-            && ($user->is_admin || $user->hasAnyModuleRole('einsatzbericht', 'einsatzleiter') || $user->hasAnyModuleRole('einsatzbericht', 'wehrführung'));
+            && ($user->is_admin || $user->hasAnyModuleRole('einsatzbericht', 'wehrführung'));
+    }
+
+    /** An open report nobody writes yet (it came from the alarm): any Kamerad who sees it may take it */
+    public static function canClaim(User $user, Report $report): bool
+    {
+        return self::canCreate($user) && $report->created_by === null && in_array($report->status, Report::OPEN, true);
     }
 
     /** Wehrführung and admins release, correct and evaluate */
@@ -50,12 +90,37 @@ class ReportService
             && ($user->is_admin || $user->hasModuleRole('einsatzbericht', 'wehrführung'));
     }
 
+    /**
+     * The Kameraden whose Einsätze someone evaluates: null means everyone (admins, the Wehrführung
+     * of the whole Kommune), otherwise the members of the Standorte where they are Wehrführung.
+     *
+     * @return list<int>|null
+     */
+    public static function evaluatedMemberIds(User $user): ?array
+    {
+        if (! self::canLead($user)) {
+            return [];
+        }
+
+        return self::canRelease($user) ? null : app(StandardRoleAssignments::class)->managedMemberIds($user, 'einsatzbericht', 'wehrführung');
+    }
+
+    public static function canEvaluateMember(User $user, User $member): bool
+    {
+        $ids = self::evaluatedMemberIds($user);
+
+        return $ids === null || in_array((int) $member->id, $ids, true);
+    }
+
     public static function canLeadReport(User $user, Report $report): bool
     {
+        if (self::isOpenAuthor($user, $report)) {
+            return true;
+        }
         if (! self::canLead($user)) {
             return false;
         }
-        if ($user->hasModuleRole('einsatzbericht', 'einsatzleiter') || self::canRelease($user)) {
+        if (self::canRelease($user)) {
             return true;
         }
 
@@ -101,10 +166,20 @@ class ReportService
         Setting::set('einsatzbericht_required', json_encode(array_values(array_intersect($fields, array_keys(Report::REQUIRABLE)))));
     }
 
+    /** Takes over a report that came from the alarm: from now on it is this Kamerad's to fill in and close */
+    public function claim(User $by, Report $report): Report
+    {
+        $taken = Report::whereKey($report->id)->whereNull('created_by')->whereIn('status', Report::OPEN)
+            ->update(['created_by' => $by->id]);
+        $this->assert(self::canCreate($by) && $taken === 1, 'Diesen Bericht schreibt schon jemand.');
+
+        return $report->refresh();
+    }
+
     /** A new draft with the next running number of the year ("2026/007") */
     public function create(User $by, ?Carbon $alarmedAt = null): Report
     {
-        $this->assert(self::canLead($by));
+        $this->assert(self::canCreate($by));
 
         $attributes = ['commander_id' => $by->id, 'created_by' => $by->id];
         if (config('locations.enabled') && $by->hasAnyModuleRole('einsatzbericht', 'wehrführung')

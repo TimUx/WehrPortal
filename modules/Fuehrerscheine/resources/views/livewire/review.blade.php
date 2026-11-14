@@ -44,9 +44,11 @@
                 <li class="py-1.5 text-gray-500">Noch keine.</li>
             @endforelse
         </ul>
+        @if($canManageAll)
         <form wire:submit="saveInterval" class="mt-3 flex flex-wrap items-end gap-2 border-t border-gray-100 pt-3 text-sm">
             <label class="text-gray-700">Erneut prüfen alle<input type="number" min="1" max="36" wire:model="interval" class="ml-2 w-20 rounded-lg border-gray-300 text-sm"> Monate</label>
             <button type="submit" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 font-semibold text-gray-700">Speichern</button>
         </form>
+        @endif
     </section>
 </div>

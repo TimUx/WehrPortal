@@ -10,6 +10,8 @@ Ob ein Fachmodul für Kameraden verfügbar ist, wird unter **Admin → Module** 
 
 ## Inhalt
 
+- [Berechtigungsmatrix](BERECHTIGUNGEN.md): wer was darf
+- [Abläufe](ABLAEUFE.md): die wichtigsten Abläufe als Diagramm
 - [Übersicht](#übersicht)
 - [Hydrantenkontrolle: Bedienungsanleitung](#hydrantenkontrolle-bedienungsanleitung)
 - [Mitteilungen: Standorte, ntfy und Matrix](MITTEILUNGEN.md)

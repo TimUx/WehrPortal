@@ -63,7 +63,7 @@ class ReportEditor extends Component
 
     public function mount(): void
     {
-        abort_unless(ReportService::canLeadReport(auth()->user(), $this->report), 403);
+        abort_unless(ReportService::canReadReport(auth()->user(), $this->report), 403);
         $this->fillForm();
         $this->placesSession = (string) Str::uuid();
     }
@@ -322,6 +322,13 @@ class ReportEditor extends Component
         if ($this->attempt(fn () => $reports->close(auth()->user(), $this->report, $this->signature ?: null))) {
             $this->signature = '';
             $this->flash = 'Bericht abgeschlossen. Die Wehrführung gibt ihn frei.';
+            // The author without a role hands the report over with this and can't open it any more
+            if (! ReportService::canReadReport(auth()->user(), $this->report->fresh())) {
+                session()->flash('status', $this->flash);
+                $this->redirectRoute('einsatzbericht.index');
+
+                return;
+            }
             $this->dispatch('report-saved', message: $this->flash, field: null, warn: false);
         } elseif ($field = $reports->missingFields($this->report)[0] ?? null) {
             $this->dispatch('report-saved', message: 'Nicht abgeschlossen – es fehlen noch Pflichtfelder.', field: $field, warn: true);

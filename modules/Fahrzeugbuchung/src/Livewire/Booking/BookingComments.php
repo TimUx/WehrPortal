@@ -81,7 +81,7 @@ class BookingComments extends Component
     public function render()
     {
         $booking = Booking::findOrFail($this->bookingId);
-        $seesHistory = auth()->user()->can('viewHistory', BookingComment::class);
+        $seesHistory = auth()->user()->can('viewHistory', [BookingComment::class, $booking]);
 
         $comments = $booking->comments()
             ->when($seesHistory, fn ($query) => $query->withTrashed()->with('revisions'))

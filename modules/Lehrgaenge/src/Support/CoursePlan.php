@@ -13,10 +13,11 @@ use Modules\Lehrgaenge\src\Services\RegistrationService;
 class CoursePlan
 {
     /** @return Collection<string, Collection<int, array{session: Session, course: string, people: Collection}>> by month ("2027-03") */
-    public static function rows(?int $year = null): Collection
+    public static function rows(?int $year = null, ?array $memberIds = null): Collection
     {
         return Session::with(['record.course', 'record.user'])
-            ->whereHas('record', fn ($q) => $q->whereIn('status', ['confirmed', 'completed']))
+            ->whereHas('record', fn ($q) => $q->whereIn('status', ['confirmed', 'completed'])
+                ->when($memberIds !== null, fn ($records) => $records->whereIn('user_id', $memberIds)))
             ->when($year, fn ($q) => $q->whereYear('date', $year), fn ($q) => $q->whereDate('date', '>=', RegistrationService::today()))
             ->orderBy('date')->orderBy('starts_at')->get()
             ->groupBy(fn (Session $s) => implode('|', [$s->record->course_id, $s->date->toDateString(), $s->starts_at, $s->ends_at, mb_strtolower((string) $s->location)]))

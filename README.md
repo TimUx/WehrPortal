@@ -34,6 +34,8 @@ Beispieldaten einer Testinstallation, weitere Bilder in der [Galerie](docs/SCREE
 | Betreiber | [Installationsguide](handbuch/INSTALLATION.md) und [Serverbetrieb mit Docker Compose](docs/BETRIEB.md): Installation, Konfiguration, Sicherheit, Updates, Releases |
 | Alle | [Kernfunktionen](docs/KERNFUNKTIONEN.md): Startseite, Fahrzeugbuchung, Rollen, Admin-Bereich |
 | Alle | [Module im Überblick und im Detail](docs/MODULE.md) |
+| Alle | [Berechtigungsmatrix](docs/BERECHTIGUNGEN.md): wer was darf – Standardrollen, Modulrollen, Admin-Bereich |
+| Alle | [Abläufe](docs/ABLAEUFE.md): die wichtigsten Abläufe als Diagramm, z. B. Wehrführung wechseln |
 | Alle | [Modulhandbücher](docs/README.md): Anwesenheit, Dateien, Locations, Offline/PWA, OIDC, Mitteilungen, Einsatzbericht |
 | Entwickler | [Screenshots und E2E-Tests](docs/SCREENSHOTS.md), [Tech-Stack](docs/BETRIEB.md#tech-stack) |
 

@@ -5,6 +5,8 @@
             <h1 class="text-xl font-bold text-gray-900">Lehrgangsanmeldungen</h1>
             <p class="text-sm text-gray-500">Für Kameraden mit Interesse in fox112 Bedarf anmelden. Nach der Bestätigung die Termine eintragen – der Kamerad bekommt sie per E-Mail. Nach dem Lehrgang „Absolviert“ setzen.</p>
         </div>
+        {{-- The catalogue and its fox112 import belong to the Ausbildungsleiter --}}
+        @if($canManageAll)
         <div class="text-right">
             <button type="button" wire:click="import" wire:loading.attr="disabled" wire:target="import" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">
                 <span wire:loading.remove wire:target="import">Lehrgänge von fox112 aktualisieren</span>
@@ -15,6 +17,7 @@
                 @if($lastRun['at'])Stand {{ \Illuminate\Support\Carbon::parse($lastRun['at'])->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }}{{ $lastRun['ok'] ? '' : ' – fehlgeschlagen' }}@else Noch nicht geladen @endif
             </p>
         </div>
+        @endif
     </div>
     @if($flash)<p class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{{ $flash }}</p>@endif
     @if($error)<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{ $error }}</p>@endif

@@ -55,5 +55,7 @@ test('the authenticated app exposes the German offline status and user-scoped dr
         ->assertSee('data-user-id="'.$member->id.'"', false)
         ->assertSee('data-offline-storage-error', false)
         ->assertSee('Offline-Modus', false)
-        ->assertSee('Jetzt synchronisieren', false);
+        ->assertSee('Jetzt synchronisieren', false)
+        // Hidden until the script has something to report, so it never covers a page's buttons
+        ->assertSee('data-offline-panel hidden', false);
 });

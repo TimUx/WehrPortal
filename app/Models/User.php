@@ -213,9 +213,36 @@ class User extends Authenticatable implements FilamentUser
 
     public function canManageAnyKalenderLocation(): bool
     {
-        return $this->canManageKalender()
-            || ($this->is_active && $this->canUseModule('kalender')
-                && $this->standardRoleLocationIds('kalender', ['terminverwalter']) !== []);
+        return $this->canManageKalender() || $this->kalenderLocationIds() !== [];
+    }
+
+    /** @return list<int> Standorte whose whole Kalender someone keeps through a standard role (Wehrführung) */
+    public function kalenderLocationIds(): array
+    {
+        return $this->is_active && $this->canUseModule('kalender')
+            ? app(StandardRoleAssignments::class)->locationWideIds($this, 'kalender', ['terminverwalter'])
+            : [];
+    }
+
+    /** @return list<int> Abteilungen whose Termine a Jugend- or Kinderwart keeps (of the Kommune: at every Standort) */
+    public function kalenderGroupIds(): array
+    {
+        return $this->is_active && $this->canUseModule('kalender')
+            ? $this->standardRoleGroupIds('kalender', ['terminverwalter'])
+            : [];
+    }
+
+    /**
+     * Jugend- and Kinderwarte keep the Termine of their own Abteilung: at least one of them as
+     * target group and no other one.
+     *
+     * @param  list<int|string>  $groupIds
+     */
+    public function canManageKalenderGroups(array $groupIds): bool
+    {
+        $groupIds = array_values(array_unique(array_map('intval', $groupIds)));
+
+        return $groupIds !== [] && array_diff($groupIds, $this->kalenderGroupIds()) === [];
     }
 
     /** Admins and Ausbildungsleiter keep the Lehrgänge of everyone; other members see their own */
@@ -226,11 +253,14 @@ class User extends Authenticatable implements FilamentUser
             && ($this->is_admin || $this->hasModuleRole('lehrgaenge', 'ausbildungsleiter'));
     }
 
-    /** The Wehrführung also sees everyone's Lehrgänge and the Ausbildungsstand, without changing anything */
+    /**
+     * The Wehrführung also sees Lehrgänge and the Ausbildungsstand, without changing anything: everyone's
+     * with the module role, with Standorte those of its members (RegistrationService::viewableMemberIds)
+     */
     public function canViewLehrgaenge(): bool
     {
         return $this->canManageLehrgaenge()
-            || ($this->is_active && $this->canUseModule('lehrgaenge') && $this->hasModuleRole('lehrgaenge', 'wehrführung'));
+            || ($this->is_active && $this->canUseModule('lehrgaenge') && $this->hasAnyModuleRole('lehrgaenge', 'wehrführung'));
     }
 
     /** Admins and Planer create and distribute shift plans; other members see the plans they are on */

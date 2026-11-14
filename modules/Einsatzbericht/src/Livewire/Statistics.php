@@ -8,7 +8,10 @@ use Livewire\Component;
 use Modules\Einsatzbericht\src\Models\Report;
 use Modules\Einsatzbericht\src\Services\ReportService;
 
-/** Wehrführung: Einsätze of a year by type, month and vehicle, hours and Stärke */
+/**
+ * Wehrführung: Einsätze of a year by type, month and vehicle, hours and Stärke. The Wehrführung of
+ * a Standort gets the figures of its own Standorte: LocationScope limits the reports.
+ */
 class Statistics extends Component
 {
     #[Url(as: 'jahr')]
@@ -16,7 +19,7 @@ class Statistics extends Component
 
     public function mount(): void
     {
-        abort_unless(ReportService::canRelease(auth()->user()), 403);
+        abort_unless(ReportService::canLead(auth()->user()), 403);
         $this->year ??= now('Europe/Berlin')->year;
     }
 
@@ -27,6 +30,8 @@ class Statistics extends Component
         return view('einsatzbericht::livewire.statistics', [
             'stats' => $reports->statistics($this->year),
             'consumption' => $reports->consumption($this->year),
+            // The Jahresbericht of all modules is for the whole Kommune
+            'annual' => ReportService::canRelease(auth()->user()),
             // Map of all Einsätze with a point (escaped for the popup)
             'points' => Report::whereNull('parent_id')->whereIn('status', ReportService::countedStatuses())->whereNotNull('latitude')->whereNotNull('longitude')
                 ->whereBetween('alarmed_at', [$from, $from->copy()->addYear()])->get()

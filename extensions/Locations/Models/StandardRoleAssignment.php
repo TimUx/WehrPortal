@@ -5,6 +5,7 @@ namespace Extensions\Locations\Models;
 use App\Models\Group;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Extensions\Locations\Services\StandardRoleCatalog;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -18,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonImmutable $granted_at
  * @property string $reason
  * @property CarbonImmutable|null $expires_at
+ * @property bool $is_deputy
  * @property int|null $revoked_by
  * @property CarbonImmutable|null $revoked_at
  * @property string|null $revoke_reason
@@ -37,7 +39,13 @@ class StandardRoleAssignment extends Model
 
     protected function casts(): array
     {
-        return ['granted_at' => 'immutable_datetime', 'expires_at' => 'immutable_datetime', 'revoked_at' => 'immutable_datetime'];
+        return ['granted_at' => 'immutable_datetime', 'expires_at' => 'immutable_datetime', 'revoked_at' => 'immutable_datetime', 'is_deputy' => 'boolean'];
+    }
+
+    /** "Stv. Wehrführung", "Stadtbrandinspektor" … */
+    public function roleName(): string
+    {
+        return app(StandardRoleCatalog::class)->name($this->profile, $this->is_deputy);
     }
 
     /** @return BelongsTo<User, $this> */

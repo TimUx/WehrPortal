@@ -3,6 +3,7 @@
 namespace Extensions\Locations\Filament;
 
 use App\Models\Group;
+use App\Models\Setting;
 use App\Models\User;
 use Extensions\Locations\Models\Location;
 use Extensions\Locations\Models\StandardRoleAssignment;
@@ -13,6 +14,7 @@ use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
@@ -62,21 +64,49 @@ class StandardRolesPage extends Page implements HasForms, HasTable
         $this->form->fill();
     }
 
+    /** Gemeinde or Stadt: decides between GBI and SBI and the names of the Kommune-wide Warte */
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('municipality')
+                ->label('Gemeinde oder Stadt')
+                ->icon('heroicon-o-building-library')
+                ->color('gray')
+                ->modalHeading('Art der Kommune')
+                ->modalDescription('Danach richten sich die Bezeichnungen: Gemeindebrandinspektor (GBI) oder Stadtbrandinspektor (SBI), Gemeinde- oder Stadtjugendwart, Gemeinde- oder Stadtkinderwart. An den Rechten ändert sich nichts.')
+                ->fillForm(fn () => ['municipality' => app(StandardRoleCatalog::class)->municipality()])
+                ->schema([
+                    Select::make('municipality')->label('Die Feuerwehr gehört zu einer')
+                        ->options(StandardRoleCatalog::MUNICIPALITIES)->required()->native(false),
+                ])
+                ->action(function (array $data): void {
+                    Setting::set(StandardRoleCatalog::MUNICIPALITY_SETTING, $data['municipality']);
+                    $this->form->fill();
+                    Notification::make()->title('Bezeichnungen angepasst')->success()->send();
+                }),
+        ];
+    }
+
     public function form(Schema $schema): Schema
     {
         $catalog = app(StandardRoleCatalog::class);
         $profiles = collect($catalog->all())
             ->filter(fn (array $definition, string $key) => $catalog->isAssignable($key))
-            ->mapWithKeys(fn (array $definition, string $key) => [$key => $definition['name']])->all();
+            ->mapWithKeys(fn (array $definition, string $key) => [$key => $catalog->name($key)])->all();
         $notReady = collect($catalog->all())
             ->reject(fn (array $definition, string $key) => $catalog->isAssignable($key))
-            ->pluck('name')->implode(', ');
+            ->map(fn (array $definition, string $key) => $catalog->name($key).' ('.$catalog->notAssignableReason($key).')')
+            ->implode('; ');
 
         return $schema
             ->statePath('data')
             ->schema([
                 Section::make('Rolle zuweisen')
-                    ->description('Profilzuweisungen sind befristbar und werden mit Grund protokolliert. Die verfügbaren Profile gewähren nur die bereits angebundenen Rechte: GBI/SBI standortübergreifend, Wehrführung für Anwesenheit und Übungsdienste, Jugend- und Kinderwarte für zugewiesene Abteilungen; Gemeindewarte können alle passenden Abteilungen standortübergreifend verwalten. Der Bürgermeister erhält bei aktivierter Führungsübersicht ausschließlich jährliche Einsatzzahlen über alle Standorte, aber keinen Zugang zu den Einsatzberichten oder anderen Modulen. Noch nicht freigegeben: '.$notReady.'.')
+                    ->description('Zuweisungen sind befristbar und werden mit Grund protokolliert. Wehrführung und Gerätewart gelten für einen Standort, Jugend- und Kinderwart für eine Abteilung, '.$catalog->name('gemeindejugendwart').' und '.$catalog->name('gemeindekinderwart').' für alle Abteilungen ihrer Art, der Atemschutzgerätewart für die ganze '.$catalog->municipalityWord().'. '
+                        .'Stellvertreter bekommen dieselbe Rolle mit dem Schalter „Stellvertretung“: gleiche Rechte, eigene Bezeichnung, beliebig viele je Position. '
+                        .$catalog->inspector().' öffnet jedes Modul an allen Standorten zum Verwalten – auch Verbandbuch, Expositionen, Finanzen und Personalakten. '
+                        .'Der Bürgermeister sieht ausschließlich die jährlichen Einsatzzahlen.'
+                        .($notReady === '' ? '' : ' Zurzeit nicht vergebbar: '.$notReady.'.'))
                     ->columns(2)
                     ->schema([
                         Select::make('user_id')
@@ -119,6 +149,8 @@ class StandardRolesPage extends Page implements HasForms, HasTable
                             ->searchable(),
                         Textarea::make('reason')->label('Begründung')->required()->maxLength(500)->columnSpanFull(),
                         DateTimePicker::make('expires_at')->label('Gültig bis (optional)')->native(false),
+                        Toggle::make('is_deputy')->label('Stellvertretung')
+                            ->helperText('Gleiche Rechte und Benachrichtigungen wie der Inhaber; in Listen steht „Stv.“ davor.'),
                     ]),
             ]);
     }
@@ -135,6 +167,7 @@ class StandardRolesPage extends Page implements HasForms, HasTable
                 filled($data['group_id'] ?? null) ? (int) $data['group_id'] : null,
                 (string) $data['reason'],
                 filled($data['expires_at'] ?? null) ? Carbon::parse($data['expires_at'])->toISOString() : null,
+                (bool) ($data['is_deputy'] ?? false),
             );
         } catch (ValidationException $exception) {
             foreach ($exception->errors() as $field => $messages) {
@@ -156,7 +189,7 @@ class StandardRolesPage extends Page implements HasForms, HasTable
             ->columns([
                 TextColumn::make('member.name')->label('Kamerad')->searchable()->sortable(),
                 TextColumn::make('profile')->label('Rolle')
-                    ->formatStateUsing(fn (string $state) => app(StandardRoleCatalog::class)->get($state)['name']),
+                    ->formatStateUsing(fn (StandardRoleAssignment $record) => $record->roleName()),
                 TextColumn::make('scope')->label('Geltungsbereich')
                     ->state(function (StandardRoleAssignment $record): string {
                         $parts = collect([$record->location?->name, $record->group?->displayName()]);

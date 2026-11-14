@@ -4,7 +4,7 @@ services:
   app:
     image: ghcr.io/timux/wehrportal:${WEHRPORTAL_VERSION:-v0.9.5.5}
     ports:
-      - "8080:8080"
+      - "${APP_BIND:-127.0.0.1}:8080:8080"
     environment:
       - AUTORUN_ENABLED=true
       - APP_NAME=${APP_NAME:-WehrPortal}
@@ -39,6 +39,9 @@ services:
       - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS:-info@example.com}
       - MAIL_FROM_NAME=${MAIL_FROM_NAME:-WehrPortal}
       - DISPLAY_TOKEN=${DISPLAY_TOKEN:-}
+      - TRUSTED_PROXY=${TRUSTED_PROXY:-off}
+      - TRUSTED_PROXIES=${TRUSTED_PROXIES:-}
+      - CSP_ENFORCE=${CSP_ENFORCE:-false}
     depends_on:
       pgsql:
         condition: service_healthy
@@ -50,6 +53,12 @@ services:
   worker:
     image: ghcr.io/timux/wehrportal:${WEHRPORTAL_VERSION:-v0.9.5.5}
     command: ["php", "artisan", "queue:work", "--tries=3", "--sleep=3"]
+    # The image's own healthcheck asks nginx, which the worker doesn't run
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'artisan queue:work' >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     environment:
       - AUTORUN_ENABLED=false
       - APP_NAME=${APP_NAME:-WehrPortal}
