@@ -44,7 +44,7 @@ class WartungPdf
         ob_start();
         imagejpeg($image, null, 80);
         $jpeg = ob_get_clean();
-        imagedestroy($image);
+        unset($image);
 
         return 'data:image/jpeg;base64,'.base64_encode($jpeg);
     }

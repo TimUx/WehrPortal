@@ -23,7 +23,7 @@ Dieser Guide richtet sich an Betreiber einer **neuen WehrPortal-Instanz**. Es gi
 - **Geheimnisse:** Ein dauerhafter `APP_KEY`, Datenbank- und SMTP-Zugangsdaten sowie mindestens eine eigene Admin-Adresse. Diese Angaben nicht in Git speichern.
 - **Persistenter Speicher:** Datenbank und App-Dateispeicher müssen Containerwechsel überstehen. Insbesondere das Modul Dateien speichert Inhalte außerhalb der Datenbank.
 
-Für eine Installation ohne fertiges Image oder für Entwicklung werden zusätzlich PHP 8.4 mit den benötigten Erweiterungen (unter anderem `pdo_pgsql`, `intl`, `gd`, `exif`), Composer und Node.js/npm gebraucht. Das Produktionsimage und der Devcontainer bringen ihre Laufzeitumgebung mit.
+Für eine Installation ohne fertiges Image oder für Entwicklung werden zusätzlich PHP 8.5 mit den benötigten Erweiterungen (unter anderem `pdo_pgsql`, `intl`, `gd`, `exif`), Composer und Node.js/npm gebraucht. Das Produktionsimage und der Devcontainer bringen ihre Laufzeitumgebung mit.
 
 ## Produktiv installieren
 
@@ -86,7 +86,7 @@ Keine Demo- oder Screenshot-Seeder auf einer produktiven Datenbank ausführen.
 
 ## Lokal entwickeln
 
-Der einfachste Entwicklungsweg ist der mitgelieferte **Devcontainer** beziehungsweise ein Codespace mit `.devcontainer/`. Er stellt PHP 8.4 und PostgreSQL 18 bereit. Das Post-Create-Skript richtet die Umgebung, Beispieldaten und die Testdatenbank ein.
+Der einfachste Entwicklungsweg ist der mitgelieferte **Devcontainer** beziehungsweise ein Codespace mit `.devcontainer/`. Er stellt PHP 8.5 und PostgreSQL 18 bereit. Das Post-Create-Skript richtet die Umgebung, Beispieldaten und die Testdatenbank ein.
 
 Im vorbereiteten Devcontainer:
 

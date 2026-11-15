@@ -33,6 +33,6 @@ test('maskable artwork is opaque and the complete mark fits the PWA safe circle'
             }
         }
     }
-    imagedestroy($image);
+    unset($image);
     expect($outside)->toBe(0)->and($transparent)->toBe(0);
 });

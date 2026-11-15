@@ -614,7 +614,7 @@ class ScreenshotSeeder extends Seeder
         ob_start();
         imagepng($image);
         $png = (string) ob_get_clean();
-        imagedestroy($image);
+        unset($image);
 
         return 'data:image/png;base64,'.base64_encode($png);
     }

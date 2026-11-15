@@ -47,7 +47,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
+          php-version: '8.5'
           extensions: pdo_pgsql, intl, mbstring, openssl, bcmath, gd, exif, zip
           coverage: none
       - name: Install Composer Dependencies
@@ -82,7 +82,7 @@ jobs:
           fetch-depth: 0
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
+          php-version: '8.5'
           extensions: pdo_pgsql, intl, mbstring, openssl, bcmath, gd, exif, zip
           coverage: none
       - name: Install Composer Dependencies

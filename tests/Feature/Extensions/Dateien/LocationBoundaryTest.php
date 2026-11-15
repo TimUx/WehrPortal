@@ -96,7 +96,7 @@ test('cached image previews still enforce live target membership and ACL', funct
     ob_start();
     imagepng($image);
     $png = (string) ob_get_clean();
-    imagedestroy($image);
+    unset($image);
     foreach ($this->spaces as $key => $space) {
         $photos[$key] = $this->files->upload($this->admin, $space, null, UploadedFile::fake()->createWithContent('bild.png', $png));
         $this->actingAs($this->admin)->get(route('dateien.preview', ['node' => $photos[$key]->id]))->assertOk();

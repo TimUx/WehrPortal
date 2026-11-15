@@ -1,6 +1,6 @@
 # Copilot-Entwicklungsumgebung
 
-Die Datei `.github/workflows/copilot-setup-steps.yml` stellt PHP 8.4 mit
+Die Datei `.github/workflows/copilot-setup-steps.yml` stellt PHP 8.5 mit
 `pdo_pgsql`, `intl`, `gd`, `exif` und den Composer-Lockfile-Erweiterungen bereit
 (`composer.json` fordert selbst keine `ext-*`). Sie installiert Composer-v2-
 Abhängigkeiten einschließlich Pest, Larastan und Pint, erzeugt `.env` und einen
@@ -19,7 +19,7 @@ Für interaktive UI-Arbeit separat `npm ci && npm run build` ausführen.
 
 ## Lokal reproduzieren
 
-Im Dev-Container (`app` mit PHP 8.4, `db` mit PostgreSQL 18) richtet
+Im Dev-Container (`app` mit PHP 8.5, `db` mit PostgreSQL 18) richtet
 `.devcontainer/post-create.sh` die Umgebung ein. Danach im Repository:
 
 ```bash
@@ -35,7 +35,7 @@ Ohne Dev-Container, nach `CLAUDE.md` (Docker, im Repository-Verzeichnis):
 docker run -d --name wehrportal-test-pg -e POSTGRES_DB=wehrportal_test -e POSTGRES_USER=wehrportal -e POSTGRES_PASSWORD=secret -p 127.0.0.1:5432:5432 postgres:18 -c max_locks_per_transaction=256
 cp .env.example .env
 sed -i -e 's/^DB_DATABASE=.*/DB_DATABASE=wehrportal_test/' -e 's/^DB_PASSWORD=.*/DB_PASSWORD=secret/' -e 's/^MAIL_MAILER=.*/MAIL_MAILER=log/' .env
-docker run --rm --network host -v "$PWD":/app -w /app --user root -e SHOW_WELCOME_MESSAGE=false serversideup/php:8.4-cli \
+docker run --rm --network host -v "$PWD":/app -w /app --user root -e SHOW_WELCOME_MESSAGE=false serversideup/php:8.5-cli \
   sh -c 'install-php-extensions gd intl exif &&
     composer install --no-interaction --prefer-dist &&
     php artisan key:generate && php artisan migrate --force &&

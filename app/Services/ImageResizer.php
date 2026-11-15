@@ -35,7 +35,7 @@ class ImageResizer
         ob_start();
         imagewebp($image, null, 80);
         $bytes = ob_get_clean();
-        imagedestroy($image);
+        unset($image);
 
         return $bytes;
     }
