@@ -13,6 +13,8 @@ use Modules\Lehrgaenge\src\Services\RegistrationService;
  * A Kamerad and one Lehrgang: Interesse gemeldet → bestätigt (the Ausbildungsleiter has entered the
  * days) → absolviert. Until then the Kamerad can cancel; the cancellation is kept with its reason.
  * An Interesse the Ausbildungsleiter has registered in fox112 stays 'requested' with waitlisted_at (Warteliste).
+ *
+ * @property Carbon|null $refresh_reminded_on cast to a date; Larastan reads the column type from the migration
  */
 class Record extends Model
 {
