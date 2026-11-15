@@ -56,7 +56,7 @@ class SignatureImage
                 }
             }
         }
-        imagedestroy($image);
+        unset($image);
 
         return $count;
     }

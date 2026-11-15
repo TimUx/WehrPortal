@@ -40,7 +40,7 @@ function signaturePng(bool $blank = false): string
     ob_start();
     imagepng($image);
     $png = ob_get_clean();
-    imagedestroy($image);
+    unset($image);
 
     return 'data:image/png;base64,'.base64_encode($png);
 }

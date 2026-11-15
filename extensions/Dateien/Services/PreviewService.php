@@ -76,11 +76,11 @@ class PreviewService
             imagealphablending($target, false);
             imagesavealpha($target, true);
             imagecopyresampled($target, $source, 0, 0, 0, 0, $width, $height, $info[0], $info[1]);
-            imagedestroy($source);
+            unset($source);
             $out = fopen('php://memory', 'w+b');
             $webp = (imagetypes() & IMG_WEBP) !== 0;
             $webp ? imagewebp($target, $out, 80) : imagepng($target, $out, 6);
-            imagedestroy($target);
+            unset($target);
             rewind($out);
             $data = (string) stream_get_contents($out);
             fclose($out);

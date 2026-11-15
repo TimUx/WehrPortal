@@ -22,13 +22,13 @@ docker compose up --build      # full stack on :8080, mails go to storage/logs/l
 
 **PostgreSQL is mandatory, including for tests.** SQLite and MySQL won't work. `phpunit.xml` expects `pgsql` at `127.0.0.1:5432` with db `wehrportal_test`, user `wehrportal`, password `secret`. Feature tests use `RefreshDatabase` (see `tests/Pest.php`). CI runs `pest --parallel` against Postgres 18.
 
-The dev container (`.devcontainer/`, used by Codespaces) provides all of this: PHP 8.4 with `pdo_pgsql`/`intl`/`gd`/`exif` in service `app`, PostgreSQL 18 in service `db` sharing its network (so `127.0.0.1:5432` works), and `post-create.sh` creates `.env`, migrates with seed data and the `wehrportal_test` database. Inside it, just run `composer test` / `./vendor/bin/pest --parallel`. Log in as `admin@example.com`; the magic link is in `storage/logs/laravel.log`.
+The dev container (`.devcontainer/`, used by Codespaces) provides all of this: PHP 8.5 with `pdo_pgsql`/`intl`/`gd`/`exif` in service `app`, PostgreSQL 18 in service `db` sharing its network (so `127.0.0.1:5432` works), and `post-create.sh` creates `.env`, migrates with seed data and the `wehrportal_test` database. Inside it, just run `composer test` / `./vendor/bin/pest --parallel`. Log in as `admin@example.com`; the magic link is in `storage/logs/laravel.log`.
 
 Outside the dev container (an old Codespace without it), run tests in throwaway containers:
 
 ```bash
 docker run -d --name wehrportal-test-pg -e POSTGRES_DB=wehrportal_test -e POSTGRES_USER=wehrportal -e POSTGRES_PASSWORD=secret -p 5432:5432 postgres:18 -c max_locks_per_transaction=256
-docker run --rm --network host -v "$PWD":/app -w /app --user root -e SHOW_WELCOME_MESSAGE=false serversideup/php:8.4-cli \
+docker run --rm --network host -v "$PWD":/app -w /app --user root -e SHOW_WELCOME_MESSAGE=false serversideup/php:8.5-cli \
   sh -c "install-php-extensions gd intl >/dev/null 2>&1; ./vendor/bin/pest --parallel; chown -R '$(id -u):$(id -g)' storage bootstrap/cache"
 ```
 

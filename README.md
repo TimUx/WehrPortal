@@ -1,7 +1,7 @@
 # WehrPortal
 
 [![Lizenz: AGPL-3.0](https://img.shields.io/badge/Lizenz-AGPL--3.0-3da639)](LICENSE)
-[![PHP-Anforderung: ^8.2](https://img.shields.io/badge/PHP-%5E8.2-777bb4)](composer.json)
+[![PHP-Anforderung: ^8.5](https://img.shields.io/badge/PHP-%5E8.5-777bb4)](composer.json)
 [![Blade: Laravel](https://img.shields.io/badge/Blade-Laravel-f05340)](composer.json)
 [![JavaScript](https://img.shields.io/badge/JavaScript-ESM-f7df1e)](package.json)
 [![Laravel: 12](https://img.shields.io/badge/Laravel-12-f05340)](composer.json)

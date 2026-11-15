@@ -41,8 +41,8 @@ class AvatarService
         imagewebp($square, null, 82);
         $bytes = ob_get_clean();
 
-        imagedestroy($image);
-        imagedestroy($square);
+        unset($image);
+        unset($square);
 
         UserAvatar::updateOrCreate(
             ['user_id' => $user->id],

@@ -42,7 +42,7 @@ Alle Bilder der letzten Erzeugung (Ordner `docs/screenshots/`, Klick öffnet das
 
 ## Ablauf
 
-1. PostgreSQL 18 (wie in den Tests), PHP 8.4, Composer- und npm-Abhängigkeiten, `npm run build`.
+1. PostgreSQL 18 (wie in den Tests), PHP 8.5, Composer- und npm-Abhängigkeiten, `npm run build`.
 2. `.env` aus dem Profil `tests/e2e/.env.e2e` (Datenbank `wehrportal_e2e`, `APP_URL=http://127.0.0.1:8000`, `MAIL_MAILER=log`, Queue `sync`, eingefrorene Uhr `E2E_FROZEN_NOW`).
 3. `php artisan migrate:fresh --seed --seeder="Database\\Seeders\\ScreenshotSeeder"` – leere Datenbank, alle Migrationen, Beispieldaten für alle Module.
 4. `php artisan serve` auf `127.0.0.1:8000`.

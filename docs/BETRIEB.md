@@ -32,7 +32,7 @@ Nach der ersten Veröffentlichung das Package in GitHub auf **Public** stellen, 
 
 | Bereich    | Technologie                                          |
 |------------|------------------------------------------------------|
-| Backend    | PHP ^8.2 (Docker und CI: PHP 8.4), Laravel 12, Livewire 4 |
+| Backend    | PHP ^8.5 (Docker und CI: PHP 8.5), Laravel 12, Livewire 4 |
 | Admin      | Filament 5                                           |
 | Frontend   | Tailwind CSS 4, Alpine.js, FullCalendar 6, Vite      |
 | Datenbank  | PostgreSQL (CI: 18, Docker Compose: 16; mit `btree_gist`) |

@@ -27,7 +27,7 @@ class BrandingImage
         ob_start();
         $encoded = imagewebp($image, null, 90);
         $bytes = ob_get_clean();
-        imagedestroy($image);
+        unset($image);
 
         if (! $encoded || ! is_string($bytes) || $bytes === '') {
             throw ValidationException::withMessages([$field => 'Das Bild konnte nicht verarbeitet werden.']);

@@ -45,10 +45,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup PHP 8.4
+      - name: Setup PHP 8.5
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.4"
+          php-version: "8.5"
           extensions: pdo_pgsql, intl, mbstring, openssl, bcmath, gd, exif, zip
           coverage: none
 
